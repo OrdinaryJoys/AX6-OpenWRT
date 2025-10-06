@@ -127,12 +127,25 @@ jobs:
         #make defconfig V=s
         #chmod +x $GITHUB_WORKSPACE/$DIY_SH
         #$GITHUB_WORKSPACE/$DIY_SH
+      #run: |
+        #[ -e $FILES ] && mv $FILES openwrt/files
+        #[ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
+        #chmod +x $DIY_SH
+        #cd openwrt
+        #$GITHUB_WORKSPACE/$DIY_SH
+
       run: |
-        [ -e $FILES ] && mv $FILES openwrt/files
-        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
+        # 确保目录存在
+        mkdir -p openwrt/package
+        # 移动配置和文件
+        [ -e "$FILES" ] && cp -r $FILES/* openwrt/files/ 2>/dev/null || echo "files目录不存在"
+        [ -e "$CONFIG_FILE" ] && cp $CONFIG_FILE openwrt/.config
+        # 确保DIY脚本可执行并运行
         chmod +x $DIY_SH
         cd openwrt
-        $GITHUB_WORKSPACE/$DIY_SH
+        bash $GITHUB_WORKSPACE/$DIY_SH
+        # 应用配置
+        make defconfig
 
     - name: Apply user patches
       run: |
