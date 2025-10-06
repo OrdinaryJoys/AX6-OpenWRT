@@ -134,6 +134,17 @@ jobs:
         cd openwrt
         $GITHUB_WORKSPACE/$DIY_SH
 
+    - name: Apply user patches
+      run: |
+        PATCH_DIR="$GITHUB_WORKSPACE/AX6-IPQ/patches"
+        if [ -d "$PATCH_DIR" ]; then
+          for patch in "$PATCH_DIR"/*.patch; do
+            [ -f "$patch" ] || continue
+            echo "Applying $(basename "$patch")"
+            patch -p1 -d feeds/luci < "$patch" || true
+          done
+        fi
+
     # - name: SSH connect to Actions
       # uses: P3TERX/ssh2actions@main
       # if: (github.event.inputs.ssh == 'true') || contains(github.event.action, 'ssh')
