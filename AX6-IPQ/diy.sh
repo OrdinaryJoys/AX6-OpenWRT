@@ -47,7 +47,7 @@ rm -rf feeds/luci/applications/luci-app-argon-config
 #rm -rf feeds/luci/applications/luci-app-alist
 #rm -rf feeds/luci/applications/openwrt-passwall
 
-# ********  仅移除 LuCI「路由/NAT 卸载」页面控件  ********
+# 仅移除 LuCI「路由/NAT 卸载」页面控件
 sed -i '/^s:tab("offloading"/,/^}$/ s/^/-- /' \
     feeds/luci/applications/luci-app-firewall/luasrc/model/cbi/firewall/zones.lua
 echo "[DIY] LuCI offloading tab removed"
