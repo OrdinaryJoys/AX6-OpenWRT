@@ -47,6 +47,11 @@ rm -rf feeds/luci/applications/luci-app-argon-config
 #rm -rf feeds/luci/applications/luci-app-alist
 #rm -rf feeds/luci/applications/openwrt-passwall
 
+# ********  仅移除 LuCI「路由/NAT 卸载」页面控件  ********
+sed -i '/^s:tab("offloading"/,/^}$/ s/^/-- /' \
+    feeds/luci/applications/luci-app-firewall/luasrc/model/cbi/firewall/zones.lua
+echo "[DIY] LuCI offloading tab removed"
+
 
 #修改默认IP
 #sed -i 's/192.168.1.1/192.168.123.1/g' package/base-files/files/bin/config_generate
