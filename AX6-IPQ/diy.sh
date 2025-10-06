@@ -9,6 +9,14 @@ function git_sparse_clone() {
   cd .. && rm -rf $repodir
 }
 
+# >>> 【关键修改】替换 LuCI Feed 源 START <<<
+# 替换 LuCI feed 源为 OrdinaryJoys 的稳定版本仓库
+echo "正在替换 LuCI feed 源为 OrdinaryJoys/luci.git..."
+# 查找 feeds.conf.default 文件中以 'src-git luci' 开头的行，并将其替换为新的 Git URL
+# 这样就可以从 OrdinaryJoys 的仓库拉取 LuCI 代码，避开新版 UI 问题。
+sed -i 's/src-git luci.*/src-git luci https:\/\/github.com\/OrdinaryJoys\/luci.git/g' feeds.conf.default
+# >>> 【关键修改】替换 LuCI Feed 源 END <<<
+
 # Add packages
 #添加科学上网源
 #git clone --depth 1 https://github.com/xiaorouji/openwrt-passwall-packages package/openwrt-passwall-packages
