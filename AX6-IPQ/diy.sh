@@ -3,11 +3,15 @@
 function git_sparse_clone() {
   branch="$1" repourl="$2" && shift 2
   git clone --depth=1 -b $branch --single-branch --filter=blob:none --sparse $repourl
-  repodir=$(echo $repourl | awk -F '/' '{print $(NF)}' | sed 's/.git$//')  # 修复：移除.git后缀
+  repodir=$(echo $repourl | awk -F '/' '{print $(NF)}' | sed 's/.git$//')
   cd $repodir && git sparse-checkout set $@
-  # 创建package目录（如果不存在）
   mkdir -p ../package
-  mv -f $@ ../package/ 2>/dev/null || echo "某些文件移动失败，继续执行..."
+  # 逐个移动文件/目录，避免通配符问题
+  for item in $@; do
+    if [ -e "$item" ]; then
+      mv -f "$item" ../package/
+    fi
+  done
   cd .. && rm -rf $repodir
 }
 
@@ -49,10 +53,14 @@ rm -rf feeds/luci/applications/luci-app-argon-config
 #rm -rf feeds/luci/applications/luci-app-alist
 #rm -rf feeds/luci/applications/openwrt-passwall
 
-# 仅移除 LuCI「路由/NAT 卸载」页面控件
-sed -i '/^s:tab("offloading"/,/^}$/ s/^/-- /' \
+# 修复：更可靠的移除 LuCI「路由/NAT 卸载」页面控件
+if [ -f feeds/luci/applications/luci-app-firewall/luasrc/model/cbi/firewall/zones.lua ]; then
+  sed -i '/^s:tab("offloading"/,/^}$/ s/^/-- /' \
     feeds/luci/applications/luci-app-firewall/luasrc/model/cbi/firewall/zones.lua
-echo "[DIY] LuCI offloading tab removed"
+  echo "[DIY] LuCI offloading tab removed"
+else
+  echo "[DIY] 警告：未找到 zones.lua 文件，跳过移除 offloading tab"
+fi
 
 
 #修改默认IP
