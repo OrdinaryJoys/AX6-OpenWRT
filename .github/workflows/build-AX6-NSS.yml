@@ -135,16 +135,22 @@ jobs:
         #$GITHUB_WORKSPACE/$DIY_SH
 
       run: |
-        # 确保目录存在
-        mkdir -p openwrt/package
-        # 移动配置和文件
-        [ -e "$FILES" ] && cp -r $FILES/* openwrt/files/ 2>/dev/null || echo "files目录不存在"
-        [ -e "$CONFIG_FILE" ] && cp $CONFIG_FILE openwrt/.config
-        # 确保DIY脚本可执行并运行
+        # 创建必要的目录结构
+        mkdir -p openwrt/files
+        # 复制配置和文件
+        if [ -e "$FILES" ]; then
+          echo "复制自定义文件..."
+          cp -r $FILES/* openwrt/files/ 2>/dev/null || true
+        fi
+        if [ -e "$CONFIG_FILE" ]; then
+          echo "复制配置文件..."
+          cp $CONFIG_FILE openwrt/.config
+        fi
+        # 运行DIY脚本
         chmod +x $DIY_SH
         cd openwrt
         bash $GITHUB_WORKSPACE/$DIY_SH
-        # 应用配置
+        # 确保配置正确
         make defconfig
 
     - name: Apply user patches
