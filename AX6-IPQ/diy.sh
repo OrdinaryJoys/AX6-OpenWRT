@@ -3,9 +3,11 @@
 function git_sparse_clone() {
   branch="$1" repourl="$2" && shift 2
   git clone --depth=1 -b $branch --single-branch --filter=blob:none --sparse $repourl
-  repodir=$(echo $repourl | awk -F '/' '{print $(NF)}')
+  repodir=$(echo $repourl | awk -F '/' '{print $(NF)}' | sed 's/.git$//')  # 修复：移除.git后缀
   cd $repodir && git sparse-checkout set $@
-  mv -f $@ ../package
+  # 创建package目录（如果不存在）
+  mkdir -p ../package
+  mv -f $@ ../package/ 2>/dev/null || echo "某些文件移动失败，继续执行..."
   cd .. && rm -rf $repodir
 }
 
