@@ -121,7 +121,7 @@ jobs:
         $GITHUB_WORKSPACE/$DIY_SH
         
 
-# 🚀 【关键修改】运行 make defconfig START
+    # 🚀 【关键修改】运行 make defconfig START
     - name: Configure firmware options
       working-directory: ./openwrt
       run: |
@@ -136,7 +136,7 @@ jobs:
     - name: Download package
       working-directory: ./openwrt
       run: |
-      # make defconfig
+       # make defconfig
         make download -j8
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
