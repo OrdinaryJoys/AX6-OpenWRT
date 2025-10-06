@@ -53,14 +53,50 @@ rm -rf feeds/luci/applications/luci-app-argon-config
 #rm -rf feeds/luci/applications/luci-app-alist
 #rm -rf feeds/luci/applications/openwrt-passwall
 
-# 修复：更可靠的移除 LuCI「路由/NAT 卸载」页面控件
-if [ -f feeds/luci/applications/luci-app-firewall/luasrc/model/cbi/firewall/zones.lua ]; then
-  sed -i '/^s:tab("offloading"/,/^}$/ s/^/-- /' \
-    feeds/luci/applications/luci-app-firewall/luasrc/model/cbi/firewall/zones.lua
-  echo "[DIY] LuCI offloading tab removed"
-else
-  echo "[DIY] 警告：未找到 zones.lua 文件，跳过移除 offloading tab"
-fi
+# 移除 LuCI「路由/NAT 卸载」页面控件
+
+# 创建patch目录
+mkdir -p feeds/luci/patches
+
+# 创建移除offloading的patch
+cat > feeds/luci/patches/992-remove-offloading-tab.patch << 'EOF'
+--- a/applications/luci-app-firewall/luasrc/model/cbi/firewall/zones.lua
++++ b/applications/luci-app-firewall/luasrc/model/cbi/firewall/zones.lua
+@@ -XXX,XX +XXX,XX @@
+ 
+- -- Routing/NAT Offloading
+- s:tab("offloading", translate("Routing", "Routing / NAT Offloading"))
+- 
+- o = s:taboption("offloading", Flag, "offloading", translate("Software flow offloading"))
+- o.default = o.disabled
+- o.rmempty = false
+- 
+- o = s:taboption("offloading", Flag, "fullcone", translate("FullCone NAT"))
+- o.default = o.disabled
+- o.rmempty = false
+- 
+- o = s:taboption("offloading", Flag, "fullcone6", translate("FullCone NAT6"))
+- o.default = o.disabled
+- o.rmempty = false
+- 
+- o = s:taboption("offloading", Flag, "sfe", translate("Hardware flow offloading"))
+- o.default = o.disabled
+- o.rmempty = false
+- 
+- o = s:taboption("offloading", Flag, "sfe_loop", translate("HWNAT loopback traffic"))
+- o.default = o.disabled
+- o.rmempty = false
+- o:depends("sfe", "1")
+- 
+- o = s:taboption("offloading", Flag, "sfe_bridge", translate("HWNAT bridge traffic"))
+- o.default = o.disabled
+- o.rmempty = false
+- o:depends("sfe", "1")
+ 
+ -- Custom Rules
+EOF
+
+echo "[DIY] offloading移除补丁已创建"
 
 
 #修改默认IP
