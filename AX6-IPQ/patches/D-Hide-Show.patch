@@ -1,0 +1,17 @@
+--- a/modules/luci-mod-status/htdocs/luci-static/resources/view/status/overview.js
++++ b/modules/luci-mod-status/htdocs/luci-static/resources/view/status/overview.js
+@@ -300,11 +300,8 @@
+ 
+ 	return view.extend({
+ 		load: function() {
+-			var btn = E('span', { 'class': 'label warning', 'data-indicator': 'poll-status', 'data-clickable': 'true' }, _('Hide'));
+-			ui.addIndicatorPoll(btn);
+ 			L.Poll.add(L.bind(function() {
+-				return this.render().then(L.bind(function(html) {
+-					ui.replaceNode('#maincontent', html);
+-					ui.addIndicatorPoll(btn);
++				return this.render().then(function(html) {
++					ui.replaceNode('#maincontent', html);
+ 				}, this));
+ 			}, this));
+ 			return Promise.all([
