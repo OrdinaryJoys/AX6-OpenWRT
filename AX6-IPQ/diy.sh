@@ -58,3 +58,6 @@ echo "[DIY] LuCI offloading tab removed"
 
 #修改主机名
 #sed -i "s/hostname='ImmortalWrt'/hostname='Redmi-AX6'/g" package/base-files/files/bin/config_generate
+
+# <<<<<<<<<<<<<<<<<<<< 新增内容：隐藏状态页的自动刷新按钮 >>>>>>>>>>>>>>>>>>>>
+sed -i '/<\/head>/i <style>[data-indicator="poll-status"] { display: none !important; }</style>' package/luci-theme-argon/luasrc/view/themes/argon/header.htm
