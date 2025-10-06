@@ -119,19 +119,15 @@ jobs:
         chmod +x $DIY_SH
         cd openwrt
         $GITHUB_WORKSPACE/$DIY_SH
+        
 
-# 🚀 【关键修改】注入 make defconfig 步骤 START
-    - name: Run defconfig and update feeds
+# 🚀 【关键修改】运行 make defconfig START
+    - name: Configure firmware options
       working-directory: ./openwrt
       run: |
-        # 确保 make defconfig 使用上一步移动进去的 .config 文件
+        # 确保 make defconfig 使用上一步移动进去的正确配置 (.config)
         make defconfig
-        
-    # 这一步是确保 make defconfig 已经执行，为下一步 download 准备
-    # ❗ 注意：我们将原来的 Download package 步骤拆分和简化了
-    # ❗ 原来的 Download package 步骤中的 make defconfig 被移动到了这里
-    # 🚀 【关键修改】注入 make defconfig 步骤 END
-
+    # 🚀 【关键修改】运行 make defconfig END
 
     # - name: SSH connect to Actions
       # uses: P3TERX/ssh2actions@main
@@ -140,7 +136,7 @@ jobs:
     - name: Download package
       working-directory: ./openwrt
       run: |
-        make defconfig
+      # make defconfig
         make download -j8
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
