@@ -141,7 +141,7 @@ jobs:
           for patch in "$PATCH_DIR"/*.patch; do
             [ -f "$patch" ] || continue
             echo "Applying $(basename "$patch")"
-            patch -p1 -d feeds/luci < "$patch" || true
+            patch -p1 -d feeds/luci < "$patch" || echo "Patch $(basename "$patch") skipped"
           done
         fi
 
