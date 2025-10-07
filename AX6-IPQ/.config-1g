@@ -2886,6 +2886,8 @@ CONFIG_PACKAGE_kmod-qca-nss-ecm=y
 CONFIG_PACKAGE_kmod-qrtr=y
 CONFIG_PACKAGE_kmod-qrtr-mhi=y
 CONFIG_PACKAGE_kmod-qrtr-smd=y
+CONFIG_QCA_NSS_ECM_NSS_ENABLE=y
+# CONFIG_QCA_NSS_ECM_PPE_ENABLE is not set
 # CONFIG_PACKAGE_kmod-qrtr-tun is not set
 # CONFIG_PACKAGE_kmod-sched is not set
 # CONFIG_PACKAGE_kmod-sched-act-ipt is not set
