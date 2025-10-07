@@ -115,16 +115,34 @@ jobs:
         
         # 2. 运行 DIY 脚本 (替换 LuCI URL)
         chmod +x $DIY_SH
+        
+        # 切换到 openwrt 目录
         cd openwrt
+        
+        # 运行 DIY 脚本 (其中包含 LuCI 源替换)
         $GITHUB_WORKSPACE/$DIY_SH
         
         # 3. 运行 Feeds Update/Install (此时已替换 LuCI 源)
         ./scripts/feeds update -a
         ./scripts/feeds install -a
         
-        # 4. 运行 make defconfig (确保配置在 feeds 安装后正确生效)
+        # 4. 运行 make defconfig (第一次运行，处理 feeds 依赖)
+        make defconfig
+        
+        # 5. 【NSS 关键配置强制写入和校验】
+        #    覆盖配置，以保证 NSS/ECM 配置的绝对正确性
+        echo "CONFIG_QCA_NSS_ECM_NSS_ENABLE=y" >> .config
+        echo "# CONFIG_QCA_NSS_ECM_PPE_ENABLE is not set" >> .config
+        echo "CONFIG_QCA_NSS_ECM_FRONT_END_SEL=0" >> .config
+        
+        # 6. 验证写入成功 (若验证失败，则停止编译)
+        grep -q "CONFIG_QCA_NSS_ECM_NSS_ENABLE=y" .config || (echo "ECM NSS enable failed!" && exit 1)
+        grep -q "# CONFIG_QCA_NSS_ECM_PPE_ENABLE is not set" .config || (echo "ECM PPE not disabled!" && exit 1)
+        
+        # 7. 再次运行 make defconfig (第二次运行，应用最终配置)
         make defconfig
 
+        
     - name: Download package
       working-directory: ./openwrt
       run: |
