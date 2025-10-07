@@ -107,29 +107,22 @@ jobs:
         prefix: ${{ github.workspace }}/openwrt
         
 
-    - name: Load custom config
+    - name: Load & Configure firmware
       run: |
-        # 1. 移动配置和文件
+        # 1. 移动 custom files 和 .config 文件
         [ -e $FILES ] && mv $FILES openwrt/files
         [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
+        
         # 2. 运行 DIY 脚本 (替换 LuCI URL)
         chmod +x $DIY_SH
         cd openwrt
         $GITHUB_WORKSPACE/$DIY_SH
-
-    # 🚀 【关键步骤 1】 Feeds Update 现在运行在 diy.sh 之后
-    - name: Update & Install feeds
-      working-directory: ./openwrt
-      run: |
-        # 此时 feeds.conf.default 已经被 diy.sh 修改
+        
+        # 3. 运行 Feeds Update/Install (此时已替换 LuCI 源)
         ./scripts/feeds update -a
         ./scripts/feeds install -a
-
-    # 🚀 【关键步骤 2】 Configure options 确保 defconfig 在下载前运行
-    - name: Configure firmware options
-      working-directory: ./openwrt
-      run: |
-        # make defconfig 必须运行，它处理 feeds 安装的包
+        
+        # 4. 运行 make defconfig (确保配置在 feeds 安装后正确生效)
         make defconfig
 
     - name: Download package
