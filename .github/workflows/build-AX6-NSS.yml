@@ -14,188 +14,87 @@ env:
 jobs:
   build:
     runs-on: ubuntu-22.04
-
     steps:
-    - name: Check machine configuration
-      run: |
-        echo "警告⚠"
-        echo "分配的服务器性能有限，若选择的插件过多，务必注意CPU性能！"
-        echo "云编译建议取消勾选Node.js及其相关插件！"
-        echo "已知CPU型号（降序）：7763,8370C,8272CL,8171M,E5系列"
-        echo "--------------------------CPU信息--------------------------"
-        echo "CPU物理数量:$(cat /proc/cpuinfo| grep "physical id"| sort| uniq| wc -l)"
-        echo -e "CPU核心及版本信息：$(cat /proc/cpuinfo | grep name | cut -f2 -d: | uniq -c) \n"
-        echo "--------------------------内存信息--------------------------"
-        echo "已安装内存详细信息："
-        sudo lshw -short -C memory | grep GiB
-        echo -e "\n"
-        echo "--------------------------硬盘信息--------------------------"
-        echo -e  "硬盘数量：$(ls /dev/sd* | grep -v [1-9] | wc -l) \n"
-        echo "硬盘详情："
-        df -Th
-        
-    - name: Before freeing up disk space
-      run: |
-        echo "Before freeing up disk space"
-        echo "=============================================================================="
-        df -hT
-        echo "=============================================================================="
+      - name: 环境信息
+        run: |
+          echo "警告⚠"
+          echo "CPU信息：$(cat /proc/cpuinfo | grep name | cut -f2 -d: | uniq -c)"
+          echo "内存：$(sudo lshw -short -C memory | grep GiB)"
+          echo "硬盘：$(df -Th)"
 
-    - name: "Optimize Disk Space"
-      uses: "hugoalh/disk-space-optimizer-ghaction@v0.8.1"
-      with:
-        operate_sudo: "True"
-        general_include: ".+"
-        general_exclude: |-
-          ^GCC$
-          ^G\+\+$
-          Clang
-          LLVM
-        docker_include: ".+"
-        docker_prune: "True"
-        docker_clean: "True"
-        apt_prune: "True"
-        apt_clean: "True"
-        homebrew_prune: "True"
-        homebrew_clean: "True"
-        npm_prune: "True"
-        npm_clean: "True"
-        os_swap: "True"
+      - name: 清理磁盘
+        uses: easimon/maximize-build-space@master
+        with:
+          root-reserve-mb: 10240
+          swap-size-mb: 1
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+          remove-docker-images: 'true'
 
-    - name: Freeing up disk space
-      uses: easimon/maximize-build-space@master
-      with: 
-        root-reserve-mb: 10240
-        swap-size-mb: 1
-        remove-dotnet: 'true'
-        remove-android: 'true'
-        remove-haskell: 'true'
-        remove-codeql: 'true'
-        remove-docker-images: 'true'
+      - name: Checkout
+        uses: actions/checkout@main
 
-    - name: Free up disk space complete
-      run: |
-        echo "Free up disk space complete"
-        echo "=============================================================================="
-        df -hT
-        echo "=============================================================================="
-        
-    - name: Checkout
-      uses: actions/checkout@main
-      
-    - name: Initialize environment
-      env:
-        DEBIAN_FRONTEND: noninteractive
-      run: | 
-        sudo -E apt-get -qq update -y
-        sudo -E apt-get -qq install -y $(curl -fsSL https://raw.githubusercontent.com/nantayo/My-Pkg/master/2305)
-        sudo -E apt-get -qq autoremove --purge
-        sudo -E apt-get -qq clean
-        sudo timedatectl set-timezone "$TZ"
-        sudo chown $USER:$GROUPS $GITHUB_WORKSPACE
+      - name: 安装依赖
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo -E apt-get -qq update -y
+          sudo -E apt-get -qq install -y $(curl -fsSL https://raw.githubusercontent.com/nantayo/My-Pkg/master/2305)
+          sudo -E apt-get -qq clean
 
-    - name: Clone source code
-      working-directory: ./
-      run: |
-        git clone $REPO_URL -b $REPO_BRANCH openwrt
+      - name: 克隆源码
+        run: git clone $REPO_URL -b $REPO_BRANCH openwrt
 
-    - name: cache wrt build
-      uses: stupidloud/cachewrtbuild@main
-      with:
-        ccache: 'true'
-        # ⬇️ 只需要在 key 末尾添加一个新标识（例如 -V2）
-        mixkey: AX6-NSS-${{ env.REPO_BRANCH }}-V2 
-        # ⬆️ 这样会强制生成一个新的缓存 Key
-        prefix: ${{ github.workspace }}/openwrt
-        
+      - name: 缓存加速
+        uses: stupidloud/cachewrtbuild@main
+        with:
+          ccache: 'true'
+          # 🚩 每次调试改 key 强制失效缓存
+          mixkey: AX6-NSS-${{ env.REPO_BRANCH }}-V3
+          prefix: ${{ github.workspace }}/openwrt
 
-    - name: Load & Configure firmware
-      run: |
-        # 1. 移动 custom files 和 .config 文件
-        [ -e $FILES ] && mv $FILES openwrt/files
-        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
-        
-        # 2. 运行 DIY 脚本 (替换 LuCI URL)
-        chmod +x $DIY_SH
-        
-        # 切换到 openwrt 目录
-        cd openwrt
-        
-        # 运行 DIY 脚本 (其中包含 LuCI 源替换)
-        $GITHUB_WORKSPACE/$DIY_SH
-        
-        # 3. 运行 Feeds Update/Install (此时已替换 LuCI 源)
-        ./scripts/feeds update -a
-        ./scripts/feeds install -a
-        
-        # 4. 运行 make defconfig (第一次运行，处理 feeds 依赖)
-        make defconfig
-        
-        # 5. 【NSS 关键配置强制写入和校验】
-        #    覆盖配置，以保证 NSS/ECM 配置的绝对正确性
-        echo "CONFIG_QCA_NSS_ECM_NSS_ENABLE=y" >> .config
-        echo "# CONFIG_QCA_NSS_ECM_PPE_ENABLE is not set" >> .config
-        echo "CONFIG_QCA_NSS_ECM_FRONT_END_SEL=0" >> .config
-        
-        # 6. 验证写入成功 (若验证失败，则停止编译)
-        grep -q "CONFIG_QCA_NSS_ECM_NSS_ENABLE=y" .config || (echo "ECM NSS enable failed!" && exit 1)
-        grep -q "# CONFIG_QCA_NSS_ECM_PPE_ENABLE is not set" .config || (echo "ECM PPE not disabled!" && exit 1)
-        
-        # 7. 再次运行 make defconfig (第二次运行，应用最终配置)
-        make defconfig
+      - name: 加载配置 & 运行 DIY
+        run: |
+          [ -e "$FILES" ] && mv "$FILES" openwrt/files
+          [ -e "$CONFIG_FILE" ] && mv "$CONFIG_FILE" openwrt/.config
+          chmod +x "$DIY_SH"
+          cd openwrt
+          "$GITHUB_WORKSPACE/$DIY_SH"        # 内部已 feeds update/install
+          make defconfig
 
-        
-    - name: Download package
-      working-directory: ./openwrt
-      run: |
-        make download -j8
-        find dl -size -1024c -exec ls -l {} \;
-        find dl -size -1024c -exec rm -f {} \;
-        
-    - name: Compile the firmware
-      run: |
-        chmod -R 755 openwrt
-        cd openwrt
-        echo -e "$(nproc) thread compile"
-        make -j$(nproc) || make -j1 || make -j1 V=s
-        echo "compile_status=success" >> $GITHUB_ENV
+          # >>> NSS 关键配置强制写入 <<<
+          echo "CONFIG_QCA_NSS_ECM_NSS_ENABLE=y" >> .config
+          echo "# CONFIG_QCA_NSS_ECM_PPE_ENABLE is not set" >> .config
+          echo "CONFIG_QCA_NSS_ECM_FRONT_END_SEL=0" >> .config
+          make defconfig
+          grep -q "CONFIG_QCA_NSS_ECM_NSS_ENABLE=y" .config || (echo "❌ NSS ECM 未生效" && exit 1)
 
-    # - name : Upload packages
-      # uses: actions/upload-artifact@master
-      # if: always()
-      # with:
-        # name: AX6-NSS
-        # path: openwrt/bin/targets
-    - name: cp output to upload file
-      run: |
-        df -hT
-        mkdir upload
-        cp openwrt/bin/targets/*/*/*.ubi upload/
-        cp openwrt/bin/targets/*/*/*.bin upload/
-        
-    - name: Get Current Date
-      run: echo "CURRENT_DATE=$(date '+%Y%m%d%H%M%S')" >> $GITHUB_ENV
-      
-    - name: Upload OpenWrt Firmware to Release
-      uses: ncipollo/release-action@main
-      with:
-        tag: AX6_NSS_${{ env.CURRENT_DATE }}
-        artifacts: upload/*
-        allowUpdates: true
-        token: ${{ secrets.GITHUB_TOKEN }}
-        body: |
-          基于VIKINGYFY合并的immortalwrt构建
-          首次使用建议全新刷写
-          NSS满血加速！
-          * 基本信息
-          IP: 192.168.1.1
-          账户: root
-          密码: 空
-          
-    - name: Delete old releases
-      uses: dev-drprasad/delete-older-releases@master
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        keep_latest: 10
-        delete_tags : true
+      - name: 下载软件包
+        working-directory: ./openwrt
+        run: |
+          make download -j8
+          find dl -size -1024c -exec rm -f {} \;
+
+      - name: 编译
+        working-directory: ./openwrt
+        run: |
+          make -j$(nproc) || make -j1 V=s
+          echo "compile_status=success" >> $GITHUB_ENV
+
+      - name: 整理固件
+        run: |
+          mkdir -p upload
+          cp openwrt/bin/targets/*/*.{ubi,bin} upload/
+
+      - name: 发布 Release
+        uses: ncipollo/release-action@main
+        with:
+          tag: AX6_NSS_$(date +%Y%m%d%H%M%S)
+          artifacts: upload/*
+          allowUpdates: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+          body: |
+            基于 VIKINGYFY/immortalwrt 构建，NSS 满血加速。
+            默认 IP：192.168.1.1  账号：root  密码：空
