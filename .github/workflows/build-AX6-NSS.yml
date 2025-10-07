@@ -99,6 +99,15 @@ jobs:
       run: |
         git clone $REPO_URL -b $REPO_BRANCH openwrt
 
+    # 新增：替换 luci 源码
+    - name: Replace luci feed
+      run: |
+        cd openwrt
+        # 删除官方 luci 条目（如果存在）
+        sed -i '/^src-git luci/d' feeds.conf.default
+        # 写入 OrdinaryJoys 的 luci
+        echo 'src-git luci https://github.com/OrdinaryJoys/luci.git' >> feeds.conf.default        
+
     - name: cache wrt build
       uses: stupidloud/cachewrtbuild@main
       with:
