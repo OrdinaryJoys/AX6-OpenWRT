@@ -15,17 +15,22 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
+      # ------------------------------------------------------------------
+      # 0. 环境信息
+      # ------------------------------------------------------------------
       - name: 环境信息
         run: |
-          echo "警告⚠"
-          echo "CPU信息：$(cat /proc/cpuinfo | grep name | cut -f2 -d: | uniq -c)"
-          echo "内存：$(sudo lshw -short -C memory | grep GiB)"
-          echo "硬盘：$(df -Th)"
+          echo "CPU: $(grep -m1 name /proc/cpuinfo | cut -d: -f2)"
+          echo "MEM: $(free -h | awk '/^Mem:/ {print $2}')"
+          df -hT
 
-      - name: 清理磁盘
+      # ------------------------------------------------------------------
+      # 1. 扩容磁盘（保留默认 6G 根分区即可）
+      # ------------------------------------------------------------------
+      - name: 最大化磁盘空间
         uses: easimon/maximize-build-space@master
         with:
-          root-reserve-mb: 10240
+          root-reserve-mb: 6144
           swap-size-mb: 1
           remove-dotnet: 'true'
           remove-android: 'true'
@@ -33,10 +38,13 @@ jobs:
           remove-codeql: 'true'
           remove-docker-images: 'true'
 
+      # ------------------------------------------------------------------
+      # 2. 检出 & 依赖
+      # ------------------------------------------------------------------
       - name: Checkout
         uses: actions/checkout@main
 
-      - name: 安装依赖
+      - name: 安装编译依赖
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
@@ -44,17 +52,25 @@ jobs:
           sudo -E apt-get -qq install -y $(curl -fsSL https://raw.githubusercontent.com/nantayo/My-Pkg/master/2305)
           sudo -E apt-get -qq clean
 
+      # ------------------------------------------------------------------
+      # 3. 克隆源码
+      # ------------------------------------------------------------------
       - name: 克隆源码
         run: git clone $REPO_URL -b $REPO_BRANCH openwrt
 
+      # ------------------------------------------------------------------
+      # 4. ccache 缓存（key 递增防止旧缓存）
+      # ------------------------------------------------------------------
       - name: 缓存加速
         uses: stupidloud/cachewrtbuild@main
         with:
           ccache: 'true'
-          # 🚩 每次调试改 key 强制失效缓存
-          mixkey: AX6-NSS-${{ env.REPO_BRANCH }}-V3
+          mixkey: AX6-NSS-main-V4
           prefix: ${{ github.workspace }}/openwrt
 
+      # ------------------------------------------------------------------
+      # 5. 拷贝自定义文件 + 运行 DIY + 配置 NSS
+      # ------------------------------------------------------------------
       - name: 加载配置 & 运行 DIY
         run: |
           [ -e "$FILES" ] && mv "$FILES" openwrt/files
@@ -64,37 +80,65 @@ jobs:
           "$GITHUB_WORKSPACE/$DIY_SH"        # 内部已 feeds update/install
           make defconfig
 
-          # >>> NSS 关键配置强制写入 <<<
-          echo "CONFIG_QCA_NSS_ECM_NSS_ENABLE=y" >> .config
-          echo "# CONFIG_QCA_NSS_ECM_PPE_ENABLE is not set" >> .config
-          echo "CONFIG_QCA_NSS_ECM_FRONT_END_SEL=0" >> .config
+          # >>> NSS 关键开关（ImmortalWrt 实际变量名） <<<
+          echo "CONFIG_PACKAGE_kmod-qca-nss-drv=y" >> .config
+          echo "CONFIG_PACKAGE_kmod-qca-nss-ecm=y" >> .config
+          echo "# CONFIG_PACKAGE_kmod-qca-nss-ppe is not set" >> .config
           make defconfig
-          grep -q "CONFIG_QCA_NSS_ECM_NSS_ENABLE=y" .config || (echo "❌ NSS ECM 未生效" && exit 1)
 
+          # 校验是否写入成功
+          grep -q "CONFIG_PACKAGE_kmod-qca-nss-ecm=y" .config || (echo "❌ NSS ECM 未启用" && exit 1)
+
+      # ------------------------------------------------------------------
+      # 6. 下载软件包
+      # ------------------------------------------------------------------
       - name: 下载软件包
         working-directory: ./openwrt
         run: |
           make download -j8
           find dl -size -1024c -exec rm -f {} \;
 
-      - name: 编译
+      # ------------------------------------------------------------------
+      # 7. 编译（失败即退出）
+      # ------------------------------------------------------------------
+      - name: 编译固件
         working-directory: ./openwrt
         run: |
           make -j$(nproc) || make -j1 V=s
           echo "compile_status=success" >> $GITHUB_ENV
 
+      # ------------------------------------------------------------------
+      # 8. 整理固件（兼容 sh，不支持 brace expansion）
+      # ------------------------------------------------------------------
       - name: 整理固件
         run: |
           mkdir -p upload
-          cp openwrt/bin/targets/*/*.{ubi,bin} upload/
+          find openwrt/bin/targets -type f \( -name "*.bin" -o -name "*.ubi" \) -exec cp {} upload/ \;
 
-      - name: 发布 Release
+      # ------------------------------------------------------------------
+      # 9. 发布 Release
+      # ------------------------------------------------------------------
+      - name: 生成日期版本
+        run: echo "BUILD_DATE=$(date +%Y%m%d%H%M)" >> $GITHUB_ENV
+
+      - name: 上传 Release
         uses: ncipollo/release-action@main
         with:
-          tag: AX6_NSS_$(date +%Y%m%d%H%M%S)
+          tag: AX6_NSS_${{ env.BUILD_DATE }}
           artifacts: upload/*
           allowUpdates: true
           token: ${{ secrets.GITHUB_TOKEN }}
           body: |
             基于 VIKINGYFY/immortalwrt 构建，NSS 满血加速。
             默认 IP：192.168.1.1  账号：root  密码：空
+
+      # ------------------------------------------------------------------
+      # 10. 保留最近 5 个 release，防止 GraphQL 超时
+      # ------------------------------------------------------------------
+      - name: 清理旧 release
+        uses: dev-drprasad/delete-older-releases@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          keep_latest: 5
+          delete_tags: true
