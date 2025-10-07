@@ -10,54 +10,29 @@ function git_sparse_clone() {
 }
 
 # >>> 【关键修改】替换 LuCI Feed 源 START <<<
-# 替换 LuCI feed 源为 OrdinaryJoys 的稳定版本仓库
 echo "正在替换 LuCI feed 源为 OrdinaryJoys/luci.git..."
-# 查找 feeds.conf.default 文件中以 'src-git luci' 开头的行，并将其替换为新的 Git URL
-# 这样就可以从 OrdinaryJoys 的仓库拉取 LuCI 代码，避开新版 UI 问题。
 sed -i 's/src-git luci.*/src-git luci https:\/\/github.com\/OrdinaryJoys\/luci.git/g' feeds.conf.default
 # >>> 【关键修改】替换 LuCI Feed 源 END <<<
 
-# Add packages
-#添加科学上网源
-#git clone --depth 1 https://github.com/xiaorouji/openwrt-passwall-packages package/openwrt-passwall-packages
-#git clone --depth 1 https://github.com/xiaorouji/openwrt-passwall package/openwrt-passwall
-git clone --depth 1 https://github.com/jerrykuku/luci-theme-argon package/luci-theme-argon
-git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config package/luci-app-argon-config
-#git clone --depth 1 https://github.com/sirpdboy/luci-app-ddns-go package/ddnsgo
-#git clone --depth 1 https://github.com/sbwml/luci-app-mosdns package/mosdns
-#git clone --depth 1 https://github.com/sbwml/luci-app-alist package/alist
-#git clone --depth=1  https://github.com/kenzok8/small-package package/small-package
-#git_sparse_clone main https://github.com/kiddin9/kwrt-packages luci-app-zerotier
-#git_sparse_clone main https://github.com/kiddin9/kwrt-packages vlmcsd
-#git_sparse_clone main https://github.com/kiddin9/kwrt-packages luci-app-vlmcsd
-#git_sparse_clone main https://github.com/kiddin9/kwrt-packages luci-app-socat
+# 添加主题+配置（Argon 完整）
+git clone --depth 1 https://github.com/jerrykuku/luci-theme-argon package/luci-theme-argon || echo "❌ luci-theme-argon 克隆失败"
+git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config package/luci-app-argon-config || echo "❌ luci-app-argon-config 克隆失败"
 
-# 替换luci-app-openvpn-server imm源的启动不了服务！
-#rm -rf feeds/luci/applications/luci-app-openvpn-server
-#git_sparse_clone main https://github.com/kiddin9/kwrt-packages luci-app-openvpn-server
-# 调整 openvpn-server 到 VPN 菜单
-#sed -i 's/services/vpn/g' package/luci-app-openvpn-server/luasrc/controller/*.lua
-#sed -i 's/services/vpn/g' package/luci-app-openvpn-server/luasrc/model/cbi/openvpn-server/*.lua
-#sed -i 's/services/vpn/g' package/luci-app-openvpn-server/luasrc/view/openvpn/*.htm
-
-#git clone -b js https://github.com/papagaye744/luci-theme-design package/luci-theme-design
-
-#替换luci-app-socat为https://github.com/chenmozhijin/luci-app-socat
-#rm -rf feeds/luci/applications/luci-app-socat
-#git_sparse_clone main https://github.com/chenmozhijin/luci-app-socat luci-app-socat
-
-#删除库中的插件，使用自定义源中的包。
+# 删除官方残留，防止冲突
 rm -rf feeds/luci/themes/luci-theme-argon
 rm -rf feeds/luci/applications/luci-app-argon-config
-#rm -rf feeds/luci/applications/luci-app-ddns-go
-#rm -rf feeds/packages/net/ddns-go
-#rm -rf feeds/packages/net/alist
-#rm -rf feeds/luci/applications/luci-app-alist
-#rm -rf feeds/luci/applications/openwrt-passwall
 
+# 可选：修改默认IP & 主机名（当前注释掉）
+# sed -i 's/192.168.1.1/192.168.123.1/g' package/base-files/files/bin/config_generate
+# sed -i "s/hostname='ImmortalWrt'/hostname='Redmi-AX6'/g" package/base-files/files/bin/config_generate
 
-#修改默认IP
-#sed -i 's/192.168.1.1/192.168.123.1/g' package/base-files/files/bin/config_generate
+# >>> 必须立即更新 feeds，否则新 LuCI 源不生效 <<<
+echo ">>> 正在更新并安装 feeds..."
+./scripts/feeds update -a
+./scripts/feeds install -a
 
-#修改主机名
-#sed -i "s/hostname='ImmortalWrt'/hostname='Redmi-AX6'/g" package/base-files/files/bin/config_generate
+# 调试输出
+echo ">>> package 目录结构"
+find package -maxdepth 2 -type d | sort
+echo ">>> 最终 feeds.conf.default"
+cat feeds.conf.default
