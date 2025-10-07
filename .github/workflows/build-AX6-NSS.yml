@@ -6,7 +6,7 @@ on:
 env:
   REPO_URL: https://github.com/VIKINGYFY/immortalwrt.git
   REPO_BRANCH: main
-  CONFIG_FILE: AX6-IPQ/.config-1g
+  CONFIG_FILE: AX6-IPQ/.config
   DIY_SH: AX6-IPQ/diy.sh
   FILES: AX6-IPQ/files
   TZ: Asia/Shanghai
@@ -14,131 +14,168 @@ env:
 jobs:
   build:
     runs-on: ubuntu-22.04
+
     steps:
-      # ------------------------------------------------------------------
-      # 0. 环境信息
-      # ------------------------------------------------------------------
-      - name: 环境信息
-        run: |
-          echo "CPU: $(grep -m1 name /proc/cpuinfo | cut -d: -f2)"
-          echo "MEM: $(free -h | awk '/^Mem:/ {print $2}')"
-          df -hT
+    - name: Check machine configuration
+      run: |
+        echo "警告⚠"
+        echo "分配的服务器性能有限，若选择的插件过多，务必注意CPU性能！"
+        echo "云编译建议取消勾选Node.js及其相关插件！"
+        echo "已知CPU型号（降序）：7763,8370C,8272CL,8171M,E5系列"
+        echo "--------------------------CPU信息--------------------------"
+        echo "CPU物理数量:$(cat /proc/cpuinfo| grep "physical id"| sort| uniq| wc -l)"
+        echo -e "CPU核心及版本信息：$(cat /proc/cpuinfo | grep name | cut -f2 -d: | uniq -c) \n"
+        echo "--------------------------内存信息--------------------------"
+        echo "已安装内存详细信息："
+        sudo lshw -short -C memory | grep GiB
+        echo -e "\n"
+        echo "--------------------------硬盘信息--------------------------"
+        echo -e  "硬盘数量：$(ls /dev/sd* | grep -v [1-9] | wc -l) \n"
+        echo "硬盘详情："
+        df -Th
+        
+    - name: Before freeing up disk space
+      run: |
+        echo "Before freeing up disk space"
+        echo "=============================================================================="
+        df -hT
+        echo "=============================================================================="
 
-      # ------------------------------------------------------------------
-      # 1. 扩容磁盘（保留默认 6G 根分区即可）
-      # ------------------------------------------------------------------
-      - name: 最大化磁盘空间
-        uses: easimon/maximize-build-space@master
-        with:
-          root-reserve-mb: 6144
-          swap-size-mb: 1
-          remove-dotnet: 'true'
-          remove-android: 'true'
-          remove-haskell: 'true'
-          remove-codeql: 'true'
-          remove-docker-images: 'true'
+    - name: "Optimize Disk Space"
+      uses: "hugoalh/disk-space-optimizer-ghaction@v0.8.1"
+      with:
+        operate_sudo: "True"
+        general_include: ".+"
+        general_exclude: |-
+          ^GCC$
+          ^G\+\+$
+          Clang
+          LLVM
+        docker_include: ".+"
+        docker_prune: "True"
+        docker_clean: "True"
+        apt_prune: "True"
+        apt_clean: "True"
+        homebrew_prune: "True"
+        homebrew_clean: "True"
+        npm_prune: "True"
+        npm_clean: "True"
+        os_swap: "True"
 
-      # ------------------------------------------------------------------
-      # 2. 检出 & 依赖
-      # ------------------------------------------------------------------
-      - name: Checkout
-        uses: actions/checkout@main
+    - name: Freeing up disk space
+      uses: easimon/maximize-build-space@master
+      with: 
+        root-reserve-mb: 10240
+        swap-size-mb: 1
+        remove-dotnet: 'true'
+        remove-android: 'true'
+        remove-haskell: 'true'
+        remove-codeql: 'true'
+        remove-docker-images: 'true'
 
-      - name: 安装编译依赖
-        env:
-          DEBIAN_FRONTEND: noninteractive
-        run: |
-          sudo -E apt-get -qq update -y
-          sudo -E apt-get -qq install -y $(curl -fsSL https://raw.githubusercontent.com/nantayo/My-Pkg/master/2305)
-          sudo -E apt-get -qq clean
+    - name: Free up disk space complete
+      run: |
+        echo "Free up disk space complete"
+        echo "=============================================================================="
+        df -hT
+        echo "=============================================================================="
+        
+    - name: Checkout
+      uses: actions/checkout@main
+      
+    - name: Initialize environment
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: | 
+        sudo -E apt-get -qq update -y
+        sudo -E apt-get -qq install -y $(curl -fsSL https://raw.githubusercontent.com/nantayo/My-Pkg/master/2305)
+        sudo -E apt-get -qq autoremove --purge
+        sudo -E apt-get -qq clean
+        sudo timedatectl set-timezone "$TZ"
+        sudo chown $USER:$GROUPS $GITHUB_WORKSPACE
 
-      # ------------------------------------------------------------------
-      # 3. 克隆源码
-      # ------------------------------------------------------------------
-      - name: 克隆源码
-        run: git clone $REPO_URL -b $REPO_BRANCH openwrt
+    - name: Clone source code
+      working-directory: ./
+      run: |
+        git clone $REPO_URL -b $REPO_BRANCH openwrt
 
-      # ------------------------------------------------------------------
-      # 4. ccache 缓存（key 递增防止旧缓存）
-      # ------------------------------------------------------------------
-      - name: 缓存加速
-        uses: stupidloud/cachewrtbuild@main
-        with:
-          ccache: 'true'
-          mixkey: AX6-NSS-main-V4
-          prefix: ${{ github.workspace }}/openwrt
+    - name: cache wrt build
+      uses: stupidloud/cachewrtbuild@main
+      with:
+        ccache: 'true'
+        mixkey: AX6-NSS-${{ env.REPO_BRANCH }}
+        prefix: ${{ github.workspace }}/openwrt
+        
+    - name: Update & Install feeds
+      working-directory: ./openwrt
+      run: |
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
 
-      # ------------------------------------------------------------------
-      # 5. 拷贝自定义文件 + 运行 DIY + 配置 NSS
-      # ------------------------------------------------------------------
-      - name: 加载配置 & 运行 DIY
-        run: |
-          [ -e "$FILES" ] && mv "$FILES" openwrt/files
-          [ -e "$CONFIG_FILE" ] && mv "$CONFIG_FILE" openwrt/.config
-          chmod +x "$DIY_SH"
-          cd openwrt
-          "$GITHUB_WORKSPACE/$DIY_SH"        # 内部已 feeds update/install
-          make defconfig
+    - name: Load custom config
+      run: |
+        [ -e $FILES ] && mv $FILES openwrt/files
+        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
+        chmod +x $DIY_SH
+        cd openwrt
+        $GITHUB_WORKSPACE/$DIY_SH
 
-          # >>> NSS 关键开关（ImmortalWrt 实际变量名） <<<
-          echo "CONFIG_PACKAGE_kmod-qca-nss-drv=y" >> .config
-          echo "CONFIG_PACKAGE_kmod-qca-nss-ecm=y" >> .config
-          echo "# CONFIG_PACKAGE_kmod-qca-nss-ppe is not set" >> .config
-          make defconfig
+    # - name: SSH connect to Actions
+      # uses: P3TERX/ssh2actions@main
+      # if: (github.event.inputs.ssh == 'true') || contains(github.event.action, 'ssh')
 
-          # 校验是否写入成功
-          grep -q "CONFIG_PACKAGE_kmod-qca-nss-ecm=y" .config || (echo "❌ NSS ECM 未启用" && exit 1)
+    - name: Download package
+      working-directory: ./openwrt
+      run: |
+        make defconfig
+        make download -j8
+        find dl -size -1024c -exec ls -l {} \;
+        find dl -size -1024c -exec rm -f {} \;
 
-      # ------------------------------------------------------------------
-      # 6. 下载软件包
-      # ------------------------------------------------------------------
-      - name: 下载软件包
-        working-directory: ./openwrt
-        run: |
-          make download -j8
-          find dl -size -1024c -exec rm -f {} \;
+    - name: Compile the firmware
+      run: |
+        chmod -R 755 openwrt
+        cd openwrt
+        echo -e "$(nproc) thread compile"
+        make -j$(nproc) || make -j1 || make -j1 V=s
+        echo "compile_status=success" >> $GITHUB_ENV
 
-      # ------------------------------------------------------------------
-      # 7. 编译（失败即退出）
-      # ------------------------------------------------------------------
-      - name: 编译固件
-        working-directory: ./openwrt
-        run: |
-          make -j$(nproc) || make -j1 V=s
-          echo "compile_status=success" >> $GITHUB_ENV
-
-      # ------------------------------------------------------------------
-      # 8. 整理固件（兼容 sh，不支持 brace expansion）
-      # ------------------------------------------------------------------
-      - name: 整理固件
-        run: |
-          mkdir -p upload
-          find openwrt/bin/targets -type f \( -name "*.bin" -o -name "*.ubi" \) -exec cp {} upload/ \;
-
-      # ------------------------------------------------------------------
-      # 9. 发布 Release
-      # ------------------------------------------------------------------
-      - name: 生成日期版本
-        run: echo "BUILD_DATE=$(date +%Y%m%d%H%M)" >> $GITHUB_ENV
-
-      - name: 上传 Release
-        uses: ncipollo/release-action@main
-        with:
-          tag: AX6_NSS_${{ env.BUILD_DATE }}
-          artifacts: upload/*
-          allowUpdates: true
-          token: ${{ secrets.GITHUB_TOKEN }}
-          body: |
-            基于 VIKINGYFY/immortalwrt 构建，NSS 满血加速。
-            默认 IP：192.168.1.1  账号：root  密码：空
-
-      # ------------------------------------------------------------------
-      # 10. 保留最近 5 个 release，防止 GraphQL 超时
-      # ------------------------------------------------------------------
-      - name: 清理旧 release
-        uses: dev-drprasad/delete-older-releases@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          keep_latest: 5
-          delete_tags: true
+    # - name : Upload packages
+      # uses: actions/upload-artifact@master
+      # if: always()
+      # with:
+        # name: AX6-NSS
+        # path: openwrt/bin/targets
+    - name: cp output to upload file
+      run: |
+        df -hT
+        mkdir upload
+        cp openwrt/bin/targets/*/*/*.ubi upload/
+        cp openwrt/bin/targets/*/*/*.bin upload/
+        
+    - name: Get Current Date
+      run: echo "CURRENT_DATE=$(date '+%Y%m%d%H%M%S')" >> $GITHUB_ENV
+      
+    - name: Upload OpenWrt Firmware to Release
+      uses: ncipollo/release-action@main
+      with:
+        tag: AX6_NSS_${{ env.CURRENT_DATE }}
+        artifacts: upload/*
+        allowUpdates: true
+        token: ${{ secrets.GITHUB_TOKEN }}
+        body: |
+          基于VIKINGYFY合并的immortalwrt构建
+          首次使用建议全新刷写
+          NSS满血加速！
+          * 基本信息
+          IP: 192.168.1.1
+          账户: root
+          密码: 空
+          
+    - name: Delete old releases
+      uses: dev-drprasad/delete-older-releases@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        keep_latest: 10
+        delete_tags : true
