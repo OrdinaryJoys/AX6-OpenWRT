@@ -128,7 +128,6 @@ jobs:
     - name: Download package
       working-directory: ./openwrt
       run: |
-        # 确保 make defconfig 已经被移除
         make download -j8
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
