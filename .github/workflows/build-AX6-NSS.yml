@@ -103,7 +103,9 @@ jobs:
       uses: stupidloud/cachewrtbuild@main
       with:
         ccache: 'true'
-        mixkey: AX6-NSS-${{ env.REPO_BRANCH }}
+        # ⬇️ 只需要在 key 末尾添加一个新标识（例如 -V2）
+        mixkey: AX6-NSS-${{ env.REPO_BRANCH }}-V2 
+        # ⬆️ 这样会强制生成一个新的缓存 Key
         prefix: ${{ github.workspace }}/openwrt
         
 
