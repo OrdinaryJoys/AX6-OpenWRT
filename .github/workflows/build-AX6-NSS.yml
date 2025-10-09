@@ -112,7 +112,7 @@ jobs:
       uses: stupidloud/cachewrtbuild@main
       with:
         ccache: 'true'
-        mixkey: AX6-NSS-${{ env.REPO_BRANCH }}-V5
+        mixkey: AX6-NSS-${{ env.REPO_BRANCH }}-V6
         prefix: ${{ github.workspace }}/openwrt
         
     - name: Update & Install feeds
