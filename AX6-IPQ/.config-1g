@@ -138,10 +138,10 @@ CONFIG_DEFAULT_kmod-qca-nss-drv-vxlanmgr=y
 CONFIG_DEFAULT_kmod-qca-nss-drv-wifi-meshmgr=y
 CONFIG_DEFAULT_kmod-qca-nss-ecm=y
 CONFIG_DEFAULT_kmod-qca-nss-macsec=y
-# 2. 配置ECM服务开机自启（必须添加）
-CONFIG_PACKAGE_ecm_AUTOSTART="enable"
+# 1. 配置 qca-nss-ecm 服务开机自启（必须，适配服务名称）
+CONFIG_PACKAGE_qca-nss-ecm_AUTOSTART="enable"
 
-# 3. 配置NSS与nftables协同（建议添加，优化防火墙场景性能）
+# 2. 启用 NSS 与 nftables 协同（建议，优化防火墙场景）
 CONFIG_PACKAGE_kmod-qca-nss-nft=y
 
 CONFIG_DEFAULT_kmod-usb-dwc3=y
