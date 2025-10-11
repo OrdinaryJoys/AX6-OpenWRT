@@ -1,0 +1,139 @@
+# ==============================================
+# 基础编译工具（全版本通用）
+# ==============================================
+build-essential          # 基础编译套件（gcc、g++、make等）
+gcc                      # C编译器
+g++                      # C++编译器
+make                     # 构建工具
+autoconf                 # 自动配置工具
+automake                 # 自动生成Makefile工具
+cmake                    # 跨平台构建工具
+ninja-build              # 快速构建系统（部分项目依赖）
+m4                       # 宏处理器
+patch                    # 补丁工具
+patchutils               # 补丁辅助工具（如lsdiff、filterdiff）
+perl                     # Perl脚本支持
+pkg-config               # 库文件配置工具
+libtool                  # 共享库管理工具
+
+# ==============================================
+# 解析与文本处理工具
+# ==============================================
+flex                     # 词法分析器生成器
+bison                    # 语法分析器生成器
+gawk                     # AWK语言解释器
+sed                      # 流编辑器
+grep                     # 文本搜索工具
+file                     # 文件类型识别工具
+diffutils                # 差异比较工具（diff、cmp等）
+coreutils                # 核心工具集（ls、cp等，系统默认可能有但确保存在）
+
+# ==============================================
+# 压缩/解压工具（支持所有常见格式）
+# ==============================================
+xz-utils                 # XZ压缩支持
+lzma                     # LZMA压缩支持
+liblzma-dev              # LZMA开发库
+zlib1g                   # ZLIB压缩库
+zlib1g-dev               # ZLIB开发库
+libbz2-dev               # BZIP2开发库
+liblz4-dev               # LZ4开发库
+libzstd-dev              # ZSTD开发库
+unzip                    # ZIP解压
+zip                      # ZIP压缩
+tar                      # 归档工具
+gzip                     # GZIP压缩
+bzip2                    # BZIP2压缩
+p7zip-full               # 7Z格式支持
+
+# ==============================================
+# 网络与版本控制工具
+# ==============================================
+git                      # Git版本控制
+subversion               # SVN版本控制（部分旧包依赖）
+mercurial                # Mercurial版本控制（少数包依赖）
+wget                     # 网络下载工具
+curl                     # HTTP客户端工具
+rsync                    # 文件同步工具
+ca-certificates          # SSL证书（确保HTTPS访问正常）
+
+# ==============================================
+# 核心库文件（全版本兼容，覆盖加密、终端、网络等）
+# ==============================================
+# 加密相关
+libssl-dev               # OpenSSL开发库（兼容1.1.x/3.x版本）
+libcrypto++-dev          # Crypto++加密库
+libcrypt-dev             # 加密函数库
+
+# 终端与交互
+libncurses5-dev          # NCurses终端库（兼容旧版本）
+libncursesw5-dev         # 宽字符NCurses库
+libreadline-dev          # 命令行编辑库
+
+# 网络与协议
+libelf-dev               # ELF格式处理库（内核模块相关）
+libpcre3-dev             # PCRE正则库（旧版本）
+libpcre2-dev             # PCRE2正则库（新版本）
+libjson-c-dev            # JSON-C库（配置解析常用）
+libsqlite3-dev           # SQLite3数据库支持
+libpcap-dev              # 网络数据包捕获库
+libnetfilter-conntrack-dev # Netfilter连接跟踪库
+libnfnetlink-dev         # Netlink通信库
+libnl-3-dev              # 网络链接库（核心）
+libnl-genl-3-dev         # 通用Netlink库
+libmnl-dev               # 小型Netlink库
+
+# 硬件与系统
+libusb-1.0-0-dev         # USB设备访问库（新版本）
+libusb-dev               # USB设备访问库（旧版本兼容）
+libudev-dev              # udev设备管理库
+libblkid-dev             # 块设备识别库
+libuuid-dev              # UUID生成库
+libseccomp-dev           # 系统调用过滤库
+libcap-dev               # 权限管理库
+libpam0g-dev             # PAM认证库
+
+# 其他基础库
+libffi-dev               # 外部函数接口库
+libgmp-dev               # 多精度算术库
+libmpc-dev               # 多项式计算库
+libmpfr-dev              # 浮点运算库
+libxml2-dev              # XML解析库
+libxslt1-dev             # XSLT转换库
+libcurl4-openssl-dev     # cURL开发库（OpenSSL后端）
+
+# ==============================================
+# Python 相关（兼容2.x/3.x，避免版本冲突）
+# ==============================================
+python3                  # Python3解释器
+python3-dev              # Python3开发文件
+python3-pip              # Python3包管理工具
+python3-setuptools       # Python3包构建工具
+python3-wheel            # Python3二进制包格式
+python3-yaml             # YAML解析库
+python3-distutils        # Python3分发工具
+libpython3-dev           # Python3静态库
+python                   # Python2兼容（部分旧脚本依赖）
+python-dev               # Python2开发文件（兼容旧包）
+
+# ==============================================
+# 多架构支持（交叉编译必备）
+# ==============================================
+gcc-multilib             # 多架构GCC支持
+g++-multilib             # 多架构G++支持
+libc6-dev-i386           # 32位C库开发文件
+lib32z1-dev              # 32位ZLIB开发库
+lib32stdc++6             # 32位C++标准库
+
+# ==============================================
+# 其他实用工具（覆盖插件与扩展需求）
+# ==============================================
+gettext                  # 国际化工具
+gettext-base             # 基础国际化工具
+locales                  # 本地化支持
+libjpeg-dev              # JPEG图像库（主题/UI相关）
+libpng-dev               # PNG图像库（主题/UI相关）
+libfreetype6-dev         # 字体渲染库（主题相关）
+rsync                    # 文件同步工具
+screen                   # 终端会话管理（可选，防止中断）
+tree                     # 目录树查看工具（可选，辅助调试）
