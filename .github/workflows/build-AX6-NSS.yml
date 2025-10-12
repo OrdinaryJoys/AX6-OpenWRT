@@ -98,18 +98,21 @@ jobs:
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
-        # 1. 开启 universe / multiverse（大量包在这里）
-        sudo add-apt-repository -y universe
-        sudo add-apt-repository -y multiverse
+        # 1. 打开 universe / multiverse
+        sudo add-apt-repository -y universe multiverse
         sudo apt-get update -y
 
-        # 2. 安装所有依赖（自动跳过空行和 # 注释）
-        [[ -f "$GITHUB_WORKSPACE/.github/workflows/deps.txt" ]] || {
-          echo "❌  deps.txt 不存在"
-          exit 1
-        }
-        xargs -a "$GITHUB_WORKSPACE/.github/workflows/deps.txt" --no-run-if-empty \
-              sudo apt-get install -y
+        # 2. 只提取纯包名（去掉 # 注释、空行、取第一列）
+        DEPS_FILE="$GITHUB_WORKSPACE/.github/workflows/deps.txt"
+        [[ -f $DEPS_FILE ]] || { echo "❌ deps.txt 不存在"; exit 1; }
+
+        # 先展示将要安装的包，方便排错
+        echo "===== 待安装包列表 ====="
+        grep -vE '^(#|$)' "$DEPS_FILE" | awk '{print $1}' | tee /tmp/pkg.list
+        echo "========================"
+
+        # 批量安装
+        xargs -a /tmp/pkg.list --no-run-if-empty sudo apt-get install -y
 
         # 3. 收尾
         sudo apt-get autoremove --purge -y
