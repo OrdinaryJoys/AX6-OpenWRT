@@ -83,32 +83,17 @@ jobs:
     - name: Checkout
       uses: actions/checkout@main
       
-    # - name: Initialize environment
-      # env:
-        # DEBIAN_FRONTEND: noninteractive
-      # run: | 
-        # sudo -E apt-get -qq update -y
-        # sudo -E apt-get -qq install -y $(curl -fsSL https://raw.githubusercontent.com/nantayo/My-Pkg/master/2305)
-        # sudo -E apt-get -qq autoremove --purge
-        # sudo -E apt-get -qq clean
-        # sudo timedatectl set-timezone "$TZ"
-        # sudo chown $USER:$GROUPS $GITHUB_WORKSPACE
-
     - name: Initialize environment
       env:
         DEBIAN_FRONTEND: noninteractive
-        TARGET_ARCH: ${{ inputs.target_arch }}
-        OPENWRT_VERSION: ${{ inputs.openwrt_version }}
       run: | 
         sudo -E apt-get -qq update -y
-        # 调用依赖生成脚本（注意路径）
-        DEPS=$(.github/workflows/generate_deps_final.sh $TARGET_ARCH $OPENWRT_VERSION)
-        echo "生成依赖列表：$DEPS"
-        sudo -E apt-get -qq install -y $DEPS
+        sudo -E apt-get -qq install -y $(curl -fsSL https://raw.githubusercontent.com/nantayo/My-Pkg/refs/heads/master/2410)
         sudo -E apt-get -qq autoremove --purge
         sudo -E apt-get -qq clean
         sudo timedatectl set-timezone "$TZ"
         sudo chown $USER:$GROUPS $GITHUB_WORKSPACE
+
         
     - name: Clone source code
       working-directory: ./
