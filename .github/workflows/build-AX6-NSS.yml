@@ -99,15 +99,15 @@ jobs:
         DEBIAN_FRONTEND: noninteractive
       run: | 
         sudo -E apt-get -qq update -y
-        
-        # 关键修改：检查并读取仓库内的deps.txt
+    
+        # 关键修改：过滤注释和无效内容，只提取纯包名
         if [ ! -f "$GITHUB_WORKSPACE/.github/workflows/deps.txt" ]; then
-          echo "错误：.github/workflows/deps.txt 文件不存在"
-          exit 1
+        echo "错误：.github/workflows/deps.txt 文件不存在"
+        exit 1
         fi
-        # 从正确路径读取依赖列表并安装
-        sudo -E apt-get -qq install -y $(cat "$GITHUB_WORKSPACE/.github/workflows/deps.txt")
-        
+        # 过滤注释+空行+提取包名，再执行安装
+        sudo -E apt-get -qq install -y $(grep -v '^#' "$GITHUB_WORKSPACE/.github/workflows/deps.txt" | sed '/^$/d' | awk '{print $1}')
+    
         sudo -E apt-get -qq autoremove --purge
         sudo -E apt-get -qq clean
         sudo timedatectl set-timezone "$TZ"
