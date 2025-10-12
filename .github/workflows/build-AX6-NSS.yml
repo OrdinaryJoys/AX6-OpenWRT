@@ -100,26 +100,17 @@ jobs:
       run: |
         git clone $REPO_URL -b $REPO_BRANCH openwrt
 
-    # 新增：替换 luci 源码
     - name: Replace luci feed
       run: |
         cd openwrt
-        # 删除官方 luci 条目（如果存在）
+        # 彻底删除所有已有的 luci 源配置（确保无残留）
         sed -i '/^src-git luci/d' feeds.conf.default
-        # 写入 OrdinaryJoys 的 luci
+        # 只添加一次目标 luci 源
         echo 'src-git luci https://github.com/OrdinaryJoys/luci.git' >> feeds.conf.default
-
-        # ===== 以下全部新增，就在这个位置 =====
-        # 立即再恢复一次（防止上面步骤被后面脚本覆盖）
-        sed -i '/^src-git luci/d' feeds.conf.default
-        echo 'src-git luci https://github.com/OrdinaryJoys/luci.git' >> feeds.conf.default
-
-        # 注入 PROMPT_COMMAND，让每条命令结束后自动刷回
-        echo 'PROMPT_COMMAND="sed -i '\''/^src-git luci/d'\'' feeds.conf.default; echo '\''src-git luci https://github.com/OrdinaryJoys/luci.git'\'' >>feeds.conf.default"' >> ~/.bashrc
-        export PROMPT_COMMAND="sed -i '/^src-git luci/d' feeds.conf.default; echo 'src-git luci https://github.com/OrdinaryJoys/luci.git' >>feeds.conf.default"
-        # 强制再刷一次，防止被 ./scripts/feeds update 覆盖
-        echo 'src-git luci https://github.com/OrdinaryJoys/luci.git' >> feeds.conf.default
-
+        # 验证配置（可选，用于确认是否唯一）
+        echo "当前 feeds.conf.default 中的 luci 源："
+        grep '^src-git luci' feeds.conf.default
+        
     - name: cache wrt build
       uses: stupidloud/cachewrtbuild@main
       with:
