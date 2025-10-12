@@ -113,8 +113,8 @@ python3-wheel            # Python3二进制包格式
 python3-yaml             # YAML解析库
 python3-distutils        # Python3分发工具
 libpython3-dev           # Python3静态库
-python                   # Python2兼容（部分旧脚本依赖）
-python-dev               # Python2开发文件（兼容旧包）
+python-is-python3        # 替代python（将python命令指向Python3，Ubuntu 22.04必需）
+# python-dev              # 已废弃（Ubuntu 22.04无此包，用python3-dev替代）
 
 # ==============================================
 # 多架构支持（交叉编译必备）
