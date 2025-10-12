@@ -1,0 +1,138 @@
+name: Build OpenWRT for AX6-NSS (多架构适配版)
+on: 
+  workflow_dispatch:  # 支持手动触发
+
+env:
+  REPO_URL: https://github.com/OrdinaryJoys/immortalwrt-nss.git
+  REPO_BRANCH: main
+  CONFIG_FILE: AX6-IPQ/.config-1g
+  DIY_SH: AX6-IPQ/diy.sh
+  FILES: AX6-IPQ/files
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    name: 构建 ${{ matrix.arch }} 架构固件
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-22.04  # GitHub官方amd64 runner
+          - arch: arm64
+            runner: ubuntu-24.04-arm64  # 自托管arm64 runner（需提前配置）
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 检查机器配置
+        run: |
+          echo "CPU信息: $(lscpu | grep 'Model name' | cut -d: -f2 | sed -e 's/^ *//')"
+          echo "内存信息: $(free -h | grep 'Mem:' | awk '{print $2}')"
+          echo "磁盘信息: $(df -h / | tail -n1 | awk '{print $4}') 可用"
+
+      - name: 清理磁盘空间
+        uses: hugoalh/disk-space-optimizer-ghaction@v0.10.0
+        with:
+          app: true
+          docker: true
+          swap: true
+
+      - name: 动态生成依赖列表（跨架构/版本）
+        run: |
+          # 运行依赖生成脚本
+          chmod +x generate_deps_final.sh
+          ./generate_deps_final.sh  # 生成deps.txt
+
+      - name: 安装系统依赖（基于动态列表）
+        run: |
+          sudo apt update -y
+          xargs -a deps.txt sudo apt install -y  # 安装deps.txt中的所有依赖
+          sudo apt autoremove --purge -y
+          sudo apt clean
+
+      - name: 初始化编译环境
+        run: |
+          sudo timedatectl set-timezone "$TZ"
+          sudo chown -R $USER:$GROUPS $GITHUB_WORKSPACE
+
+      - name: 克隆OpenWRT源码
+        run: |
+          git clone $REPO_URL openwrt -b $REPO_BRANCH
+          cd openwrt
+          # 替换luci源（保持原逻辑）
+          sed -i 's/^#\(.*luci\)/\1/' feeds.conf.default
+          sed -i 's@https://git.openwrt.org/project/luci.git@https://github.com/OrdinaryJoys/luci.git@' feeds.conf.default
+          echo 'PROMPT_COMMAND="sed -i '\''s@https://git.openwrt.org/project/luci.git@https://github.com/OrdinaryJoys/luci.git@'\'' feeds.conf.default"' >> ~/.bashrc
+
+      - name: 缓存构建文件
+        uses: stupidloud/cachewrtbuild@main
+        with:
+          ccache: true
+          mixkey: ${{ matrix.arch }}-ax6-nss  # 按架构区分缓存
+
+      - name: 更新与安装feeds
+        run: |
+          cd openwrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: 加载自定义配置
+        run: |
+          cd openwrt
+          # 复制自定义文件
+          [ -d "$GITHUB_WORKSPACE/$FILES" ] && cp -rf $GITHUB_WORKSPACE/$FILES/* files/
+          # 复制配置文件
+          cp $GITHUB_WORKSPACE/$CONFIG_FILE .config
+          # 执行自定义脚本
+          [ -f "$GITHUB_WORKSPACE/$DIY_SH" ] && bash $GITHUB_WORKSPACE/$DIY_SH
+          # 生成最终配置
+          make defconfig
+
+      - name: 下载依赖包
+        run: |
+          cd openwrt
+          make download -j8
+          find dl -size -1024c -exec rm -f {} \;  # 清理无效文件
+
+      - name: 编译固件
+        run: |
+          cd openwrt
+          echo "开始编译（架构: ${{ matrix.arch }}）"
+          make -j$(nproc) || make -j1 V=s  # 失败时单线程输出详细日志
+
+      - name: 整理输出文件
+        run: |
+          cd openwrt/bin/targets/*/*
+          mkdir -p $GITHUB_WORKSPACE/upload
+          cp *.ubi *.bin $GITHUB_WORKSPACE/upload/ || true
+          echo "固件文件:"
+          ls -lh $GITHUB_WORKSPACE/upload
+
+      - name: 生成版本标签
+        id: tag
+        run: |
+          echo "TAG_NAME=AX6_NSS_${{ matrix.arch }}_$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
+
+      - name: 上传到Release
+        uses: ncipollo/release-action@v1
+        with:
+          name: ${{ env.TAG_NAME }}
+          tag: ${{ env.TAG_NAME }}
+          artifacts: "upload/*"
+          body: |
+            自动构建的AX6-NSS固件（${{ matrix.arch }}架构）
+            - 初始IP: 192.168.1.1
+            - 账户: root  密码: password
+          removeArtifacts: false
+          allowUpdates: true
+
+      - name: 删除旧版本
+        uses: dev-drprasad/delete-older-releases@v0.3.4
+        with:
+          keep_latest: 10
+          delete_tags: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
