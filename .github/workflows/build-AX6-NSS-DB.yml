@@ -48,17 +48,46 @@ jobs:
           chmod +x generate_deps_final.sh
           ./generate_deps_final.sh  # 生成deps.txt
 
+      - name: 动态生成依赖列表（跨架构/版本）
+        env:
+          #  从工作流输入或矩阵中获取架构和版本（根据实际配置选择）
+          TARGET_ARCH: ${{ inputs.target_arch || matrix.arch }}  # 优先使用输入参数，其次矩阵变量
+          OPENWRT_VERSION: ${{ inputs.openwrt_version || 'main' }}
+        run: |
+          # 脚本路径调整（如果实际位于.github/workflows/目录下）
+          SCRIPT_PATH=".github/workflows/generate_deps_final.sh"
+    
+          # 确保脚本可执行
+          chmod +x "$SCRIPT_PATH"
+    
+          # 传递架构和版本参数，生成deps.txt（关键：必须传入参数才能实现跨版本/架构适配）
+          "$SCRIPT_PATH" "$TARGET_ARCH" "$OPENWRT_VERSION" > deps.txt
+    
+          # 输出依赖列表，便于调试
+          echo "生成的依赖列表："
+          cat deps.txt
+
       - name: 安装系统依赖（基于动态列表）
         run: |
+          # 确保源是最新的，避免包找不到
           sudo apt update -y
-          xargs -a deps.txt sudo apt install -y  # 安装deps.txt中的所有依赖
+    
+          # 从deps.txt安装依赖，添加错误处理
+          if xargs -a deps.txt sudo apt install -y; then
+            echo "依赖安装成功"
+            else
+            echo "依赖安装失败，尝试单独安装缺失包"
+            # 逐个安装，定位具体失败的包
+            while read -r pkg; do
+          if ! sudo apt install -y "$pkg"; then
+            echo "警告：包 $pkg 安装失败，可能需要手动处理"
+          fi
+            done < deps.txt
+          fi
+    
+          # 清理缓存，释放空间
           sudo apt autoremove --purge -y
           sudo apt clean
-
-      - name: 初始化编译环境
-        run: |
-          sudo timedatectl set-timezone "$TZ"
-          sudo chown -R $USER:$GROUPS $GITHUB_WORKSPACE
 
       - name: 克隆OpenWRT源码
         run: |
