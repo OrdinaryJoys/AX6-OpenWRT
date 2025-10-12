@@ -34,11 +34,13 @@ jobs:
           echo "磁盘信息: $(df -h / | tail -n1 | awk '{print $4}') 可用"
 
       - name: 清理磁盘空间
-        uses: hugoalh/disk-space-optimizer-ghaction@v0.10.0
+        uses: easimon/maximize-build-space@v10
         with:
-          app: true
-          docker: true
-          swap: true
+          remove-dotnet: true
+          remove-android: true
+          remove-haskell: true
+          remove-codeql: true
+          swap-size-mb: 2048  # 增加交换空间到2GB，避免编译时内存不足
 
       - name: 动态生成依赖列表（跨架构/版本）
         run: |
