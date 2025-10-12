@@ -97,21 +97,25 @@ jobs:
     - name: Initialize environment
       env:
         DEBIAN_FRONTEND: noninteractive
-      run: | 
-        sudo -E apt-get -qq update -y
-    
-        # 关键修改：过滤注释和无效内容，只提取纯包名
-        if [ ! -f "$GITHUB_WORKSPACE/.github/workflows/deps.txt" ]; then
-        echo "错误：.github/workflows/deps.txt 文件不存在"
-        exit 1
-        fi
-        # 过滤注释+空行+提取包名，再执行安装
-        sudo -E apt-get -qq install -y $(grep -v '^#' "$GITHUB_WORKSPACE/.github/workflows/deps.txt" | sed '/^$/d' | awk '{print $1}')
-    
-        sudo -E apt-get -qq autoremove --purge
-        sudo -E apt-get -qq clean
+      run: |
+        # 1. 开启 universe / multiverse（大量包在这里）
+        sudo add-apt-repository -y universe
+        sudo add-apt-repository -y multiverse
+        sudo apt-get update -y
+
+        # 2. 安装所有依赖（自动跳过空行和 # 注释）
+        [[ -f "$GITHUB_WORKSPACE/.github/workflows/deps.txt" ]] || {
+          echo "❌  deps.txt 不存在"
+          exit 1
+        }
+        xargs -a "$GITHUB_WORKSPACE/.github/workflows/deps.txt" --no-run-if-empty \
+              sudo apt-get install -y
+
+        # 3. 收尾
+        sudo apt-get autoremove --purge -y
+        sudo apt-get clean
         sudo timedatectl set-timezone "$TZ"
-        sudo chown $USER:$GROUPS $GITHUB_WORKSPACE
+        sudo chown -R $USER:$GROUPS $GITHUB_WORKSPACE
         
     - name: Clone source code
       working-directory: ./
@@ -135,12 +139,14 @@ jobs:
         # 注入 PROMPT_COMMAND，让每条命令结束后自动刷回
         echo 'PROMPT_COMMAND="sed -i '\''/^src-git luci/d'\'' feeds.conf.default; echo '\''src-git luci https://github.com/OrdinaryJoys/luci.git'\'' >>feeds.conf.default"' >> ~/.bashrc
         export PROMPT_COMMAND="sed -i '/^src-git luci/d' feeds.conf.default; echo 'src-git luci https://github.com/OrdinaryJoys/luci.git' >>feeds.conf.default"
+        # 强制再刷一次，防止被 ./scripts/feeds update 覆盖
+        echo 'src-git luci https://github.com/OrdinaryJoys/luci.git' >> feeds.conf.default
 
     - name: cache wrt build
       uses: stupidloud/cachewrtbuild@main
       with:
         ccache: 'true'
-        mixkey: AX6-NSS-${{ env.REPO_BRANCH }}-V6
+        mixkey: AX6-NSS-${{ env.REPO_BRANCH }}-${{ github.run_number }}
         prefix: ${{ github.workspace }}/openwrt
         
     - name: Update & Install feeds
