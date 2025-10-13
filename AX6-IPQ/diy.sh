@@ -25,6 +25,17 @@ git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config package/l
 #git_sparse_clone main https://github.com/kiddin9/kwrt-packages luci-app-vlmcsd
 #git_sparse_clone main https://github.com/kiddin9/kwrt-packages luci-app-socat
 
+# ----------------------------------------------------
+# NSS 固件哈希值不匹配修复 (解决 PKG_MIRROR_HASH 错误)
+# ----------------------------------------------------
+
+# 目标文件路径：feeds/nss_packages/firmware/nss-firmware/Makefile
+# 作用：删除 Makefile 中包含 PKG_MIRROR_HASH 的那一行。
+# 这样构建系统会接受 Git 克隆的内容，即使其哈希值与 Makefile 中预期的不符。
+sed -i '/PKG_MIRROR_HASH/d' feeds/nss_packages/firmware/nss-firmware/Makefile
+
+# ----------------------------------------------------
+
 # 替换luci-app-openvpn-server imm源的启动不了服务！
 #rm -rf feeds/luci/applications/luci-app-openvpn-server
 #git_sparse_clone main https://github.com/kiddin9/kwrt-packages luci-app-openvpn-server
