@@ -157,11 +157,11 @@ jobs:
       working-directory: ./openwrt
       run: |
         make defconfig
-        # 增加 S=y：强制在 download 阶段处理 Git 源码克隆
-        make download -j$(nproc) V=s S=y 
+        # 增加 S=y，并固定使用 8 线程进行下载 (j8)
+        make download -j8 S=y 
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
-
+    
     - name: Compile the firmware
       run: |
         chmod -R 755 openwrt
