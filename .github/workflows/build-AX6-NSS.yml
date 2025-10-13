@@ -111,12 +111,12 @@ jobs:
         echo "当前 feeds.conf.default 中的 luci 源："
         grep '^src-git luci' feeds.conf.default
         
-    - name: cache wrt build
-      uses: stupidloud/cachewrtbuild@main
-      with:
-        ccache: 'true'
-        mixkey: AX6-NSS-${{ env.REPO_BRANCH }}-${{ github.run_number }}
-        prefix: ${{ github.workspace }}/openwrt
+    # - name: cache wrt build
+      # uses: stupidloud/cachewrtbuild@main
+      # with:
+        # ccache: 'true'
+        # mixkey: AX6-NSS-${{ env.REPO_BRANCH }}-${{ github.run_number }}
+        # prefix: ${{ github.workspace }}/openwrt
         
     - name: Update & Install feeds
       working-directory: ./openwrt
