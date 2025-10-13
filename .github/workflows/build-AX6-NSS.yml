@@ -103,17 +103,15 @@ jobs:
     - name: Add NSS feed and prepare feeds
       run: |
         cd openwrt
-        # 1. 写入 NSS 专用 feed
-        echo "src-git nss_packages https://github.com/qosmio/nss-packages.git" >> feeds.conf.default
 
-        # 2. 完全刷新 feed
+        # 完全刷新 feed
         ./scripts/feeds clean
         rm -rf tmp/
         ./scripts/feeds update -a
         ./scripts/feeds install -a
         ./scripts/feeds install -a -p nss_packages
 
-        # 3. 补齐编译阶段报缺的依赖
+        # 补齐编译阶段报缺的依赖
         ./scripts/feeds install libev lm-sensors libpam libtirpc luci-i18n-base-zh-cn
 
     - name: Replace luci feed
