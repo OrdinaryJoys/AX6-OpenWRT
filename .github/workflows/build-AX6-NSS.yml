@@ -157,7 +157,8 @@ jobs:
       working-directory: ./openwrt
       run: |
         make defconfig
-        make download -j1 V=s
+        # 增加 S=y：强制在 download 阶段处理 Git 源码克隆
+        make download -j$(nproc) V=s S=y 
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
 
