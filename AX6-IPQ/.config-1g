@@ -136,7 +136,6 @@ CONFIG_DEFAULT_kmod-qca-nss-drv-tunipip6=y
 CONFIG_DEFAULT_kmod-qca-nss-drv-vlan-mgr=y
 CONFIG_DEFAULT_kmod-qca-nss-drv-vxlanmgr=y
 CONFIG_DEFAULT_kmod-qca-nss-drv-wifi-meshmgr=y
-CONFIG_DEFAULT_kmod-qca-nss-ecm=y
 CONFIG_DEFAULT_kmod-qca-nss-clients=y
 CONFIG_DEFAULT_kmod-qca-nss-macsec=y
 # 1. 配置 qca-nss-ecm 服务开机自启（必须，适配服务名称）
