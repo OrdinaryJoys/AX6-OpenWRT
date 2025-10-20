@@ -1,3 +1,8 @@
+# 加到 diy.sh 最前面
+for f in $(find target/linux -name Makefile); do
+  echo "===== $f : line 41 ====="
+  sed -n '41p' "$f"
+done
 #!/bin/bash
 # Git稀疏克隆，只克隆指定目录到本地
 function git_sparse_clone() {
