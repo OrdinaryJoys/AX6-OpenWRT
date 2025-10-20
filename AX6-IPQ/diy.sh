@@ -1,3 +1,25 @@
+#!/bin/sh
+set -xe
+
+echo "====== 扫描 target/linux 所有 Makefile/*.mk : 第 41 行 + if/endif 统计 ======"
+for f in $(find target/linux -name Makefile -o -name '*.mk' | sort); do
+  lines=$(wc -l <"$f")
+  # 只扫 >=41 行的文件
+  [ "$lines" -ge 41 ] && {
+    echo "========== $f (line 41) =========="
+    sed -n '41p' "$f"
+  }
+  # 同时统计 if/endif
+  ifs=$(grep -E '^\s*if(neq|eq|def)' "$f" | wc -l)
+  endifs=$(grep -E '^\s*endif' "$f" | wc -l)
+  if [ "$ifs" -ne "$endifs" ]; then
+    echo "❌ $f  if=$ifs  endif=$endifs  -> 自动补 $((ifs-endifs)) 个 endif"
+    # 在文件末尾补
+    awk 'BEGIN{for(i=0;i<'$((ifs-endifs))';i++)print "endif"}' >> "$f"
+  fi
+done
+echo "====== 扫描结束，继续正常流程 ======"
+
 #!/bin/bash
 # Git稀疏克隆，只克隆指定目录到本地
 function git_sparse_clone() {
