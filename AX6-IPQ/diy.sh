@@ -1,15 +1,3 @@
-# ==== 定位哪份 Makefile 第 41 行缺 endif ====
-for f in $(find target/linux -name Makefile); do
-  echo "===== $f : line 41 ====="
-  sed -n '41p' "$f"   # 打印第 41 行
-done
-# ==== 同时统计 if/endif 总数 ====
-for f in $(find target/linux -name Makefile -o -name '*.mk'); do
-  ifs=$(grep -E '^\s*if(neq|eq|def)' "$f" | wc -l)
-  endifs=$(grep -E '^\s*endif' "$f" | wc -l)
-  [ "$ifs" -ne "$endifs" ] && echo "❌ $f  if=$ifs  endif=$endifs"
-done
-
 #!/bin/bash
 # Git稀疏克隆，只克隆指定目录到本地
 function git_sparse_clone() {
