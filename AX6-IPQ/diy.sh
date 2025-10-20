@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -xe
 
 echo "====== 扫描 target/linux 所有 Makefile/*.mk : 第 41 行 + if/endif 统计 ======"
@@ -20,7 +20,7 @@ for f in $(find target/linux -name Makefile -o -name '*.mk' | sort); do
 done
 echo "====== 扫描结束，继续正常流程 ======"
 
-#!/bin/bash
+
 # Git稀疏克隆，只克隆指定目录到本地
 function git_sparse_clone() {
   branch="$1" repourl="$2" && shift 2
