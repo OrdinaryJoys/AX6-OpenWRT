@@ -517,7 +517,7 @@ CONFIG_FEED_packages=y
 CONFIG_FEED_luci=y
 CONFIG_FEED_routing=y
 CONFIG_FEED_telephony=y
-# CONFIG_FEED_nss_packages is not set
+CONFIG_FEED_nss_packages=y
 # CONFIG_FEED_sqm_scripts_nss is not set
 
 #
