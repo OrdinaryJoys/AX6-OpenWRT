@@ -161,6 +161,17 @@ jobs:
         make download -j1 V=sc S=y
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
+
+    - name: Fix open-app-filter build error
+      run: |
+        OAF_PATH=$(find ./openwrt/feeds -type d -name "open-app-filter" | head -n 1)
+        if [ -n "$OAF_PATH" ]; then
+          echo 'CFLAGS += -Wno-error' >> "$OAF_PATH/Makefile"
+          echo "✅ Patched open-app-filter Makefile"
+        else
+          echo "❌ open-app-filter not found"
+          exit 1
+        fi
     
     - name: Compile the firmware
       run: |
