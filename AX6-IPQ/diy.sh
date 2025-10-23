@@ -65,6 +65,8 @@ echo "CONFIG_PACKAGE_luci-app-oaf=y"          >> .config
 echo "CONFIG_PACKAGE_open-app-filter=y"       >> .config
 echo "CONFIG_PACKAGE_oaf=y"                   >> .config
 # ========== 追加 OpenAppFilter 结束 ==========
+# 修复 kmod-oaf 递归依赖问题（若存在）
+sed -i '/select PACKAGE_kmod-oaf/d' package/OpenAppFilter/kmod-oaf/Kconfig
 
 
 #修改默认IP
