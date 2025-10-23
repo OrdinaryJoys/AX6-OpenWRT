@@ -7802,6 +7802,7 @@ CONFIG_NSS_DRV_DEBUG=y
 # CONFIG_ATH11K_SPECTRAL is not set
 
 CONFIG_PACKAGE_luci-app-oaf=y
+CONFIG_PACKAGE_open-app-filter=y
 CONFIG_PACKAGE_oaf=y
 
 # end of Qualcomm IPQ Options
