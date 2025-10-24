@@ -60,13 +60,18 @@ sed -i '/PKG_MIRROR_HASH/d' feeds/nss_packages/firmware/nss-firmware/Makefile
 #rm -rf feeds/luci/applications/openwrt-passwall
 
 # ========== 追加 OpenAppFilter 开始 ==========
-git clone https://github.com/destan19/OpenAppFilter.git package/OpenAppFilter
+git clone https://github.com/destan19/OpenAppFilter.git  package/OpenAppFilter
 echo "CONFIG_PACKAGE_luci-app-oaf=y"          >> .config
 echo "CONFIG_PACKAGE_open-app-filter=y"       >> .config
 echo "CONFIG_PACKAGE_oaf=y"                   >> .config
 # ========== 追加 OpenAppFilter 结束 ==========
+
 # 修复 kmod-oaf 递归依赖问题（若存在）
-sed -i '/select PACKAGE_kmod-oaf/d' package/OpenAppFilter/kmod-oaf/Kconfig
+if [ -f "./package/OpenAppFilter/kmod-oaf/Kconfig" ]; then
+  sed -i '/select PACKAGE_kmod-oaf/d' package/OpenAppFilter/kmod-oaf/Kconfig
+else
+  echo "Kconfig file not found, skipping modification."
+fi
 
 
 #修改默认IP
