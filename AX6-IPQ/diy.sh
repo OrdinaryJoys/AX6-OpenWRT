@@ -62,7 +62,6 @@ sed -i '/PKG_MIRROR_HASH/d' feeds/nss_packages/firmware/nss-firmware/Makefile
 # ========== 追加 OpenAppFilter 开始 ==========
 git clone https://github.com/destan19/OpenAppFilter.git  package/OpenAppFilter
 echo "CONFIG_PACKAGE_luci-app-oaf=y"          >> .config
-echo "CONFIG_PACKAGE_open-app-filter=y"       >> .config
 echo "CONFIG_PACKAGE_oaf=y"                   >> .config
 # ========== 追加 OpenAppFilter 结束 ==========
 
