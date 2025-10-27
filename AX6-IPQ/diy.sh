@@ -25,28 +25,40 @@ git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config package/l
 #git_sparse_clone main https://github.com/kiddin9/kwrt-packages luci-app-vlmcsd
 #git_sparse_clone main https://github.com/kiddin9/kwrt-packages luci-app-socat
 
-# ----------------------------------------------------
-# 修复 OAF 编译错误 (禁用 Werror)
+# ====================================================
+# [修复] open-app-filter 编译失败 (Werror/missing-prototypes)
 # ----------------------------------------------------
 
+# 1. 移除 OpenWrt 默认源中与 small8 源冲突的 open-app-filter 包
+echo "Removing conflicting open-app-filter from default feeds/packages."
+rm -rf feeds/packages/net/open-app-filter
+
+# 2. 对 small8 源的 open-app-filter (kmod) Makefile 进行强力补丁
+# 禁用所有将警告升级为错误的行为 (-Werror)
 OAF_MAKEFILE="package/feeds/small8/open-app-filter/Makefile"
 
 if [ -f "$OAF_MAKEFILE" ]; then
-    # 查找并移除编译选项中的 -Werror 标志，或直接移除警告标志
-    # 不同的 Makefile 结构可能不同，这里尝试移除所有默认警告，或只移除 Werror
-    sed -i 's/CFLAGS += -Wall/CFLAGS += -Wno-error/g' "$OAF_MAKEFILE"
+    echo "Patching: $OAF_MAKEFILE to disable Werror for kmod compilation."
+    
+    # a. 移除 Makefile 中所有明确的 -Werror 标志
     sed -i 's/-Werror//g' "$OAF_MAKEFILE"
     
-    # 针对 OAF 源码，通常需要修改 CFLAGS
-    sed -i 's/ -Werror //g' $(find package/feeds/small8/open-app-filter/ -name "Makefile")
+    # b. 在 Makefile 中插入 -Wno-error 到内核编译标志中，覆盖其他地方可能注入的 -Werror
+    sed -i '/include \.\.\/\.\.\/make\/pkg\.mk/i\KBUILD_CFLAGS += -Wno-error' "$OAF_MAKEFILE"
+    sed -i '/include \.\.\/\.\.\/make\/pkg\.mk/i\KERNEL_CFLAGS += -Wno-error' "$OAF_MAKEFILE"
     
-    echo "OAF Makefile patched to ignore -Werror."
-else
-    echo "警告：未找到 OAF 插件的 Makefile ($OAF_MAKEFILE)，跳过补丁。"
+    # c. 尝试修补源代码目录下的 Makefile (如果有)
+    OAF_KMOD_SRC_MAKEFILE="package/feeds/small8/open-app-filter/oaf/src/Makefile"
+    if [ -f "$OAF_KMOD_SRC_MAKEFILE" ]; then
+        echo "Patching internal oaf/src/Makefile."
+        sed -i 's/-Werror//g' "$OAF_KMOD_SRC_MAKEFILE"
+        sed -i 's/CFLAGS += -Wall/CFLAGS += -Wall -Wno-error/g' "$OAF_KMOD_SRC_MAKEFILE"
+    fi
 fi
 
-# ----------------------------------------------------
+echo "Open-App-Filter patch completed."
 
+# ====================================================
 
 # ----------------------------------------------------
 # NSS 固件哈希值不匹配修复 (解决 PKG_MIRROR_HASH 错误)
