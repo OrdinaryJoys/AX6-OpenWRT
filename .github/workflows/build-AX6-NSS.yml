@@ -153,11 +153,51 @@ jobs:
       # uses: P3TERX/ssh2actions@main
       # if: (github.event.inputs.ssh == 'true') || contains(github.event.action, 'ssh')
 
-    - name: Download package
+    # - name: Download package
+      # working-directory: ./openwrt
+      # run: |
+        # make defconfig
+        # 增加 S=y
+        # make download -j1 V=sc S=y
+        # find dl -size -1024c -exec ls -l {} \;
+        # find dl -size -1024c -exec rm -f {} \;
+
+    - name: Configure and Download packages (OAF FIX)
       working-directory: ./openwrt
       run: |
+        # <<< 解决 Kconfig 递归依赖错误的深度清理步骤 >>>
+        echo "Performing deep clean of configuration cache to fix Kconfig recursion."
+        rm -rf tmp/.config-package.in
+        rm -rf tmp/.config-autoselect.in
+        rm -rf tmp/.packageinfo
+        rm -rf tmp/
+        
+        # 重新创建 tmp 目录，为 make defconfig 做准备
+        mkdir tmp 
+        
+        # 重新生成配置
         make defconfig
-        # 增加 S=y
+        
+        # <<< 强制选择 small8 源 OAF 软件包的关键步骤 >>>
+        echo "Forcing selection of small8 Open-App-Filter components in .config"
+        
+        # 强制选择核心模块 (kmod-oaf)
+        sed -i '/CONFIG_PACKAGE_kmod-oaf/d' .config
+        echo "CONFIG_PACKAGE_kmod-oaf=y" >> .config
+        
+        # 强制选择用户空间应用程序 (open-app-filter)
+        sed -i '/CONFIG_PACKAGE_open-app-filter/d' .config
+        echo "CONFIG_PACKAGE_open-app-filter=y" >> .config
+        
+        # 强制选择 LuCI 界面 (假设 small8 源的 LuCI 叫 luci-app-oaf)
+        sed -i '/CONFIG_PACKAGE_luci-app-oaf/d' .config
+        echo "CONFIG_PACKAGE_luci-app-oaf=y" >> .config
+        
+        # 清理默认源中已删除包的残留配置
+        sed -i '/CONFIG_PACKAGE_appfilter/d' .config
+        sed -i '/CONFIG_PACKAGE_luci-app-appfilter/d' .config
+        
+        # 执行下载
         make download -j1 V=sc S=y
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
