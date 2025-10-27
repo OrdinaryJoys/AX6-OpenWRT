@@ -26,6 +26,26 @@ git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config package/l
 #git_sparse_clone main https://github.com/kiddin9/kwrt-packages luci-app-socat
 
 # ----------------------------------------------------
+# 添加 OAF 插件 (Open-App-Filter)
+# ----------------------------------------------------
+
+# 1. 将 OAF 所在的 small-package 仓库添加为 Feed 源
+#    （该仓库的链接在您原文件注释中已体现）
+if ! grep -q "small-package" feeds.conf.default; then
+    echo "src-git small8 https://github.com/kenzok8/small-package" >> feeds.conf.default
+fi
+
+# 2. 更新 small8 Feed 源
+./scripts/feeds update small8
+
+# 3. 安装 OAF 相关的软件包
+#    -p small8 指定了从哪个源安装 OAF 的核心和 LuCI 界面包
+./scripts/feeds install -p small8 oaf open-app-filter luci-app-oaf
+
+# ----------------------------------------------------
+
+
+# ----------------------------------------------------
 # NSS 固件哈希值不匹配修复 (解决 PKG_MIRROR_HASH 错误)
 # ----------------------------------------------------
 
