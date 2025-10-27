@@ -33,6 +33,9 @@ git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config package/l
 echo "Removing conflicting open-app-filter from default feeds/packages."
 rm -rf feeds/packages/net/open-app-filter
 
+echo "Removing conflicting luci-app-appfilter from default feeds/luci."
+rm -rf feeds/luci/applications/luci-app-appfilter
+
 # 2. 对 small8 源的 open-app-filter (kmod) Makefile 进行强力补丁
 # 禁用所有将警告升级为错误的行为 (-Werror)
 OAF_MAKEFILE="package/feeds/small8/open-app-filter/Makefile"
