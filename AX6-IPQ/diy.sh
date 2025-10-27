@@ -25,45 +25,18 @@ git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config package/l
 #git_sparse_clone main https://github.com/kiddin9/kwrt-packages luci-app-vlmcsd
 #git_sparse_clone main https://github.com/kiddin9/kwrt-packages luci-app-socat
 
-# ====================================================
-# [修复] 完整替换为 small8 源的 Open-App-Filter 解决方案
-# ----------------------------------------------------
+# 克隆 kenzok8 大全库（含 OAF、argon、passwall 等）
+git clone --depth 1 https://github.com/kenzok8/small-package.git package/small-package
 
-echo "Performing full switch to small8 Open-App-Filter components."
-
-# 1. 移除 OpenWrt 默认源中与 small8 源冲突的所有 OAF/Appfilter 相关包
-#    a. 移除核心包 (feeds/packages/net/open-app-filter)
-rm -rf feeds/packages/net/open-app-filter
-echo "Removed conflicting core package: feeds/packages/net/open-app-filter"
-
-#    b. 移除 LuCI 接口包 (feeds/luci/applications/luci-app-appfilter)
-#       这解决了 'luci-app-appfilter' has a dependency on 'appfilter', which does not exist 的警告。
+# 删掉官方冲突包（防止 Kconfig 递归）
+rm -rf feeds/packages/net/appfilter
 rm -rf feeds/luci/applications/luci-app-appfilter
-echo "Removed conflicting LuCI interface: feeds/luci/applications/luci-app-appfilter"
 
-
-# 2. 对 small8 源的核心 open-app-filter (kmod) Makefile 进行强力补丁
-#    禁用所有将警告升级为错误的行为 (-Werror)，确保编译通过。
-OAF_MAKEFILE="package/feeds/small8/open-app-filter/Makefile"
-
-if [ -f "$OAF_MAKEFILE" ]; then
-    echo "Patching: $OAF_MAKEFILE to disable Werror for kmod compilation."
-    
-    # a. 注入 -Wno-error 到内核编译标志中，确保警告不致命
-    sed -i '/include \.\.\/\.\.\/make\/pkg\.mk/i\KBUILD_CFLAGS += -Wno-error' "$OAF_MAKEFILE"
-    sed -i '/include \.\.\/\.\.\/make\/pkg\.mk/i\KERNEL_CFLAGS += -Wno-error' "$OAF_MAKEFILE"
-    
-    # b. 清理所有已知的 -Werror 标志
-    sed -i 's/-Werror//g' "$OAF_MAKEFILE"
-    OAF_KMOD_SRC_MAKEFILE="package/feeds/small8/open-app-filter/oaf/src/Makefile"
-    if [ -f "$OAF_KMOD_SRC_MAKEFILE" ]; then
-        sed -i 's/-Werror//g' "$OAF_KMOD_SRC_MAKEFILE"
-        sed -i 's/CFLAGS += -Wall/CFLAGS += -Wall -Wno-error/g' "$OAF_KMOD_SRC_MAKEFILE"
-    fi
-fi
-
-echo "Open-App-Filter patch completed."
-# ====================================================
+# 重新索引
+cd openwrt
+./scripts/feeds update -a
+./scripts/feeds install -a
+./scripts/feeds install -p small8 kmod-oaf open-app-filter luci-app-oaf
 
 # ----------------------------------------------------
 # NSS 固件哈希值不匹配修复 (解决 PKG_MIRROR_HASH 错误)
