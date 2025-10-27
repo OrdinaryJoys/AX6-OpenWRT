@@ -25,6 +25,8 @@ git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config package/l
 #git_sparse_clone main https://github.com/kiddin9/kwrt-packages luci-app-vlmcsd
 #git_sparse_clone main https://github.com/kiddin9/kwrt-packages luci-app-socat
 
+# 新增：OAF 网络加速（Open-App-Filter）
+git_sparse_clone main https://github.com/kenzok8/small-package luci-app-oaf oaf
 
 # ----------------------------------------------------
 # NSS 固件哈希值不匹配修复 (解决 PKG_MIRROR_HASH 错误)
