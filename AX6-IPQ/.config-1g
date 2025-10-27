@@ -2638,10 +2638,13 @@ CONFIG_PACKAGE_kmod-nft-tproxy=y
 # CONFIG_PACKAGE_kmod-nft-xfrm is not set
 
 # OAF Core and Module Selection
-# CONFIG_PACKAGE_oaf=y
-# CONFIG_PACKAGE_open-app-filter=y
+# CONFIG_PACKAGE_oaf is not set
+# CONFIG_PACKAGE_open-app-filter is not set
 # CONFIG_PACKAGE_kmod-oaf is not set
-# CONFIG_PACKAGE_luci-app-oaf=y
+# CONFIG_PACKAGE_luci-app-oaf is not set
+
+CONFIG_PACKAGE_oaf=y
+CONFIG_PACKAGE_luci-app-oaf=y
 
 # end of Netfilter Extensions
 
