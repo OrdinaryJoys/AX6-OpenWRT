@@ -25,18 +25,6 @@ git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config package/l
 #git_sparse_clone main https://github.com/kiddin9/kwrt-packages luci-app-vlmcsd
 #git_sparse_clone main https://github.com/kiddin9/kwrt-packages luci-app-socat
 
-# 克隆 kenzok8 大全库（含 OAF、argon、passwall 等）
-git clone --depth 1 https://github.com/kenzok8/small-package.git package/small-package
-
-# 删掉官方冲突包（防止 Kconfig 递归）
-rm -rf feeds/packages/net/appfilter
-rm -rf feeds/luci/applications/luci-app-appfilter
-
-# 重新索引
-cd openwrt
-./scripts/feeds update -a
-./scripts/feeds install -a
-./scripts/feeds install -p small8 kmod-oaf open-app-filter luci-app-oaf
 
 # ----------------------------------------------------
 # NSS 固件哈希值不匹配修复 (解决 PKG_MIRROR_HASH 错误)
