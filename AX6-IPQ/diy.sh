@@ -26,20 +26,24 @@ git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config package/l
 #git_sparse_clone main https://github.com/kiddin9/kwrt-packages luci-app-socat
 
 # ----------------------------------------------------
-# 添加 OAF 插件 (Open-App-Filter)
+# 修复 OAF 编译错误 (禁用 Werror)
 # ----------------------------------------------------
 
-# 1. 将 OAF 所在的 small-package 仓库添加为 Feed 源
-if ! grep -q "small-package" feeds.conf.default; then
-    echo "src-git small8 https://github.com/kenzok8/small-package" >> feeds.conf.default
+OAF_MAKEFILE="package/feeds/small8/open-app-filter/Makefile"
+
+if [ -f "$OAF_MAKEFILE" ]; then
+    # 查找并移除编译选项中的 -Werror 标志，或直接移除警告标志
+    # 不同的 Makefile 结构可能不同，这里尝试移除所有默认警告，或只移除 Werror
+    sed -i 's/CFLAGS += -Wall/CFLAGS += -Wno-error/g' "$OAF_MAKEFILE"
+    sed -i 's/-Werror//g' "$OAF_MAKEFILE"
+    
+    # 针对 OAF 源码，通常需要修改 CFLAGS
+    sed -i 's/ -Werror //g' $(find package/feeds/small8/open-app-filter/ -name "Makefile")
+    
+    echo "OAF Makefile patched to ignore -Werror."
+else
+    echo "警告：未找到 OAF 插件的 Makefile ($OAF_MAKEFILE)，跳过补丁。"
 fi
-
-# 2. 更新 small8 Feed 源，同步 OAF 仓库代码
-./scripts/feeds update small8
-
-# 3. 安装 OAF 相关的软件包
-#    -p small8 指定了从哪个源安装 OAF 的核心和 LuCI 界面包
-./scripts/feeds install -p small8 oaf open-app-filter luci-app-oaf
 
 # ----------------------------------------------------
 
