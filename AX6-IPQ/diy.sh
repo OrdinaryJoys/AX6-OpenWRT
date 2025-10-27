@@ -62,7 +62,7 @@ if [ -f "$OAF_MAKEFILE" ]; then
     fi
 fi
 
-echo "Open-App-Filter components successfully switched to small8 source and patched."
+echo "Open-App-Filter patch completed."
 # ====================================================
 
 # ----------------------------------------------------
