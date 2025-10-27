@@ -153,43 +153,15 @@ jobs:
       # uses: P3TERX/ssh2actions@main
       # if: (github.event.inputs.ssh == 'true') || contains(github.event.action, 'ssh')
 
-    # - name: Download package
-      # working-directory: ./openwrt
-      # run: |
-        # make defconfig
-        # 增加 S=y
-        # make download -j1 V=sc S=y
-        # find dl -size -1024c -exec ls -l {} \;
-        # find dl -size -1024c -exec rm -f {} \;
-
-    - name: Configure and Download packages (OAF FIX)
+    - name: Download package
       working-directory: ./openwrt
       run: |
-        # 1. 确保 kenzok8 源已索引
-        ./scripts/feeds install -p small8 kmod-oaf open-app-filter luci-app-oaf
-
-        # 2. 写入 seed（强制选中）
-        cat >> .config <<EOF
-        CONFIG_PACKAGE_kmod-oaf=y
-        CONFIG_PACKAGE_open-app-filter=y
-        CONFIG_PACKAGE_luci-app-oaf=y
-        # 禁用官方冲突包
-        CONFIG_PACKAGE_appfilter=n
-        CONFIG_PACKAGE_luci-app-appfilter=n
-        EOF
-
-        # 3. 展开依赖
         make defconfig
-
-        # 4. 验证
-        grep -q "CONFIG_PACKAGE_kmod-oaf=y" .config || {
-          echo "❌ OAF packages lost after defconfig"; exit 1
-        }
-
-        # 5. 下载
-        make download -j$(nproc) V=s
+        # 增加 S=y
+        make download -j1 V=sc S=y
+        find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
-    
+
     - name: Compile the firmware
       run: |
         chmod -R 755 openwrt
