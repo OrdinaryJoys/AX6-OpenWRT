@@ -25,19 +25,18 @@ git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config package/l
 #git_sparse_clone main https://github.com/kiddin9/kwrt-packages luci-app-vlmcsd
 #git_sparse_clone main https://github.com/kiddin9/kwrt-packages luci-app-socat
 
-# 删除旧的（避免冲突）
+# 1. 拉取 kenzok8 的 oaf 和 luci-app-oaf
 rm -rf package/oaf package/open-app-filter
-
-# 从 kenzok8/small-package 拉取 oaf 和 luci-app-oaf
 git clone --depth=1 --filter=blob:none --sparse https://github.com/kenzok8/small-package
 cd small-package
 git sparse-checkout set oaf luci-app-oaf
 cd ..
-
-# 关键：将 oaf 目录重命名为 open-app-filter
-mv small-package/oaf package/open-app-filter
+mv small-package/oaf package/open-app-filter      # 重命名！
 mv small-package/luci-app-oaf package/
 rm -rf small-package
+
+# 2. 清除 feeds 中的冲突包（关键！）
+rm -rf feeds/packages/net/open-app-filter
 
 # ----------------------------------------------------
 # NSS 固件哈希值不匹配修复 (解决 PKG_MIRROR_HASH 错误)
