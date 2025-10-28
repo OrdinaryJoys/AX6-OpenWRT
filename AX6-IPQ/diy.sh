@@ -19,21 +19,12 @@ git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config package/l
 #git clone --depth 1 https://github.com/sirpdboy/luci-app-ddns-go package/ddnsgo
 #git clone --depth 1 https://github.com/sbwml/luci-app-mosdns package/mosdns
 #git clone --depth 1 https://github.com/sbwml/luci-app-alist package/alist
-#git clone --depth=1  https://github.com/kenzok8/small-package package/small-package
+git clone --depth 1 https://github.com/kenzok8/small-package package/small-package
 #git_sparse_clone main https://github.com/kiddin9/kwrt-packages luci-app-zerotier
 #git_sparse_clone main https://github.com/kiddin9/kwrt-packages vlmcsd
 #git_sparse_clone main https://github.com/kiddin9/kwrt-packages luci-app-vlmcsd
 #git_sparse_clone main https://github.com/kiddin9/kwrt-packages luci-app-socat
 
-# 启用 kenzok8 的 OAF
-rm -rf package/open-app-filter package/luci-app-oaf
-git clone --depth=1 --filter=blob:none --sparse https://github.com/kenzok8/small-package
-cd small-package
-git sparse-checkout set oaf luci-app-oaf
-cd ..
-mv small-package/oaf package/open-app-filter
-mv small-package/luci-app-oaf package/
-rm -rf small-package
 
 # ----------------------------------------------------
 # NSS 固件哈希值不匹配修复 (解决 PKG_MIRROR_HASH 错误)
@@ -68,10 +59,6 @@ sed -i '/PKG_MIRROR_HASH/d' feeds/nss_packages/firmware/nss-firmware/Makefile
 #rm -rf feeds/packages/net/alist
 #rm -rf feeds/luci/applications/luci-app-alist
 #rm -rf feeds/luci/applications/openwrt-passwall
-
-# 清除 feeds 中的冲突包（放在最后）
-rm -rf feeds/packages/net/open-app-filter
-rm -rf feeds/luci/applications/luci-app-oaf
 
 
 #修改默认IP
