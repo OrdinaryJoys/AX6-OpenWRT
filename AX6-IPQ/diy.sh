@@ -25,8 +25,19 @@ git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config package/l
 #git_sparse_clone main https://github.com/kiddin9/kwrt-packages luci-app-vlmcsd
 #git_sparse_clone main https://github.com/kiddin9/kwrt-packages luci-app-socat
 
-# 新增：OAF 网络加速（Open-App-Filter）
-git_sparse_clone main https://github.com/kenzok8/small-package luci-app-oaf oaf
+# 删除旧的（避免冲突）
+rm -rf package/oaf package/open-app-filter
+
+# 从 kenzok8/small-package 拉取 oaf 和 luci-app-oaf
+git clone --depth=1 --filter=blob:none --sparse https://github.com/kenzok8/small-package
+cd small-package
+git sparse-checkout set oaf luci-app-oaf
+cd ..
+
+# 关键：将 oaf 目录重命名为 open-app-filter
+mv small-package/oaf package/open-app-filter
+mv small-package/luci-app-oaf package/
+rm -rf small-package
 
 # ----------------------------------------------------
 # NSS 固件哈希值不匹配修复 (解决 PKG_MIRROR_HASH 错误)
