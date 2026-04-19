@@ -1,0 +1,19 @@
+#!/bin/sh
+# AX6 WiFi 信号 / 功率微调，只跑一次
+
+# 1. 国家码 —— 决定 TX power 上限。CN 砍得最狠，按需改
+#    合规优先填 CN；自测可填 US（5G 高频功率明显更高）
+for radio in $(uci show wireless | awk -F'[.=]' '/=wifi-device/{print $2}'); do
+    uci set wireless.$radio.country='US'
+    uci set wireless.$radio.cell_density='0'      # 0=低密度，覆盖优先
+    uci -q delete wireless.$radio.txpower         # 交给驱动按 regdom 顶到上限
+done
+
+# 2. 关闭 802.11k/v 之类对弱终端不友好的特性（可选，注释掉默认不动）
+# for iface in $(uci show wireless | awk -F'[.=]' '/=wifi-iface/{print $2}'); do
+#     uci set wireless.$iface.ieee80211k='0'
+#     uci set wireless.$iface.ieee80211v='0'
+# done
+
+uci commit wireless
+exit 0
