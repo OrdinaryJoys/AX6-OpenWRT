@@ -94,7 +94,9 @@ CONFIG_TARGET_ARCH_PACKAGES="aarch64_cortex-a53"
 CONFIG_DEFAULT_TARGET_OPTIMIZATION="-Os -pipe -mcpu=cortex-a53"
 CONFIG_CPU_TYPE="cortex-a53"
 CONFIG_LINUX_6_6=y
-CONFIG_DEFAULT_ath11k-firmware-ipq8074=y
+CONFIG_DEFAULT_ath11k-firmware-ipq8074-ddwrt=y
+CONFIG_PACKAGE_ath11k-firmware-ipq8074-ddwrt=y
+# CONFIG_DEFAULT_ath11k-firmware-ipq8074 is not set
 CONFIG_DEFAULT_ath11k-firmware-qcn9074=y
 CONFIG_DEFAULT_autocore=y
 CONFIG_DEFAULT_base-files=y
