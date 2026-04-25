@@ -1,0 +1,131 @@
+#!/bin/sh
+# AX6 NSS / WiFi 健康自检工具
+# 用法:nss-check [-v]
+# 输出 PASS / FAIL,非 0 表示有问题
+
+VERBOSE=0
+[ "$1" = "-v" ] && VERBOSE=1
+
+PASS=0; FAIL=0; WARN=0
+
+ok()   { PASS=$((PASS+1)); [ $VERBOSE -eq 1 ] && echo " ✓ $1"; }
+fail() { FAIL=$((FAIL+1)); echo " ✗ $1"; }
+warn() { WARN=$((WARN+1)); [ $VERBOSE -eq 1 ] && echo " ! $1"; }
+
+echo "=== AX6 NSS / WiFi 健康自检 ==="
+
+# ---- 1. RAM ----
+mem_kb=$(awk '/MemTotal/{print $2}' /proc/meminfo)
+if [ "$mem_kb" -gt 800000 ]; then
+    ok "RAM detected: ${mem_kb} kB ≥ 800MB (1GB SKU)"
+else
+    fail "RAM only ${mem_kb} kB < 800MB — 不是 1GB 高配 SKU,nss-extra.config 配置可能不匹配"
+fi
+
+# ---- 2. NAND 大小 ----
+mtd12_size=$(awk -F'[: ]+' '/^mtd12:/{print $2}' /proc/mtd)
+case "$mtd12_size" in
+    06640000) ok "NAND rootfs: 102 MiB (stock layout)" ;;
+    0d240000) ok "NAND rootfs: 210 MiB (expand layout, modded NAND)" ;;
+    *) warn "NAND rootfs size 0x${mtd12_size} — 非典型" ;;
+esac
+
+# ---- 3. NSS 模块加载 ----
+nss_count=$(lsmod | grep -c '^qca_nss')
+if [ "$nss_count" -ge 10 ]; then
+    ok "NSS 模块 loaded: $nss_count"
+else
+    fail "NSS 模块只 loaded $nss_count(应 ≥10)"
+fi
+
+# ---- 4. NSS Core 启动 ----
+if dmesg 2>/dev/null | grep -q "NSS core .* booted"; then
+    cores=$(dmesg | grep -c "NSS core .* booted")
+    ok "NSS Core(s) booted: $cores"
+else
+    fail "NSS Core 未启动 — 查 dmesg | grep -i 'nss\\|ubi32'"
+fi
+
+# ---- 5. NSS clock auto_scale 锁定 ----
+auto_scale=$(sysctl -n dev.nss.clock.auto_scale 2>/dev/null)
+if [ "$auto_scale" = "0" ]; then
+    ok "NSS clock auto_scale = 0 (locked at max)"
+else
+    warn "NSS clock auto_scale = ${auto_scale:-unset}"
+fi
+
+# ---- 6. ath11k 加载 ----
+if lsmod | grep -q ath11k; then
+    ok "ath11k driver loaded"
+else
+    fail "ath11k driver 未加载"
+fi
+
+# ---- 7. ath11k board file 加载 ----
+if dmesg 2>/dev/null | grep -qE "ath11k.*board.*Redmi-AX6"; then
+    ok "ath11k board-2.bin: Redmi-AX6 calibration variant loaded"
+else
+    warn "未在 dmesg 找到 'Redmi-AX6' calibration 字样(可能仍 OK,看 dmesg | grep ath11k)"
+fi
+
+# ---- 8. ath11k fw memory mode = 0(HIGH) ----
+fw_mode=$(dmesg 2>/dev/null | grep -oE "fw_mem_mode[ =:]+[0-9]+" | tail -1 | grep -oE "[0-9]+")
+if [ "$fw_mode" = "0" ]; then
+    ok "ath11k fw_mem_mode = 0 (HIGH, full features)"
+elif [ -n "$fw_mode" ]; then
+    warn "ath11k fw_mem_mode = $fw_mode (1=MID, 2=LOW)"
+else
+    warn "未读到 fw_mem_mode"
+fi
+
+# ---- 9. 防火墙 flow_offload 必须关 ----
+fo=$(uci -q get firewall.@defaults[0].flow_offloading)
+fo_hw=$(uci -q get firewall.@defaults[0].flow_offloading_hw)
+if [ "${fo:-0}" = "0" ] && [ "${fo_hw:-0}" = "0" ]; then
+    ok "Firewall flow_offload off (无 NSS 冲突)"
+else
+    fail "Firewall flow_offload=${fo} hw=${fo_hw} — 与 NSS 冲突,改 0"
+fi
+
+# ---- 10. ECM connection_count(NSS 工作中应 > 0)----
+if [ -r /sys/kernel/debug/ecm/ecm_db/connection_count_simple ]; then
+    cc=$(cat /sys/kernel/debug/ecm/ecm_db/connection_count_simple)
+    if [ "${cc:-0}" -gt 0 ]; then
+        ok "ECM connection_count = $cc (NSS 正在卸载流量)"
+    else
+        warn "ECM connection_count = 0 (没流量?跑 ping/curl 后再测)"
+    fi
+else
+    warn "ECM debugfs 不可读(/sys/kernel/debug/ecm/ — 是否 mounted?)"
+fi
+
+# ---- 11. WiFi 工作模式 ----
+if iw dev 2>/dev/null | grep -q "channel.*MHz.*width: 80"; then
+    ok "WiFi 5G HE80 active"
+elif iw dev 2>/dev/null | grep -q "channel.*MHz"; then
+    warn "WiFi 已起,但不是 HE80(可能 client 不支持或 DFS 频段)"
+else
+    fail "WiFi 没工作"
+fi
+
+# ---- 12. Country code ----
+cc_get=$(iw reg get 2>/dev/null | awk '/country/{print $2; exit}' | tr -d ':')
+if [ -n "$cc_get" ]; then
+    ok "Regulatory: country=$cc_get"
+fi
+
+# ---- 13. NSS frame_mode 检查(关键的 NSS-redirect 入口)----
+if [ -r /sys/module/ath11k/parameters/frame_mode ]; then
+    fm=$(cat /sys/module/ath11k/parameters/frame_mode)
+    case "$fm" in
+        2) ok "ath11k frame_mode=2 (NSS_DP, 满血卸载)" ;;
+        1) warn "ath11k frame_mode=1 (RAW, 部分加速)" ;;
+        0) fail "ath11k frame_mode=0 (NATIVE, NSS 旁路!)" ;;
+        *) warn "ath11k frame_mode=$fm 未知" ;;
+    esac
+fi
+
+echo ""
+echo "=== 汇总: PASS=$PASS  WARN=$WARN  FAIL=$FAIL ==="
+[ $FAIL -eq 0 ] && echo "状态: ✓ 健康" || echo "状态: ✗ 有问题,看上面 FAIL 项"
+exit $FAIL

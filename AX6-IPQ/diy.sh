@@ -155,3 +155,10 @@ sed -i 's/192.168.1.1/192.168.5.1/g' package/base-files/files/bin/config_generat
 #sed -i "s/hostname='ImmortalWrt'/hostname='Redmi-AX6'/g" package/base-files/files/bin/config_generate
 
 chmod +x $GITHUB_WORKSPACE/openwrt/files/etc/uci-defaults/* 2>/dev/null
+chmod +x $GITHUB_WORKSPACE/openwrt/files/etc/init.d/* 2>/dev/null
+chmod +x $GITHUB_WORKSPACE/openwrt/files/sbin/* 2>/dev/null
+chmod +x $GITHUB_WORKSPACE/openwrt/files/etc/hotplug.d/*/*  2>/dev/null
+
+# 启用 IRQ 亲和性服务(开机自动)
+mkdir -p $GITHUB_WORKSPACE/openwrt/files/etc/rc.d
+( cd $GITHUB_WORKSPACE/openwrt/files/etc/rc.d && ln -sf ../init.d/ax6-irq-affinity S92ax6-irq-affinity 2>/dev/null )

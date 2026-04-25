@@ -1,0 +1,33 @@
+#!/bin/sh /etc/rc.common
+# AX6 IRQ 亲和性 — 把 ath11k / ethernet 钉到不同核,避免与 NSS 主调度抢 CPU
+START=92
+STOP=10
+
+set_aff() {
+    [ -e "/proc/irq/$1/smp_affinity" ] && echo "$2" > "/proc/irq/$1/smp_affinity" 2>/dev/null
+}
+
+apply() {
+    # 4 核 IPQ8074:
+    #   CPU0 (0x1)  系统 / nss-thread
+    #   CPU1 (0x2)  eth / dp ethernet
+    #   CPU2 (0x4)  wifi0 (5G)
+    #   CPU3 (0x8)  wifi1 (2.4G)
+    while IFS=: read -r irq rest; do
+        irq=$(echo "$irq" | tr -d ' ')
+        case "$rest" in
+            *wifi0*|*ath11k*hw0*) set_aff "$irq" 4 ;;
+            *wifi1*|*ath11k*hw1*) set_aff "$irq" 8 ;;
+            *eth*|*dp[1-9]*|*nss-dp*) set_aff "$irq" 2 ;;
+            *nss*) set_aff "$irq" 8 ;;
+        esac
+    done < /proc/interrupts
+}
+
+start() {
+    sleep 5
+    apply
+}
+
+reload() { apply; }
+restart() { apply; }
