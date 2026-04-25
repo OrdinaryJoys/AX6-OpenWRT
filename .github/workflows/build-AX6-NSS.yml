@@ -157,11 +157,16 @@ jobs:
         run: |
           set -eo pipefail
           mkdir -p upload
-          find openwrt/bin/targets -type f \( -name '*.ubi' -o -name '*.bin' -o -name '*.itb' -o -name 'sha256sums' -o -name 'config.buildinfo' -o -name 'feeds.buildinfo' -o -name 'version.buildinfo' \) -exec cp {} upload/ \;
-          ( cd upload && sha256sum -- *.bin *.ubi *.itb 2>/dev/null > SHA256SUMS-AX6.txt || true )
+          find openwrt/bin/targets -type f \
+            \( -name '*.ubi' -o -name '*.bin' -o -name '*.itb' \
+               -o -name 'sha256sums' -o -name 'config.buildinfo' \
+               -o -name 'feeds.buildinfo' -o -name 'version.buildinfo' \) \
+            -exec cp {} upload/ \;
+          cd upload
+          sha256sum -- *.bin *.ubi *.itb >SHA256SUMS-AX6.txt 2>/dev/null
           # Embed nss-check tool into release for offline use
-          cp AX6-IPQ/files/sbin/nss-check upload/nss-check.sh
-          ls -lh upload/
+          cp ../AX6-IPQ/files/sbin/nss-check ./nss-check.sh
+          ls -lh
 
       - name: Get current date
         run: echo "CURRENT_DATE=$(date '+%Y%m%d%H%M%S')" >> "$GITHUB_ENV"
