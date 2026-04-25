@@ -1,96 +1,204 @@
 # AX6 硬件参考(实测)
 
-## 设备信息
+## 1. 设备信息(实机读取)
 
 ```
 model:       Redmi AX6 (stock layout)
 compatible:  redmi,ax6-stock, qcom,ipq8074
 SoC:         IPQ8074 (4 × ARMv8 Cortex-A53 @1.4GHz)
-RAM:         916 MB (≈ 1 GB DDR3)
-NAND:        128 MB total
-WiFi:        ath11k (Wi-Fi 6, 4×4 MU-MIMO)
+RAM:         916 MB ≈ 1 GB DDR3
+NAND:        128 MB(stock 出厂)/ 256 MB(硬件改后)
+WiFi:        ath11k Wi-Fi 6, 4×4 MU-MIMO
 NSS:         qca-nss-drv + qca-nss-dp + qca-nss-ecm
 ```
 
-## NAND 分区(stock SMEM)
+## 2. 两种构建变体
 
-| MTD | 名称 | 大小 | 备注 |
-|---|---|---|---|
-| mtd0 | 0:sbl1 | 1 MB | 一级 bootloader |
-| mtd1 | 0:mibib | 1 MB | mtd 索引 |
-| mtd2 | 0:qsee | 3 MB | TrustZone OS |
-| mtd3 | 0:devcfg | 0.5 MB | TZ 设备配置 |
-| mtd4 | 0:rpm | 0.5 MB | RPM firmware |
-| mtd5 | 0:cdt | 0.5 MB | Config data |
-| mtd6 | 0:appsblenv | 0.5 MB | u-boot env |
-| mtd7 | 0:appsbl | 1 MB | u-boot |
-| mtd8 | 0:art | 0.5 MB | WiFi calibration (board-2.bin)|
-| mtd9 | bdata | 0.5 MB | Xiaomi 设备数据 |
-| mtd10 | crash | 0.5 MB | crash dump |
-| mtd11 | crash_syslog | 0.5 MB | crash syslog |
-| **mtd12** | **rootfs** | **102 MiB** | **本固件实际可用空间** |
-| mtd13 | rsvd0 | 0.5 MB | Reserved |
+| 变体 | 适用硬件 | rootfs 容量 | 选哪个? | 变砖风险 |
+|---|---|---|---|---|
+| **STOCK** | 标准 1G+128M(出厂) | ~102 MB(SMEM 给的) | **绝大多数人选这个** | **0%** |
+| **EXPAND** | 1G+256M(改 NAND 颗粒后) | ~210 MB(DT 写死)| 只有亲手换过 NAND 才能选 | **极高**(刷错变砖)|
 
-UBI 在 mtd12 上,典型布局:
-- ubi0_0: kernel(~5 MB)
-- ubi0_1: rootfs squashfs(~45 MB)
-- ubi0_2: rootfs_data(UBIFS overlay,40 MB)
-
-## 关于 1G + 512 SKU 说明
-
-用户最初描述 "1G + 512 存储",但**实测 NAND 仅 128MB**,
-未发现存在硬件层面 512MB NAND 的 AX6 SKU。可能是以下三种情况:
-
-1. 你记错了规格(更可能)
-2. 有人在闲鱼魔改换了 NAND 芯片(罕见)
-3. 你看到的 "512" 是 **DDR** 不是 NAND(那种是 512MB DDR + 128MB NAND 的标准低配 SKU)
-
-无论哪种,本固件的 nss-extra.config 已经按以下假设构建:
-- DDR: 1024MB → `IPQ_MEM_PROFILE_1024`
-- NAND: 128MB → 不修改 stock 分区,rootfs ≤ 102MB
-
-如果你的 NAND 实际是 256MB(部分 AX6 批次),可以改用非 stock 变体
-`redmi,ax6` 重新分区,但需要 initramfs 跑 ubidetach + ubiformat,**有变砖风险**,且非 stock 给的 rootfs 反而更小(82MB)。**保留 stock 是最优选**。
-
-## 刷机检查清单(刷我们的固件后)
+### 怎么知道我是哪种?
 
 ```bash
-# 1. 内存 — 应 ~916 MB
-cat /proc/meminfo | grep MemTotal
-
-# 2. NSS 模块全加载
-lsmod | grep -E '^qca_nss|^ath11k' | wc -l   # 期望 ≥ 15
-
-# 3. NSS firmware 启动
-dmesg | grep -i 'NSS Core'                    # 期望 "NSS Core 0/1 booted"
-
-# 4. ath11k 加载(WiFi 6)
-dmesg | grep -i ath11k | tail -5             # 期望 board-2.bin "Redmi-AX6"
-
-# 5. fw memory mode(应为 0 = HIGH)
-dmesg | grep "fw_mem_mode\|memory_mode"
-
-# 6. NSS clock 锁定
-sysctl dev.nss.clock.auto_scale               # 期望 0
-
-# 7. NSS 实际跑流量(下载或 iperf 时观察)
-watch -n1 'cat /sys/kernel/debug/qca-nss-drv/stats/cpu_load_ubi'
-
-# 8. ECM 连接计数(NSS 接管的连接)
-cat /sys/kernel/debug/ecm/ecm_db/connection_count_simple
-
-# 9. WiFi HE 模式
-iw dev | grep -E "channel|center"             # 期望 "width: 80 MHz"
-
-# 10. 防火墙 flow_offload 应该是 0
-uci -q get firewall.@defaults[0].flow_offloading        # 期望 0
+# 已经能进 OpenWrt 的话
+ssh root@192.168.5.1 'cat /proc/mtd | grep rootfs'
+# 输出 mtd12: 06640000 → 102MB,是 STOCK
+# 输出 mtd12: 0d240000 → 210MB,是 EXPAND
 ```
 
-## 当前已知风险点
+如果不能进系统 / 不知道:**默认选 STOCK,不要冒险**。
 
-| 风险 | 缓解 |
-|---|---|
-| 当前 ImmortalWrt SNAPSHOT 未应用本仓 nss-extra.config | 必须用 build-AX6-NSS 工作流构建,不要直接用上游 SNAPSHOT |
-| rootfs_data 仅 40MB,装多了 LuCI app 会满 | LuCI 默认带,大插件改用 USB 外挂 |
-| ath11k fw-memory-mode 改 0 是 build-time DT 修改 | 需要重新 sysupgrade(用我们工作流出的镜像) |
-| nss-firmware 二进制没 hash 校验(`PKG_MIRROR_HASH:=skip`)| 信任 qosmio/nss-packages git commit |
+### EXPAND 前置确认清单
+
+只有同时满足以下全部条件才能选 EXPAND:
+
+- [ ] 你**亲手或店家换过** NAND 芯片(从 128MB 颗粒改到 ≥256MB 颗粒)
+- [ ] 设备能进 ImmortalWrt SSH,`cat /proc/mtd` 看到 mtd12 ≥ 0x0d240000
+- [ ] 你有 USB-TTL 串口和 fastboot 救机经验
+- [ ] 你能接受刷错变砖的 1% 概率
+
+任何一项打不上勾 → STOCK。
+
+## 3. NAND 分区(stock SMEM 实测)
+
+```
+mtd0:  0:sbl1         1MB    一级 bootloader
+mtd1:  0:mibib        1MB    mtd 索引
+mtd2:  0:qsee         3MB    TrustZone OS
+mtd3:  0:devcfg       0.5MB  TZ 设备配置
+mtd4:  0:rpm          0.5MB  RPM firmware
+mtd5:  0:cdt          0.5MB  Config data
+mtd6:  0:appsblenv    0.5MB  u-boot env  ★
+mtd7:  0:appsbl       1MB    u-boot      ★
+mtd8:  0:art          0.5MB  WiFi cal (board-2.bin) ★
+mtd9:  bdata          0.5MB  Xiaomi 设备数据
+mtd10: crash          0.5MB
+mtd11: crash_syslog   0.5MB
+mtd12: rootfs         102MB  ★ 本固件刷写位置
+mtd13: rsvd0          0.5MB
+```
+
+★ 标记的分区**永远不要乱刷**:
+- mtd7 appsbl(u-boot)被破坏 → 必须串口 + USB-Flash 救
+- mtd8 art(WiFi 校准)被破坏 → WiFi 永久坏,要从他人备份恢复
+- mtd6 appsblenv 被乱改 → bootcmd 错误,无法启动
+
+## 4. 刷机前 — 强制备份(避免无限恢复)
+
+**首次刷我们固件前**,必须从原厂或现 ImmortalWrt 备份关键分区:
+
+```bash
+ssh root@<router>
+# 必备 4 块
+dd if=/dev/mtd7  of=/tmp/appsbl.bin
+dd if=/dev/mtd6  of=/tmp/appsblenv.bin
+dd if=/dev/mtd8  of=/tmp/art.bin
+dd if=/dev/mtd9  of=/tmp/bdata.bin
+
+# 拷出来
+scp root@<router>:/tmp/{appsbl,appsblenv,art,bdata}.bin ~/ax6-backup/
+```
+
+把 `~/ax6-backup/` 备份到 U 盘,**永远保留**。变砖恢复要用。
+
+## 5. 刷机步骤
+
+### STOCK(零风险)
+
+```bash
+# 1. SSH 进入当前固件(stock 或之前刷的同变体)
+ssh root@192.168.5.1
+
+# 2. 上传我们的镜像
+scp downloads/openwrt-qualcommax-ipq807x-redmi_ax6-stock-squashfs-sysupgrade.bin root@192.168.5.1:/tmp/
+
+# 3. 直接 sysupgrade(保留配置)
+sysupgrade -v /tmp/openwrt-*.bin
+# 或不保留:sysupgrade -n
+```
+
+### EXPAND(高风险)
+
+如果当前是 stock 镜像,先 sysupgrade 到 stock 的我们的镜像,再走以下流程切到 expand:
+
+```bash
+# 1. 上传 initramfs 镜像(不是 sysupgrade)
+scp downloads/openwrt-qualcommax-ipq807x-redmi_ax6-initramfs-uImage.itb root@192.168.5.1:/tmp/
+
+# 2. 启动 initramfs(机器进入 RAM 模式)
+sysupgrade /tmp/openwrt-*-initramfs-uImage.itb
+# 等设备重启后进入 initramfs RAM 模式
+
+# 3. SSH 进 initramfs(IP 还是 192.168.5.1 但状态在内存)
+ssh root@192.168.5.1
+
+# 4. 重格 UBI 分区(危险点,一旦执行无回滚)
+ubidetach -p /dev/mtd12 || true
+ubiformat /dev/mtd12 -y
+
+# 5. 上传 expand sysupgrade 镜像
+scp downloads/openwrt-qualcommax-ipq807x-redmi_ax6-squashfs-sysupgrade.bin root@192.168.5.1:/tmp/
+
+# 6. 写入
+sysupgrade -n /tmp/openwrt-*.bin
+```
+
+## 6. 变砖恢复(救命方案)
+
+### A. 软变砖(能进 fastboot)
+
+```bash
+# 1. 长按 reset 10 秒进 fastboot
+fastboot devices                              # 看到 AX6 ID
+fastboot flash rootfs stock-rootfs.bin        # 刷回备份的 rootfs
+fastboot reboot
+```
+
+### B. 硬变砖(进不了 fastboot)
+
+需要 USB-TTL 串口(GND/TX/RX 焊在主板 J1 排针):
+
+```
+1. 接串口,115200 8N1
+2. 按住 reset 加电进 u-boot 命令模式
+3. 通过 TFTP 恢复:
+   ipq807x# tftpboot 0x44000000 appsbl.bin
+   ipq807x# nand erase 0x600000 0x100000     # mtd7 offset
+   ipq807x# nand write 0x44000000 0x600000 0x100000
+4. 同样恢复 appsblenv / art / bdata 分区
+5. reset
+```
+
+详细引脚和 TFTP 服务器 setup,Google "redmi ax6 ttl unbrick"。
+
+## 7. NSS / WiFi 验证清单(刷完跑这套确认正常)
+
+```bash
+# 内存检测正确(应 ~916 MB)
+cat /proc/meminfo | grep MemTotal
+
+# NSS 模块加载数(应 ≥ 15)
+lsmod | grep -E '^qca_nss|^ath11k' | wc -l
+
+# NSS Core 启动
+dmesg | grep -i 'NSS Core'                    # "NSS Core 0/1 booted"
+
+# ath11k WiFi 校准变体加载
+dmesg | grep -i ath11k | grep -i variant      # "Redmi-AX6"
+
+# ath11k fw memory mode(应该是 0 = HIGH)
+dmesg | grep -i 'fw_mem_mode\|memory_mode'
+
+# NSS 时钟锁定(我们的 sysctl 写入)
+sysctl dev.nss.clock.auto_scale               # 期望 0
+
+# NSS 实际跑流量中(开 iperf 或下载时观察)
+watch -n1 'cat /sys/kernel/debug/qca-nss-drv/stats/cpu_load_ubi'
+
+# ECM 接管的连接数(NSS 卸载工作中)
+cat /sys/kernel/debug/ecm/ecm_db/connection_count_simple
+
+# WiFi HE80
+iw dev | grep -E "channel|center|width"       # 期望 80 MHz
+
+# 防火墙没打开 flow_offload(避免与 NSS 冲突)
+uci -q get firewall.@defaults[0].flow_offloading   # 0
+uci -q get firewall.@defaults[0].flow_offloading_hw  # 0
+
+# Country code
+iw reg get | head -3                          # CN
+```
+
+如有任何一项不对,**别急着重刷**,先 `dmesg | tail -100` 看启动日志。
+
+## 8. 常见 brick 模式 + 处理
+
+| 症状 | 原因 | 处理 |
+|---|---|---|
+| 启动卡 ImmortalWrt logo,无法 SSH | rootfs 损坏 | 等 30 秒,长按 reset 入 fastboot,刷回备份 |
+| WiFi 完全没了 | mtd8 art 损坏 | 串口 + TFTP 写回 art.bin 备份 |
+| 网口灯都不亮 | u-boot 损坏 | 串口救机 |
+| 启动循环 | bootcmd 错或 kernel mismatch | u-boot `setenv bootcmd ...` |
+| sysupgrade 后变砖 | 刷错变体(stock vs expand) | fastboot 刷回正确变体 |

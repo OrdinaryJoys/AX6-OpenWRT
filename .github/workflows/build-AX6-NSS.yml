@@ -3,15 +3,23 @@ name: Build OpenWRT for AX6-NSS
 on:
   workflow_dispatch:
     inputs:
+      variant:
+        description: 'Hardware variant (must match physical NAND!)'
+        required: true
+        type: choice
+        default: 'stock'
+        options:
+          - stock     # 1GB RAM + 128MB NAND (Xiaomi original) — ZERO brick risk
+          - expand    # 1GB RAM + 256MB NAND (HW-modded only) — DANGER if NAND <256MB
       ssh:
-        description: 'SSH connection to Actions'
+        description: 'SSH debug connection'
         required: false
-        default: 'false'
+        type: boolean
+        default: false
 
 env:
   REPO_URL: https://github.com/VIKINGYFY/immortalwrt.git
   REPO_BRANCH: main
-  CONFIG_FILE: AX6-IPQ/.config-1g
   EXTRA_CONFIG: AX6-IPQ/nss-extra.config
   DIY_SH: AX6-IPQ/diy.sh
   FILES: AX6-IPQ/files
@@ -26,6 +34,44 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+
+      - name: Set variant config + brick-safety pre-flight
+        id: variant
+        run: |
+          set -eo pipefail
+          case "${{ github.event.inputs.variant }}" in
+            stock)
+              echo "CONFIG_FILE=AX6-IPQ/.config-stock" >> "$GITHUB_ENV"
+              echo "VARIANT_TAG=STOCK" >> "$GITHUB_ENV"
+              echo "::notice::Building STOCK variant — Xiaomi SMEM partitioning, 102MB rootfs, zero brick risk"
+              ;;
+            expand)
+              echo "CONFIG_FILE=AX6-IPQ/.config-expand" >> "$GITHUB_ENV"
+              echo "VARIANT_TAG=EXPAND" >> "$GITHUB_ENV"
+              echo "::warning::Building EXPAND variant — requires HW-modded NAND ≥256MB. DO NOT FLASH if NAND is 128MB!"
+              ;;
+            *)
+              echo "::error::Unknown variant: ${{ github.event.inputs.variant }}"; exit 1
+              ;;
+          esac
+          # Pre-flight sanity: refuse to build if config conflicts NSS extras
+          python3 - <<'PY'
+          import os, re, sys
+          cfg_path = os.environ['CONFIG_FILE']
+          extra = 'AX6-IPQ/nss-extra.config'
+          c = {}
+          for ln in open(cfg_path).read().splitlines() + open(extra).read().splitlines():
+              ln = ln.strip()
+              m = re.match(r'^CONFIG_(PACKAGE_[\w-]+)=([ymn])$', ln)
+              if m: c[m.group(1)] = m.group(2)
+              m = re.match(r'^# CONFIG_(PACKAGE_[\w-]+) is not set$', ln)
+              if m: c[m.group(1)] = 'n'
+          if c.get('PACKAGE_kmod-qca-nss-drv') == 'y':
+              for conf in ['kmod-nf-flow','kmod-fast-classifier','kmod-shortcut-fe','sqm-scripts','kmod-sched-cake']:
+                  if c.get(f'PACKAGE_{conf}') == 'y':
+                      print(f'::error::NSS conflict: PACKAGE_{conf}=y collides with kmod-qca-nss-drv'); sys.exit(2)
+          print('Pre-flight PASS')
+          PY
 
       - name: Free disk space
         uses: easimon/maximize-build-space@fc881a613ad2a34aca9c9624518214ebc21dfc0c  # v10
@@ -85,7 +131,7 @@ jobs:
           ( cd openwrt && "$GITHUB_WORKSPACE/$DIY_SH" )
 
       - name: SSH debug (manual trigger)
-        if: ${{ github.event.inputs.ssh == 'true' }}
+        if: ${{ github.event.inputs.ssh == 'true' || github.event.inputs.ssh == true }}
         uses: P3TERX/ssh2actions@a8983e7adda99b6ec2a82b40a13ea48ec25ce728  # v1.0.0
         env:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -120,22 +166,42 @@ jobs:
       - name: Upload firmware to Release
         uses: ncipollo/release-action@2c591bcc8ecdcd2db72b97d6147f871fcd833ba5  # v1.14.0
         with:
-          tag: AX6_NSS_${{ env.CURRENT_DATE }}
+          tag: AX6_NSS_${{ env.VARIANT_TAG }}_${{ env.CURRENT_DATE }}
           artifacts: upload/*
           allowUpdates: true
           token: ${{ secrets.GITHUB_TOKEN }}
           body: |
-            基于 VIKINGYFY 合并的 immortalwrt 构建,带满血 NSS。
-            首次使用建议全新刷写。
+            基于 VIKINGYFY/immortalwrt 构建,带满血 NSS。
+
+            ## 🚨 硬件变体:${{ env.VARIANT_TAG }}
+
+            **必须确认你的硬件再刷,否则可能变砖**:
+
+            | 变体 | 适用 | 风险 |
+            |---|---|---|
+            | STOCK | 1GB RAM + 128MB NAND(标准 Xiaomi 出厂)| 0%(沿用 SMEM 分区)|
+            | EXPAND | 1GB RAM + 256MB NAND(已硬件改 NAND)| 高(分区表会写死) |
+
+            **不知道是哪个 → 选 STOCK**。
+            刷 EXPAND 前必须确认:
+            1. 已用烙铁/热风枪换过 NAND 颗粒
+            2. SSH 进入设备 `cat /proc/mtd` 看 mtd12 size 是否 ≥ 0x0d240000
 
             ## 默认登录
             - 管理 IP: 192.168.5.1
             - 用户: root
-            - 密码: **首次登录请使用 SSH 通过 `passwd` 设置密码,或在 LuCI Web 界面设置**
+            - 密码: **首次登录请用 SSH 通过 `passwd` 设置,或 LuCI Web 设置**
 
-            ## 注意
-            - 默认开启 NSS,**不要再去防火墙打开软件/硬件 flow offload**,会冲突
-            - 如不能登录 LuCI(空密码被 dropbear 拒绝),通过有线连接到 192.168.5.1 后访问 Web 完成首次配置
+            ## NSS 相关
+            - 默认开启 NSS,不要再去防火墙打开软件/硬件 flow offload
+            - 实测 NSS 是否生效:`lsmod | grep nss` 看 qca_nss_* 模块加载
+            - `cat /sys/kernel/debug/ecm/ecm_db/connection_count_simple` 跑流量时 > 0
+
+            ## 变砖恢复(应急)
+            - 物理 reset 长按 10 秒进 fastboot
+            - 通过 USB-TTL 串口(115200 8N1)进 u-boot
+            - `tftpboot 0x44000000 stock.bin && nand erase rootfs && nand write 0x44000000 rootfs`
+            - 详见 AX6-IPQ/HARDWARE.md
 
       - name: Delete old releases
         uses: dev-drprasad/delete-older-releases@65d5f1f3c0a695bb494a05cc89af3e29ddb7e0a6  # v0.3.4

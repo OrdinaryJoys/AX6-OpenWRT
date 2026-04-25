@@ -91,22 +91,34 @@ if [ -f "$NSS_NET" ]; then
 fi
 
 # ----------------------------------------------------
-# AX6 实际硬件适配
+# AX6 硬件适配(变体感知)
 # ----------------------------------------------------
-# 实测 (BoardName=redmi,ax6-stock):
-#   RAM:  916664 KiB ≈ 1 GB
-#   NAND: 128 MiB(stock SMEM 分区 → mtd12 rootfs 102 MiB)
-# Build profile 选 redmi_ax6-stock,rootfs 大小由 Xiaomi 原始 SMEM
-# 分区决定(102 MiB),无需也不能在 DT 中指定 reg。
+# 两种 SKU 通过 .config 选择,DT 这里只补 ath11k mode + 扩容版分区。
 #
-# 注:ax6-stock.dts 用 /delete-node/ partitions + qcom,smem-part,
-# 因此对 ax6.dts 的 &rootfs reg 改动对 stock 镜像没有影响,
-# 但仍可能影响其他人 select 非 stock 变体时的镜像,所以这里不再改。
+# (1) Stock (redmi,ax6-stock):
+#       Xiaomi 原始 SMEM 分区,rootfs ≈ 102 MiB,**零变砖风险**
+#       — DT 不动 partition 节点(ax6-stock.dts 已 /delete-node/)
 #
-# 唯一需要的 DT 修改:ath11k-fw-memory-mode 给 1GB RAM 用完整模式。
+# (2) Expanded (redmi,ax6):
+#       NAND 必须已硬件改装到 ≥256MiB,否则刷下去会变砖!
+#       — kernel-DT 写死 rootfs 大小,需匹配实际 NAND
+#
+# 共用:1GB RAM 时 ath11k 用完整 (mode=0)
 AX6_DTS="target/linux/qualcommax/dts/ipq8071-ax6.dts"
 if [ -f "$AX6_DTS" ]; then
-  sed -i 's|qcom,ath11k-fw-memory-mode = <1>;|qcom,ath11k-fw-memory-mode = <0>;  /* AX6-build: 1GB RAM, full ath11k features */|' "$AX6_DTS"
+  # ath11k 完整模式 (1GB RAM 才安全;低于 700MB 启动时驱动会拒绝)
+  sed -i 's|qcom,ath11k-fw-memory-mode = <1>;|qcom,ath11k-fw-memory-mode = <0>;  /* AX6: 1GB RAM, full ath11k */|' "$AX6_DTS"
+
+  # Expanded 变体:256MiB NAND 才能用,扩 rootfs 到 ~210 MiB
+  # 通过 .config 中的 CONFIG_TARGET_PROFILE 检测构建变体
+  if [ -f .config ] && grep -q '^CONFIG_TARGET_PROFILE="DEVICE_redmi_ax6"$' .config; then
+    echo "[diy.sh] Expanded variant detected (256MB NAND assumed) — patching rootfs reg"
+    # 0x2dc0000 + 0xd240000 = 0xfffffff < 256MiB(0x10000000):安全
+    sed -i 's|reg = <0x2dc0000 0x5220000>;|reg = <0x2dc0000 0xd240000>;  /* AX6-build: expanded for 256MiB NAND, rootfs 210 MiB */|' "$AX6_DTS"
+    sed -i 's|reg = <0x02dc0000 0x05220000>;|reg = <0x02dc0000 0x0d240000>;  /* AX6-build: expanded 256MiB NAND, rootfs 210 MiB */|' "$AX6_DTS"
+  else
+    echo "[diy.sh] Stock variant — DT partition layout untouched (Xiaomi SMEM)"
+  fi
 fi
 
 # ----------------------------------------------------
