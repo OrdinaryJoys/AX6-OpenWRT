@@ -98,18 +98,19 @@ for radio in $RADIOS; do
 done
 
 # ==============================================================
-# 默认 SSID 设置(WPA3 + PMF 可选,IoT 兼容)
+# 默认 SSID 设置 — 只调与"加密强度无关"的体验项,
+# 不动 encryption / network / isolate(避免破坏多 SSID / 访客网络)
+# 用户首次设置 SSID 时按需自行选 sae-mixed / psk2 / open
 # ==============================================================
 for iface in $(uci show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-iface/{print $2}'); do
-    uci -q set wireless.${iface}.encryption='sae-mixed'
-    uci -q set wireless.${iface}.ieee80211w='1'           # PMF optional
     uci -q set wireless.${iface}.disassoc_low_ack='0'     # 不踢弱信号客户端
     uci -q set wireless.${iface}.wmm='1'                  # WMM/QoS
     uci -q set wireless.${iface}.uapsd='1'                # U-APSD 省电增强
     uci -q set wireless.${iface}.proxy_arp='1'            # ARP 代答减少广播
     uci -q set wireless.${iface}.multicast_to_unicast='1'
-    uci -q set wireless.${iface}.isolate='0'              # 不隔离客户端
-    uci -q set wireless.${iface}.network='lan'
+    # 仅在还没设过 ieee80211w(PMF)时,默认 optional;不强制 WPA3
+    [ -z "$(uci -q get wireless.${iface}.ieee80211w)" ] && \
+        uci -q set wireless.${iface}.ieee80211w='1'
 done
 
 uci -q commit wireless

@@ -7,9 +7,17 @@
 # 退出码 = FAIL 数
 
 VERBOSE=0; QUIET=0
-case "$1" in
-  -v) VERBOSE=1 ;;
-  -q) QUIET=1 ;;
+case "${1:-}" in
+  ""|"--") ;;
+  -v|--verbose) VERBOSE=1 ;;
+  -q|--quiet)   QUIET=1 ;;
+  -h|--help)
+    sed -n '2,7p' "$0" | sed 's/^# //; s/^#//'
+    exit 0 ;;
+  *)
+    echo "nss-check: unknown option '$1' (use -v / -q / -h)" >&2
+    exit 64
+    ;;
 esac
 
 PASS=0; FAIL=0; WARN=0

@@ -1,7 +1,9 @@
 #!/bin/bash
 set -eo pipefail
 
-# Git稀疏克隆，只克隆指定目录到本地
+# Git 稀疏克隆模板 — 仅在需要从 monorepo 子目录拿包时启用
+# (当前所有调用都被注释,函数保留以便未来按需启用)
+# shellcheck disable=SC2317
 git_sparse_clone() {
   local branch="$1" repourl="$2"
   shift 2
