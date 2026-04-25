@@ -91,6 +91,23 @@ if [ -f "$NSS_NET" ]; then
 fi
 
 # ----------------------------------------------------
+# AX6 1GB RAM + 512MB NAND 高配版 SKU 适配
+# ----------------------------------------------------
+# (f) 扩大 rootfs 分区到 ~480MB(给 512MB NAND 留 30M 给 ubi 元数据/坏块管理)
+AX6_DTS="target/linux/qualcommax/dts/ipq8071-ax6.dts"
+if [ -f "$AX6_DTS" ]; then
+  # 原 reg = <0x02dc0000 0x05220000>; 即 82MB,假定 128M NAND
+  # 改 reg = <0x02dc0000 0x1d240000>; 即 466MB,适配 512M NAND
+  # 起始 0x02dc0000(46.75MB,保留 boot+kernel 区不变),长度扩大
+  sed -i 's|reg = <0x02dc0000 0x05220000>;|reg = <0x02dc0000 0x1d240000>;  /* AX6-build: 1G+512M SKU rootfs ~466MB */|' "$AX6_DTS"
+fi
+
+# (g) 调整 fw-memory-mode = 0 (1GB RAM 时给 ath11k 全特性)
+if [ -f "$AX6_DTS" ]; then
+  sed -i 's|qcom,ath11k-fw-memory-mode = <1>;|qcom,ath11k-fw-memory-mode = <0>;  /* AX6-build: 1GB RAM, full ath11k features */|' "$AX6_DTS"
+fi
+
+# ----------------------------------------------------
 
 # 替换luci-app-openvpn-server imm源的启动不了服务！
 #rm -rf feeds/luci/applications/luci-app-openvpn-server

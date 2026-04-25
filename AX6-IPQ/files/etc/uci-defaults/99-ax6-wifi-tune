@@ -1,16 +1,87 @@
 #!/bin/sh
-# AX6 WiFi 调优,只跑一次
-# 国家码默认 CN(合规);如需国外/测试覆盖,设 /etc/config/ax6_wifi_country=US 等
+# AX6 WiFi 调优 — 最强信号 + 最优性能 + NSS-redirect 友好
+#
+# 国家码:默认 CN 合规。覆盖方法:
+#   echo US > /etc/config/ax6_wifi_country && reboot
+#
+# 此脚本仅在首次启动跑一次(uci-defaults 机制)
+set -e
 
 COUNTRY_FILE="/etc/config/ax6_wifi_country"
 COUNTRY="CN"
 [ -r "$COUNTRY_FILE" ] && COUNTRY="$(head -n1 "$COUNTRY_FILE" | tr -dc 'A-Z')"
 [ -n "$COUNTRY" ] || COUNTRY="CN"
 
-for radio in $(uci show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-device/{print $2}'); do
+# 收集所有 wifi-device 节
+RADIOS=$(uci show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-device/{print $2}')
+
+for radio in $RADIOS; do
+    band=$(uci -q get wireless.${radio}.band)
+
+    # ----------------------------------------------------------
+    # 通用:国家、TX power 由 regdom 决定上限
+    # ----------------------------------------------------------
     uci -q set wireless.${radio}.country="$COUNTRY"
+    uci -q delete wireless.${radio}.txpower      # 让驱动按 regdom 顶到上限
+    uci -q delete wireless.${radio}.disabled
+    uci -q set wireless.${radio}.disabled='0'
+
+    # cell_density=0 = sparse / 覆盖优先(信号最强)
+    # 1 = normal,2 = high-density(perf 优先,弱客户端可能掉线)
     uci -q set wireless.${radio}.cell_density='0'
-    uci -q delete wireless.${radio}.txpower
+
+    # ----------------------------------------------------------
+    # 802.11ax (Wi-Fi 6) HE 最大化
+    # ----------------------------------------------------------
+    uci -q set wireless.${radio}.he_su_beamformer='1'
+    uci -q set wireless.${radio}.he_su_beamformee='1'
+    uci -q set wireless.${radio}.he_mu_beamformer='1'
+    uci -q set wireless.${radio}.he_bss_color='8'           # 1-63
+    uci -q set wireless.${radio}.he_twt_required='0'
+    uci -q set wireless.${radio}.he_spr_sr_control='3'      # OBSS PD enabled
+    uci -q set wireless.${radio}.he_default_pe_duration='4'
+
+    # MU-MIMO + OFDMA 默认开
+    uci -q set wireless.${radio}.mu_beamformer='1'
+
+    # ----------------------------------------------------------
+    # 频宽:5G 强制 80MHz (HE80),2.4G 40MHz
+    # AX6 是 4x4 MU-MIMO,80MHz 是性能/抗扰最佳平衡
+    # ----------------------------------------------------------
+    case "$band" in
+        5g)
+            uci -q set wireless.${radio}.htmode='HE80'
+            # 5G 默认 channel 36(低频段穿墙稍好);auto 也可
+            cur_chan=$(uci -q get wireless.${radio}.channel)
+            [ -z "$cur_chan" ] || [ "$cur_chan" = "auto" ] && \
+                uci -q set wireless.${radio}.channel='36'
+            ;;
+        2g)
+            uci -q set wireless.${radio}.htmode='HE40'
+            uci -q set wireless.${radio}.channel='auto'
+            ;;
+    esac
+
+    # ----------------------------------------------------------
+    # 弱终端兼容(AX6 是 1024-QAM,部分老客户端崩)
+    # legacy_rates=1 保留 1/2/5.5/11Mbps,提升远距离握手成功率
+    # ----------------------------------------------------------
+    uci -q set wireless.${radio}.legacy_rates='1'
+
+    # ----------------------------------------------------------
+    # 802.11k/v 漫游:对支持的设备(iPhone/Android 9+)是性能利好,
+    # 对极少数弱客户端(老 IoT)有问题,默认开
+    # ----------------------------------------------------------
+    uci -q set wireless.${radio}.ieee80211k='1'
+    uci -q set wireless.${radio}.ieee80211v='1'
+    uci -q set wireless.${radio}.bss_transition='1'
+done
+
+# 默认 SSID 设置
+for iface in $(uci show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-iface/{print $2}'); do
+    uci -q set wireless.${iface}.encryption='sae-mixed'  # WPA3 + WPA2 混合
+    uci -q set wireless.${iface}.ieee80211w='1'          # PMF optional
+    uci -q set wireless.${iface}.disassoc_low_ack='0'    # 不踢弱信号客户端
 done
 
 uci -q commit wireless
