@@ -1,19 +1,17 @@
 #!/bin/sh
-# AX6 WiFi 信号 / 功率微调，只跑一次
+# AX6 WiFi 调优,只跑一次
+# 国家码默认 CN(合规);如需国外/测试覆盖,设 /etc/config/ax6_wifi_country=US 等
 
-# 1. 国家码 —— 决定 TX power 上限。CN 砍得最狠，按需改
-#    合规优先填 CN；自测可填 US（5G 高频功率明显更高）
-for radio in $(uci show wireless | awk -F'[.=]' '/=wifi-device/{print $2}'); do
-    uci set wireless.$radio.country='US'
-    uci set wireless.$radio.cell_density='0'      # 0=低密度，覆盖优先
-    uci -q delete wireless.$radio.txpower         # 交给驱动按 regdom 顶到上限
+COUNTRY_FILE="/etc/config/ax6_wifi_country"
+COUNTRY="CN"
+[ -r "$COUNTRY_FILE" ] && COUNTRY="$(head -n1 "$COUNTRY_FILE" | tr -dc 'A-Z')"
+[ -n "$COUNTRY" ] || COUNTRY="CN"
+
+for radio in $(uci show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-device/{print $2}'); do
+    uci -q set wireless.${radio}.country="$COUNTRY"
+    uci -q set wireless.${radio}.cell_density='0'
+    uci -q delete wireless.${radio}.txpower
 done
 
-# 2. 关闭 802.11k/v 之类对弱终端不友好的特性（可选，注释掉默认不动）
-# for iface in $(uci show wireless | awk -F'[.=]' '/=wifi-iface/{print $2}'); do
-#     uci set wireless.$iface.ieee80211k='0'
-#     uci set wireless.$iface.ieee80211v='0'
-# done
-
-uci commit wireless
+uci -q commit wireless
 exit 0

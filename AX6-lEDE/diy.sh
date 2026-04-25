@@ -1,12 +1,18 @@
 #!/bin/bash
+set -eo pipefail
+
 # Git稀疏克隆，只克隆指定目录到本地
-function git_sparse_clone() {
-  branch="$1" repourl="$2" && shift 2
-  git clone --depth=1 -b $branch --single-branch --filter=blob:none --sparse $repourl
-  repodir=$(echo $repourl | awk -F '/' '{print $(NF)}')
-  cd $repodir && git sparse-checkout set $@
-  mv -f $@ ../package
-  cd .. && rm -rf $repodir
+git_sparse_clone() {
+  local branch="$1" repourl="$2"
+  shift 2
+  git clone --depth=1 -b "$branch" --single-branch --filter=blob:none --sparse "$repourl"
+  local repodir
+  repodir=$(basename "$repourl" .git)
+  ( cd "$repodir" && git sparse-checkout set "$@" )
+  for d in "$@"; do
+    mv -f "$repodir/$d" package/
+  done
+  rm -rf "$repodir"
 }
 
 # Add packages
@@ -47,4 +53,6 @@ rm -rf feeds/luci/applications/luci-app-argon-config
 #sed -i "s/hostname='OpenWrt'/hostname='Redmi-AX6'/g" package/base-files/files/bin/config_generate
 
 #修改默认时间格式
-sed -i 's/os.date()/os.date("%Y-%m-%d %H:%M:%S %A")/g' $(find ./package/*/autocore/files/ -type f -name "index.htm")
+while IFS= read -r f; do
+  sed -i 's/os.date()/os.date("%Y-%m-%d %H:%M:%S %A")/g' "$f"
+done < <(find ./package -path '*/autocore/files/*' -name 'index.htm' -type f)

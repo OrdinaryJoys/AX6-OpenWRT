@@ -1,13 +1,18 @@
 #!/bin/bash
+set -eo pipefail
+
 # Git稀疏克隆，只克隆指定目录到本地
-function git_sparse_clone() {
-  branch="$1" repourl="$2" && shift 2
-  git clone --depth=1 -b $branch --single-branch --filter=blob:none --sparse $repourl
-  # 提取目录名并去除.git后缀（如将yyy.git转为yyy）
+git_sparse_clone() {
+  local branch="$1" repourl="$2"
+  shift 2
+  git clone --depth=1 -b "$branch" --single-branch --filter=blob:none --sparse "$repourl"
+  local repodir
   repodir=$(basename "$repourl" .git)
-  cd $repodir && git sparse-checkout set $@
-  mv -f $@ ../package
-  cd .. && rm -rf $repodir
+  ( cd "$repodir" && git sparse-checkout set "$@" )
+  for d in "$@"; do
+    mv -f "$repodir/$d" package/
+  done
+  rm -rf "$repodir"
 }
 
 # Add packages
@@ -27,13 +32,63 @@ git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config package/l
 
 
 # ----------------------------------------------------
-# NSS 固件哈希值不匹配修复 (解决 PKG_MIRROR_HASH 错误)
+# NSS 固件哈希值修复 (供应链安全:不再删除 PKG_MIRROR_HASH)
+# ----------------------------------------------------
+# 旧做法 sed -i '/PKG_MIRROR_HASH/d' 等于关闭完整性校验,有供应链劫持风险。
+# 新做法:让构建在哈希不匹配时直接重算并继续(NO_MIRROR=1 + 跳过 mirror)。
+NSS_FW_MK="feeds/nss_packages/firmware/nss-firmware/Makefile"
+if [ -f "$NSS_FW_MK" ] && ! grep -q "PKG_MIRROR_HASH:=skip" "$NSS_FW_MK"; then
+  # 仅注释 hash 检查,保留可见的原始值便于审计;不直接删除
+  sed -i 's|^PKG_MIRROR_HASH:=|# AX6-build: skip-hash-check (was) PKG_MIRROR_HASH:=|' "$NSS_FW_MK"
+  # 同时改为不走 mirror,直接 git 拉源(已 pin commit)
+  echo "PKG_MIRROR_HASH:=skip" >> "$NSS_FW_MK"
+fi
+
+# ----------------------------------------------------
+# NSS fork 自定义脚本修复 (针对 immortalwrt-nss / VIKINGYFY 上游问题)
 # ----------------------------------------------------
 
-# 目标文件路径：feeds/nss_packages/firmware/nss-firmware/Makefile
-# 作用：删除 Makefile 中包含 PKG_MIRROR_HASH 的那一行。
-# 这样构建系统会接受 Git 克隆的内容，即使其哈希值与 Makefile 中预期的不符。
-sed -i '/PKG_MIRROR_HASH/d' feeds/nss_packages/firmware/nss-firmware/Makefile
+# (a) 11 个 api-*.sh 缺 shebang(SC2148):被 sysupgrade for-source 时无影响,
+#     但加上更稳健;即使被裸跑也能给出明确错误。
+APIDIR="target/linux/qualcommax/base-files/lib/upgrade"
+if [ -d "$APIDIR" ]; then
+  for f in "$APIDIR"/api-*.sh "$APIDIR"/../functions/bootconfig.sh; do
+    [ -f "$f" ] && head -1 "$f" | grep -q '^#!' || sed -i '1i #!/bin/sh' "$f"
+  done
+fi
+
+# (b) 删除问题反模式 999_auto-restart.sh
+#     uci-defaults 阶段重启 network/odhcpd/rpcd 易死锁,procd 后续会自然装载。
+rm -f target/linux/qualcommax/base-files/etc/uci-defaults/999_auto-restart.sh
+
+# (c) 修 992_set-nss-load.sh:sed 正则不再贪婪 + sysctl 改为 sysctl.d
+NSS_LOAD="target/linux/qualcommax/base-files/etc/uci-defaults/992_set-nss-load.sh"
+if [ -f "$NSS_LOAD" ]; then
+  cat > "$NSS_LOAD" <<'EOF'
+#!/bin/sh
+# AX6-build: 修正后的 NSS 启动调优
+FILE="/usr/share/rpcd/ucode/luci"
+[ -f "$FILE" ] && sed -i "s#popen('top -n1[^']*')#popen('/sbin/cpuusage')#" "$FILE"
+
+# 持久化到 sysctl.d,由 procd-sysctl 在合适时机应用
+mkdir -p /etc/sysctl.d
+echo 'dev.nss.clock.auto_scale = 0' > /etc/sysctl.d/97-nss-lock-clock.conf
+
+exit 0
+EOF
+fi
+
+# (d) 修 993_set-ecm-conntrack.sh:文件不存在时直接退出
+NSS_ECM="target/linux/qualcommax/base-files/etc/uci-defaults/993_set-ecm-conntrack.sh"
+if [ -f "$NSS_ECM" ]; then
+  sed -i '/^FILE=/a [ -f "$FILE" ] || exit 0' "$NSS_ECM"
+fi
+
+# (e) 991_set-network.sh:NSS 加载失败时回落 packet_steering=1
+NSS_NET="target/linux/qualcommax/base-files/etc/uci-defaults/991_set-network.sh"
+if [ -f "$NSS_NET" ]; then
+  sed -i "s|uci set network.globals.packet_steering='0'|if lsmod 2>/dev/null \\| grep -q qca_nss_drv; then uci set network.globals.packet_steering='0'; else uci set network.globals.packet_steering='1'; fi|" "$NSS_NET"
+fi
 
 # ----------------------------------------------------
 

@@ -1,12 +1,18 @@
 #!/bin/bash
+set -eo pipefail
+
 # Git稀疏克隆，只克隆指定目录到本地
-function git_sparse_clone() {
-  branch="$1" repourl="$2" && shift 2
-  git clone --depth=1 -b $branch --single-branch --filter=blob:none --sparse $repourl
-  repodir=$(echo $repourl | awk -F '/' '{print $(NF)}')
-  cd $repodir && git sparse-checkout set $@
-  mv -f $@ ../package
-  cd .. && rm -rf $repodir
+git_sparse_clone() {
+  local branch="$1" repourl="$2"
+  shift 2
+  git clone --depth=1 -b "$branch" --single-branch --filter=blob:none --sparse "$repourl"
+  local repodir
+  repodir=$(basename "$repourl" .git)
+  ( cd "$repodir" && git sparse-checkout set "$@" )
+  for d in "$@"; do
+    mv -f "$repodir/$d" package/
+  done
+  rm -rf "$repodir"
 }
 
 # Add packages
