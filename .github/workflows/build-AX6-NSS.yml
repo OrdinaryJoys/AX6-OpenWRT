@@ -132,7 +132,7 @@ jobs:
 
       - name: SSH debug (manual trigger)
         if: ${{ github.event.inputs.ssh == 'true' || github.event.inputs.ssh == true }}
-        uses: P3TERX/ssh2actions@a8983e7adda99b6ec2a82b40a13ea48ec25ce728  # v1.0.0
+        uses: P3TERX/ssh2actions@71006b93bff498b020448ac10964f8a5d0f9f32c  # v1.0.0
         env:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -212,7 +212,7 @@ jobs:
             - 详见 AX6-IPQ/HARDWARE.md
 
       - name: Delete old releases
-        uses: dev-drprasad/delete-older-releases@65d5f1f3c0a695bb494a05cc89af3e29ddb7e0a6  # v0.3.4
+        uses: dev-drprasad/delete-older-releases@dfbe6be2a006e9475dfcbe5b8d201f1824c2a9fe  # v0.3.4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
