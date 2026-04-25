@@ -91,18 +91,20 @@ if [ -f "$NSS_NET" ]; then
 fi
 
 # ----------------------------------------------------
-# AX6 1GB RAM + 512MB NAND 高配版 SKU 适配
+# AX6 实际硬件适配
 # ----------------------------------------------------
-# (f) 扩大 rootfs 分区到 ~480MB(给 512MB NAND 留 30M 给 ubi 元数据/坏块管理)
+# 实测 (BoardName=redmi,ax6-stock):
+#   RAM:  916664 KiB ≈ 1 GB
+#   NAND: 128 MiB(stock SMEM 分区 → mtd12 rootfs 102 MiB)
+# Build profile 选 redmi_ax6-stock,rootfs 大小由 Xiaomi 原始 SMEM
+# 分区决定(102 MiB),无需也不能在 DT 中指定 reg。
+#
+# 注:ax6-stock.dts 用 /delete-node/ partitions + qcom,smem-part,
+# 因此对 ax6.dts 的 &rootfs reg 改动对 stock 镜像没有影响,
+# 但仍可能影响其他人 select 非 stock 变体时的镜像,所以这里不再改。
+#
+# 唯一需要的 DT 修改:ath11k-fw-memory-mode 给 1GB RAM 用完整模式。
 AX6_DTS="target/linux/qualcommax/dts/ipq8071-ax6.dts"
-if [ -f "$AX6_DTS" ]; then
-  # 原 reg = <0x02dc0000 0x05220000>; 即 82MB,假定 128M NAND
-  # 改 reg = <0x02dc0000 0x1d240000>; 即 466MB,适配 512M NAND
-  # 起始 0x02dc0000(46.75MB,保留 boot+kernel 区不变),长度扩大
-  sed -i 's|reg = <0x02dc0000 0x05220000>;|reg = <0x02dc0000 0x1d240000>;  /* AX6-build: 1G+512M SKU rootfs ~466MB */|' "$AX6_DTS"
-fi
-
-# (g) 调整 fw-memory-mode = 0 (1GB RAM 时给 ath11k 全特性)
 if [ -f "$AX6_DTS" ]; then
   sed -i 's|qcom,ath11k-fw-memory-mode = <1>;|qcom,ath11k-fw-memory-mode = <0>;  /* AX6-build: 1GB RAM, full ath11k features */|' "$AX6_DTS"
 fi
