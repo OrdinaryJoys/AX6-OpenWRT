@@ -1,0 +1,64 @@
+name: Lint
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+
+      - name: Install tools
+        run: |
+          set -eo pipefail
+          sudo apt-get -qq update
+          sudo apt-get -qq install -y shellcheck yamllint
+          # actionlint
+          bash <(curl --proto '=https' --tlsv1.2 -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) 1.7.0
+          sudo mv actionlint /usr/local/bin/
+
+      - name: Shellcheck (errors only block)
+        run: |
+          set -eo pipefail
+          find . -type f \( -name "*.sh" -o -path "*/uci-defaults/*" \) ! -path "./.git/*" -print0 | \
+            xargs -0 -P4 shellcheck -S error -f gcc
+
+      - name: Actionlint
+        run: actionlint -color .github/workflows/*.yml
+
+      - name: Yamllint (relaxed)
+        run: yamllint -d relaxed .github/
+
+      - name: NSS .config conflict check
+        run: |
+          set -eo pipefail
+          python3 - <<'PY'
+          import sys, glob, re
+          NSS_CONFLICT = [
+              ("kmod-qca-nss-drv","kmod-nf-flow"),
+              ("kmod-qca-nss-drv","kmod-fast-classifier"),
+              ("kmod-qca-nss-drv","kmod-shortcut-fe"),
+              ("kmod-qca-nss-drv","kmod-shortcut-fe-cm"),
+              ("kmod-qca-nss-drv","sqm-scripts"),
+              ("kmod-qca-nss-drv","kmod-sched-cake"),
+          ]
+          fail = 0
+          for cfg in glob.glob("AX6-IPQ/.config*"):
+              c = {}
+              for ln in open(cfg):
+                  m = re.match(r"^CONFIG_(PACKAGE_[\w-]+)=([ymn])$", ln.strip())
+                  if m: c[m.group(1)] = m.group(2)
+              if c.get("PACKAGE_kmod-qca-nss-drv") != "y":
+                  continue
+              for a,b in NSS_CONFLICT:
+                  if c.get(f"PACKAGE_{a}")=="y" and c.get(f"PACKAGE_{b}")=="y":
+                      print(f"::error file={cfg}::CONFLICT PACKAGE_{a}=y AND PACKAGE_{b}=y")
+                      fail += 1
+          sys.exit(1 if fail else 0)
+          PY
