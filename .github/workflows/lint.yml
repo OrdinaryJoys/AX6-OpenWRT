@@ -35,7 +35,7 @@ jobs:
       - name: Yamllint (relaxed)
         run: yamllint -d relaxed .github/
 
-      - name: NSS .config conflict check
+      - name: NSS .config conflict check (merged with nss-extra)
         run: |
           set -eo pipefail
           python3 - <<'PY'
@@ -48,17 +48,36 @@ jobs:
               ("kmod-qca-nss-drv","sqm-scripts"),
               ("kmod-qca-nss-drv","kmod-sched-cake"),
           ]
-          fail = 0
-          for cfg in glob.glob("AX6-IPQ/.config*"):
+          NSS_EXTRA = "AX6-IPQ/nss-extra.config"
+          PAT_Y = re.compile(r"^CONFIG_(PACKAGE_[\w-]+)=([ymn])$")
+          PAT_N = re.compile(r"^# CONFIG_(PACKAGE_[\w-]+) is not set$")
+
+          def parse(path):
               c = {}
-              for ln in open(cfg):
-                  m = re.match(r"^CONFIG_(PACKAGE_[\w-]+)=([ymn])$", ln.strip())
-                  if m: c[m.group(1)] = m.group(2)
+              for ln in open(path):
+                  ln = ln.strip()
+                  m = PAT_Y.match(ln)
+                  if m: c[m.group(1)] = m.group(2); continue
+                  m = PAT_N.match(ln)
+                  if m: c[m.group(1)] = "n"
+              return c
+
+          extra = parse(NSS_EXTRA) if __import__("os").path.exists(NSS_EXTRA) else {}
+          fail = 0
+          for cfg in sorted(glob.glob("AX6-IPQ/.config*")):
+              if cfg == NSS_EXTRA: continue
+              c = parse(cfg)
+              # simulate workflow `cat nss-extra.config >> .config` (later wins)
+              c.update(extra)
               if c.get("PACKAGE_kmod-qca-nss-drv") != "y":
+                  print(f"::notice file={cfg}::no NSS, skip")
                   continue
               for a,b in NSS_CONFLICT:
                   if c.get(f"PACKAGE_{a}")=="y" and c.get(f"PACKAGE_{b}")=="y":
-                      print(f"::error file={cfg}::CONFLICT PACKAGE_{a}=y AND PACKAGE_{b}=y")
+                      print(f"::error file={cfg}::CONFLICT (after nss-extra merge) PACKAGE_{a}=y AND PACKAGE_{b}=y")
                       fail += 1
+              for need in ("MAC80211_NSS_REDIRECT","kmod-qca-ssdk-nohnat","kmod-qca-rfs"):
+                  if c.get(f"PACKAGE_{need}") != "y":
+                      print(f"::warning file={cfg}::missing recommended PACKAGE_{need}=y")
           sys.exit(1 if fail else 0)
           PY
