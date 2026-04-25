@@ -37,27 +37,34 @@ jobs:
 
       - name: Set variant config + brick-safety pre-flight
         id: variant
+        env:
+          VARIANT_INPUT: ${{ github.event.inputs.variant }}
         run: |
           set -eo pipefail
-          case "${{ github.event.inputs.variant }}" in
+          case "$VARIANT_INPUT" in
             stock)
-              echo "CONFIG_FILE=AX6-IPQ/.config-stock" >> "$GITHUB_ENV"
-              echo "VARIANT_TAG=STOCK" >> "$GITHUB_ENV"
+              CFG="AX6-IPQ/.config-stock"; TAG="STOCK"
               echo "::notice::Building STOCK variant — Xiaomi SMEM partitioning, 102MB rootfs, zero brick risk"
               ;;
             expand)
-              echo "CONFIG_FILE=AX6-IPQ/.config-expand" >> "$GITHUB_ENV"
-              echo "VARIANT_TAG=EXPAND" >> "$GITHUB_ENV"
+              CFG="AX6-IPQ/.config-expand"; TAG="EXPAND"
               echo "::warning::Building EXPAND variant — requires HW-modded NAND ≥256MB. DO NOT FLASH if NAND is 128MB!"
               ;;
             *)
-              echo "::error::Unknown variant: ${{ github.event.inputs.variant }}"; exit 1
+              echo "::error::Unknown variant: $VARIANT_INPUT"; exit 1
               ;;
           esac
-          # Pre-flight sanity: refuse to build if config conflicts NSS extras
+          # Export to subsequent steps via $GITHUB_ENV
+          {
+            echo "CONFIG_FILE=$CFG"
+            echo "VARIANT_TAG=$TAG"
+          } >> "$GITHUB_ENV"
+          # Pre-flight check in this step: pass CFG via local env var (NOT $GITHUB_ENV
+          # which only applies to subsequent steps)
+          export _PREFLIGHT_CFG="$CFG"
           python3 - <<'PY'
           import os, re, sys
-          cfg_path = os.environ['CONFIG_FILE']
+          cfg_path = os.environ['_PREFLIGHT_CFG']
           extra = 'AX6-IPQ/nss-extra.config'
           c = {}
           for ln in open(cfg_path).read().splitlines() + open(extra).read().splitlines():
@@ -70,7 +77,7 @@ jobs:
               for conf in ['kmod-nf-flow','kmod-fast-classifier','kmod-shortcut-fe','sqm-scripts','kmod-sched-cake']:
                   if c.get(f'PACKAGE_{conf}') == 'y':
                       print(f'::error::NSS conflict: PACKAGE_{conf}=y collides with kmod-qca-nss-drv'); sys.exit(2)
-          print('Pre-flight PASS')
+          print(f'Pre-flight PASS for {cfg_path}')
           PY
 
       - name: Free disk space
