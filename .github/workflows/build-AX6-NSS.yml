@@ -18,7 +18,7 @@ on:
         default: false
 
 env:
-  REPO_URL: https://github.com/VIKINGYFY/immortalwrt.git
+  REPO_URL: https://github.com/OrdinaryJoys/immortalwrt-nss.git
   REPO_BRANCH: main
   EXTRA_CONFIG: AX6-IPQ/nss-extra.config
   DIY_SH: AX6-IPQ/diy.sh
@@ -179,7 +179,7 @@ jobs:
           allowUpdates: true
           token: ${{ secrets.GITHUB_TOKEN }}
           body: |
-            基于 VIKINGYFY/immortalwrt 构建,带满血 NSS。
+            基于 OrdinaryJoys/immortalwrt-nss(VIKINGYFY 上游 + 本仓修复)构建,带满血 NSS。
 
             ## 🚨 硬件变体:${{ env.VARIANT_TAG }}
 
