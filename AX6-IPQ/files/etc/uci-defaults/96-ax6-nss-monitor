@@ -1,0 +1,13 @@
+#!/bin/sh
+# 装一个 cron 任务:每 30 分钟跑 nss-check,失败时写 syslog
+# 失败可在 LuCI System Log 看到
+
+mkdir -p /etc/crontabs
+LINE='*/30 * * * * /sbin/nss-check -q || logger -t nss-monitor "nss-check failed (exit=$?)"'
+if ! grep -qF '/sbin/nss-check' /etc/crontabs/root 2>/dev/null; then
+    echo "$LINE" >> /etc/crontabs/root
+fi
+/etc/init.d/cron enable >/dev/null 2>&1
+/etc/init.d/cron restart >/dev/null 2>&1
+
+exit 0

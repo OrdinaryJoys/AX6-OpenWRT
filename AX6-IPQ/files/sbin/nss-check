@@ -1,18 +1,24 @@
 #!/bin/sh
 # AX6 NSS / WiFi 健康自检工具
-# 用法:nss-check [-v]
-# 输出 PASS / FAIL,非 0 表示有问题
+# 用法:
+#   nss-check        简洁(只列 FAIL)
+#   nss-check -v     详细(全部检查)
+#   nss-check -q     静默,只输出 0/N 退出码(适合 cron)
+# 退出码 = FAIL 数
 
-VERBOSE=0
-[ "$1" = "-v" ] && VERBOSE=1
+VERBOSE=0; QUIET=0
+case "$1" in
+  -v) VERBOSE=1 ;;
+  -q) QUIET=1 ;;
+esac
 
 PASS=0; FAIL=0; WARN=0
 
-ok()   { PASS=$((PASS+1)); [ $VERBOSE -eq 1 ] && echo " ✓ $1"; }
-fail() { FAIL=$((FAIL+1)); echo " ✗ $1"; }
-warn() { WARN=$((WARN+1)); [ $VERBOSE -eq 1 ] && echo " ! $1"; }
+ok()   { PASS=$((PASS+1)); [ $VERBOSE -eq 1 ] && [ $QUIET -eq 0 ] && echo " ✓ $1"; }
+fail() { FAIL=$((FAIL+1)); [ $QUIET -eq 0 ] && echo " ✗ $1"; }
+warn() { WARN=$((WARN+1)); [ $VERBOSE -eq 1 ] && [ $QUIET -eq 0 ] && echo " ! $1"; }
 
-echo "=== AX6 NSS / WiFi 健康自检 ==="
+[ $QUIET -eq 0 ] && echo "=== AX6 NSS / WiFi 健康自检 ==="
 
 # ---- 1. RAM ----
 mem_kb=$(awk '/MemTotal/{print $2}' /proc/meminfo)
@@ -125,7 +131,9 @@ if [ -r /sys/module/ath11k/parameters/frame_mode ]; then
     esac
 fi
 
-echo ""
-echo "=== 汇总: PASS=$PASS  WARN=$WARN  FAIL=$FAIL ==="
-[ $FAIL -eq 0 ] && echo "状态: ✓ 健康" || echo "状态: ✗ 有问题,看上面 FAIL 项"
+if [ $QUIET -eq 0 ]; then
+    echo ""
+    echo "=== 汇总: PASS=$PASS  WARN=$WARN  FAIL=$FAIL ==="
+    [ $FAIL -eq 0 ] && echo "状态: ✓ 健康" || echo "状态: ✗ 有问题,看上面 FAIL 项"
+fi
 exit $FAIL

@@ -6,7 +6,7 @@ on:
 env:
   REPO_URL: https://github.com/LiBwrt-op/openwrt-6.x.git
   REPO_BRANCH: openwrt-24.10
-  CONFIG_FILE: AX6-IPQ/.config-ipq
+  CONFIG_FILE: AX6-IPQ/.config-stock
   EXTRA_CONFIG: AX6-IPQ/nss-extra.config
   DIY_SH: AX6-IPQ/diy.sh
   FILES: AX6-IPQ/files
