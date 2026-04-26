@@ -92,6 +92,20 @@ if [ -f "$NSS_NET" ]; then
   sed -i "s|uci set network.globals.packet_steering='0'|if lsmod 2>/dev/null \\| grep -q qca_nss_drv; then uci set network.globals.packet_steering='0'; else uci set network.globals.packet_steering='1'; fi|" "$NSS_NET"
 fi
 
+# (f) 跳过与 backports-6.18.7 冲突的 ath11k patches
+#     这些是 PATCH [3/3] 系列 AP_VLAN+WDS+NSS 4-addr offload — 家用普通 AP 模式不用
+#     hunk 期望旧版 dp_rx.c API,backports-6.18.7 已重构,patch -p1 拒绝
+#     068 patch 不依赖 235-003 的签名变更,删除安全
+SKIP_NSS_PATCHES="
+  package/kernel/mac80211/patches/nss/ath11k/235-003-ath11k-add-AP_VLAN-vif-support-for-WDS-offload-in-NSS-offload.patch
+"
+for p in $SKIP_NSS_PATCHES; do
+  if [ -f "$p" ]; then
+    rm -f "$p"
+    echo "[diy.sh] skipped incompatible patch: $(basename "$p")"
+  fi
+done
+
 # ----------------------------------------------------
 # AX6 硬件适配(变体感知)
 # ----------------------------------------------------
