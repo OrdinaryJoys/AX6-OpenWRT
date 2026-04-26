@@ -16,9 +16,12 @@ git_sparse_clone() {
 }
 
 # Add packages
-#添加科学上网源
-git clone --depth=1 https://github.com/xiaorouji/openwrt-passwall-packages package/openwrt-passwall-packages
-git clone --depth=1 https://github.com/xiaorouji/openwrt-passwall package/openwrt-passwall
+# 实测(2026-04):xiaorouji/openwrt-passwall* 已迁到 Openwrt-Passwall 组织
+# 旧 URL 走 GitHub redirect 仍可 git clone,但显式新名可避免未来 redirect 失效
+git clone --depth=1 https://github.com/Openwrt-Passwall/openwrt-passwall-packages.git package/openwrt-passwall-packages || \
+  { echo "[diy.sh] ERR: passwall-packages clone failed"; exit 1; }
+git clone --depth=1 https://github.com/Openwrt-Passwall/openwrt-passwall.git package/openwrt-passwall || \
+  { echo "[diy.sh] ERR: passwall clone failed"; exit 1; }
 git clone -b 18.06 --single-branch --depth 1 https://github.com/jerrykuku/luci-theme-argon package/luci-theme-argon
 git clone -b 18.06 --single-branch --depth 1 https://github.com/jerrykuku/luci-app-argon-config package/luci-app-argon-config
 #git clone --depth=1 https://github.com/sirpdboy/luci-app-ddns-go package/ddnsgo

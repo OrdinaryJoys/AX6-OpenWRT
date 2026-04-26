@@ -47,7 +47,7 @@ GitHub UI → Actions → `Build OpenWRT for AX6-NSS` → Run workflow → 选 v
 │   ├── depends-ubuntu-2204.txt    # 固化构建依赖(替代 curl|apt)
 │   └── workflows/
 │       ├── build-AX6-NSS.yml      # 主固件 (双变体输入)
-│       ├── build-AX6-IPQ.yml      # 备用:基于 LiBwrt
+│       ├── build-AX6-IPQ.yml      # 备用:基于 LiBwrt(原 LiBwrt-op 已改名)
 │       ├── build-IMM.yml          # 无 NSS,基于 official ImmortalWrt 23.05
 │       ├── build-LEDE.yml         # 基于 coolsnowwolf/lede
 │       └── lint.yml               # 增量检查 (shellcheck/actionlint/yamllint + NSS 冲突)
@@ -87,16 +87,40 @@ nss-check -v
 
 13 项检查会输出 PASS/FAIL,失败项可贴到 issue 我帮你看。
 
-## 已知项目对比
+## 关联仓库矩阵(实测可达性 + 引用关系)
+
+| 仓库 | 类型 | 我们引用 | 实测 |
+|---|---|---|---|
+| [OrdinaryJoys/immortalwrt-nss](https://github.com/OrdinaryJoys/immortalwrt-nss) | **AX6-NSS workflow 直接构建源** | branch `main` | ✓ |
+| [LiBwrt/openwrt-6.x](https://github.com/LiBwrt/openwrt-6.x) | AX6-IPQ 备用源(原 `LiBwrt-op` 已改名) | branch `openwrt-24.10` | ✓ |
+| [immortalwrt/immortalwrt](https://github.com/immortalwrt/immortalwrt) | AX6-IMM 备用源(无 NSS) | branch `openwrt-23.05` | ✓ |
+| [coolsnowwolf/lede](https://github.com/coolsnowwolf/lede) | AX6-LEDE 备用源 | branch `master` | ✓ |
+| [qosmio/nss-packages](https://github.com/qosmio/nss-packages) | OpenWrt feed (NSS 用户态包) | branch `NSS-12.5-K6.x` | ✓ |
+| [OrdinaryJoys/luci](https://github.com/OrdinaryJoys/luci) | OpenWrt feed (LuCI Web UI) | branch `master` | ✓ |
+| [VIKINGYFY/immortalwrt](https://github.com/VIKINGYFY/immortalwrt) | nss-fork 的上游(间接) | 通过 nss-fork | ✓ |
+| [Openwrt-Passwall/openwrt-passwall](https://github.com/Openwrt-Passwall/openwrt-passwall) | LEDE 科学上网包(原 `xiaorouji` 已迁移) | tip | ✓ |
+| [Openwrt-Passwall/openwrt-passwall-packages](https://github.com/Openwrt-Passwall/openwrt-passwall-packages) | LEDE 科学上网依赖 | tip | ✓ |
+| [jerrykuku/luci-theme-argon](https://github.com/jerrykuku/luci-theme-argon) | LuCI 主题 | tip / 18.06 | ✓ |
+| [jerrykuku/luci-app-argon-config](https://github.com/jerrykuku/luci-app-argon-config) | Argon 主题配置 | tip / 18.06 | ✓ |
+
+### 已 release 版本与上游 commit 的对应
+
+| Release tag | 构建源 commit (nss-fork) | qosmio nss-packages | 备注 |
+|---|---|---|---|
+| `AX6_NSS_STOCK_20260426145026` | `3138df48` | `NSS-12.5-K6.x` HEAD | **当前推荐**,首次 success build |
+| `AX6_NSS_*` 之前 (2026-04-19~25) | (legacy,直接拉 VIKINGYFY) | 同上 | 已被新 release 覆盖 |
+
+> sync-check workflow 每周一 09:00 (CST) 自动探测三个上游(VIKINGYFY、qosmio、qca-nss-dp)
+> HEAD,通过 issue 跟踪。如需手动同步:Actions → `Sync upstream check` → Run workflow。
+
+### 同行项目对比
 
 | 项目 | 优势 | 不足 |
 |---|---|---|
-| [LiBwrt-op/openwrt-6.x](https://github.com/LiBwrt-op/openwrt-6.x) | NSS 完整 | 部分版本启动失败 |
-| [VIKINGYFY/immortalwrt](https://github.com/VIKINGYFY/immortalwrt) | NSS 满血,fork 上游 | 启动脚本若干小问题(已在 fork 修复) |
-| [OrdinaryJoys/immortalwrt-nss](https://github.com/OrdinaryJoys/immortalwrt-nss) | **本仓直接构建源**,在 VIKINGYFY 之上加了 11 个 api-*.sh shebang / 删 999_auto-restart / 重写 992 NSS load / 同步 musl 修复 | — |
+| [LiBwrt/openwrt-6.x](https://github.com/LiBwrt/openwrt-6.x) | NSS 完整 | 部分版本启动失败 |
 | [JiaY-shi/openwrt](https://github.com/JiaY-shi/openwrt) | 带 NSS | 仅官方分区 |
-| [qosmio/openwrt-ipq](https://github.com/qosmio/openwrt-ipq) | NSS 数据源头 | 仅官方分区 |
-| 本仓 | NSS + 双变体 + 防变砖 + 自动检查 | — |
+| [qosmio/openwrt-ipq](https://github.com/qosmio/openwrt-ipq) | NSS 数据源头(`main-nss` 分支) | 仅官方分区 |
+| **本仓 + immortalwrt-nss** | NSS + 双变体 + 防变砖 + 自动检查 + 实测验证 | — |
 
 ## License & 致谢
 
