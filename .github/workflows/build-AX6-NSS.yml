@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Free disk space
-        uses: jlumbroso/free-disk-space@main
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be  # v1.3.1
         with:
           tool-cache: false
           android: true
@@ -115,10 +115,10 @@ jobs:
           cd openwrt
           # 幂等写入 NSS feed,并 pin 一个 commit(填一个真实 SHA 后取消注释 + 改 :=)
           sed -i '/^src-git nss_packages/d' feeds.conf.default
-          echo "src-git nss_packages https://github.com/qosmio/nss-packages.git" >> feeds.conf.default
+          echo "src-git nss_packages https://github.com/qosmio/nss-packages.git;NSS-12.5-K6.x" >> feeds.conf.default
           # 替换 luci feed
           sed -i '/^src-git luci/d' feeds.conf.default
-          echo 'src-git luci https://github.com/OrdinaryJoys/luci.git' >> feeds.conf.default
+          echo 'src-git luci https://github.com/OrdinaryJoys/luci.git;master' >> feeds.conf.default
           # 全量刷新
           ./scripts/feeds clean
           rm -rf tmp/
