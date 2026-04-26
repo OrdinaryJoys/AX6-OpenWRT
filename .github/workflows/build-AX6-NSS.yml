@@ -92,8 +92,6 @@ jobs:
           print(f'Pre-flight PASS for {cfg_path}')
           PY
 
-
-
       - name: Initialize environment
         env:
           DEBIAN_FRONTEND: noninteractive
