@@ -202,3 +202,42 @@ iw reg get | head -3                          # CN
 | 网口灯都不亮 | u-boot 损坏 | 串口救机 |
 | 启动循环 | bootcmd 错或 kernel mismatch | u-boot `setenv bootcmd ...` |
 | sysupgrade 后变砖 | 刷错变体(stock vs expand) | fastboot 刷回正确变体 |
+
+## 9. NSS 与 OpenWrt 功能不兼容清单(qosmio 官方说明)
+
+来源: https://github.com/qosmio/openwrt-ipq#important-note
+
+### ❌ 启用以下任一会破坏 NSS 加速
+
+| 功能 | LuCI 位置 | UCI 检查命令 | 必须 |
+|---|---|---|---|
+| Software flow offloading | 网络 → 防火墙 → 常规设置 | `uci get firewall.@defaults[0].flow_offloading` | **=0** |
+| Hardware flow offloading | 同上 | `uci get firewall.@defaults[0].flow_offloading_hw` | **=0** |
+| Packet steering | 网络 → 接口 → 常规设置 | `uci get network.globals.packet_steering` | **=0**(NSS 加载时,失败时回 1) |
+| **Bridge VLAN filtering**(DSA 语法)| LuCI Network → Devices → bridge → bridge VLAN tab | `uci show network \| grep bridge-vlan` | **不能有** |
+
+**Bridge VLAN filtering** 特别注意:
+- ❌ 错误用法(会断 NSS):`config bridge-vlan` + `list ports 'lan1:u*'`
+- ✅ 正确用法:用 `config device` 加 `option type 'bridge'` + 单独 vlan 接口 `lan1.20`
+- 详见 https://github.com/qosmio/openwrt-ipq/blob/main-nss/nss-setup/example/README.md
+
+### ⚠️ NSS Firmware 12.5 不支持的功能(用 11.4 才支持)
+
+| 功能 | 12.5 | 11.4 |
+|---|---|---|
+| 普通 NAT/PPPOE/L2TP/PPTP/GRE/Bridge/VLAN | ✅ | ✅ |
+| 802.11s mesh | ❌ | ✅ |
+| WDS bridging | ❌ | ✅ |
+| AP_VLAN 4-addr | ⚠️ broken in ath11k | ⚠️ broken in ath11k |
+
+家用单 AP **不需要** mesh / WDS / AP_VLAN,12.5 firmware 性能更优。
+
+### ❌ NSS firmware 11.4-12.5 都不支持的(无论选哪个版本)
+
+- IPSEC offload(VPN 走 CPU,不影响功能但占 CPU)
+- CAPWAP(企业 AP 协议)
+- TLS / DTLS offload
+- PVXLAN
+- CLMAP
+
+这些不用就是了,不影响普通家用。
