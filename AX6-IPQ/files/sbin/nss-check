@@ -139,6 +139,40 @@ if [ -r /sys/module/ath11k/parameters/frame_mode ]; then
     esac
 fi
 
+# ---- 14. VLAN 配置兼容性(qosmio 强制要求)----
+# bridge_vlan_filtering 与 NSS WiFi 不兼容 — 应该 unset 或 =0
+vf_violation=0
+for d in $(uci -q show network 2>/dev/null | awk -F'[.=]' '/=device$/{print $2}'); do
+    if [ "$(uci -q get network.${d}.vlan_filtering)" = "1" ]; then
+        fail "network.$d.vlan_filtering=1 与 NSS 不兼容!运行: uci del network.$d.vlan_filtering && uci commit network && reboot"
+        vf_violation=1
+    fi
+done
+if [ $vf_violation -eq 0 ]; then
+    ok "无 bridge_vlan_filtering=1 (NSS 兼容)"
+fi
+
+# bridge-vlan 段不应存在
+if uci -q show network 2>/dev/null | grep -q '=bridge-vlan'; then
+    fail "/etc/config/network 中存在 'bridge-vlan' 段(DSA 语法,与 NSS 不兼容);改用 8021q 子接口 vlan-add"
+else
+    ok "无 'bridge-vlan' 段配置 (NSS 兼容)"
+fi
+
+# 8021q kmod 加载
+if lsmod | grep -q "^8021q "; then
+    ok "kmod-8021q 已加载(VLAN tagging 可用)"
+else
+    warn "kmod-8021q 未加载;如需 VLAN 用 'modprobe 8021q' 或 'vlan-add' 助手"
+fi
+
+# qca-nss-drv-vlan-mgr 加载
+if lsmod | grep -q "^qca_nss_vlan_mgr "; then
+    ok "qca-nss-drv-vlan-mgr 已加载(NSS VLAN 卸载就绪)"
+else
+    warn "qca-nss-drv-vlan-mgr 未加载;无 VLAN 时无影响"
+fi
+
 if [ $QUIET -eq 0 ]; then
     echo ""
     echo "=== 汇总: PASS=$PASS  WARN=$WARN  FAIL=$FAIL ==="

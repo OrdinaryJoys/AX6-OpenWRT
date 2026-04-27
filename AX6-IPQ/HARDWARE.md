@@ -241,3 +241,89 @@ iw reg get | head -3                          # CN
 - CLMAP
 
 这些不用就是了,不影响普通家用。
+
+## 10. NSS-兼容的 VLAN 设置(完整支持)
+
+### 核心规则
+
+NSS 与 OpenWrt 的 **DSA bridge VLAN filtering** 不兼容(会断 WiFi NSS offload),
+必须用经典 **8021q 子接口**(如 `lan1.40`)+ 独立 bridge 实现 VLAN。
+
+### ✅ 自动防御
+
+本固件每次 boot 自动跑 `/etc/uci-defaults/95-ax6-nss-vlan-guard`:
+- 删除任何 `option vlan_filtering '1'`(LuCI 不小心打开过会被清掉)
+- 删除 `config bridge-vlan` 段(DSA 语法,清掉)
+
+清理动作会写到 syslog: `logread | grep nss-vlan-guard`
+
+### 🛠️ 命令行助手 `vlan-add`
+
+```bash
+# 添加 IoT VLAN 40,网关 192.168.40.1/24,在 lan1 lan2 上 tag
+ssh root@192.168.5.1
+vlan-add 40 iot 192.168.40.1/24 lan1 lan2
+
+# 添加访客 VLAN 30,所有 LAN 口
+vlan-add 30 guest 192.168.30.1/24 lan1 lan2 lan3 lan4
+
+# 不带 ports 参数 = 默认所有 4 个 LAN
+vlan-add 50 office 192.168.50.1/24
+```
+
+执行后会自动:
+- 创建 `br-iot` bridge,用 `lan1.40 lan2.40` 作为 tagged port
+- 创建 `interface iot` 静态 IP
+
+后续仍需手动加 firewall zone / DHCP / WiFi(脚本会提示具体 UCI 段落)。
+
+### 📐 LuCI Web 操作步骤(等价手动)
+
+1. **网络 → 接口**:不要在 device 上勾选 "VLAN filtering"!如果勾了赶紧取消
+2. **网络 → 设备 → 添加桥接设备**:
+   - 名称: `br-iot`
+   - 桥接接口: 留空(下一步加 vlan 子接口)
+3. **网络 → 设备 → 编辑 lan1**(或物理口):**不要**改"网桥 VLAN 过滤"
+4. **网络 → 接口 → 添加新接口**:
+   - 名称: `iot`
+   - 协议: 静态地址
+   - 设备: 自定义,填 `lan1.40`(关键!`.40` 是 8021q tag)
+   - IP: 192.168.40.1/24
+5. (如要多端口)在第 4 步前先创建 br-iot 包含 lan1.40 + lan2.40
+6. **防火墙 → 新建 Zone** 把 iot 网络拉进去,转发到 wan
+7. **DHCP**:启用 iot 接口的 DHCP
+
+### 🔬 验证 NSS VLAN offload 工作
+
+```bash
+# 1. VLAN manager 内核模块加载
+lsmod | grep qca_nss_vlan_mgr
+# 期望:qca_nss_vlan_mgr 32768 0
+
+# 2. NSS 连接表带 VLAN 信息(跑流量后)
+cat /sys/kernel/debug/ecm/ecm_db/connection_count_simple
+# 期望 > 0
+
+# 3. NSS VLAN debugfs(若内核暴露)
+ls /sys/kernel/debug/qca-nss-drv/vlan/  2>/dev/null
+```
+
+### ❌ 错误用法(会断 NSS WiFi 加速)
+
+绝对不要做:
+```
+config device
+    option type 'bridge'
+    option name 'br-lan'
+    option vlan_filtering '1'    ← 错!
+config bridge-vlan
+    option vlan '20'
+    list ports 'lan1:t'           ← 错!
+```
+
+DSA 语法 = bridge_vlan_filtering = 与 NSS 不兼容。**95-ax6-nss-vlan-guard 会自动清掉**,你勾了 LuCI 也无效(下次 boot 被回滚)。
+
+### 完整 VLAN 范例(network/wireless/firewall)
+
+参考 qosmio 官方:
+https://github.com/qosmio/openwrt-ipq/blob/main-nss/nss-setup/example/README.md#vlan

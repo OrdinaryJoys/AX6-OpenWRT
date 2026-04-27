@@ -1,0 +1,135 @@
+#!/bin/sh
+# NSS-兼容 VLAN 配置助手
+# 用法: vlan-add <vlan-id> <name> <ipaddr/cidr> [port1 port2 ...]
+#
+# 示例(添加 IoT VLAN 40,网关 192.168.40.1/24,在 lan1 lan2 上 tag):
+#   vlan-add 40 iot 192.168.40.1/24 lan1 lan2
+#
+# 添加访客 VLAN 30,在所有 LAN 口:
+#   vlan-add 30 guest 192.168.30.1/24 lan1 lan2 lan3 lan4
+#
+# 这个脚本会:
+#   1. 创建 br-{name} bridge,添加 lan{N}.{vid} tagged 子接口
+#   2. 创建 interface {name},static ip
+#   3. 提示用户去 LuCI 配 firewall + DHCP + WiFi
+#
+# 这是 qosmio NSS 推荐的 8021q 子接口方式,不是 bridge_vlan_filtering
+
+usage() {
+    cat <<EOF
+Usage: $0 <vlan-id> <name> <ip/cidr> [port1 port2 ...]
+
+NSS-compatible VLAN setup using 802.1q sub-interfaces.
+
+Arguments:
+  vlan-id   2-4094 (1 reserved for primary lan)
+  name      lowercase, [a-z][a-z0-9-]*  e.g. 'guest', 'iot', 'office'
+  ip/cidr   gateway address, e.g. 192.168.40.1/24
+  port      lan1 / lan2 / lan3 / lan4 (default: all 4)
+
+Example:
+  $0 40 iot 192.168.40.1/24 lan1 lan2
+
+Will then prompt you to add firewall zone, DHCP, and WiFi SSID.
+EOF
+    exit 1
+}
+
+[ $# -lt 3 ] && usage
+
+VID="$1"
+NAME="$2"
+IPADDR="$3"
+shift 3
+PORTS="${*:-lan1 lan2 lan3 lan4}"
+
+# 校验
+case "$VID" in
+    ''|*[!0-9]*) echo "error: vlan-id must be numeric"; exit 2 ;;
+esac
+[ "$VID" -ge 2 ] && [ "$VID" -le 4094 ] || { echo "error: vlan-id must be 2-4094 (1 is primary lan)"; exit 2; }
+echo "$NAME" | grep -Eq '^[a-z][a-z0-9-]*$' || { echo "error: name must match [a-z][a-z0-9-]*"; exit 2; }
+echo "$IPADDR" | grep -Eq '^[0-9.]+/[0-9]+$' || { echo "error: ip must be CIDR e.g. 192.168.40.1/24"; exit 2; }
+
+# 防御:bridge_vlan_filtering 必须关
+for d in $(uci -q show network | awk -F'[.=]' '/=device$/{print $2}'); do
+    if [ "$(uci -q get network.${d}.vlan_filtering)" = "1" ]; then
+        echo "ERROR: network.$d.vlan_filtering=1 is enabled — incompatible with NSS WiFi."
+        echo "       Run: uci del network.$d.vlan_filtering && uci commit network"
+        exit 3
+    fi
+done
+
+# 检查名字未占用
+if uci -q get "network.$NAME" >/dev/null 2>&1; then
+    echo "error: interface 'network.$NAME' already exists"
+    exit 4
+fi
+
+# 构造 ports 列表
+PORT_LIST=""
+for p in $PORTS; do
+    case "$p" in
+        lan1|lan2|lan3|lan4) PORT_LIST="$PORT_LIST $p.$VID" ;;
+        *) echo "error: invalid port '$p' (use lan1/lan2/lan3/lan4)"; exit 5 ;;
+    esac
+done
+
+echo "Adding VLAN $VID '$NAME' on:$PORT_LIST"
+echo "  br-$NAME → $IPADDR"
+
+# 1. bridge device
+uci -q batch <<EOF
+set network.br_$NAME=device
+set network.br_$NAME.type=bridge
+set network.br_$NAME.name=br-$NAME
+set network.br_$NAME.bridge_empty=1
+EOF
+for p in $PORT_LIST; do
+    uci -q add_list "network.br_$NAME.ports=$p"
+done
+
+# 2. interface
+IP=$(echo "$IPADDR" | cut -d'/' -f1)
+MASK_BITS=$(echo "$IPADDR" | cut -d'/' -f2)
+uci -q batch <<EOF
+set network.$NAME=interface
+set network.$NAME.proto=static
+set network.$NAME.device=br-$NAME
+set network.$NAME.ipaddr=$IP
+set network.$NAME.netmask=$(awk "BEGIN{m=4294967295-2^(32-$MASK_BITS)+1;for(i=3;i>=0;i--){printf \"%d%s\",int(m/2^(8*i))%256,(i?\".\":\"\")}}")
+EOF
+
+uci commit network
+
+cat <<EOF
+
+✓ VLAN $VID '$NAME' added.
+
+Next steps (manual):
+  1. Add a firewall zone for '$NAME' in /etc/config/firewall:
+       config zone
+           option name '$NAME'
+           option input 'ACCEPT'
+           option output 'ACCEPT'
+           option forward 'REJECT'
+           list network '$NAME'
+       config forwarding
+           option src '$NAME'
+           option dest 'wan'
+
+  2. Enable DHCP for the new interface in /etc/config/dhcp:
+       config dhcp '$NAME'
+           option interface '$NAME'
+           option start '100'
+           option limit '150'
+           option leasetime '12h'
+
+  3. (optional) Add a WiFi SSID for this VLAN, point to network='$NAME'
+
+  4. Apply: /etc/init.d/network reload && /etc/init.d/firewall restart && /etc/init.d/dnsmasq restart
+
+  5. Verify NSS VLAN offload is working (after some traffic):
+       cat /sys/kernel/debug/qca-nss-drv/vlan/info  2>/dev/null
+
+EOF
