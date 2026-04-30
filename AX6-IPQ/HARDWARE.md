@@ -17,7 +17,7 @@ NSS:         qca-nss-drv + qca-nss-dp + qca-nss-ecm
 | 变体 | 适用硬件 | rootfs 容量 | 选哪个? | 变砖风险 |
 |---|---|---|---|---|
 | **STOCK** | 标准 1G+128M(出厂) | ~102 MB(SMEM 给的) | **绝大多数人选这个** | **0%** |
-| **EXPAND** | 1G+256M(改 NAND 颗粒后) | ~210 MB(DT 写死)| 只有亲手换过 NAND 才能选 | **极高**(刷错变砖)|
+| **EXPAND** | 1G+256M(改 NAND 颗粒后) | ~192 MB(DT 写死,留 18MB UBI 坏块 reserve)| 只有亲手换过 NAND 才能选 | **极高**(刷错变砖)|
 
 ### 怎么知道我是哪种?
 
@@ -25,7 +25,7 @@ NSS:         qca-nss-drv + qca-nss-dp + qca-nss-ecm
 # 已经能进 OpenWrt 的话
 ssh root@192.168.5.1 'cat /proc/mtd | grep rootfs'
 # 输出 mtd12: 06640000 → 102MB,是 STOCK
-# 输出 mtd12: 0d240000 → 210MB,是 EXPAND
+# 输出 mtd12: 0C000000 → 192MB,是 EXPAND
 ```
 
 如果不能进系统 / 不知道:**默认选 STOCK,不要冒险**。
@@ -35,7 +35,7 @@ ssh root@192.168.5.1 'cat /proc/mtd | grep rootfs'
 只有同时满足以下全部条件才能选 EXPAND:
 
 - [ ] 你**亲手或店家换过** NAND 芯片(从 128MB 颗粒改到 ≥256MB 颗粒)
-- [ ] 设备能进 ImmortalWrt SSH,`cat /proc/mtd` 看到 mtd12 ≥ 0x0d240000
+- [ ] 设备能进 ImmortalWrt SSH,`cat /proc/mtd` 看到 mtd12 ≥ 0x0C000000
 - [ ] 你有 USB-TTL 串口和 fastboot 救机经验
 - [ ] 你能接受刷错变砖的 1% 概率
 

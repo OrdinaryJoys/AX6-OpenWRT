@@ -40,7 +40,7 @@ fi
 mtd12_size=$(awk -F'[: ]+' '/^mtd12:/{print $2}' /proc/mtd)
 case "$mtd12_size" in
     06640000) ok "NAND rootfs: 102 MiB (stock layout)" ;;
-    0d240000) ok "NAND rootfs: 210 MiB (expand layout, modded NAND)" ;;
+    0[Cc]000000) ok "NAND rootfs: 192 MiB (expand layout, modded NAND)" ;;
     *) warn "NAND rootfs size 0x${mtd12_size} — 非典型" ;;
 esac
 

@@ -150,6 +150,28 @@ jobs:
         run: |
           set -eo pipefail
           make defconfig
+          # post-defconfig: 检查 make defconfig 是否重新启用了与 NSS 冲突的包
+          python3 - <<'PY'
+          import re, sys
+          conflicts = {c: False for c in [
+              "kmod-nf-flow", "kmod-ipt-offload", "kmod-fast-classifier",
+              "kmod-shortcut-fe", "kmod-shortcut-fe-cm"
+          ]}
+          has_nss = False
+          for ln in open(".config"):
+              ln = ln.strip()
+              if ln == "CONFIG_PACKAGE_kmod-qca-nss-drv=y":
+                  has_nss = True
+              for c in conflicts:
+                  if ln == f"CONFIG_PACKAGE_{c}=y":
+                      conflicts[c] = True
+          if has_nss:
+              for c, v in conflicts.items():
+                  if v:
+                      print(f"::error::make defconfig re-enabled PACKAGE_{c}=y — conflicts with NSS!")
+                      sys.exit(2)
+          print("Post-defconfig NSS check: PASS")
+          PY
           make download -j8
           find dl -size -1024c -exec ls -l {} \;
           find dl -size -1024c -exec rm -f {} \;
@@ -201,7 +223,7 @@ jobs:
             **不知道是哪个 → 选 STOCK**。
             刷 EXPAND 前必须确认:
             1. 已用烙铁/热风枪换过 NAND 颗粒
-            2. SSH 进入设备 `cat /proc/mtd` 看 mtd12 size 是否 ≥ 0x0d240000
+            2. SSH 进入设备 `cat /proc/mtd` 看 mtd12 size 是否 ≥ 0x0C000000
 
             ## 默认登录
             - 管理 IP: 192.168.5.1

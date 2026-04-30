@@ -119,9 +119,9 @@ if [ -f "$AX6_DTS" ]; then
   # 通过 .config 中的 CONFIG_TARGET_PROFILE 检测构建变体
   if [ -f .config ] && grep -q '^CONFIG_TARGET_PROFILE="DEVICE_redmi_ax6"$' .config; then
     echo "[diy.sh] Expanded variant detected (256MB NAND assumed) — patching rootfs reg"
-    # 0x2dc0000 + 0xd240000 = 0xfffffff < 256MiB(0x10000000):安全
-    sed -i 's|reg = <0x2dc0000 0x5220000>;|reg = <0x2dc0000 0xd240000>;  /* AX6-build: expanded for 256MiB NAND, rootfs 210 MiB */|' "$AX6_DTS"
-    sed -i 's|reg = <0x02dc0000 0x05220000>;|reg = <0x02dc0000 0x0d240000>;  /* AX6-build: expanded 256MiB NAND, rootfs 210 MiB */|' "$AX6_DTS"
+    # 0x2dc0000 + 0xC000000 = 0xEDC0000, ~18 MiB reserve for UBI bad blocks
+    sed -i 's|reg = <0x2dc0000 0x5220000>;|reg = <0x2dc0000 0xC000000>;  /* AX6-build: expanded for 256MiB NAND, rootfs 192 MiB, 18 MiB UBI reserve */|' "$AX6_DTS"
+    sed -i 's|reg = <0x02dc0000 0x05220000>;|reg = <0x02dc0000 0x0C000000>;  /* AX6-build: expanded 256MiB NAND, rootfs 192 MiB, 18 MiB UBI reserve */|' "$AX6_DTS"
   else
     echo "[diy.sh] Stock variant — DT partition layout untouched (Xiaomi SMEM)"
   fi
@@ -160,11 +160,11 @@ sed -i 's/192.168.1.1/192.168.5.1/g' package/base-files/files/bin/config_generat
 #修改主机名
 #sed -i "s/hostname='ImmortalWrt'/hostname='Redmi-AX6'/g" package/base-files/files/bin/config_generate
 
-chmod +x $GITHUB_WORKSPACE/openwrt/files/etc/uci-defaults/* 2>/dev/null
-chmod +x $GITHUB_WORKSPACE/openwrt/files/etc/init.d/* 2>/dev/null
-chmod +x $GITHUB_WORKSPACE/openwrt/files/sbin/* 2>/dev/null
-chmod +x $GITHUB_WORKSPACE/openwrt/files/etc/hotplug.d/*/*  2>/dev/null
+chmod +x ./files/etc/uci-defaults/* 2>/dev/null
+chmod +x ./files/etc/init.d/* 2>/dev/null
+chmod +x ./files/sbin/* 2>/dev/null
+chmod +x ./files/etc/hotplug.d/*/* 2>/dev/null
 
 # 启用 IRQ 亲和性服务(开机自动)
-mkdir -p $GITHUB_WORKSPACE/openwrt/files/etc/rc.d
-( cd $GITHUB_WORKSPACE/openwrt/files/etc/rc.d && ln -sf ../init.d/ax6-irq-affinity S92ax6-irq-affinity 2>/dev/null )
+mkdir -p ./files/etc/rc.d
+( cd ./files/etc/rc.d && ln -sf ../init.d/ax6-irq-affinity S92ax6-irq-affinity 2>/dev/null )
