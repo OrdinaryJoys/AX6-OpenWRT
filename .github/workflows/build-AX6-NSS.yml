@@ -154,7 +154,7 @@ jobs:
           python3 - <<'PY'
           import re, sys
           conflicts = {c: False for c in [
-              "kmod-nf-flow", "kmod-ipt-offload", "kmod-fast-classifier",
+              "kmod-nf-flow", "kmod-ipt-offload", "kmod-nft-offload", "kmod-fast-classifier",
               "kmod-shortcut-fe", "kmod-shortcut-fe-cm"
           ]}
           has_nss = False
