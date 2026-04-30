@@ -1,32 +1,42 @@
 #!/bin/sh
-# AX6 NSS VLAN Guard — 移除 bridge_vlan_filtering(与 NSS WiFi 不兼容)
+# AX6 NSS VLAN Guard — 强制禁用 bridge_vlan_filtering (与 NSS WiFi 卸载不兼容)
+#
+# NSS WiFi offload 数据路径不处理 802.1Q tag 的内核 bridge VLAN 逻辑。
+# 必须通过 8021q 子接口 (e.g. lan1.20) 实现 VLAN,tag 在入口就被剥离,
+# NSS 处理的是 untagged 帧。
+#
 # 来源: https://github.com/qosmio/openwrt-ipq/blob/main-nss/nss-setup/example/README.md
-#
-# 生效场景:首次启动 / sysupgrade 后,清理可能被带过来的旧配置
-#
-# NSS 用户**必须**用 8021q 子接口(lan1.20)实现 VLAN,
-# 不能用 DSA bridge_vlan_filtering / `config bridge-vlan` / 端口 'lan1:u*' 标签
 
 CHANGED=0
 
-# 清除所有 device 的 vlan_filtering=1
+# 1. 所有 bridge device 显式禁用 vlan_filtering (=0 比删除更安全:防止默认值回勾)
 for d in $(uci -q show network 2>/dev/null | awk -F'[.=]' '/=device$/{print $2}'); do
-    cur=$(uci -q get network.${d}.vlan_filtering)
+    cur=$(uci -q get "network.${d}.vlan_filtering")
     if [ "$cur" = "1" ]; then
-        uci -q delete network.${d}.vlan_filtering
+        uci -q set "network.${d}.vlan_filtering=0"
         CHANGED=1
-        logger -t nss-vlan-guard "Disabled vlan_filtering on network.$d (incompatible with NSS WiFi)"
+        logger -t nss-vlan-guard "Disabled vlan_filtering on network.$d (incompatible with NSS WiFi offload)"
     fi
 done
 
-# 删除任何 bridge-vlan 段(DSA 语法,与 NSS 不兼容)
+# 2. 删除任何 bridge-vlan 段 (DSA 语法,与 NSS 完全不兼容)
 while uci -q show network 2>/dev/null | grep -q '=bridge-vlan'; do
     section=$(uci -q show network 2>/dev/null | awk -F'[.=]' '/=bridge-vlan/{print $2; exit}')
     [ -z "$section" ] && break
-    uci -q delete network.${section}
+    uci -q delete "network.${section}"
     CHANGED=1
-    logger -t nss-vlan-guard "Removed bridge-vlan section network.$section (incompatible with NSS WiFi)"
+    logger -t nss-vlan-guard "Removed bridge-vlan section network.$section (DSA bridge-vlan incompatible with NSS)"
 done
+
+# 3. 移除 br-lan 上的 bridge_vlan_filtering kernel flag (bridge vlan_filtering
+#    可能在 device section 之外被 brctl/ip link 直接设置)
+if [ -d /sys/class/net/br-lan/bridge ]; then
+    if [ "$(cat /sys/class/net/br-lan/bridge/vlan_filtering 2>/dev/null)" = "1" ]; then
+        echo 0 > /sys/class/net/br-lan/bridge/vlan_filtering 2>/dev/null || true
+        [ $CHANGED -eq 0 ] && CHANGED=1
+        logger -t nss-vlan-guard "Forced vlan_filtering=0 on br-lan (kernel level)"
+    fi
+fi
 
 if [ "$CHANGED" = "1" ]; then
     uci commit network

@@ -84,6 +84,7 @@ set network.br_$NAME=device
 set network.br_$NAME.type=bridge
 set network.br_$NAME.name=br-$NAME
 set network.br_$NAME.bridge_empty=1
+set network.br_$NAME.vlan_filtering=0
 EOF
 for p in $PORT_LIST; do
     uci -q add_list "network.br_$NAME.ports=$p"
