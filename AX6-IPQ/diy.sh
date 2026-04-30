@@ -47,6 +47,18 @@ if [ -f "$NSS_FW_MK" ] && ! grep -q "PKG_MIRROR_HASH:=skip" "$NSS_FW_MK"; then
 fi
 
 # ----------------------------------------------------
+# 切断 firewall4→kmod-nft-offload→kmod-nf-flow 依赖链
+# NSS 通过 kmod-qca-nss-nft 提供硬件卸载,kmod-nft-offload 多余且其
+# 依赖的 kmod-nf-flow 与 NSS ECM 互斥。make defconfig 会通过 Kconfig
+# +select 强制拉回 =y,唯有从源头上移除 DEPENDS 才能彻底阻断。
+# ----------------------------------------------------
+FW4_MK="package/network/config/firewall4/Makefile"
+if [ -f "$FW4_MK" ] && grep -q '^CONFIG_PACKAGE_kmod-qca-nss-drv=y' .config 2>/dev/null; then
+  sed -i 's/+kmod-nft-offload //' "$FW4_MK"
+  echo "[diy.sh] Removed +kmod-nft-offload from firewall4 DEPENDS (NSS provides offload)"
+fi
+
+# ----------------------------------------------------
 # NSS fork 自定义脚本修复 (针对 immortalwrt-nss / VIKINGYFY 上游问题)
 # ----------------------------------------------------
 
