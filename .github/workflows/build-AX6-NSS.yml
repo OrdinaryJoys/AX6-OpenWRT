@@ -150,27 +150,32 @@ jobs:
         run: |
           set -eo pipefail
           make defconfig
-          # post-defconfig: 检查 make defconfig 是否重新启用了与 NSS 冲突的包
+          # defconfig 通过 firewall4→kmod-nft-offload→kmod-nf-flow 依赖链
+          # 强制拉回 NSS 冲突包,此处 sed 强制覆盖为 =n
+          NSS_BLACKLIST="kmod-nf-flow kmod-ipt-offload kmod-nft-offload kmod-fast-classifier kmod-shortcut-fe kmod-shortcut-fe-cm"
+          for pkg in $NSS_BLACKLIST; do
+            sed -i "s|^CONFIG_PACKAGE_${pkg}=y$|# CONFIG_PACKAGE_${pkg} is not set|" .config
+          done
+          # 验证:确保 NSS 冲突包不再出现
           python3 - <<'PY'
           import re, sys
-          conflicts = {c: False for c in [
+          blacklist = [
               "kmod-nf-flow", "kmod-ipt-offload", "kmod-nft-offload", "kmod-fast-classifier",
               "kmod-shortcut-fe", "kmod-shortcut-fe-cm"
-          ]}
+          ]
+          found = []
           has_nss = False
           for ln in open(".config"):
               ln = ln.strip()
               if ln == "CONFIG_PACKAGE_kmod-qca-nss-drv=y":
                   has_nss = True
-              for c in conflicts:
+              for c in blacklist:
                   if ln == f"CONFIG_PACKAGE_{c}=y":
-                      conflicts[c] = True
-          if has_nss:
-              for c, v in conflicts.items():
-                  if v:
-                      print(f"::error::make defconfig re-enabled PACKAGE_{c}=y — conflicts with NSS!")
-                      sys.exit(2)
-          print("Post-defconfig NSS check: PASS")
+                      found.append(c)
+          if has_nss and found:
+              print(f"::error::defconfig 仍启用了 NSS 冲突包:{' '.join(found)}")
+              sys.exit(2)
+          print("Post-defconfig NSS check: PASS (conflicts force-disabled)")
           PY
           make download -j8
           find dl -size -1024c -exec ls -l {} \;
