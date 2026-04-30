@@ -75,19 +75,15 @@ fi
 #     uci-defaults 阶段重启 network/odhcpd/rpcd 易死锁,procd 后续会自然装载。
 rm -f target/linux/qualcommax/base-files/etc/uci-defaults/999_auto-restart.sh
 
-# (c) 修 992_set-nss-load.sh:sed 正则不再贪婪 + sysctl 改为 sysctl.d
+# (c) 修 992_set-nss-load.sh:sed 正则不再贪婪
+#     clock lock 已由上游 97-nss-clock-scale.conf 提供,此处不重复
 NSS_LOAD="target/linux/qualcommax/base-files/etc/uci-defaults/992_set-nss-load.sh"
 if [ -f "$NSS_LOAD" ]; then
   cat > "$NSS_LOAD" <<'EOF'
 #!/bin/sh
-# AX6-build: 修正后的 NSS 启动调优
+# AX6-build: 修正后的 NSS 启动调优 (非贪婪 sed)
 FILE="/usr/share/rpcd/ucode/luci"
 [ -f "$FILE" ] && sed -i "s#popen('top -n1[^']*')#popen('/sbin/cpuusage')#" "$FILE"
-
-# 持久化到 sysctl.d,由 procd-sysctl 在合适时机应用
-mkdir -p /etc/sysctl.d
-echo 'dev.nss.clock.auto_scale = 0' > /etc/sysctl.d/97-nss-lock-clock.conf
-
 exit 0
 EOF
 fi

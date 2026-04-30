@@ -11,9 +11,9 @@ set_aff() {
 apply() {
     # 4 核 IPQ8074(避免 NSS UBI 与 wifi 抢同核):
     #   CPU0 (0x1)  系统 / kthreads
-    #   CPU1 (0x2)  eth / dp ethernet  (中频)
+    #   CPU1 (0x2)  eth/dp + wifi1 (2.4G)
     #   CPU2 (0x4)  wifi0 (5G,大流量)
-    #   CPU3 (0x8)  NSS UBI doorbell + wifi1 (2.4G,小流量)
+    #   CPU3 (0x8)  NSS UBI doorbell / 固件事件(独占核)
     # NSS 内核 thread 自带绑核,不受这里影响
     while IFS=: read -r irq rest; do
         irq=$(echo "$irq" | tr -d ' ')
