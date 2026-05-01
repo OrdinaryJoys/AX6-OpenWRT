@@ -34,17 +34,9 @@ git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config package/l
 
 
 # ----------------------------------------------------
-# NSS 固件哈希值修复 (供应链安全:不再删除 PKG_MIRROR_HASH)
+# NSS 固件哈希值 — 保留校验,不跳过
+# feed 已 pin commit,固件应可重复下载,若哈希不匹配则表明下载损坏
 # ----------------------------------------------------
-# 旧做法 sed -i '/PKG_MIRROR_HASH/d' 等于关闭完整性校验,有供应链劫持风险。
-# 新做法:让构建在哈希不匹配时直接重算并继续(NO_MIRROR=1 + 跳过 mirror)。
-NSS_FW_MK="feeds/nss_packages/firmware/nss-firmware/Makefile"
-if [ -f "$NSS_FW_MK" ] && ! grep -q "PKG_MIRROR_HASH:=skip" "$NSS_FW_MK"; then
-  # 仅注释 hash 检查,保留可见的原始值便于审计;不直接删除
-  sed -i 's|^PKG_MIRROR_HASH:=|# AX6-build: skip-hash-check (was) PKG_MIRROR_HASH:=|' "$NSS_FW_MK"
-  # 同时改为不走 mirror,直接 git 拉源(已 pin commit)
-  echo "PKG_MIRROR_HASH:=skip" >> "$NSS_FW_MK"
-fi
 
 # ----------------------------------------------------
 # 切断 firewall4→kmod-nft-offload→kmod-nf-flow 依赖链
@@ -120,8 +112,10 @@ fi
 # 共用:1GB RAM 时 ath11k 用完整 (mode=0)
 AX6_DTS="target/linux/qualcommax/dts/ipq8071-ax6.dts"
 if [ -f "$AX6_DTS" ]; then
-  # ath11k 完整模式 (1GB RAM 才安全;低于 700MB 启动时驱动会拒绝)
-  sed -i 's|qcom,ath11k-fw-memory-mode[ \t]*=[ \t]*<1>;|qcom,ath11k-fw-memory-mode = <0>;  /* AX6: 1GB RAM, full ath11k */|' "$AX6_DTS"
+  # ath11k 保持 MID 模式 (<1>=16MB/radio, ~32MB total)
+  # 不改为 FULL (<0>) — FULL 需要 ~100MB DMA 连续内存,
+  # CMA 不足时固件加载失败会导致内核 panic + 看门狗重启
+  # 如需启用 FULL 模式,先确认 CMA 池 >= 128MB
 
   # Expanded 变体:256MiB NAND 才能用,扩 rootfs 到 ~210 MiB
   # 通过 .config 中的 CONFIG_TARGET_PROFILE 检测构建变体
