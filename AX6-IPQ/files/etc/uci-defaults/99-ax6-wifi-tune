@@ -21,8 +21,8 @@ for radio in $RADIOS; do
     # 通用:国家、TX power 顶满
     # ==========================================================
     uci -q set wireless.${radio}.country="$COUNTRY"
-    uci -q delete wireless.${radio}.txpower      # 让驱动按 regdom 顶到上限
-    uci -q delete wireless.${radio}.disabled
+    uci -q delete wireless.${radio}.txpower || true     # 让驱动按 regdom 顶到上限
+    uci -q delete wireless.${radio}.disabled || true
     uci -q set wireless.${radio}.disabled='0'
 
     # cell_density=0 = sparse / 覆盖优先(信号最强,远端不掉线)
