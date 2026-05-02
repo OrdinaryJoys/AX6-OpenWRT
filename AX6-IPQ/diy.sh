@@ -92,9 +92,8 @@ if [ -f "$NSS_NET" ]; then
   sed -i "s|uci set network.globals.packet_steering='0'|if lsmod 2>/dev/null \\| grep -q qca_nss_drv; then uci set network.globals.packet_steering='0'; else uci set network.globals.packet_steering='1'; fi|" "$NSS_NET"
 fi
 
-# (f) [removed] 235-003 skip — nss-fork main 已用 qosmio main-nss 的整套
-#     mac80211 patches 替换,整个 253 个 patches 在 backports-6.18.7 上
-#     已实测 100% 应用通过,不再需要运行时跳过任何 patch。
+# (f) [removed] 235-003 skip — 使用 VIKINGYFY 6.18 基线 + nss-packages-618
+#     NSS mac80211 patches 已由上游维护,不再需要运行时跳过任何 patch。
 
 # ----------------------------------------------------
 # AX6 硬件适配(变体感知)
