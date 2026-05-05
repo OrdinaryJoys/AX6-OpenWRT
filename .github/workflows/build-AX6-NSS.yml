@@ -124,6 +124,11 @@ jobs:
           rm -rf tmp/
           ./scripts/feeds update -a
           ./scripts/feeds install -a
+          # 修复: 内核 6.18 无条件添加 -Werror=missing-prototypes,
+          # 模块的 -Wno-missing-prototypes 无法覆盖 (KBUILD_CFLAGS 在 EXTRA_CFLAGS 之后),
+          # 导致 qca-nss-drv 因缺少函数原型声明而编译失败。
+          # 将 -Wno-missing-prototypes 改为 -Wno-error=missing-prototypes 以消除此错误。
+          sed -i 's/-Wno-missing-prototypes/-Wno-error=missing-prototypes/' feeds/nss_packages/qca-nss-drv/Makefile
 
       - name: Load custom config and apply DIY
         run: |
