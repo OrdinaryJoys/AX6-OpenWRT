@@ -155,6 +155,10 @@ jobs:
         run: |
           set -eo pipefail
           make defconfig
+          # defconfig 会重新启用 CONFIG_KERNEL_WERROR,导致 -Wmissing-prototypes 变成硬错误,
+          # 进而导致 NSS 外部内核模块(qca-nss-drv/qca-mcs 等)编译失败。
+          # 此处强制禁用以避免连锁问题。
+          sed -i 's/^CONFIG_KERNEL_WERROR=y$/# CONFIG_KERNEL_WERROR is not set/' .config
           # defconfig 通过 firewall4→kmod-nft-offload→kmod-nf-flow 依赖链
           # 强制拉回 NSS 冲突包,此处 sed 强制覆盖为 =n
           NSS_BLACKLIST="kmod-nf-flow kmod-ipt-offload kmod-nft-offload kmod-fast-classifier kmod-shortcut-fe kmod-shortcut-fe-cm"
