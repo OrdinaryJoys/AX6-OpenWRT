@@ -113,9 +113,9 @@ jobs:
         run: |
           set -eo pipefail
           cd openwrt
-          # 幂等写入 NSS feed,并 pin 一个 commit(填一个真实 SHA 后取消注释 + 改 :=)
+          # 幂等写入 NSS feed, pin 到 0f3a7fb (fix for 6.18: 含所有 NSS 包 kernel 6.18 兼容补丁)
           sed -i '/^src-git nss_packages/d' feeds.conf.default
-          echo "src-git nss_packages https://github.com/VIKINGYFY/nss-packages-618.git^8a93f5157b7ba6b6fbf529a37e843205eb5e2e8a" >> feeds.conf.default
+          echo "src-git nss_packages https://github.com/VIKINGYFY/nss-packages-618.git^0f3a7fb8bf167c800a98db203dfb25d894f4bb27" >> feeds.conf.default
           # 替换 luci feed
           sed -i '/^src-git luci/d' feeds.conf.default
           echo 'src-git luci https://github.com/OrdinaryJoys/luci.git;master' >> feeds.conf.default
@@ -124,13 +124,10 @@ jobs:
           rm -rf tmp/
           ./scripts/feeds update -a
           ./scripts/feeds install -a
-          # 修复: 内核 6.18 无条件添加 -Werror=missing-prototypes,
-          # EXTRA_CFLAGS 中的 -Wno-* 标志会被合并到 KBUILD_CFLAGS 并在之后被覆盖。
-          # 根本修复方案: 向 nss_ipv4_reasm.c 添加缺少的函数前置声明。
+          # 补充 nss-drv nss_ipv4_reasm.c 缺少的前置声明(与 feed 0029 互补)
           cp "$GITHUB_WORKSPACE/AX6-IPQ/patches/0040-nss-drv-fix-missing-prototypes.patch" \
              feeds/nss_packages/qca-nss-drv/patches/
-          # 修复: qca-mcs 的 try_to_del_timer_sync/del_timer_sync/from_timer
-          # 在 kernel 6.18 中已移除,替换为 timer_delete_sync/timer_delete_sync_try/container_of
+          # 补充 qca-mcs kernel 6.18 兼容补丁(与 feed 0005 互补以确保生效)
           cp "$GITHUB_WORKSPACE/AX6-IPQ/patches/0005-qca-mcs-kernel-6.18.patch" \
              feeds/nss_packages/qca-mcs/patches/
 
