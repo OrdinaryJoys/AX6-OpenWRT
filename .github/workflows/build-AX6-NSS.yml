@@ -194,7 +194,7 @@ jobs:
         run: |
           set -eo pipefail
           echo "$(nproc) thread compile"
-          make -j"$(nproc)" V=s
+          make -j"$(nproc)" V=sc
 
       - name: Stage release artifacts + checksums
         run: |
