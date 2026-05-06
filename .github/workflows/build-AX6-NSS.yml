@@ -158,12 +158,14 @@ jobs:
           # 进而导致 NSS 外部内核模块(qca-nss-drv/qca-mcs 等)编译失败。
           # 此处强制禁用以避免连锁问题。
           sed -i 's/^CONFIG_KERNEL_WERROR=y$/# CONFIG_KERNEL_WERROR is not set/' .config
+          # kmod-iptables(旧)被禁用后,其KCONFIG不再设置IP_NF_IPTABLES=m
+          # 导致内核不编译ip_tables.ko;而kmod-nf-ipt打包时需要此模块
+          # 手动设置内核选项确保编译
+          grep -q 'CONFIG_IP_NF_IPTABLES=m' .config || echo 'CONFIG_IP_NF_IPTABLES=m' >> .config
+          grep -q 'CONFIG_IP6_NF_IPTABLES=m' .config || echo 'CONFIG_IP6_NF_IPTABLES=m' >> .config
           # defconfig 通过 firewall4→kmod-nft-offload→kmod-nf-flow 依赖链
           # 强制拉回 NSS 冲突包,此处 sed 强制覆盖为 =n
-          # kernel 6.18: kmod-nf-ipt 是 x_tables.ko/ip_tables.ko 的主要提供者,
-          # kmod-ipt-core 的依赖检查引用 kmod-nf-ipt.provides。不能禁用 kmod-nf-ipt。
-          # kmod-iptables(旧包) 与 kmod-nf-ipt 提供相同模块造成冲突,需禁用。
-          NSS_BLACKLIST="kmod-nf-flow kmod-ipt-offload kmod-nft-offload kmod-fast-classifier kmod-shortcut-fe kmod-shortcut-fe-cm kmod-iptables"
+          NSS_BLACKLIST="kmod-nf-flow kmod-ipt-offload kmod-nft-offload kmod-fast-classifier kmod-shortcut-fe kmod-shortcut-fe-cm"
           for pkg in $NSS_BLACKLIST; do
             sed -i "s|^CONFIG_PACKAGE_${pkg}=y$|# CONFIG_PACKAGE_${pkg} is not set|" .config
           done
@@ -172,7 +174,7 @@ jobs:
           import re, sys
           blacklist = [
               "kmod-nf-flow", "kmod-ipt-offload", "kmod-nft-offload", "kmod-fast-classifier",
-              "kmod-shortcut-fe", "kmod-shortcut-fe-cm", "kmod-iptables"
+              "kmod-shortcut-fe", "kmod-shortcut-fe-cm"
           ]
           found = []
           has_nss = False
