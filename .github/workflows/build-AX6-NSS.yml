@@ -160,7 +160,8 @@ jobs:
           sed -i 's/^CONFIG_KERNEL_WERROR=y$/# CONFIG_KERNEL_WERROR is not set/' .config
           # defconfig 通过 firewall4→kmod-nft-offload→kmod-nf-flow 依赖链
           # 强制拉回 NSS 冲突包,此处 sed 强制覆盖为 =n
-          NSS_BLACKLIST="kmod-nf-flow kmod-ipt-offload kmod-nft-offload kmod-fast-classifier kmod-shortcut-fe kmod-shortcut-fe-cm"
+          # kmod-nf-ipt/kmod-nf-ipt6 与 kmod-iptables 提供相同内核模块(x_tables.ko等),冲突
+          NSS_BLACKLIST="kmod-nf-flow kmod-ipt-offload kmod-nft-offload kmod-fast-classifier kmod-shortcut-fe kmod-shortcut-fe-cm kmod-nf-ipt kmod-nf-ipt6 kmod-nf-nat"
           for pkg in $NSS_BLACKLIST; do
             sed -i "s|^CONFIG_PACKAGE_${pkg}=y$|# CONFIG_PACKAGE_${pkg} is not set|" .config
           done
@@ -169,7 +170,7 @@ jobs:
           import re, sys
           blacklist = [
               "kmod-nf-flow", "kmod-ipt-offload", "kmod-nft-offload", "kmod-fast-classifier",
-              "kmod-shortcut-fe", "kmod-shortcut-fe-cm"
+              "kmod-shortcut-fe", "kmod-shortcut-fe-cm", "kmod-nf-ipt", "kmod-nf-ipt6", "kmod-nf-nat"
           ]
           found = []
           has_nss = False
