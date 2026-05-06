@@ -127,9 +127,7 @@ jobs:
           # 补充 nss-drv nss_ipv4_reasm.c 缺少的前置声明(与 feed 0029 互补)
           cp "$GITHUB_WORKSPACE/AX6-IPQ/patches/0040-nss-drv-fix-missing-prototypes.patch" \
              feeds/nss_packages/qca-nss-drv/patches/
-          # 补充 qca-mcs kernel 6.18 兼容补丁(与 feed 0005 互补以确保生效)
-          cp "$GITHUB_WORKSPACE/AX6-IPQ/patches/0005-qca-mcs-kernel-6.18.patch" \
-             feeds/nss_packages/qca-mcs/patches/
+          # qca-mcs kernel 6.18 兼容补丁已在 feed 0005-kernel-6.18.patch 中,无需重复复制
 
       - name: Load custom config and apply DIY
         run: |
