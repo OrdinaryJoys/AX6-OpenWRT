@@ -160,8 +160,10 @@ jobs:
           sed -i 's/^CONFIG_KERNEL_WERROR=y$/# CONFIG_KERNEL_WERROR is not set/' .config
           # defconfig 通过 firewall4→kmod-nft-offload→kmod-nf-flow 依赖链
           # 强制拉回 NSS 冲突包,此处 sed 强制覆盖为 =n
-          # kmod-nf-ipt/kmod-nf-ipt6 与 kmod-iptables 提供相同内核模块(x_tables.ko等),冲突
-          NSS_BLACKLIST="kmod-nf-flow kmod-ipt-offload kmod-nft-offload kmod-fast-classifier kmod-shortcut-fe kmod-shortcut-fe-cm kmod-nf-ipt kmod-nf-ipt6 kmod-nf-nat"
+          # kernel 6.18: kmod-nf-ipt 是 x_tables.ko/ip_tables.ko 的主要提供者,
+          # kmod-ipt-core 的依赖检查引用 kmod-nf-ipt.provides。不能禁用 kmod-nf-ipt。
+          # kmod-iptables(旧包) 与 kmod-nf-ipt 提供相同模块造成冲突,需禁用。
+          NSS_BLACKLIST="kmod-nf-flow kmod-ipt-offload kmod-nft-offload kmod-fast-classifier kmod-shortcut-fe kmod-shortcut-fe-cm kmod-iptables"
           for pkg in $NSS_BLACKLIST; do
             sed -i "s|^CONFIG_PACKAGE_${pkg}=y$|# CONFIG_PACKAGE_${pkg} is not set|" .config
           done
@@ -170,7 +172,7 @@ jobs:
           import re, sys
           blacklist = [
               "kmod-nf-flow", "kmod-ipt-offload", "kmod-nft-offload", "kmod-fast-classifier",
-              "kmod-shortcut-fe", "kmod-shortcut-fe-cm", "kmod-nf-ipt", "kmod-nf-ipt6", "kmod-nf-nat"
+              "kmod-shortcut-fe", "kmod-shortcut-fe-cm", "kmod-iptables"
           ]
           found = []
           has_nss = False
