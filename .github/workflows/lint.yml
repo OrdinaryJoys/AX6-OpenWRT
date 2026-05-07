@@ -40,46 +40,83 @@ jobs:
         run: |
           set -eo pipefail
           python3 - <<'PY'
-          import sys, glob, re
-          NSS_CONFLICT = [
-              ("kmod-qca-nss-drv","kmod-nf-flow"),
-              ("kmod-qca-nss-drv","kmod-fast-classifier"),
-              ("kmod-qca-nss-drv","kmod-shortcut-fe"),
-              ("kmod-qca-nss-drv","kmod-shortcut-fe-cm"),
-              ("kmod-qca-nss-drv","sqm-scripts"),
-              ("kmod-qca-nss-drv","kmod-sched-cake"),
-          ]
-          NSS_EXTRA = "AX6-IPQ/nss-extra.config"
-          PAT_Y = re.compile(r"^CONFIG_(PACKAGE_[\w-]+)=([ymn])$")
-          PAT_N = re.compile(r"^# CONFIG_(PACKAGE_[\w-]+) is not set$")
+          """模拟 workflow 的 `cat nss-extra.config >> .config` 后,
+          检查 NSS 互斥包是否同时启用,并提示缺失的推荐包。
+          """
+          import glob
+          import os
+          import re
+          import sys
 
-          def parse(path):
-              c = {}
-              for ln in open(path):
-                  ln = ln.strip()
-                  m = PAT_Y.match(ln)
-                  if m: c[m.group(1)] = m.group(2); continue
-                  m = PAT_N.match(ln)
-                  if m: c[m.group(1)] = "n"
-              return c
+          # NSS 互斥对:同一行同时 =y 即报错
+          NSS_CONFLICT = (
+              ('kmod-qca-nss-drv', 'kmod-nf-flow'),
+              ('kmod-qca-nss-drv', 'kmod-fast-classifier'),
+              ('kmod-qca-nss-drv', 'kmod-shortcut-fe'),
+              ('kmod-qca-nss-drv', 'kmod-shortcut-fe-cm'),
+              ('kmod-qca-nss-drv', 'sqm-scripts'),
+              ('kmod-qca-nss-drv', 'kmod-sched-cake'),
+          )
+          # 推荐启用(=y)。kmod-qca-rfs / kmod-qca-pppe 已由 nss-packages-618 内置
+          NSS_RECOMMENDED = (
+              'MAC80211_NSS_SUPPORT',
+              'MAC80211_NSS_REDIRECT',
+              'kmod-qca-ssdk',
+          )
+          NSS_EXTRA = 'AX6-IPQ/nss-extra.config'
 
-          extra = parse(NSS_EXTRA) if __import__("os").path.exists(NSS_EXTRA) else {}
-          fail = 0
-          for cfg in sorted(glob.glob("AX6-IPQ/.config*")):
-              if cfg == NSS_EXTRA: continue
-              c = parse(cfg)
-              # simulate workflow `cat nss-extra.config >> .config` (later wins)
-              c.update(extra)
-              if c.get("PACKAGE_kmod-qca-nss-drv") != "y":
-                  print(f"::notice file={cfg}::no NSS, skip")
-                  continue
-              for a,b in NSS_CONFLICT:
-                  if c.get(f"PACKAGE_{a}")=="y" and c.get(f"PACKAGE_{b}")=="y":
-                      print(f"::error file={cfg}::CONFLICT (after nss-extra merge) PACKAGE_{a}=y AND PACKAGE_{b}=y")
-                      fail += 1
-              # kmod-qca-rfs / kmod-qca-pppe 已由 nss-packages-618 内置,不再单独要求
-              for need in ("MAC80211_NSS_SUPPORT", "MAC80211_NSS_REDIRECT", "kmod-qca-ssdk"):
-                  if c.get(f"PACKAGE_{need}") != "y":
-                      print(f"::warning file={cfg}::missing recommended PACKAGE_{need}=y")
-          sys.exit(1 if fail else 0)
+          PAT_Y = re.compile(r'^CONFIG_(PACKAGE_[\w-]+)=([ymn])$')
+          PAT_N = re.compile(r'^# CONFIG_(PACKAGE_[\w-]+) is not set$')
+
+
+          def parse_config(path):
+              """读取 OpenWrt .config,返回 {symbol: 'y'|'n'} 字典。"""
+              result = {}
+              with open(path) as fh:
+                  for line in fh:
+                      line = line.strip()
+                      m = PAT_Y.match(line)
+                      if m:
+                          result[m.group(1)] = m.group(2)
+                          continue
+                      m = PAT_N.match(line)
+                      if m:
+                          result[m.group(1)] = 'n'
+              return result
+
+
+          def main():
+              extra = parse_config(NSS_EXTRA) if os.path.exists(NSS_EXTRA) else {}
+              fail_count = 0
+
+              for cfg in sorted(glob.glob('AX6-IPQ/.config*')):
+                  if cfg == NSS_EXTRA:
+                      continue
+                  merged = parse_config(cfg)
+                  # 模拟 workflow `cat nss-extra.config >> .config`(后写覆盖)
+                  merged.update(extra)
+
+                  if merged.get('PACKAGE_kmod-qca-nss-drv') != 'y':
+                      print(f'::notice file={cfg}::no NSS, skip')
+                      continue
+
+                  for a, b in NSS_CONFLICT:
+                      if merged.get(f'PACKAGE_{a}') == 'y' and merged.get(f'PACKAGE_{b}') == 'y':
+                          print(
+                              f'::error file={cfg}::CONFLICT (after nss-extra merge) '
+                              f'PACKAGE_{a}=y AND PACKAGE_{b}=y'
+                          )
+                          fail_count += 1
+
+                  for need in NSS_RECOMMENDED:
+                      if merged.get(f'PACKAGE_{need}') != 'y':
+                          print(
+                              f'::warning file={cfg}::missing recommended '
+                              f'PACKAGE_{need}=y'
+                          )
+
+              return 1 if fail_count else 0
+
+
+          sys.exit(main())
           PY

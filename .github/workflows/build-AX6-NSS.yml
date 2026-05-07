@@ -84,33 +84,62 @@ jobs:
           # which only applies to subsequent steps)
           export _PREFLIGHT_CFG="$CFG"
           python3 - <<'PY'
-          import os, re, sys
-          cfg_path = os.environ['_PREFLIGHT_CFG']
-          extra = 'AX6-IPQ/nss-extra.config'
-          # 与 env.NSS_BLACKLIST 共用同一份黑名单(以及补充的运行时冲突项)
-          blacklist = os.environ['NSS_BLACKLIST'].split()
+          """Pre-flight 校验:在 feeds 拉取前检查 .config 与 NSS 冲突。"""
+          import os
+          import re
+          import sys
+
+          PAT_Y = re.compile(r'^CONFIG_(PACKAGE_[\w-]+)=([ymn])$')
+          PAT_N = re.compile(r'^# CONFIG_(PACKAGE_[\w-]+) is not set$')
+
           # 这些包不在 NSS_BLACKLIST 中(可能在 .config 显式 =y 而非 sed 拉黑),
           # 但启用后与 NSS 运行时互斥,pre-flight 应直接报错
-          extra_runtime_conflict = ['sqm-scripts', 'kmod-sched-cake']
-          conflicts = blacklist + extra_runtime_conflict
+          EXTRA_RUNTIME_CONFLICT = ('sqm-scripts', 'kmod-sched-cake')
 
-          c = {}
-          for ln in open(cfg_path).read().splitlines() + open(extra).read().splitlines():
-              ln = ln.strip()
-              m = re.match(r'^CONFIG_(PACKAGE_[\w-]+)=([ymn])$', ln)
-              if m:
-                  c[m.group(1)] = m.group(2)
-                  continue
-              m = re.match(r'^# CONFIG_(PACKAGE_[\w-]+) is not set$', ln)
-              if m:
-                  c[m.group(1)] = 'n'
 
-          if c.get('PACKAGE_kmod-qca-nss-drv') == 'y':
-              for conf in conflicts:
-                  if c.get(f'PACKAGE_{conf}') == 'y':
-                      print(f'::error::NSS conflict: PACKAGE_{conf}=y collides with kmod-qca-nss-drv')
-                      sys.exit(2)
-          print(f'Pre-flight PASS for {cfg_path}')
+          def parse_config(path):
+              """读取 OpenWrt .config,返回 {symbol: 'y'|'n'} 字典。"""
+              result = {}
+              with open(path) as fh:
+                  for line in fh:
+                      line = line.strip()
+                      m = PAT_Y.match(line)
+                      if m:
+                          result[m.group(1)] = m.group(2)
+                          continue
+                      m = PAT_N.match(line)
+                      if m:
+                          result[m.group(1)] = 'n'
+              return result
+
+
+          def main():
+              cfg_path = os.environ['_PREFLIGHT_CFG']
+              extra_path = 'AX6-IPQ/nss-extra.config'
+              # 与 env.NSS_BLACKLIST 共用同一份黑名单(以及补充的运行时冲突项)
+              blacklist = os.environ['NSS_BLACKLIST'].split()
+              conflicts = blacklist + list(EXTRA_RUNTIME_CONFLICT)
+
+              merged = parse_config(cfg_path)
+              merged.update(parse_config(extra_path))
+
+              if merged.get('PACKAGE_kmod-qca-nss-drv') != 'y':
+                  print(f'Pre-flight skip (no NSS) for {cfg_path}')
+                  return 0
+
+              for pkg in conflicts:
+                  if merged.get(f'PACKAGE_{pkg}') == 'y':
+                      print(
+                          f'::error::NSS conflict: PACKAGE_{pkg}=y '
+                          f'collides with kmod-qca-nss-drv'
+                      )
+                      return 2
+
+              print(f'Pre-flight PASS for {cfg_path}')
+              return 0
+
+
+          sys.exit(main())
           PY
 
       - name: Initialize environment
@@ -196,21 +225,36 @@ jobs:
           done
           # 验证:确保 NSS 冲突包不再出现
           python3 - <<'PY'
-          import os, sys
-          blacklist = os.environ['NSS_BLACKLIST'].split()
-          found = []
-          has_nss = False
-          for ln in open(".config"):
-              ln = ln.strip()
-              if ln == "CONFIG_PACKAGE_kmod-qca-nss-drv=y":
-                  has_nss = True
-              for c in blacklist:
-                  if ln == f"CONFIG_PACKAGE_{c}=y":
-                      found.append(c)
-          if has_nss and found:
-              print(f"::error::defconfig 仍启用了 NSS 冲突包:{' '.join(found)}")
-              sys.exit(2)
-          print("Post-defconfig NSS check: PASS (conflicts force-disabled)")
+          """Post-defconfig 校验:sed 拉黑后再扫一遍 .config,确保没漏。"""
+          import os
+          import sys
+
+
+          def main():
+              blacklist = os.environ['NSS_BLACKLIST'].split()
+              expected_off = {f'CONFIG_PACKAGE_{pkg}=y' for pkg in blacklist}
+              has_nss = False
+              found = []
+
+              with open('.config') as fh:
+                  for line in fh:
+                      line = line.strip()
+                      if line == 'CONFIG_PACKAGE_kmod-qca-nss-drv=y':
+                          has_nss = True
+                      if line in expected_off:
+                          # 形如 CONFIG_PACKAGE_kmod-nf-flow=y → 报告 kmod-nf-flow
+                          found.append(line.split('=', 1)[0].removeprefix('CONFIG_PACKAGE_'))
+
+              if has_nss and found:
+                  print(
+                      f"::error::defconfig 仍启用了 NSS 冲突包:{' '.join(found)}"
+                  )
+                  return 2
+              print('Post-defconfig NSS check: PASS (conflicts force-disabled)')
+              return 0
+
+
+          sys.exit(main())
           PY
           make download -j8
           find dl -size -1024c -exec ls -l {} \;
