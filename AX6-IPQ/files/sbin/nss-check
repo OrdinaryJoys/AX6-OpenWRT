@@ -82,12 +82,19 @@ else
     warn "未在 dmesg 找到 'Redmi-AX6' calibration 字样(可能仍 OK,看 dmesg | grep ath11k)"
 fi
 
-# ---- 8. ath11k fw memory mode = 0(HIGH) ----
+# ---- 8. ath11k fw memory mode ----
+# AX6 (1GB RAM) 使用 MID 模式 (mode=1):
+#   FULL (mode=0) 需要 ~100MB DMA 连续内存,CMA 不足时固件加载失败 → 内核 panic
+#   MID (mode=1) ~32MB 内存占用,稳定且性能足够家用 4×4 MU-MIMO 场景
 fw_mode=$(dmesg 2>/dev/null | grep -oE "fw_mem_mode[ =:]+[0-9]+" | tail -1 | grep -oE "[0-9]+")
-if [ "$fw_mode" = "0" ]; then
-    ok "ath11k fw_mem_mode = 0 (HIGH, full features)"
+if [ "$fw_mode" = "1" ]; then
+    ok "ath11k fw_mem_mode = 1 (MID, 与 DTS qcom,ath11k-fw-memory-mode=<1> 匹配)"
+elif [ "$fw_mode" = "0" ]; then
+    warn "ath11k fw_mem_mode = 0 (FULL/HIGH; 期望 1=MID,可能 CMA 不足时仍能跑)"
+elif [ "$fw_mode" = "2" ]; then
+    fail "ath11k fw_mem_mode = 2 (LOW); 期望 1=MID,启动序列异常"
 elif [ -n "$fw_mode" ]; then
-    warn "ath11k fw_mem_mode = $fw_mode (1=MID, 2=LOW)"
+    warn "ath11k fw_mem_mode = $fw_mode (期望 1=MID)"
 else
     warn "未读到 fw_mem_mode"
 fi

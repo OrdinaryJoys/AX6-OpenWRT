@@ -168,7 +168,8 @@ dmesg | grep -i 'NSS Core'                    # "NSS Core 0/1 booted"
 # ath11k WiFi 校准变体加载
 dmesg | grep -i ath11k | grep -i variant      # "Redmi-AX6"
 
-# ath11k fw memory mode(应该是 0 = HIGH)
+# ath11k fw memory mode(AX6 应该是 1 = MID,匹配 DTS qcom,ath11k-fw-memory-mode=<1>)
+# FULL/HIGH (0) 需要 ~100MB CMA,小心 panic;MID (1) ~32MB,稳定足用
 dmesg | grep -i 'fw_mem_mode\|memory_mode'
 
 # NSS 时钟锁定(我们的 sysctl 写入)
