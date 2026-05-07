@@ -59,7 +59,10 @@ fi
 APIDIR="target/linux/qualcommax/base-files/lib/upgrade"
 if [ -d "$APIDIR" ]; then
   for f in "$APIDIR"/api-*.sh "$APIDIR"/../functions/bootconfig.sh; do
-    [ -f "$f" ] && head -1 "$f" | grep -q '^#!' || sed -i '1i #!/bin/sh' "$f"
+    [ -f "$f" ] || continue
+    if ! head -n 1 "$f" | grep -q '^#!'; then
+      sed -i '1i #!/bin/sh' "$f"
+    fi
   done
 fi
 
@@ -83,6 +86,8 @@ fi
 # (d) 修 993_set-ecm-conntrack.sh:文件不存在时直接退出
 NSS_ECM="target/linux/qualcommax/base-files/etc/uci-defaults/993_set-ecm-conntrack.sh"
 if [ -f "$NSS_ECM" ]; then
+  # 单引号故意的:让 sed 把 [ -f "$FILE" ] 字面写入目标脚本(目标脚本运行时再展开 $FILE)
+  # shellcheck disable=SC2016
   sed -i '/^FILE=/a [ -f "$FILE" ] || exit 0' "$NSS_ECM"
 fi
 
