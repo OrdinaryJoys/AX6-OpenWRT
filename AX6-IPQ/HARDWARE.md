@@ -327,4 +327,4 @@ DSA 语法 = bridge_vlan_filtering = 与 NSS 不兼容。**95-ax6-nss-vlan-guard
 ### 完整 VLAN 范例(network/wireless/firewall)
 
 参考 qosmio 官方:
-https://github.com/qosmio/openwrt-ipq/blob/main-nss/nss-setup/example/README.md#vlan
+<https://github.com/qosmio/openwrt-ipq/blob/main-nss/nss-setup/example/README.md#vlan>
