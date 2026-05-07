@@ -6,42 +6,77 @@
 #   nss-check -q     静默,只输出 0/N 退出码(适合 cron)
 # 退出码 = FAIL 数
 
-VERBOSE=0; QUIET=0
+VERBOSE=0
+QUIET=0
+
 case "${1:-}" in
-  ""|"--") ;;
-  -v|--verbose) VERBOSE=1 ;;
-  -q|--quiet)   QUIET=1 ;;
-  -h|--help)
-    sed -n '2,7p' "$0" | sed 's/^# //; s/^#//'
-    exit 0 ;;
-  *)
-    echo "nss-check: unknown option '$1' (use -v / -q / -h)" >&2
-    exit 64
-    ;;
+    ""|"--")
+        ;;
+    -v|--verbose)
+        VERBOSE=1
+        ;;
+    -q|--quiet)
+        QUIET=1
+        ;;
+    -h|--help)
+        sed -n '2,7p' "$0" | sed 's/^# //; s/^#//'
+        exit 0
+        ;;
+    *)
+        echo "nss-check: unknown option '$1' (use -v / -q / -h)" >&2
+        exit 64
+        ;;
 esac
 
-PASS=0; FAIL=0; WARN=0
+PASS=0
+FAIL=0
+WARN=0
 
-ok()   { PASS=$((PASS+1)); [ $VERBOSE -eq 1 ] && [ $QUIET -eq 0 ] && echo " ✓ $1"; }
-fail() { FAIL=$((FAIL+1)); [ $QUIET -eq 0 ] && echo " ✗ $1"; }
-warn() { WARN=$((WARN+1)); [ $VERBOSE -eq 1 ] && [ $QUIET -eq 0 ] && echo " ! $1"; }
+ok() {
+    PASS=$((PASS + 1))
+    if [ "$VERBOSE" -eq 1 ] && [ "$QUIET" -eq 0 ]; then
+        echo " ✓ $1"
+    fi
+}
 
-[ $QUIET -eq 0 ] && echo "=== AX6 NSS / WiFi 健康自检 ==="
+fail() {
+    FAIL=$((FAIL + 1))
+    if [ "$QUIET" -eq 0 ]; then
+        echo " ✗ $1"
+    fi
+}
+
+warn() {
+    WARN=$((WARN + 1))
+    if [ "$VERBOSE" -eq 1 ] && [ "$QUIET" -eq 0 ]; then
+        echo " ! $1"
+    fi
+}
+
+if [ "$QUIET" -eq 0 ]; then
+    echo "=== AX6 NSS / WiFi 健康自检 ==="
+fi
 
 # ---- 1. RAM ----
-mem_kb=$(awk '/MemTotal/{print $2}' /proc/meminfo)
-if [ "$mem_kb" -gt 800000 ]; then
+mem_kb=$(awk '/MemTotal/{print $2}' /proc/meminfo 2>/dev/null)
+if [ -n "$mem_kb" ] && [ "$mem_kb" -gt 800000 ] 2>/dev/null; then
     ok "RAM detected: ${mem_kb} kB ≥ 800MB (1GB SKU)"
 else
-    fail "RAM only ${mem_kb} kB < 800MB — 不是 1GB 高配 SKU,nss-extra.config 配置可能不匹配"
+    fail "RAM only ${mem_kb:-?} kB < 800MB — 不是 1GB 高配 SKU,nss-extra.config 配置可能不匹配"
 fi
 
 # ---- 2. NAND 大小 ----
-mtd12_size=$(awk -F'[: ]+' '/^mtd12:/{print $2}' /proc/mtd)
+mtd12_size=$(awk -F'[: ]+' '/^mtd12:/{print $2}' /proc/mtd 2>/dev/null)
 case "$mtd12_size" in
-    06640000) ok "NAND rootfs: 102 MiB (stock layout)" ;;
-    0[Cc]000000) ok "NAND rootfs: 192 MiB (expand layout, modded NAND)" ;;
-    *) warn "NAND rootfs size 0x${mtd12_size} — 非典型" ;;
+    06640000)
+        ok "NAND rootfs: 102 MiB (stock layout)"
+        ;;
+    0[Cc]000000)
+        ok "NAND rootfs: 192 MiB (expand layout, modded NAND)"
+        ;;
+    *)
+        warn "NAND rootfs size 0x${mtd12_size:-?} — 非典型"
+        ;;
 esac
 
 # ---- 3. NSS 模块加载 ----
@@ -86,18 +121,24 @@ fi
 # AX6 (1GB RAM) 使用 MID 模式 (mode=1):
 #   FULL (mode=0) 需要 ~100MB DMA 连续内存,CMA 不足时固件加载失败 → 内核 panic
 #   MID (mode=1) ~32MB 内存占用,稳定且性能足够家用 4×4 MU-MIMO 场景
-fw_mode=$(dmesg 2>/dev/null | grep -oE "fw_mem_mode[ =:]+[0-9]+" | tail -1 | grep -oE "[0-9]+")
-if [ "$fw_mode" = "1" ]; then
-    ok "ath11k fw_mem_mode = 1 (MID, 与 DTS qcom,ath11k-fw-memory-mode=<1> 匹配)"
-elif [ "$fw_mode" = "0" ]; then
-    warn "ath11k fw_mem_mode = 0 (FULL/HIGH; 期望 1=MID,可能 CMA 不足时仍能跑)"
-elif [ "$fw_mode" = "2" ]; then
-    fail "ath11k fw_mem_mode = 2 (LOW); 期望 1=MID,启动序列异常"
-elif [ -n "$fw_mode" ]; then
-    warn "ath11k fw_mem_mode = $fw_mode (期望 1=MID)"
-else
-    warn "未读到 fw_mem_mode"
-fi
+fw_mode=$(dmesg 2>/dev/null | grep -oE "fw_mem_mode[ =:]+[0-9]+" | tail -n 1 | grep -oE "[0-9]+")
+case "$fw_mode" in
+    1)
+        ok "ath11k fw_mem_mode = 1 (MID, 与 DTS qcom,ath11k-fw-memory-mode=<1> 匹配)"
+        ;;
+    0)
+        warn "ath11k fw_mem_mode = 0 (FULL/HIGH; 期望 1=MID,可能 CMA 不足时仍能跑)"
+        ;;
+    2)
+        fail "ath11k fw_mem_mode = 2 (LOW); 期望 1=MID,启动序列异常"
+        ;;
+    "")
+        warn "未读到 fw_mem_mode"
+        ;;
+    *)
+        warn "ath11k fw_mem_mode = $fw_mode (期望 1=MID)"
+        ;;
+esac
 
 # ---- 9. 防火墙 flow_offload 必须关 ----
 fo=$(uci -q get firewall.@defaults[0].flow_offloading)
@@ -109,15 +150,16 @@ else
 fi
 
 # ---- 10. ECM connection_count(NSS 工作中应 > 0)----
-if [ -r /sys/kernel/debug/ecm/ecm_db/connection_count_simple ]; then
-    cc=$(cat /sys/kernel/debug/ecm/ecm_db/connection_count_simple)
-    if [ "${cc:-0}" -gt 0 ]; then
+ecm_path="/sys/kernel/debug/ecm/ecm_db/connection_count_simple"
+if [ -r "$ecm_path" ]; then
+    cc=$(cat "$ecm_path")
+    if [ "${cc:-0}" -gt 0 ] 2>/dev/null; then
         ok "ECM connection_count = $cc (NSS 正在卸载流量)"
     else
         warn "ECM connection_count = 0 (没流量?跑 ping/curl 后再测)"
     fi
 else
-    warn "ECM debugfs 不可读(/sys/kernel/debug/ecm/ — 是否 mounted?)"
+    warn "ECM debugfs 不可读($ecm_path — 是否 mounted?)"
 fi
 
 # ---- 11. WiFi 工作模式 ----
@@ -136,8 +178,9 @@ if [ -n "$cc_get" ]; then
 fi
 
 # ---- 13. NSS frame_mode 检查(关键的 NSS-redirect 入口)----
-if [ -r /sys/module/ath11k/parameters/frame_mode ]; then
-    fm=$(cat /sys/module/ath11k/parameters/frame_mode)
+fm_path="/sys/module/ath11k/parameters/frame_mode"
+if [ -r "$fm_path" ]; then
+    fm=$(cat "$fm_path")
     case "$fm" in
         2) ok "ath11k frame_mode=2 (NSS_DP, 满血卸载)" ;;
         1) warn "ath11k frame_mode=1 (RAW, 部分加速)" ;;
@@ -150,12 +193,12 @@ fi
 # bridge_vlan_filtering 与 NSS WiFi 不兼容 — 应该 unset 或 =0
 vf_violation=0
 for d in $(uci -q show network 2>/dev/null | awk -F'[.=]' '/=device$/{print $2}'); do
-    if [ "$(uci -q get network.${d}.vlan_filtering)" = "1" ]; then
+    if [ "$(uci -q get "network.${d}.vlan_filtering")" = "1" ]; then
         fail "network.$d.vlan_filtering=1 与 NSS 不兼容!运行: uci del network.$d.vlan_filtering && uci commit network && reboot"
         vf_violation=1
     fi
 done
-if [ $vf_violation -eq 0 ]; then
+if [ "$vf_violation" -eq 0 ]; then
     ok "无 bridge_vlan_filtering=1 (NSS 兼容)"
 fi
 
@@ -180,9 +223,13 @@ else
     warn "qca-nss-drv-vlan-mgr 未加载;无 VLAN 时无影响"
 fi
 
-if [ $QUIET -eq 0 ]; then
+if [ "$QUIET" -eq 0 ]; then
     echo ""
     echo "=== 汇总: PASS=$PASS  WARN=$WARN  FAIL=$FAIL ==="
-    [ $FAIL -eq 0 ] && echo "状态: ✓ 健康" || echo "状态: ✗ 有问题,看上面 FAIL 项"
+    if [ "$FAIL" -eq 0 ]; then
+        echo "状态: ✓ 健康"
+    else
+        echo "状态: ✗ 有问题,看上面 FAIL 项"
+    fi
 fi
-exit $FAIL
+exit "$FAIL"
