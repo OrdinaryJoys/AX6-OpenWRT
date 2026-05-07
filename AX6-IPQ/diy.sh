@@ -75,9 +75,9 @@ rm -f target/linux/qualcommax/base-files/etc/uci-defaults/999_auto-restart.sh
 # (d) 防御 993_set-ecm-conntrack.sh: 旧版 nss-fork 还有此文件时加防御
 # 幂等:已修复的源文件不再重复追加 guard
 NSS_ECM="target/linux/qualcommax/base-files/etc/uci-defaults/993_set-ecm-conntrack.sh"
+# shellcheck disable=SC2016
+# 双单引号故意的:grep 模式与 sed 写入内容都需要字面 $FILE,而非 shell 展开
 if [ -f "$NSS_ECM" ] && ! grep -q '\[ -f "\$FILE" \] || exit 0' "$NSS_ECM" 2>/dev/null; then
-  # 单引号故意的:让 sed 把 [ -f "$FILE" ] 字面写入目标脚本(目标脚本运行时再展开 $FILE)
-  # shellcheck disable=SC2016
   sed -i '/^FILE=/a [ -f "$FILE" ] || exit 0' "$NSS_ECM"
 fi
 
