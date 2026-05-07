@@ -25,7 +25,7 @@ gettext
 gcc-multilib
 g++-multilib
 git
-gnutls-dev
+libgnutls28-dev
 gperf
 haveged
 help2man

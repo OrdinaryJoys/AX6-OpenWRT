@@ -112,7 +112,8 @@ nss-check -v
 | `AX6_NSS_STOCK_20260426145026` | `3138df48` | `NSS-12.5-K6.x` HEAD | **当前推荐**,首次 success build |
 | `AX6_NSS_*` 之前 (2026-04-19~25) | (legacy,直接拉 VIKINGYFY) | 同上 | 已被新 release 覆盖 |
 
-> sync-check workflow 每周一 09:00 (CST) 自动探测三个上游(VIKINGYFY、qosmio、qca-nss-dp)
+> sync-check workflow 每周一 09:00 (CST) 自动探测 5 个上游(VIKINGYFY/immortalwrt、
+> VIKINGYFY/nss-packages、VIKINGYFY/nss-packages-618、openwrt/qca-nss-dp、OrdinaryJoys/luci)
 > HEAD,通过 issue 跟踪。如需手动同步:Actions → `Sync upstream check` → Run workflow。
 
 ### 同行项目对比
