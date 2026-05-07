@@ -212,9 +212,10 @@ jobs:
           # 进而导致 NSS 外部内核模块(qca-nss-drv/qca-mcs 等)编译失败。
           # 此处强制禁用以避免连锁问题。
           sed -i 's/^CONFIG_KERNEL_WERROR=y$/# CONFIG_KERNEL_WERROR is not set/' .config
-          # kmod-iptables(旧)被禁用后,其KCONFIG不再设置IP_NF_IPTABLES=m
-          # 导致内核不编译ip_tables.ko;而kmod-nf-ipt打包时需要此模块
-          # 手动设置内核选项确保编译
+          # 防御:确保 ip_tables.ko / ip6_tables.ko 内核选项启用
+          # nss-fork b0c5bf38 已删除 kmod-nf-ipt 错误的 +!LINUX_6_12:kmod-iptables 依赖,
+          # 这两行变成幂等防御(make defconfig 会通过 kmod-nf-ipt KCONFIG 自动处理),
+          # 但保留以防止未来上游回归。
           grep -q 'CONFIG_IP_NF_IPTABLES=m' .config || echo 'CONFIG_IP_NF_IPTABLES=m' >> .config
           grep -q 'CONFIG_IP6_NF_IPTABLES=m' .config || echo 'CONFIG_IP6_NF_IPTABLES=m' >> .config
           # defconfig 通过 firewall4→kmod-nft-offload→kmod-nf-flow 依赖链
