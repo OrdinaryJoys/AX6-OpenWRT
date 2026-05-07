@@ -25,6 +25,15 @@ env:
   DIY_SH: AX6-IPQ/diy.sh
   FILES: AX6-IPQ/files
   TZ: Asia/Shanghai
+  # NSS 互斥包黑名单 — 三处 (pre-flight Python / sed / post-defconfig Python) 共用
+  # 必须空格分隔以便 shell for-loop 与 Python split() 同时可用
+  NSS_BLACKLIST: >-
+    kmod-nf-flow
+    kmod-ipt-offload
+    kmod-nft-offload
+    kmod-fast-classifier
+    kmod-shortcut-fe
+    kmod-shortcut-fe-cm
 
 permissions:
   contents: write
@@ -78,17 +87,29 @@ jobs:
           import os, re, sys
           cfg_path = os.environ['_PREFLIGHT_CFG']
           extra = 'AX6-IPQ/nss-extra.config'
+          # 与 env.NSS_BLACKLIST 共用同一份黑名单(以及补充的运行时冲突项)
+          blacklist = os.environ['NSS_BLACKLIST'].split()
+          # 这些包不在 NSS_BLACKLIST 中(可能在 .config 显式 =y 而非 sed 拉黑),
+          # 但启用后与 NSS 运行时互斥,pre-flight 应直接报错
+          extra_runtime_conflict = ['sqm-scripts', 'kmod-sched-cake']
+          conflicts = blacklist + extra_runtime_conflict
+
           c = {}
           for ln in open(cfg_path).read().splitlines() + open(extra).read().splitlines():
               ln = ln.strip()
               m = re.match(r'^CONFIG_(PACKAGE_[\w-]+)=([ymn])$', ln)
-              if m: c[m.group(1)] = m.group(2)
+              if m:
+                  c[m.group(1)] = m.group(2)
+                  continue
               m = re.match(r'^# CONFIG_(PACKAGE_[\w-]+) is not set$', ln)
-              if m: c[m.group(1)] = 'n'
+              if m:
+                  c[m.group(1)] = 'n'
+
           if c.get('PACKAGE_kmod-qca-nss-drv') == 'y':
-              for conf in ['kmod-nf-flow','kmod-fast-classifier','kmod-shortcut-fe','sqm-scripts','kmod-sched-cake']:
+              for conf in conflicts:
                   if c.get(f'PACKAGE_{conf}') == 'y':
-                      print(f'::error::NSS conflict: PACKAGE_{conf}=y collides with kmod-qca-nss-drv'); sys.exit(2)
+                      print(f'::error::NSS conflict: PACKAGE_{conf}=y collides with kmod-qca-nss-drv')
+                      sys.exit(2)
           print(f'Pre-flight PASS for {cfg_path}')
           PY
 
@@ -113,6 +134,10 @@ jobs:
         run: |
           set -eo pipefail
           cd openwrt
+          # 关于 feed pin 的单一真相:
+          #   immortalwrt-nss/feeds.conf.default 内的 nss_packages 行是 fork 自己直接构建用的;
+          #   AX6-NSS 工作流总是删掉那一行,改用本仓固定的 0f3a7fb 版本以保证可复现。
+          #   如果 fork 那边升级了上游而工作流没跟,以工作流版本为准。
           # 幂等写入 NSS feed, pin 到 0f3a7fb (fix for 6.18: 含所有 NSS 包 kernel 6.18 兼容补丁)
           sed -i '/^src-git nss_packages/d' feeds.conf.default
           echo "src-git nss_packages https://github.com/VIKINGYFY/nss-packages-618.git^0f3a7fb8bf167c800a98db203dfb25d894f4bb27" >> feeds.conf.default
@@ -165,17 +190,14 @@ jobs:
           grep -q 'CONFIG_IP6_NF_IPTABLES=m' .config || echo 'CONFIG_IP6_NF_IPTABLES=m' >> .config
           # defconfig 通过 firewall4→kmod-nft-offload→kmod-nf-flow 依赖链
           # 强制拉回 NSS 冲突包,此处 sed 强制覆盖为 =n
-          NSS_BLACKLIST="kmod-nf-flow kmod-ipt-offload kmod-nft-offload kmod-fast-classifier kmod-shortcut-fe kmod-shortcut-fe-cm"
+          # 黑名单来自 env.NSS_BLACKLIST(单一来源,与 pre-flight Python 共用)
           for pkg in $NSS_BLACKLIST; do
             sed -i "s|^CONFIG_PACKAGE_${pkg}=y$|# CONFIG_PACKAGE_${pkg} is not set|" .config
           done
           # 验证:确保 NSS 冲突包不再出现
           python3 - <<'PY'
-          import re, sys
-          blacklist = [
-              "kmod-nf-flow", "kmod-ipt-offload", "kmod-nft-offload", "kmod-fast-classifier",
-              "kmod-shortcut-fe", "kmod-shortcut-fe-cm"
-          ]
+          import os, sys
+          blacklist = os.environ['NSS_BLACKLIST'].split()
           found = []
           has_nss = False
           for ln in open(".config"):
