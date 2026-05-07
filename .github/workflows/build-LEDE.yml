@@ -9,7 +9,6 @@ env:
   REPO_BRANCH: master
   CONFIG_FILE: AX6-lEDE/.config
   DIY_SH: AX6-lEDE/diy.sh
-  FILES: AX6-lEDE/files
   TZ: Asia/Shanghai
 
 permissions:
@@ -52,23 +51,16 @@ jobs:
           # 修正 LEDE 默认指向旧分支 luci 的问题
           sed -i 's|https://github.com/coolsnowwolf/luci.git;openwrt-23.05|https://github.com/coolsnowwolf/luci|g' openwrt/feeds.conf.default
 
-      - name: Cache wrt build
-        uses: stupidloud/cachewrtbuild@54ed4fe2f7d8b5cfbc0b928c159266ee892c2d3d  # main pinned
-        with:
-          ccache: 'true'
-          mixkey: lede-${{ env.REPO_BRANCH }}
-          prefix: ${{ github.workspace }}/openwrt
-
       - name: Update & install feeds
         working-directory: ./openwrt
         run: |
+          set -eo pipefail
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
       - name: Load custom config and apply DIY
         run: |
           set -eo pipefail
-          [ -e "$FILES" ] && cp -r "$FILES" openwrt/files
           [ -e "$CONFIG_FILE" ] && cp "$CONFIG_FILE" openwrt/.config
           chmod +x "$DIY_SH"
           ( cd openwrt && "$GITHUB_WORKSPACE/$DIY_SH" )
@@ -76,7 +68,9 @@ jobs:
       - name: Download package
         working-directory: ./openwrt
         run: |
+          set -eo pipefail
           make defconfig
+          sed -i 's/^CONFIG_KERNEL_WERROR=y$/# CONFIG_KERNEL_WERROR is not set/' .config
           make download -j8
           find dl -size -1024c -exec ls -l {} \;
           find dl -size -1024c -exec rm -f {} \;
@@ -84,11 +78,13 @@ jobs:
       - name: Compile firmware
         working-directory: ./openwrt
         run: |
+          set -eo pipefail
           echo "$(nproc) thread compile"
-          make -j"$(nproc)" || make -j1 V=s
+          make -j"$(nproc)" V=s
 
       - name: Stage release artifacts
         run: |
+          set -eo pipefail
           mkdir -p upload
           find openwrt/bin/targets -type f \( -name '*.ubi' -o -name '*.bin' \) -exec cp {} upload/ \;
           ls -lh upload/

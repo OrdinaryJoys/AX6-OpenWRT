@@ -70,20 +70,9 @@ fi
 #     uci-defaults 阶段重启 network/odhcpd/rpcd 易死锁,procd 后续会自然装载。
 rm -f target/linux/qualcommax/base-files/etc/uci-defaults/999_auto-restart.sh
 
-# (c) 修 992_set-nss-load.sh:sed 正则不再贪婪
-#     clock lock 已由上游 97-nss-clock-scale.conf 提供,此处不重复
-NSS_LOAD="target/linux/qualcommax/base-files/etc/uci-defaults/992_set-nss-load.sh"
-if [ -f "$NSS_LOAD" ]; then
-  cat > "$NSS_LOAD" <<'EOF'
-#!/bin/sh
-# AX6-build: 修正后的 NSS 启动调优 (非贪婪 sed)
-FILE="/usr/share/rpcd/ucode/luci"
-[ -f "$FILE" ] && sed -i "s#popen('top -n1[^']*')#popen('/sbin/cpuusage')#" "$FILE"
-exit 0
-EOF
-fi
+# (c) 992_set-nss-load.sh: 非贪婪 sed 修复已推送至 nss-fork,此处不再覆盖
 
-# (d) 修 993_set-ecm-conntrack.sh:文件不存在时直接退出
+# (d) 防御 993_set-ecm-conntrack.sh: 旧版 nss-fork 还有此文件时加防御
 # 幂等:已修复的源文件不再重复追加 guard
 NSS_ECM="target/linux/qualcommax/base-files/etc/uci-defaults/993_set-ecm-conntrack.sh"
 if [ -f "$NSS_ECM" ] && ! grep -q '\[ -f "\$FILE" \] || exit 0' "$NSS_ECM" 2>/dev/null; then
@@ -92,12 +81,7 @@ if [ -f "$NSS_ECM" ] && ! grep -q '\[ -f "\$FILE" \] || exit 0' "$NSS_ECM" 2>/de
   sed -i '/^FILE=/a [ -f "$FILE" ] || exit 0' "$NSS_ECM"
 fi
 
-# (e) 991_set-network.sh:NSS 加载失败时回落 packet_steering=1
-# 幂等:已修复的源文件不再重复执行 (grep lsmod 作为已修复标记)
-NSS_NET="target/linux/qualcommax/base-files/etc/uci-defaults/991_set-network.sh"
-if [ -f "$NSS_NET" ] && ! grep -q 'lsmod.*grep.*qca_nss_drv' "$NSS_NET"; then
-  sed -i "s|uci set network.globals.packet_steering='0'|if lsmod 2>/dev/null \\| grep -q qca_nss_drv; then uci set network.globals.packet_steering='0'; else uci set network.globals.packet_steering='1'; fi|" "$NSS_NET"
-fi
+# (e) 991_set-network.sh: packet_steering 回退已推送至 nss-fork,此处不再修补
 
 # (f) [removed] 235-003 skip — 使用 VIKINGYFY 6.18 基线 + nss-packages-618
 #     NSS mac80211 patches 已由上游维护,不再需要运行时跳过任何 patch。
@@ -105,7 +89,7 @@ fi
 # ----------------------------------------------------
 # AX6 硬件适配(变体感知)
 # ----------------------------------------------------
-# 两种 SKU 通过 .config 选择,DT 这里只补 ath11k mode + 扩容版分区。
+# 两种 SKU 通过 .config 选择,DT 这里只补扩容版分区。
 #
 # (1) Stock (redmi,ax6-stock):
 #       Xiaomi 原始 SMEM 分区,rootfs ≈ 102 MiB,**零变砖风险**
@@ -115,7 +99,7 @@ fi
 #       NAND 必须已硬件改装到 ≥256MiB,否则刷下去会变砖!
 #       — kernel-DT 写死 rootfs 大小,需匹配实际 NAND
 #
-# 共用:1GB RAM 时 ath11k 用完整 (mode=0)
+# 共用: ath11k fw_mem_mode=1 (MID, ~32MB, DTS 已指定 qcom,ath11k-fw-memory-mode=<1>)
 AX6_DTS="target/linux/qualcommax/dts/ipq8071-ax6.dts"
 if [ -f "$AX6_DTS" ]; then
   # ath11k 保持 MID 模式 (<1>=16MB/radio, ~32MB total)

@@ -49,14 +49,9 @@ jobs:
           sudo chown -R "$USER":"$(id -gn)" "$GITHUB_WORKSPACE"
 
       - name: Clone source code
-        run: git clone "$REPO_URL" -b "$REPO_BRANCH" openwrt
-
-      - name: Cache wrt build
-        uses: stupidloud/cachewrtbuild@54ed4fe2f7d8b5cfbc0b928c159266ee892c2d3d  # main pinned
-        with:
-          ccache: 'true'
-          mixkey: AX6-IPQ-${{ env.REPO_BRANCH }}
-          prefix: ${{ github.workspace }}/openwrt
+        run: |
+          set -eo pipefail
+          git clone "$REPO_URL" -b "$REPO_BRANCH" openwrt
 
       - name: Update & install feeds
         working-directory: ./openwrt
@@ -133,7 +128,7 @@ jobs:
             首次使用建议全新刷写。
 
             ## 默认登录
-            - 管理 IP: 192.168.1.1
+            - 管理 IP: 192.168.5.1
             - 用户: root
             - 密码: **首次登录请通过 LuCI Web 或 SSH `passwd` 设置**
 
