@@ -84,16 +84,18 @@ EOF
 fi
 
 # (d) 修 993_set-ecm-conntrack.sh:文件不存在时直接退出
+# 幂等:已修复的源文件不再重复追加 guard
 NSS_ECM="target/linux/qualcommax/base-files/etc/uci-defaults/993_set-ecm-conntrack.sh"
-if [ -f "$NSS_ECM" ]; then
+if [ -f "$NSS_ECM" ] && ! grep -q '\[ -f "\$FILE" \] || exit 0' "$NSS_ECM" 2>/dev/null; then
   # 单引号故意的:让 sed 把 [ -f "$FILE" ] 字面写入目标脚本(目标脚本运行时再展开 $FILE)
   # shellcheck disable=SC2016
   sed -i '/^FILE=/a [ -f "$FILE" ] || exit 0' "$NSS_ECM"
 fi
 
 # (e) 991_set-network.sh:NSS 加载失败时回落 packet_steering=1
+# 幂等:已修复的源文件不再重复执行 (grep lsmod 作为已修复标记)
 NSS_NET="target/linux/qualcommax/base-files/etc/uci-defaults/991_set-network.sh"
-if [ -f "$NSS_NET" ]; then
+if [ -f "$NSS_NET" ] && ! grep -q 'lsmod.*grep.*qca_nss_drv' "$NSS_NET"; then
   sed -i "s|uci set network.globals.packet_steering='0'|if lsmod 2>/dev/null \\| grep -q qca_nss_drv; then uci set network.globals.packet_steering='0'; else uci set network.globals.packet_steering='1'; fi|" "$NSS_NET"
 fi
 

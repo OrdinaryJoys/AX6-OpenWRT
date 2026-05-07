@@ -92,10 +92,12 @@ nss-check -v
 | 仓库 | 类型 | 我们引用 | 实测 |
 |---|---|---|---|
 | [OrdinaryJoys/immortalwrt-nss](https://github.com/OrdinaryJoys/immortalwrt-nss) | **AX6-NSS workflow 直接构建源** | branch `main` | ✓ |
-| [LiBwrt/openwrt-6.x](https://github.com/LiBwrt/openwrt-6.x) | AX6-IPQ 备用源(原 `LiBwrt-op` 已改名) | branch `openwrt-24.10` | ✓ |
+| [LiBwrt/openwrt-6.x](https://github.com/LiBwrt/openwrt-6.x) | AX6-IPQ 备用源(原 `LiBwrt-op` 已改名) | branch `main-nss` | ✓ |
 | [immortalwrt/immortalwrt](https://github.com/immortalwrt/immortalwrt) | AX6-IMM 备用源(无 NSS) | branch `openwrt-23.05` | ✓ |
 | [coolsnowwolf/lede](https://github.com/coolsnowwolf/lede) | AX6-LEDE 备用源 | branch `master` | ✓ |
-| [qosmio/nss-packages](https://github.com/qosmio/nss-packages) | OpenWrt feed (NSS 用户态包) | branch `NSS-12.5-K6.x` | ✓ |
+| [qosmio/nss-packages](https://github.com/qosmio/nss-packages) | OpenWrt feed 参考源(间接,未直接使用) | branch `main-nss` | ✓ |
+| [VIKINGYFY/nss-packages](https://github.com/VIKINGYFY/nss-packages) | OpenWrt feed (NSS 用户态包,immortalwrt-nss feeds 使用) | pin `8a93f51` | ✓ |
+| [VIKINGYFY/nss-packages-618](https://github.com/VIKINGYFY/nss-packages-618) | OpenWrt feed (NSS 包 6.18 兼容版,NSS workflow 使用) | pin `0f3a7fb` | ✓ |
 | [OrdinaryJoys/luci](https://github.com/OrdinaryJoys/luci) | OpenWrt feed (LuCI Web UI) | branch `master` | ✓ |
 | [VIKINGYFY/immortalwrt](https://github.com/VIKINGYFY/immortalwrt) | nss-fork 的上游(间接) | 通过 nss-fork | ✓ |
 | [Openwrt-Passwall/openwrt-passwall](https://github.com/Openwrt-Passwall/openwrt-passwall) | LEDE 科学上网包(原 `xiaorouji` 已迁移) | tip | ✓ |

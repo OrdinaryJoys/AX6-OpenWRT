@@ -48,9 +48,10 @@
 
 | 仓库 | 分支 / commit |
 |---|---|
-| OrdinaryJoys/immortalwrt-nss | `main` HEAD `3138df48` |
-| qosmio/nss-packages | `NSS-12.5-K6.x` HEAD |
-| OrdinaryJoys/luci | `master` HEAD |
+| OrdinaryJoys/immortalwrt-nss | `main` HEAD |
+| VIKINGYFY/nss-packages | `NSS-12.5-K6.x` pin `8a93f51` (immortalwrt-nss feeds) |
+| VIKINGYFY/nss-packages-618 | `NSS-12.5-K6.x` pin `0f3a7fb` (NSS workflow override) |
+| OrdinaryJoys/luci | `master` (NSS workflow luci feed override) |
 
 ### 实测产物
 

@@ -21,12 +21,16 @@ jobs:
         run: |
           set -eo pipefail
           VIKING_HEAD=$(git ls-remote https://github.com/VIKINGYFY/immortalwrt.git refs/heads/main | cut -f1)
-          NSS_HEAD=$(git ls-remote https://github.com/qosmio/nss-packages.git refs/heads/main | cut -f1)
-          DP_HEAD=$(git ls-remote https://github.com/openwrt/qca-nss-dp.git refs/heads/main | cut -f1)
+          NSS_PKGS_HEAD=$(git ls-remote https://github.com/VIKINGYFY/nss-packages.git refs/heads/main | cut -f1)
+          NSS_PKGS_618_HEAD=$(git ls-remote https://github.com/VIKINGYFY/nss-packages-618.git refs/heads/main | cut -f1)
+          NSS_DP_HEAD=$(git ls-remote https://github.com/openwrt/qca-nss-dp.git refs/heads/main | cut -f1)
+          LUCI_HEAD=$(git ls-remote https://github.com/OrdinaryJoys/luci.git refs/heads/master | cut -f1)
           {
             echo "viking=$VIKING_HEAD"
-            echo "nss_pkgs=$NSS_HEAD"
-            echo "nss_dp=$DP_HEAD"
+            echo "nss_pkgs=$NSS_PKGS_HEAD"
+            echo "nss_pkgs_618=$NSS_PKGS_618_HEAD"
+            echo "nss_dp=$NSS_DP_HEAD"
+            echo "luci=$LUCI_HEAD"
           } >> "$GITHUB_OUTPUT"
           {
             echo "## Weekly upstream HEAD probe ($(date -u +%F))"
@@ -34,8 +38,10 @@ jobs:
             echo "| repo | HEAD |"
             echo "|---|---|"
             echo "| VIKINGYFY/immortalwrt main | \`$VIKING_HEAD\` |"
-            echo "| qosmio/nss-packages main | \`$NSS_HEAD\` |"
-            echo "| openwrt/qca-nss-dp main | \`$DP_HEAD\` |"
+            echo "| VIKINGYFY/nss-packages main | \`$NSS_PKGS_HEAD\` |"
+            echo "| VIKINGYFY/nss-packages-618 main | \`$NSS_PKGS_618_HEAD\` |"
+            echo "| openwrt/qca-nss-dp main | \`$NSS_DP_HEAD\` |"
+            echo "| OrdinaryJoys/luci master | \`$LUCI_HEAD\` |"
           } > /tmp/report.md
           cat /tmp/report.md
 

@@ -6,7 +6,7 @@ on:
 
 env:
   REPO_URL: https://github.com/LiBwrt/openwrt-6.x.git
-  REPO_BRANCH: openwrt-24.10
+  REPO_BRANCH: main-nss
   CONFIG_FILE: AX6-IPQ/.config-stock
   EXTRA_CONFIG: AX6-IPQ/nss-extra.config
   DIY_SH: AX6-IPQ/diy.sh
@@ -81,6 +81,25 @@ jobs:
         run: |
           set -eo pipefail
           make defconfig
+          # 防御:defconfig 可能重新启用 CONFIG_KERNEL_WERROR,
+          # 导致 -Wmissing-prototypes 变成硬错误使外部模块编译失败。
+          sed -i 's/^CONFIG_KERNEL_WERROR=y$/# CONFIG_KERNEL_WERROR is not set/' .config
+          # NSS 冲突防护:若 nss-extra.config 已追加 NSS 驱动,则检查互斥包
+          # (LiBwrt/openwrt-6.x 不含 NSS 驱动时可安全跳过)
+          if grep -q '^CONFIG_PACKAGE_kmod-qca-nss-drv=y' .config; then
+            echo "[IPQ] NSS driver detected — enforcing conflict blacklist"
+            NSS_CONFLICTS="kmod-nf-flow kmod-ipt-offload kmod-nft-offload kmod-fast-classifier kmod-shortcut-fe kmod-shortcut-fe-cm"
+            for pkg in $NSS_CONFLICTS; do
+              sed -i "s|^CONFIG_PACKAGE_${pkg}=y$|# CONFIG_PACKAGE_${pkg} is not set|" .config
+            done
+            # 验证冲突包已清除
+            for pkg in $NSS_CONFLICTS; do
+              if grep -q "^CONFIG_PACKAGE_${pkg}=y$" .config; then
+                echo "::error::NSS conflict: CONFIG_PACKAGE_${pkg}=y still enabled after sed"
+                exit 2
+              fi
+            done
+          fi
           make download -j8
           find dl -size -1024c -exec ls -l {} \;
           find dl -size -1024c -exec rm -f {} \;
@@ -110,7 +129,7 @@ jobs:
           allowUpdates: true
           token: ${{ secrets.GITHUB_TOKEN }}
           body: |
-            基于 LiBwrt 的 OpenWrt 24.10 构建。
+            基于 LiBwrt 的 main-nss 构建。
             首次使用建议全新刷写。
 
             ## 默认登录
