@@ -35,7 +35,9 @@ EOF
     exit 1
 }
 
-[ $# -lt 3 ] && usage
+if [ "$#" -lt 3 ]; then
+    usage
+fi
 
 VID="$1"
 NAME="$2"
@@ -43,42 +45,68 @@ IPADDR="$3"
 shift 3
 PORTS="${*:-lan1 lan2 lan3 lan4}"
 
-# 校验
-case "$VID" in
-    ''|*[!0-9]*) echo "error: vlan-id must be numeric"; exit 2 ;;
-esac
-[ "$VID" -ge 2 ] && [ "$VID" -le 4094 ] || { echo "error: vlan-id must be 2-4094 (1 is primary lan)"; exit 2; }
-echo "$NAME" | grep -Eq '^[a-z][a-z0-9_]*$' || { echo "error: name must match [a-z][a-z0-9_]* (UCI section names allow only alphanumeric and underscore)"; exit 2; }
-echo "$IPADDR" | grep -Eq '^[0-9.]+/[0-9]+$' || { echo "error: ip must be CIDR e.g. 192.168.40.1/24"; exit 2; }
+# ---- 输入校验 -----------------------------------------------------------
 
-# 防御:bridge_vlan_filtering 必须关
+# vlan-id: 必须是数字
+case "$VID" in
+    ''|*[!0-9]*)
+        echo "error: vlan-id must be numeric" >&2
+        exit 2
+        ;;
+esac
+
+# vlan-id: 范围 2..4094
+if [ "$VID" -lt 2 ] || [ "$VID" -gt 4094 ]; then
+    echo "error: vlan-id must be 2-4094 (1 is primary lan)" >&2
+    exit 2
+fi
+
+# name: 仅允许 [a-z][a-z0-9_]* (UCI section 名规则)
+if ! echo "$NAME" | grep -Eq '^[a-z][a-z0-9_]*$'; then
+    echo "error: name must match [a-z][a-z0-9_]* (UCI section names allow only alphanumeric and underscore)" >&2
+    exit 2
+fi
+
+# ip/cidr: 形如 192.168.x.y/N
+if ! echo "$IPADDR" | grep -Eq '^[0-9.]+/[0-9]+$'; then
+    echo "error: ip must be CIDR e.g. 192.168.40.1/24" >&2
+    exit 2
+fi
+
+# ---- 防御:bridge_vlan_filtering 必须关 ---------------------------------
 for d in $(uci -q show network | awk -F'[.=]' '/=device$/{print $2}'); do
-    if [ "$(uci -q get network.${d}.vlan_filtering)" = "1" ]; then
-        echo "ERROR: network.$d.vlan_filtering=1 is enabled — incompatible with NSS WiFi."
-        echo "       Run: uci del network.$d.vlan_filtering && uci commit network"
+    if [ "$(uci -q get "network.${d}.vlan_filtering")" = "1" ]; then
+        echo "ERROR: network.$d.vlan_filtering=1 is enabled — incompatible with NSS WiFi." >&2
+        echo "       Run: uci del network.$d.vlan_filtering && uci commit network" >&2
         exit 3
     fi
 done
 
-# 检查名字未占用
+# ---- 名字未占用检查 -----------------------------------------------------
 if uci -q get "network.$NAME" >/dev/null 2>&1; then
-    echo "error: interface 'network.$NAME' already exists"
+    echo "error: interface 'network.$NAME' already exists" >&2
     exit 4
 fi
 
-# 构造 ports 列表
+# ---- 构造 ports 列表 ----------------------------------------------------
 PORT_LIST=""
+# shellcheck disable=SC2086 # PORTS 故意不引号:用空格切分多个端口名
 for p in $PORTS; do
     case "$p" in
-        lan1|lan2|lan3|lan4) PORT_LIST="$PORT_LIST $p.$VID" ;;
-        *) echo "error: invalid port '$p' (use lan1/lan2/lan3/lan4)"; exit 5 ;;
+        lan1|lan2|lan3|lan4)
+            PORT_LIST="$PORT_LIST $p.$VID"
+            ;;
+        *)
+            echo "error: invalid port '$p' (use lan1/lan2/lan3/lan4)" >&2
+            exit 5
+            ;;
     esac
 done
 
 echo "Adding VLAN $VID '$NAME' on:$PORT_LIST"
 echo "  br-$NAME → $IPADDR"
 
-# 1. bridge device
+# ---- (1) bridge device --------------------------------------------------
 uci -q batch <<EOF
 set network.br_$NAME=device
 set network.br_$NAME.type=bridge
@@ -86,19 +114,30 @@ set network.br_$NAME.name=br-$NAME
 set network.br_$NAME.bridge_empty=1
 set network.br_$NAME.vlan_filtering=0
 EOF
+# shellcheck disable=SC2086 # PORT_LIST 故意不引号:用空格切分多个端口名
 for p in $PORT_LIST; do
     uci -q add_list "network.br_$NAME.ports=$p"
 done
 
-# 2. interface
-IP=$(echo "$IPADDR" | cut -d'/' -f1)
-MASK_BITS=$(echo "$IPADDR" | cut -d'/' -f2)
+# ---- (2) interface ------------------------------------------------------
+# 用 POSIX 参数扩展替代 cut(更快、避免 fork)
+IP="${IPADDR%/*}"
+MASK_BITS="${IPADDR#*/}"
+
+# CIDR 位数 → 点分十进制(用 awk -v 安全传参,避免 shell 注入)
+NETMASK="$(awk -v bits="$MASK_BITS" 'BEGIN {
+    m = 4294967295 - 2^(32 - bits) + 1
+    for (i = 3; i >= 0; i--) {
+        printf "%d%s", int(m / 2^(8 * i)) % 256, (i ? "." : "")
+    }
+}')"
+
 uci -q batch <<EOF
 set network.$NAME=interface
 set network.$NAME.proto=static
 set network.$NAME.device=br-$NAME
 set network.$NAME.ipaddr=$IP
-set network.$NAME.netmask=$(awk "BEGIN{m=4294967295-2^(32-$MASK_BITS)+1;for(i=3;i>=0;i--){printf \"%d%s\",int(m/2^(8*i))%256,(i?\".\":\"\")}}")
+set network.$NAME.netmask=$NETMASK
 EOF
 
 uci commit network
