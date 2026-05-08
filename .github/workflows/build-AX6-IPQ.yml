@@ -63,6 +63,7 @@ jobs:
       - name: Load custom config and apply DIY
         run: |
           set -eo pipefail
+          rm -rf openwrt/files
           [ -e "$FILES" ] && cp -r "$FILES" openwrt/files
           [ -e "$CONFIG_FILE" ] && cp "$CONFIG_FILE" openwrt/.config
           if [ -e "$EXTRA_CONFIG" ]; then

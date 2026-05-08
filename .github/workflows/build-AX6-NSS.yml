@@ -187,6 +187,9 @@ jobs:
         run: |
           set -eo pipefail
           # 用 cp 而非 mv,本地反复跑也不破仓
+          # 先删除目标避免 cp -r 嵌套:若 openwrt/files 已存在,
+          # cp -r AX6-IPQ/files openwrt/files 会变成 openwrt/files/files/
+          rm -rf openwrt/files
           [ -e "$FILES" ] && cp -r "$FILES" openwrt/files
           [ -e "$CONFIG_FILE" ] && cp "$CONFIG_FILE" openwrt/.config
           # 关键修复:把 NSS 互斥/必需配置追加到 .config

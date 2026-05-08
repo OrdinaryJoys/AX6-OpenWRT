@@ -26,7 +26,7 @@ GitHub UI → Actions → `Build OpenWRT for AX6-NSS` → Run workflow → 选 v
 
 - **WiFi 6 满血**:HE80 + 4×4 MU-MIMO + 1024-QAM + LDPC + STBC + Beamforming + OBSS PD
 - **NSS 完整卸载**:`frame_mode=2`,数据通路绕过 SoftIRQ,实测 NAT 速率单核占用 < 1%
-- **23 个 NSS kmod**:bridge / vlan / pppoe / pptp / l2tp / gre / vxlan / mesh / shaper 全开
+- **23 个 NSS kmod**:bridge / vlan / pppoe / pptp / l2tp / gre / vxlan / shaper / crypto / ecm 全开 (mesh 需 FW 11.4，当前 12.5 不支持)
 - **IRQ 智能绑核**:eth/wifi/nss IRQ 分散到 4 个核
 - **WPA3 + IPv6 + 漫游**(11k/v + bss_transition)
 - **`nss-check`**:自带 13 项健康自检,cron 每 30 分钟自动跑

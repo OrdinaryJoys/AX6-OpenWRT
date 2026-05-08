@@ -98,9 +98,17 @@ for radio in $RADIOS; do
     uci -q set "wireless.${radio}.max_amsdu=1"    # 7935-octet A-MSDU
     uci -q set "wireless.${radio}.dsss_cck_40=1"  # 2.4G 40 MHz 下兼容 11b
 
-    # 4x4 全启用(IPQ8074 物理 4 链)
-    uci -q set "wireless.${radio}.tx_antenna=15"  # bitmask 0xF = 4 ant
-    uci -q set "wireless.${radio}.rx_antenna=15"
+    # 天线链数: 5GHz 4×4 (bitmask 0xF), 2.4GHz 2×2 (bitmask 0x3)
+    case "$band" in
+        5g)
+            uci -q set "wireless.${radio}.tx_antenna=15"  # 4 ant
+            uci -q set "wireless.${radio}.rx_antenna=15"
+            ;;
+        2g)
+            uci -q set "wireless.${radio}.tx_antenna=3"   # 2 ant
+            uci -q set "wireless.${radio}.rx_antenna=3"
+            ;;
+    esac
 done
 
 # ==============================================================
