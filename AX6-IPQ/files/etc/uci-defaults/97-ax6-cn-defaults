@@ -1,10 +1,16 @@
 #!/bin/sh
 # AX6 国内友好默认值:NTP + DNS(只在首次启动跑)
 # 用户可在 /etc/config/system 与 /etc/config/dhcp 中后续修改
+# sysupgrade 保留配置时,若已有自定义 NTP/DNS 则跳过
+
+EXISTING_NTP=$(uci -q get system.ntp.server 2>/dev/null)
+EXISTING_DNS=$(uci -q get dhcp.@dnsmasq[0].server 2>/dev/null)
 
 # ===========================================================
 # NTP:阿里 + 国家授时中心 + 腾讯
+# (仅当用户未配置 NTP 服务器时设置)
 # ===========================================================
+if [ -z "$EXISTING_NTP" ] || echo "$EXISTING_NTP" | grep -q "openwrt.pool.ntp.org"; then
 uci -q delete system.ntp.server
 uci -q add_list system.ntp.server='ntp.aliyun.com'
 uci -q add_list system.ntp.server='ntp.tencent.com'
@@ -18,11 +24,14 @@ uci -q set system.@system[0].timezone='CST-8'
 uci -q set system.@system[0].zonename='Asia/Shanghai'
 
 uci -q commit system
+fi
 
 # ===========================================================
 # DNS 上游:阿里 + 腾讯 + DNSPod (over UDP/53,无加密)
 # 用户如需 DoH/DoT 自行装 dnsmasq-full / smartdns
+# (仅当用户未配置自定义 DNS 服务器时设置)
 # ===========================================================
+if [ -z "$EXISTING_DNS" ] || echo "$EXISTING_DNS" | grep -q "119.29.29.29\|223.5.5.5\|114.114.114.114"; then
 uci -q delete dhcp.@dnsmasq[0].server 2>/dev/null
 uci -q add_list dhcp.@dnsmasq[0].server='223.5.5.5'
 uci -q add_list dhcp.@dnsmasq[0].server='119.29.29.29'
@@ -37,5 +46,6 @@ uci -q set dhcp.@dnsmasq[0].domainneeded='1'
 uci -q set dhcp.@dnsmasq[0].cachesize='2000'
 
 uci -q commit dhcp
+fi
 
 exit 0

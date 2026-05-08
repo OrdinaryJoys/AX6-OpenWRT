@@ -12,7 +12,7 @@
 COUNTRY_FILE="/etc/config/ax6_wifi_country"
 COUNTRY="CN"
 if [ -r "$COUNTRY_FILE" ]; then
-    COUNTRY="$(head -n 1 "$COUNTRY_FILE" | tr -dc '[:upper:]')"
+    COUNTRY="$(head -n 1 "$COUNTRY_FILE" | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')"
 fi
 [ -n "$COUNTRY" ] || COUNTRY="CN"
 
