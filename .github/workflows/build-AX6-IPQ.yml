@@ -96,7 +96,7 @@ jobs:
               fi
             done
             # NSS FW 12.5 不支持项强制 =n (defconfig Kconfig select 可能重新启用)
-            for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_SFE_ENABLE NSS_DRV_RMNET_ENABLE; do
+            for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_SFE_ENABLE; do
               sed -i "s|^CONFIG_${opt}=y$|# CONFIG_${opt} is not set|" .config
             done
           fi
