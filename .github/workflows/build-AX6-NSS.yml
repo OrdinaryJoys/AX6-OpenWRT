@@ -172,7 +172,7 @@ jobs:
           echo "src-git nss_packages https://github.com/VIKINGYFY/nss-packages-618.git^0f3a7fb8bf167c800a98db203dfb25d894f4bb27" >> feeds.conf.default
           # 替换 luci feed, pin 到 OrdinaryJoys/luci 快照 (2025-10-13)
           sed -i '/^src-git luci/d' feeds.conf.default
-          echo 'src-git luci https://github.com/OrdinaryJoys/luci.git^48884afb43a1a186ccc4b1fa71650ed987ed74a3' >> feeds.conf.default
+          echo 'src-git luci https://github.com/OrdinaryJoys/luci.git^48884afb432f84c93052f32603ceaed4b49feb14' >> feeds.conf.default
           # 全量刷新
           ./scripts/feeds clean
           rm -rf tmp/
