@@ -99,6 +99,13 @@ jobs:
             for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_SFE_ENABLE; do
               sed -i "s|^CONFIG_${opt}=y$|# CONFIG_${opt} is not set|" .config
             done
+            # 验证 NSS_DRV 不支持项已清除
+            for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_SFE_ENABLE; do
+              if grep -q "^CONFIG_${opt}=y$" .config; then
+                echo "::error::NSS FW 12.5 unsupported: CONFIG_${opt}=y still enabled after sed"
+                exit 2
+              fi
+            done
           fi
           make download -j8
           find dl -size -1024c -exec ls -l {} \;
