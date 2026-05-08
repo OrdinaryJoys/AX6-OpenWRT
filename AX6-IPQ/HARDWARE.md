@@ -145,8 +145,8 @@ fastboot reboot
 2. 按住 reset 加电进 u-boot 命令模式
 3. 通过 TFTP 恢复:
    ipq807x# tftpboot 0x44000000 appsbl.bin
-   ipq807x# nand erase 0x600000 0x100000     # mtd7 offset
-   ipq807x# nand write 0x44000000 0x600000 0x100000
+   ipq807x# nand erase 0x700000 0x100000     # mtd7 appsbl offset=7MB
+   ipq807x# nand write 0x44000000 0x700000 0x100000
 4. 同样恢复 appsblenv / art / bdata 分区
 5. reset
 ```
