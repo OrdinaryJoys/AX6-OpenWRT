@@ -34,11 +34,6 @@ git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config package/l
 
 
 # ----------------------------------------------------
-# NSS 固件哈希值 — 保留校验,不跳过
-# feed 已 pin commit,固件应可重复下载,若哈希不匹配则表明下载损坏
-# ----------------------------------------------------
-
-# ----------------------------------------------------
 # 切断 firewall4→kmod-nft-offload→kmod-nf-flow 依赖链
 # NSS 通过 kmod-qca-nss-nft 提供硬件卸载,kmod-nft-offload 多余且其
 # 依赖的 kmod-nf-flow 与 NSS ECM 互斥。make defconfig 会通过 Kconfig

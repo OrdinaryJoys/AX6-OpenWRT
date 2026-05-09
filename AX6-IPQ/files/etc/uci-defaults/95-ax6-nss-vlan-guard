@@ -20,12 +20,19 @@ for d in $(uci -q show network 2>/dev/null | awk -F'[.=]' '/=device$/{print $2}'
 done
 
 # 2. 删除任何 bridge-vlan 段 (DSA 语法,与 NSS 完全不兼容)
-while uci -q show network 2>/dev/null | grep -q '=bridge-vlan'; do
+# max_iter 防止 uci delete 静默失败时陷入死循环
+max_iter=20
+while [ $max_iter -gt 0 ] && uci -q show network 2>/dev/null | grep -q '=bridge-vlan'; do
     section=$(uci -q show network 2>/dev/null | awk -F'[.=]' '/=bridge-vlan/{print $2; exit}')
     [ -z "$section" ] && break
-    uci -q delete "network.${section}"
-    CHANGED=1
-    logger -t nss-vlan-guard "Removed bridge-vlan section network.$section (DSA bridge-vlan incompatible with NSS)"
+    if uci -q delete "network.${section}"; then
+        CHANGED=1
+        logger -t nss-vlan-guard "Removed bridge-vlan section network.$section (DSA bridge-vlan incompatible with NSS)"
+    else
+        logger -t nss-vlan-guard "Failed to delete bridge-vlan section network.$section, breaking loop"
+        break
+    fi
+    max_iter=$((max_iter - 1))
 done
 
 # 3. 移除 br-lan 上的 bridge_vlan_filtering kernel flag (bridge vlan_filtering

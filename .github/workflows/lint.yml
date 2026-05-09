@@ -58,9 +58,9 @@ jobs:
               ('kmod-qca-nss-drv', 'kmod-sched-cake'),
           )
           # 推荐启用(=y)。kmod-qca-rfs / kmod-qca-pppe 已由 nss-packages-618 内置
+          # NSS_REDIRECT 已被上游 mac80211 更新删除(ath11k 不需要)
           NSS_RECOMMENDED = (
               'MAC80211_NSS_SUPPORT',
-              'MAC80211_NSS_REDIRECT',
               'kmod-qca-ssdk',
           )
           NSS_EXTRA = 'AX6-IPQ/nss-extra.config'

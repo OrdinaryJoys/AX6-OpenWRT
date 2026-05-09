@@ -230,11 +230,11 @@ jobs:
           # defconfig Kconfig select 会重新启用 NSS FW 12.5 不支持的 NSS_DRV 选项,
           # 此处 sed 强制覆盖为 =n (qosmio 官方矩阵确认 FW 12.5 不支持):
           #   https://github.com/qosmio/openwrt-ipq#nss-support-matrix
-          for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_SFE_ENABLE; do
+          for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_DTLS_ENABLE NSS_DRV_CAPWAP_ENABLE NSS_DRV_PVXLAN_ENABLE NSS_DRV_SFE_ENABLE; do
             sed -i "s|^CONFIG_${opt}=y$|# CONFIG_${opt} is not set|" .config
           done
           # 验证 NSS_DRV 不支持项已清除 (不包括 RMNET:🟨 qca-nss-netlink 依赖)
-          for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_SFE_ENABLE; do
+          for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_DTLS_ENABLE NSS_DRV_CAPWAP_ENABLE NSS_DRV_PVXLAN_ENABLE NSS_DRV_SFE_ENABLE; do
             if grep -q "^CONFIG_${opt}=y$" .config; then
               echo "::error::NSS FW 12.5 unsupported: CONFIG_${opt}=y still enabled after sed"
               exit 2

@@ -96,17 +96,24 @@ jobs:
               fi
             done
             # NSS FW 12.5 不支持项强制 =n (defconfig Kconfig select 可能重新启用)
-            for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_SFE_ENABLE; do
+            for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_DTLS_ENABLE NSS_DRV_CAPWAP_ENABLE NSS_DRV_PVXLAN_ENABLE NSS_DRV_SFE_ENABLE; do
               sed -i "s|^CONFIG_${opt}=y$|# CONFIG_${opt} is not set|" .config
             done
             # 验证 NSS_DRV 不支持项已清除
-            for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_SFE_ENABLE; do
+            for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_DTLS_ENABLE NSS_DRV_CAPWAP_ENABLE NSS_DRV_PVXLAN_ENABLE NSS_DRV_SFE_ENABLE; do
               if grep -q "^CONFIG_${opt}=y$" .config; then
                 echo "::error::NSS FW 12.5 unsupported: CONFIG_${opt}=y still enabled after sed"
                 exit 2
               fi
             done
           fi
+          # kmod-nf-ipt: 确保 IP_NF_IPTABLES=m (kernel 6.18 默认关闭 LEGACY 框架)
+          # 缺失会导致 kmod-nf-ipt 空包 → firewall4 启动失败
+          for sym in CONFIG_IP_NF_IPTABLES CONFIG_IP6_NF_IPTABLES CONFIG_NETFILTER_XTABLES; do
+            if ! grep -q "^${sym}=[ym]" .config; then
+              echo "${sym}=m" >> .config
+            fi
+          done
           make download -j8
           find dl -size -1024c -exec ls -l {} \;
           find dl -size -1024c -exec rm -f {} \;
@@ -116,13 +123,17 @@ jobs:
         run: |
           set -eo pipefail
           echo "$(nproc) thread compile"
-          make -j"$(nproc)" || make -j1 V=s
+          make -j"$(nproc)" V=s || make -j1 V=s
 
       - name: Stage release artifacts
         run: |
           set -eo pipefail
           mkdir -p upload
-          find openwrt/bin/targets -type f \( -name '*.ubi' -o -name '*.bin' \) -exec cp {} upload/ \;
+          find openwrt/bin/targets -type f \( -name '*.ubi' -o -name '*.bin' -o -name '*.itb' \) -exec cp {} upload/ \;
+          # 附带 build info / checksums / nss-check 工具
+          find openwrt/bin/targets -type f \( -name 'config.buildinfo' -o -name 'feeds.buildinfo' -o -name 'version.buildinfo' \) -exec cp {} upload/ \; 2>/dev/null || true
+          [ -f AX6-IPQ/files/sbin/nss-check ] && cp AX6-IPQ/files/sbin/nss-check upload/nss-check.sh
+          ( cd upload && sha256sum -- * 2>/dev/null > SHA256SUMS ) || true
           ls -lh upload/
 
       - name: Get current date
@@ -144,9 +155,14 @@ jobs:
             - 用户: root
             - 密码: **首次登录请通过 LuCI Web 或 SSH `passwd` 设置**
 
+            ## ⚠️ NAND 分区注意
+            - **STOCK 布局**: rootfs=102MiB, 仅 128MiB NAND 原装设备可用
+            - **EXPAND 布局**: rootfs=192MiB, 需要先刷 NAND 扩容底层, 原装 NAND 刷 EXPAND 会砖
+            - 不确定自己设备 NAND 容量的, 先用 `nss-check` 检查 NAND 段, 或只刷 STOCK 版本
+
             ## 注意
-            - LiBwrt 项目部分版本 NSS 加速可能无法启动,如需稳定 NSS 请使用 AX6-NSS 工作流构建
-            - 默认 NSS 与 firewall flow_offload 互斥,**不要在防火墙开启软/硬件加速**
+            - NSS 加速与 firewall flow_offload 互斥, **不要在防火墙开启软件/硬件加速**
+            - 刷机后执行 `/sbin/nss-check -v` 检查 NSS/WiFi 健康状态
 
       - name: Delete old releases
         uses: dev-drprasad/delete-older-releases@dfbe6be2a006e9475dfcbe5b8d201f1824c2a9fe  # v0.3.4

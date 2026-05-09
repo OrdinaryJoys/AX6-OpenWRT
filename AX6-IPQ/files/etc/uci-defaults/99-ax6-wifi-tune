@@ -50,7 +50,7 @@ for radio in $RADIOS; do
     uci -q set "wireless.${radio}.he_bss_color=8"           # 1-63
     uci -q set "wireless.${radio}.he_twt_required=0"        # TWT 可选,IoT 友好
     uci -q set "wireless.${radio}.he_spr_sr_control=3"      # OBSS PD spatial reuse
-    uci -q set "wireless.${radio}.he_spr_non_srg_obss_pd_max_offset=8"
+    uci -q set "wireless.${radio}.he_spr_non_srg_obss_pd_max_offset=3"  # 3 bits (0-7)
     uci -q set "wireless.${radio}.he_default_pe_duration=4"
 
     # MU-MIMO + OFDMA + UL OFDMA(AX6 4x4 全开)
