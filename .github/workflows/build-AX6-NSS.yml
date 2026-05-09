@@ -221,6 +221,7 @@ jobs:
           # 但保留以防止未来上游回归。
           grep -q 'CONFIG_IP_NF_IPTABLES=m' .config || echo 'CONFIG_IP_NF_IPTABLES=m' >> .config
           grep -q 'CONFIG_IP6_NF_IPTABLES=m' .config || echo 'CONFIG_IP6_NF_IPTABLES=m' >> .config
+          grep -q 'CONFIG_NETFILTER_XTABLES=m' .config || echo 'CONFIG_NETFILTER_XTABLES=m' >> .config
           # defconfig 通过 firewall4→kmod-nft-offload→kmod-nf-flow 依赖链
           # 强制拉回 NSS 冲突包,此处 sed 强制覆盖为 =n
           # 黑名单来自 env.NSS_BLACKLIST(单一来源,与 pre-flight Python 共用)
