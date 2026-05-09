@@ -51,6 +51,8 @@ jobs:
           # NSS 互斥对:同一行同时 =y 即报错
           NSS_CONFLICT = (
               ('kmod-qca-nss-drv', 'kmod-nf-flow'),
+              ('kmod-qca-nss-drv', 'kmod-ipt-offload'),
+              ('kmod-qca-nss-drv', 'kmod-nft-offload'),
               ('kmod-qca-nss-drv', 'kmod-fast-classifier'),
               ('kmod-qca-nss-drv', 'kmod-shortcut-fe'),
               ('kmod-qca-nss-drv', 'kmod-shortcut-fe-cm'),
