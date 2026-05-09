@@ -1,6 +1,28 @@
 #!/bin/sh
-# NSS 与 firewall flow_offloading 互斥，关掉避免双卸载
+# NSS 与 OpenWrt 内置 offload 互斥 — 三层禁用 (qosmio 规范)
+#
+# 1) firewall 级别: firewall4/OpenWrt 23.05+ 的默认位置
+# 2) network device 级别: qosmio 规范要求 per-device 禁用
+#    (sysupgrade 可能携带 dirty config,必须显式覆盖)
+# 3) packet_steering: 已在 991_set-network.sh 中条件处理(NSS 加载时=0)
+#    此处补充 device 级别防御
+
+# --- firewall 级别 ---
 uci -q set firewall.@defaults[0].flow_offloading='0'
 uci -q set firewall.@defaults[0].flow_offloading_hw='0'
 uci commit firewall
+
+# --- network device 级别 (qosmio 规范: device[0].packet_steering/flow_offloading/flow_offloading_hw=0) ---
+dev_count=$(uci -q show network 2>/dev/null | grep -c "=device$")
+if [ "${dev_count:-0}" -gt 0 ]; then
+	for d in $(uci -q show network 2>/dev/null | awk -F'[.=]' '/=device$/{print $2}'); do
+		uci -q set "network.${d}.packet_steering=0"
+		uci -q set "network.${d}.flow_offloading=0"
+		uci -q set "network.${d}.flow_offloading_hw=0"
+	done
+	uci commit network
+else
+	logger -t nss-tune "WARNING: no network device sections found, skip device-level offload disable"
+fi
+
 exit 0
