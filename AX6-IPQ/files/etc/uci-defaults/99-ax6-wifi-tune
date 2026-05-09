@@ -1,130 +1,93 @@
 #!/bin/sh
-# AX6 WiFi 极致调优 — 最强信号 + 最优性能 + NSS-redirect
-#
-# 目标:在合规前提下让 IPQ8074 (4x4 ax) 达到驱动允许的最高功率/吞吐
-# 国家码:默认 CN(合规)。覆盖:echo US > /etc/config/ax6_wifi_country && reboot
-# 此脚本仅在首次启动跑一次(uci-defaults 机制)
-#
-# 设计:不使用 set -e。 uci -q 在某些 OpenWrt 版本对不存在的 key 返回非零,
-# 用 set -e 会让任何一个 uci -q delete 失败就导致全部调优中断。
-# 真正影响成品的命令(uci commit)放在末尾且单独检查。
+# AX6 WiFi max performance tuning — IPQ8074 4x4 AX, US FCC default
+# Override country: echo CN > /etc/config/ax6_wifi_country && reboot
+# Runs once via uci-defaults on first boot only.
 
 COUNTRY_FILE="/etc/config/ax6_wifi_country"
-COUNTRY="CN"
+COUNTRY="US"
 if [ -r "$COUNTRY_FILE" ]; then
     COUNTRY="$(head -n 1 "$COUNTRY_FILE" | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')"
 fi
-[ -n "$COUNTRY" ] || COUNTRY="CN"
+[ -n "$COUNTRY" ] || COUNTRY="US"
 
-# 收集所有 wifi-device 节
 RADIOS="$(uci show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-device/{print $2}')"
 
 for radio in $RADIOS; do
     band="$(uci -q get "wireless.${radio}.band")"
 
-    # ==========================================================
-    # 通用:国家、TX power 顶满
-    # ==========================================================
+    # Country + explicit max TX power (hardware calibration may cap actual output)
     uci -q set "wireless.${radio}.country=$COUNTRY"
-    uci -q delete "wireless.${radio}.txpower"     # 让驱动按 regdom 顶到上限
-    uci -q delete "wireless.${radio}.disabled"
+    uci -q set "wireless.${radio}.txpower=30"
     uci -q set "wireless.${radio}.disabled=0"
 
-    # cell_density=0 = sparse / 覆盖优先(信号最强,远端不掉线)
+    # Coverage-optimized (sparse cell, legacy rates, weak-client RX)
     uci -q set "wireless.${radio}.cell_density=0"
-
-    # legacy_rates=1 保留 1/2/5.5/11Mbps,远距离握手成功率高
     uci -q set "wireless.${radio}.legacy_rates=1"
+    uci -q set "wireless.${radio}.noscan=1"
+    uci -q set "wireless.${radio}.beacon_int=100"
+    uci -q set "wireless.${radio}.dtim_period=1"
 
-    # 接收灵敏度 / 噪底相关 — 降低 RX 阈值以听到更弱客户端
-    uci -q set "wireless.${radio}.noscan=1"           # 扫描期间不打断 STA
-    uci -q set "wireless.${radio}.beacon_int=100"     # 标准 100ms,平衡功耗与扫描
-    uci -q set "wireless.${radio}.dtim_period=1"      # DTIM 1 = 最低 buffered 延迟
-
-    # ==========================================================
-    # 802.11ax HE 全特性 (Wi-Fi 6)
-    # ==========================================================
+    # HE / Wi-Fi 6 full capability
     uci -q set "wireless.${radio}.he_su_beamformer=1"
     uci -q set "wireless.${radio}.he_su_beamformee=1"
     uci -q set "wireless.${radio}.he_mu_beamformer=1"
-    uci -q set "wireless.${radio}.he_bss_color=8"           # 1-63
-    uci -q set "wireless.${radio}.he_twt_required=0"        # TWT 可选,IoT 友好
-    uci -q set "wireless.${radio}.he_spr_sr_control=3"      # OBSS PD spatial reuse
-    uci -q set "wireless.${radio}.he_spr_non_srg_obss_pd_max_offset=3"  # 3 bits (0-7)
-    uci -q set "wireless.${radio}.he_default_pe_duration=4"
-
-    # MU-MIMO + OFDMA + UL OFDMA(AX6 4x4 全开)
     uci -q set "wireless.${radio}.mu_beamformer=1"
     uci -q set "wireless.${radio}.he_mu_edca=1"
+    uci -q set "wireless.${radio}.he_bss_color=8"
+    uci -q set "wireless.${radio}.he_twt_required=0"
+    uci -q set "wireless.${radio}.he_spr_sr_control=1"
+    uci -q set "wireless.${radio}.he_spr_non_srg_obss_pd_max_offset=3"
+    uci -q set "wireless.${radio}.he_default_pe_duration=4"
 
-    # ==========================================================
-    # 频宽:5G HE80(4x4 最佳),2.4G HE40
-    # ==========================================================
+    # Band-specific channel & antenna
     case "$band" in
         5g)
             uci -q set "wireless.${radio}.htmode=HE80"
             cur_chan="$(uci -q get "wireless.${radio}.channel")"
             if [ -z "$cur_chan" ] || [ "$cur_chan" = "auto" ]; then
-                uci -q set "wireless.${radio}.channel=36"
+                uci -q set "wireless.${radio}.channel=149"  # UNII-3: max power, no DFS
             fi
+            uci -q set "wireless.${radio}.tx_antenna=15"   # 4x4
+            uci -q set "wireless.${radio}.rx_antenna=15"
             ;;
         2g)
             uci -q set "wireless.${radio}.htmode=HE40"
             uci -q set "wireless.${radio}.channel=auto"
+            uci -q set "wireless.${radio}.tx_antenna=3"    # 2x2
+            uci -q set "wireless.${radio}.rx_antenna=3"
             ;;
     esac
 
-    # ==========================================================
-    # 802.11k/v/r 漫游 + bss_transition + reduced_neighbor
-    # ==========================================================
+    # 802.11k/v/r fast roaming
     uci -q set "wireless.${radio}.ieee80211k=1"
     uci -q set "wireless.${radio}.ieee80211v=1"
-    uci -q set "wireless.${radio}.ieee80211r=0"   # FT 需 NAS 共享密钥,默认关
+    uci -q set "wireless.${radio}.ieee80211r=0"           # FT needs shared NAS key
     uci -q set "wireless.${radio}.bss_transition=1"
     uci -q set "wireless.${radio}.rrm_neighbor_report=1"
     uci -q set "wireless.${radio}.rrm_beacon_report=1"
 
-    # ==========================================================
-    # 数据链路高级特性
-    # ==========================================================
+    # Link-layer max throughput
     uci -q set "wireless.${radio}.short_gi_20=1"
     uci -q set "wireless.${radio}.short_gi_40=1"
     uci -q set "wireless.${radio}.short_gi_80=1"
     uci -q set "wireless.${radio}.short_gi_160=1"
     uci -q set "wireless.${radio}.tx_stbc_2by1=1"
-    uci -q set "wireless.${radio}.rx_stbc=3"      # 1/2/3/4 stream
-    uci -q set "wireless.${radio}.ldpc=1"         # LDPC(SNR 提升)
-    uci -q set "wireless.${radio}.greenfield=0"   # 关 — 兼容 11n/g 客户端
-    uci -q set "wireless.${radio}.max_amsdu=1"    # 7935-octet A-MSDU
-    uci -q set "wireless.${radio}.dsss_cck_40=1"  # 2.4G 40 MHz 下兼容 11b
-
-    # 天线链数: 5GHz 4×4 (bitmask 0xF), 2.4GHz 2×2 (bitmask 0x3)
-    case "$band" in
-        5g)
-            uci -q set "wireless.${radio}.tx_antenna=15"  # 4 ant
-            uci -q set "wireless.${radio}.rx_antenna=15"
-            ;;
-        2g)
-            uci -q set "wireless.${radio}.tx_antenna=3"   # 2 ant
-            uci -q set "wireless.${radio}.rx_antenna=3"
-            ;;
-    esac
+    uci -q set "wireless.${radio}.rx_stbc=3"
+    uci -q set "wireless.${radio}.ldpc=1"
+    uci -q set "wireless.${radio}.greenfield=0"           # keep 11n/g compatibility
+    uci -q set "wireless.${radio}.max_amsdu=1"
+    uci -q set "wireless.${radio}.dsss_cck_40=1"
 done
 
-# ==============================================================
-# 默认 SSID 设置 — 只调与"加密强度无关"的体验项,
-# 不动 encryption / network / isolate(避免破坏多 SSID / 访客网络)
-# 用户首次设置 SSID 时按需自行选 sae-mixed / psk2 / open
-# ==============================================================
+# Per-interface settings — only non-encryption experience items
 for iface in $(uci show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-iface/{print $2}'); do
-    uci -q set "wireless.${iface}.disassoc_low_ack=0"     # 不踢弱信号客户端
-    uci -q set "wireless.${iface}.wmm=1"                  # WMM/QoS
-    uci -q set "wireless.${iface}.uapsd=1"                # U-APSD 省电增强
-    uci -q set "wireless.${iface}.proxy_arp=1"            # ARP 代答减少广播
+    uci -q set "wireless.${iface}.disassoc_low_ack=0"     # don't kick weak-signal clients
+    uci -q set "wireless.${iface}.wmm=1"                  # WMM QoS
+    uci -q set "wireless.${iface}.uapsd=1"                # U-APSD power save
+    uci -q set "wireless.${iface}.proxy_arp=1"            # reduce broadcast ARP
     uci -q set "wireless.${iface}.multicast_to_unicast=1"
-    # 仅在还没设过 ieee80211w(PMF)时,默认 optional;不强制 WPA3
     if [ -z "$(uci -q get "wireless.${iface}.ieee80211w")" ]; then
-        uci -q set "wireless.${iface}.ieee80211w=1"
+        uci -q set "wireless.${iface}.ieee80211w=1"       # PMF optional
     fi
 done
 
