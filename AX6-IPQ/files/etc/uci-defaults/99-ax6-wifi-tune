@@ -1,10 +1,7 @@
 #!/bin/sh
 # AX6 WiFi max performance — IPQ8074 4x4 AX
-# Default US FCC. Override: echo CN > /etc/config/ax6_wifi_country && reboot
-# NOTE: ath11k firmware overrides kernel regdb on wifi startup.
-#       iw reg set must run AFTER wifi is up (handled by ax6-wifi-regdom init.d).
-#       Calibration data caps txpower: 5G UNII-1 ~23dBm, UNII-3 ~30dBm, 2.4G ~20dBm.
-# Runs once via uci-defaults on first boot only.
+# Override country: echo CN > /etc/config/ax6_wifi_country && reboot
+# Runs once via uci-defaults on first boot.
 
 COUNTRY_FILE="/etc/config/ax6_wifi_country"
 COUNTRY="US"
@@ -19,7 +16,6 @@ for radio in $RADIOS; do
     band="$(uci -q get "wireless.${radio}.band")"
 
     uci -q set "wireless.${radio}.country=$COUNTRY"
-    uci -q set "wireless.${radio}.txpower=30"
     uci -q set "wireless.${radio}.disabled=0"
 
     uci -q set "wireless.${radio}.cell_density=0"
@@ -44,7 +40,7 @@ for radio in $RADIOS; do
             uci -q set "wireless.${radio}.htmode=HE80"
             cur_chan="$(uci -q get "wireless.${radio}.channel")"
             if [ -z "$cur_chan" ] || [ "$cur_chan" = "auto" ]; then
-                uci -q set "wireless.${radio}.channel=36"   # UNII-1: low freq = best range
+                uci -q set "wireless.${radio}.channel=36"
             fi
             uci -q set "wireless.${radio}.tx_antenna=15"
             uci -q set "wireless.${radio}.rx_antenna=15"
@@ -89,23 +85,21 @@ done
 
 uci -q commit wireless
 
-# ath11k firmware overrides kernel regdb on wifi startup.
-# Install init.d script to sync iw reg after wifi is up on every boot.
+# ath11k firmware applies built-in regdb on init — must set iw reg BEFORE wifi starts.
+# This init script runs at START=10 (before network/wifi) on every boot.
 if [ ! -f /etc/init.d/ax6-wifi-regdom ]; then
     cat > /etc/init.d/ax6-wifi-regdom << 'INIT'
 #!/bin/sh /etc/rc.common
-# AX6: sync iw reg after wifi up (ath11k firmware resets regdb on start)
-START=99
-boot() { start; }
-start() {
+# AX6: set iw reg domain before wifi starts (ath11k firmware reads regdb at init)
+START=10
+boot() {
     COUNTRY=$(uci -q get wireless.radio0.country 2>/dev/null)
     [ -z "$COUNTRY" ] && COUNTRY="US"
-    sleep 10
-    [ "$(iw reg get 2>/dev/null | awk '/country/{print $2; exit}' | tr -d ':')" != "$COUNTRY" ] && iw reg set "$COUNTRY"
+    iw reg set "$COUNTRY" 2>/dev/null
 }
 INIT
     chmod +x /etc/init.d/ax6-wifi-regdom
-    /etc/init.d/ax6-wifi-regdom enable
+    /etc/init.d/ax6-wifi-regdom enable 2>/dev/null
 fi
 
 exit 0
