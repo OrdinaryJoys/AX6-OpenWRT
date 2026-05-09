@@ -1,9 +1,11 @@
 #!/bin/sh
 # NSS ECM handles hardware offload — conflicting flow-offload modules must be blocked.
-# (firewall4 uses nftables; firewall3 flow_offloading UCI options don't exist in fw4)
+# Uses defense-in-depth: kernel module blacklist + UCI runtime disable.
 # Runs once via uci-defaults on first boot.
 
-# Defense-in-depth: modprobe blacklist prevents accidental loading
+# ===================================================================
+# Layer 1: 内核模块级别 — modprobe blacklist + rmmod (主线方案)
+# ===================================================================
 if [ ! -f /etc/modprobe.d/nss-no-flow.conf ]; then
     cat > /etc/modprobe.d/nss-no-flow.conf << 'EOF'
 # NSS ECM handles hardware offload — these conflict
@@ -13,9 +15,30 @@ blacklist ipt_FLOWOFFLOAD
 EOF
 fi
 
-# Unload if already loaded (harmless if not loaded)
 rmmod nf_flow_table 2>/dev/null || true
 rmmod nft_flow_offload 2>/dev/null || true
 rmmod ipt_FLOWOFFLOAD 2>/dev/null || true
+
+# ===================================================================
+# Layer 2: UCI 配置级别 — firewall + device 级禁用 (qosmio 规范)
+# ===================================================================
+
+# firewall 级别
+uci -q set firewall.@defaults[0].flow_offloading='0'
+uci -q set firewall.@defaults[0].flow_offloading_hw='0'
+uci commit firewall
+
+# network device 级别 (per-device, 防止 sysupgrade dirty config 泄漏)
+dev_count=$(uci -q show network 2>/dev/null | grep -c "=device$")
+if [ "${dev_count:-0}" -gt 0 ]; then
+	for d in $(uci -q show network 2>/dev/null | awk -F'[.=]' '/=device$/{print $2}'); do
+		uci -q set "network.${d}.packet_steering=0"
+		uci -q set "network.${d}.flow_offloading=0"
+		uci -q set "network.${d}.flow_offloading_hw=0"
+	done
+	uci commit network
+else
+	logger -t nss-tune "WARNING: no network device sections found, skip device-level offload disable"
+fi
 
 exit 0
