@@ -73,7 +73,6 @@ CONFIG_TARGET_qualcommax_ipq807x=y
 # CONFIG_TARGET_qualcommax_ipq807x_DEVICE_netgear_wax630 is not set
 # CONFIG_TARGET_qualcommax_ipq807x_DEVICE_prpl_haze is not set
 # CONFIG_TARGET_qualcommax_ipq807x_DEVICE_qnap_301w is not set
-# CONFIG_TARGET_qualcommax_ipq807x_DEVICE_redmi_ax6 is not set
 CONFIG_TARGET_qualcommax_ipq807x_DEVICE_redmi_ax6=y
 # CONFIG_TARGET_qualcommax_ipq807x_DEVICE_spectrum_sax1v1k is not set
 # CONFIG_TARGET_qualcommax_ipq807x_DEVICE_tplink_eap660hd-v1 is not set
