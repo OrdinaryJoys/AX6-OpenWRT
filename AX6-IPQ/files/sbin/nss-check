@@ -122,8 +122,8 @@ fi
 # AX6 (1GB RAM) 使用 MID 模式 (mode=1):
 #   FULL (mode=0) 需要 ~100MB DMA 连续内存,CMA 不足时固件加载失败 → 内核 panic
 #   MID (mode=1) ~32MB 内存占用,稳定且性能足够家用 4×4 MU-MIMO 场景
-# (不使用 \b — BusyBox grep 不支持该 GNU 扩展)
-fw_mode=$(echo "$_dmesg" | grep -oE "fw_mem_mode[ =:]+[0-9]+" | tail -n 1 | grep -oE "[0-9]+")
+# (dmesg 格式 "FW memory mode: N")
+fw_mode=$(echo "$_dmesg" | grep -oE "FW memory mode:[[:space:]]*[0-9]+" | tail -n 1 | grep -oE "[0-9]+")
 case "$fw_mode" in
     1)
         ok "ath11k fw_mem_mode = 1 (MID, 与 DTS qcom,ath11k-fw-memory-mode=<1> 匹配)"
