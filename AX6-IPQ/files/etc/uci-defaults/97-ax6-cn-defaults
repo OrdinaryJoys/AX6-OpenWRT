@@ -55,3 +55,4 @@ if [ "$apply_dns" = "1" ]; then
 fi
 
 exit 0
+

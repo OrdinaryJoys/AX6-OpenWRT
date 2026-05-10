@@ -36,3 +36,4 @@ printf ' NSS: modules=%d  core=%b  ecm=%d  WiFi: %b  RAM: %d/%d MB\n' \
 printf ' Run: %s for full health check\n\n' "$(_color '36' 'nss-check -v')"
 
 unset _color _nss_count _nss_state _ecm_count _wifi_state _ram_used_mb _ram_total_mb
+

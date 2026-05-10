@@ -19,3 +19,4 @@ rmmod nft_flow_offload 2>/dev/null || true
 rmmod ipt_FLOWOFFLOAD 2>/dev/null || true
 
 exit 0
+
