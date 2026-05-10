@@ -19,9 +19,13 @@ apply() {
     while IFS=: read -r irq rest; do
         irq=$(echo "$irq" | tr -d ' ')
         case "$rest" in
-            *wifi0*|*ath11k*hw0*) set_aff "$irq" 4 ;;  # 5G → CPU2 独占
-            *wifi1*|*ath11k*hw1*) set_aff "$irq" 2 ;;  # 2.4G → CPU1 与 eth 共用,流量低
-            *eth*|*dp[1-9]*|*nss-dp*) set_aff "$irq" 2 ;;
+            # 5G WiFi → CPU2 (kernel 6.18: ppdu-end-interrupts-mac1, 旧: ath11k_hw0)
+            *ppdu-end*mac1*|*wifi0*|*ath11k*hw0*) set_aff "$irq" 4 ;;
+            # 2.4G WiFi → CPU1 (kernel 6.18: ppdu-end-interrupts-mac3, 旧: ath11k_hw1)
+            *ppdu-end*mac3*|*wifi1*|*ath11k*hw1*) set_aff "$irq" 2 ;;
+            # Ethernet + NSS DP → CPU1
+            *eth*|*edma*|*dp[0-9]*|*nss-dp*) set_aff "$irq" 2 ;;
+            # NSS firmware → CPU3 独占
             *nss*) set_aff "$irq" 8 ;;
         esac
     done < /proc/interrupts
