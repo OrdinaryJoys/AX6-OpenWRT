@@ -20,7 +20,7 @@ on:
 
 env:
   REPO_URL: https://github.com/OrdinaryJoys/immortalwrt-nss.git
-  REPO_BRANCH: merge-vikingy-updates
+  REPO_BRANCH: main
   EXTRA_CONFIG: AX6-IPQ/nss-extra.config
   DIY_SH: AX6-IPQ/diy.sh
   FILES: AX6-IPQ/files
