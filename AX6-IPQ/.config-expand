@@ -424,7 +424,7 @@ CONFIG_KERNEL_JFFS2_FS_SECURITY=y
 # Package build options
 #
 # CONFIG_DEBUG is not set
-# CONFIG_USE_GC_SECTIONS is not set
+CONFIG_USE_GC_SECTIONS=y
 # CONFIG_USE_LTO is not set
 # CONFIG_MOLD is not set
 CONFIG_IPV6=y
@@ -472,13 +472,14 @@ CONFIG_LOCALMIRROR=""
 CONFIG_AUTOREBUILD=y
 CONFIG_BUILD_SUFFIX=""
 CONFIG_TARGET_ROOTFS_DIR=""
+CONFIG_CCACHE=y
 CONFIG_CCACHE_DIR=""
 CONFIG_KERNEL_CFLAGS=""
 CONFIG_EXTERNAL_KERNEL_TREE=""
 CONFIG_KERNEL_GIT_CLONE_URI=""
 CONFIG_BUILD_LOG_DIR=""
 CONFIG_EXTRA_OPTIMIZATION="-fno-caller-saves -fno-plt"
-CONFIG_TARGET_OPTIMIZATION="-Os -pipe -mcpu=cortex-a53+crc+crypto"
+CONFIG_TARGET_OPTIMIZATION="-O2 -pipe -mcpu=cortex-a53+crc+crypto"
 CONFIG_EXTRA_BINUTILS_CONFIG_OPTIONS=""
 CONFIG_EXTRA_GCC_CONFIG_OPTIONS=""
 CONFIG_MUSL_DISABLE_CRYPT_SIZE_HACK=y
@@ -5114,7 +5115,7 @@ CONFIG_PACKAGE_zlib=y
 #
 # Configuration
 #
-# CONFIG_ZLIB_OPTIMIZE_SPEED is not set
+CONFIG_ZLIB_OPTIMIZE_SPEED=y
 # end of Configuration
 
 # CONFIG_PACKAGE_zlog is not set
@@ -5774,7 +5775,7 @@ CONFIG_PACKAGE_curl=y
 # CONFIG_PACKAGE_ps3netsrv is not set
 # CONFIG_PACKAGE_rclone is not set
 # CONFIG_PACKAGE_rclone-config is not set
-# CONFIG_PACKAGE_rsync is not set
+CONFIG_PACKAGE_rsync=y
 # CONFIG_PACKAGE_rsyncd is not set
 # CONFIG_PACKAGE_transfer is not set
 # CONFIG_PACKAGE_vsftpd is not set
@@ -6651,7 +6652,7 @@ CONFIG_PACKAGE_ethtool=y
 # CONFIG_PACKAGE_iftop is not set
 # CONFIG_PACKAGE_iiod is not set
 # CONFIG_PACKAGE_iperf is not set
-# CONFIG_PACKAGE_iperf3 is not set
+CONFIG_PACKAGE_iperf3=y
 # CONFIG_PACKAGE_iperf3-ssl is not set
 # CONFIG_PACKAGE_ipip is not set
 # CONFIG_PACKAGE_ipset is not set
@@ -6827,7 +6828,7 @@ CONFIG_PACKAGE_socat=y
 # CONFIG_PACKAGE_tac_plus is not set
 # CONFIG_PACKAGE_tac_plus-pam is not set
 # CONFIG_PACKAGE_tayga is not set
-# CONFIG_PACKAGE_tcpdump is not set
+CONFIG_PACKAGE_tcpdump=y
 # CONFIG_PACKAGE_tcpdump-mini is not set
 CONFIG_PACKAGE_tcping=y
 # CONFIG_PACKAGE_tcping-simple is not set
@@ -7506,7 +7507,7 @@ CONFIG_PACKAGE_coreutils-nohup=y
 # CONFIG_PACKAGE_iwcap is not set
 CONFIG_PACKAGE_iwinfo=y
 # CONFIG_PACKAGE_joker is not set
-# CONFIG_PACKAGE_jq is not set
+CONFIG_PACKAGE_jq=y
 CONFIG_PACKAGE_jshn=y
 # CONFIG_PACKAGE_kmod is not set
 # CONFIG_PACKAGE_lcd4linux-custom is not set
