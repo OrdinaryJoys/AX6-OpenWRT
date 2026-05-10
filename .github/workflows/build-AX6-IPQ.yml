@@ -96,11 +96,11 @@ jobs:
               fi
             done
             # NSS FW 12.5 不支持项强制 =n (defconfig Kconfig select 可能重新启用)
-            for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_DTLS_ENABLE NSS_DRV_CAPWAP_ENABLE NSS_DRV_PVXLAN_ENABLE NSS_DRV_SFE_ENABLE; do
+            for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_DTLS_ENABLE NSS_DRV_CAPWAP_ENABLE NSS_DRV_PVXLAN_ENABLE NSS_DRV_SFE_ENABLE NSS_DRV_WIFI_MESH_ENABLE NSS_DRV_WDS_ENABLE; do
               sed -i "s|^CONFIG_${opt}=y$|# CONFIG_${opt} is not set|" .config
             done
             # 验证 NSS_DRV 不支持项已清除
-            for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_DTLS_ENABLE NSS_DRV_CAPWAP_ENABLE NSS_DRV_PVXLAN_ENABLE NSS_DRV_SFE_ENABLE; do
+            for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_DTLS_ENABLE NSS_DRV_CAPWAP_ENABLE NSS_DRV_PVXLAN_ENABLE NSS_DRV_SFE_ENABLE NSS_DRV_WIFI_MESH_ENABLE NSS_DRV_WDS_ENABLE; do
               if grep -q "^CONFIG_${opt}=y$" .config; then
                 echo "::error::NSS FW 12.5 unsupported: CONFIG_${opt}=y still enabled after sed"
                 exit 2

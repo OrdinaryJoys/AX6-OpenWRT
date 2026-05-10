@@ -167,9 +167,9 @@ jobs:
           #   immortalwrt-nss/feeds.conf.default 内的 nss_packages 行是 fork 自己直接构建用的;
           #   AX6-NSS 工作流总是删掉那一行,改用本仓固定的 0f3a7fb 版本以保证可复现。
           #   如果 fork 那边升级了上游而工作流没跟,以工作流版本为准。
-          # 幂等写入 NSS feed, pin 到 0f3a7fb (fix for 6.18: 含所有 NSS 包 kernel 6.18 兼容补丁)
+          # 幂等写入 NSS feed, pin 到 1306d12 (NSS-12.5-K6.x HEAD 2026-05, kernel 6.18 兼容)
           sed -i '/^src-git nss_packages/d' feeds.conf.default
-          echo "src-git nss_packages https://github.com/VIKINGYFY/nss-packages-618.git^0f3a7fb8bf167c800a98db203dfb25d894f4bb27" >> feeds.conf.default
+          echo "src-git nss_packages https://github.com/VIKINGYFY/nss-packages-618.git^1306d122aec63abd997e626f8cd52b3a78267499" >> feeds.conf.default
           # 替换 luci feed, pin 到 OrdinaryJoys/luci 快照 (2025-10-13)
           sed -i '/^src-git luci/d' feeds.conf.default
           echo 'src-git luci https://github.com/OrdinaryJoys/luci.git^48884afb432f84c93052f32603ceaed4b49feb14' >> feeds.conf.default
@@ -231,11 +231,11 @@ jobs:
           # defconfig Kconfig select 会重新启用 NSS FW 12.5 不支持的 NSS_DRV 选项,
           # 此处 sed 强制覆盖为 =n (qosmio 官方矩阵确认 FW 12.5 不支持):
           #   https://github.com/qosmio/openwrt-ipq#nss-support-matrix
-          for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_DTLS_ENABLE NSS_DRV_CAPWAP_ENABLE NSS_DRV_PVXLAN_ENABLE NSS_DRV_SFE_ENABLE; do
+          for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_DTLS_ENABLE NSS_DRV_CAPWAP_ENABLE NSS_DRV_PVXLAN_ENABLE NSS_DRV_SFE_ENABLE NSS_DRV_WIFI_MESH_ENABLE NSS_DRV_WDS_ENABLE; do
             sed -i "s|^CONFIG_${opt}=y$|# CONFIG_${opt} is not set|" .config
           done
           # 验证 NSS_DRV 不支持项已清除 (不包括 RMNET:🟨 qca-nss-netlink 依赖)
-          for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_DTLS_ENABLE NSS_DRV_CAPWAP_ENABLE NSS_DRV_PVXLAN_ENABLE NSS_DRV_SFE_ENABLE; do
+          for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_DTLS_ENABLE NSS_DRV_CAPWAP_ENABLE NSS_DRV_PVXLAN_ENABLE NSS_DRV_SFE_ENABLE NSS_DRV_WIFI_MESH_ENABLE NSS_DRV_WDS_ENABLE; do
             if grep -q "^CONFIG_${opt}=y$" .config; then
               echo "::error::NSS FW 12.5 unsupported: CONFIG_${opt}=y still enabled after sed"
               exit 2

@@ -92,7 +92,7 @@ if [ ! -f /etc/init.d/ax6-wifi-regdom ]; then
 #!/bin/sh /etc/rc.common
 # AX6: set iw reg domain before wifi starts (ath11k firmware reads regdb at init)
 START=10
-boot() {
+start() {
     COUNTRY=$(uci -q get wireless.radio0.country 2>/dev/null)
     [ -z "$COUNTRY" ] && COUNTRY="US"
     iw reg set "$COUNTRY" 2>/dev/null

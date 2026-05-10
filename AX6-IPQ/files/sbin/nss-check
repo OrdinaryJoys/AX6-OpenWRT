@@ -88,8 +88,9 @@ else
 fi
 
 # ---- 4. NSS Core 启动 ----
-if dmesg 2>/dev/null | grep -q "NSS core .* booted"; then
-    cores=$(dmesg | grep -c "NSS core .* booted")
+_dmesg=$(dmesg 2>/dev/null)
+if echo "$_dmesg" | grep -q "NSS core .* booted"; then
+    cores=$(echo "$_dmesg" | grep -c "NSS core .* booted")
     ok "NSS Core(s) booted: $cores"
 else
     fail "NSS Core 未启动 — 查 dmesg | grep -i 'nss\\|ubi32'"
@@ -111,7 +112,7 @@ else
 fi
 
 # ---- 7. ath11k board file 加载 ----
-if dmesg 2>/dev/null | grep -qE "ath11k.*board.*Redmi-AX6"; then
+if echo "$_dmesg" | grep -qE "ath11k.*board.*Redmi-AX6"; then
     ok "ath11k board-2.bin: Redmi-AX6 calibration variant loaded"
 else
     warn "未在 dmesg 找到 'Redmi-AX6' calibration 字样(可能仍 OK,看 dmesg | grep ath11k)"
@@ -121,7 +122,8 @@ fi
 # AX6 (1GB RAM) 使用 MID 模式 (mode=1):
 #   FULL (mode=0) 需要 ~100MB DMA 连续内存,CMA 不足时固件加载失败 → 内核 panic
 #   MID (mode=1) ~32MB 内存占用,稳定且性能足够家用 4×4 MU-MIMO 场景
-fw_mode=$(dmesg 2>/dev/null | grep -oE "\bfw_mem_mode[ =:]+[0-9]+" | tail -n 1 | grep -oE "[0-9]+")
+# (不使用 \b — BusyBox grep 不支持该 GNU 扩展)
+fw_mode=$(echo "$_dmesg" | grep -oE "fw_mem_mode[ =:]+[0-9]+" | tail -n 1 | grep -oE "[0-9]+")
 case "$fw_mode" in
     1)
         ok "ath11k fw_mem_mode = 1 (MID, 与 DTS qcom,ath11k-fw-memory-mode=<1> 匹配)"
@@ -140,13 +142,13 @@ case "$fw_mode" in
         ;;
 esac
 
-# ---- 9. 防火墙 flow_offload 必须关 ----
-fo=$(uci -q get firewall.@defaults[0].flow_offloading)
-fo_hw=$(uci -q get firewall.@defaults[0].flow_offloading_hw)
-if [ "${fo:-0}" = "0" ] && [ "${fo_hw:-0}" = "0" ]; then
-    ok "Firewall flow_offload off (无 NSS 冲突)"
+# ---- 9. 防火墙 flow_offload 内核模块必须关 ----
+# (firewall4 使用 nftables, UCI flow_offloading 选项不存在;
+#  直接检查内核冲突模块是否被加载)
+if lsmod | grep -Eq '^(nf_flow_table|nft_flow_offload|ipt_FLOWOFFLOAD) ' 2>/dev/null; then
+    fail "Conflicting flow-offload kernel module loaded — rmmod + check /etc/modprobe.d/nss-no-flow.conf"
 else
-    fail "Firewall flow_offload=${fo} hw=${fo_hw} — 与 NSS 冲突,改 0"
+    ok "No conflicting flow-offload kernel modules (NSS ECM handles offload)"
 fi
 
 # ---- 10. ECM connection_count(NSS 工作中应 > 0)----
@@ -163,10 +165,10 @@ else
 fi
 
 # ---- 11. WiFi 工作模式 ----
-if iw dev 2>/dev/null | grep -q "channel.*MHz.*width: 80"; then
-    ok "WiFi 5G HE80 active"
+if iw dev 2>/dev/null | grep -qE "channel.*MHz.*width: (80|160)"; then
+    ok "WiFi 5G HE80/HE160 active"
 elif iw dev 2>/dev/null | grep -q "channel.*MHz"; then
-    warn "WiFi 已起,但不是 HE80(可能 client 不支持或 DFS 频段)"
+    warn "WiFi 已起,但不是 HE80/HE160(可能 client 不支持或 DFS 频段)"
 else
     fail "WiFi 没工作"
 fi
