@@ -165,7 +165,7 @@ jobs:
           cd openwrt
           # 关于 feed pin 的单一真相:
           #   immortalwrt-nss/feeds.conf.default 内的 nss_packages 行是 fork 自己直接构建用的;
-          #   AX6-NSS 工作流总是删掉那一行,改用本仓固定的 0f3a7fb 版本以保证可复现。
+          #   AX6-NSS 工作流总是删掉那一行,改用本仓固定的 1306d122 版本以保证可复现。
           #   如果 fork 那边升级了上游而工作流没跟,以工作流版本为准。
           # 幂等写入 NSS feed, pin 到 1306d12 (NSS-12.5-K6.x HEAD 2026-05, kernel 6.18 兼容)
           sed -i '/^src-git nss_packages/d' feeds.conf.default

@@ -184,12 +184,11 @@ cat /sys/kernel/debug/ecm/ecm_db/connection_count_simple
 # WiFi HE80
 iw dev | grep -E "channel|center|width"       # 期望 80 MHz
 
-# 防火墙没打开 flow_offload(避免与 NSS 冲突)
-uci -q get firewall.@defaults[0].flow_offloading   # 0
-uci -q get firewall.@defaults[0].flow_offloading_hw  # 0
+# 防火墙无冲突 flow_offload 内核模块 (NSS ECM 处理硬件卸载)
+lsmod | grep -E '^(nf_flow_table|nft_flow_offload) ' || echo "no conflict (OK)"
 
 # Country code
-iw reg get | head -3                          # CN
+iw reg get | head -3                          # US (FCC)
 ```
 
 如有任何一项不对,**别急着重刷**,先 `dmesg | tail -100` 看启动日志。
@@ -212,8 +211,8 @@ iw reg get | head -3                          # CN
 
 | 功能 | LuCI 位置 | UCI 检查命令 | 必须 |
 |---|---|---|---|
-| Software flow offloading | 网络 → 防火墙 → 常规设置 | `uci get firewall.@defaults[0].flow_offloading` | **=0** |
-| Hardware flow offloading | 同上 | `uci get firewall.@defaults[0].flow_offloading_hw` | **=0** |
+| Flow offload 冲突模块 | 命令行 | `lsmod \| grep -E 'nf_flow_table\|nft_flow_offload'` | **空 (无输出)** |
+| Modprobe blacklist | /etc/modprobe.d/ | `cat /etc/modprobe.d/nss-no-flow.conf` | **存在** |
 | Packet steering | 网络 → 接口 → 常规设置 | `uci get network.globals.packet_steering` | **=0**(NSS 加载时,失败时回 1) |
 | **Bridge VLAN filtering**(DSA 语法)| LuCI Network → Devices → bridge → bridge VLAN tab | `uci show network \| grep bridge-vlan` | **不能有** |
 

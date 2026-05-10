@@ -41,7 +41,7 @@
 
 - 所有 GitHub Actions 已 pin 到 40-char SHA(防 supply chain)
 - Release body 不再含默认密码 `password`
-- WiFi country 默认 `CN`(可通过 `/etc/config/ax6_wifi_country` 覆盖)
+- WiFi country 默认 `US` (FCC 最大功率; 可通过 `/etc/config/ax6_wifi_country` 覆盖为 CN)
 - Release artifact 自带 SHA256SUMS-AX6.txt + nss-check 工具
 
 ### 关联仓库
@@ -50,7 +50,7 @@
 |---|---|
 | OrdinaryJoys/immortalwrt-nss | `main` HEAD |
 | VIKINGYFY/nss-packages | `NSS-12.5-K6.x` pin `8a93f51` (immortalwrt-nss feeds) |
-| VIKINGYFY/nss-packages-618 | `NSS-12.5-K6.x` pin `0f3a7fb` (NSS workflow override) |
+| VIKINGYFY/nss-packages-618 | `NSS-12.5-K6.x` pin `1306d122` (NSS workflow override) |
 | OrdinaryJoys/luci | `master` (NSS workflow luci feed override) |
 
 ### 实测产物
