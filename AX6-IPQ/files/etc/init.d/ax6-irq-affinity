@@ -1,7 +1,8 @@
 #!/bin/sh /etc/rc.common
-# AX6 IRQ 亲和性 — 把 ath11k / ethernet 钉到不同核,避免与 NSS 主调度抢 CPU
+# AX6 IRQ 亲和性 — 把 ath11k / ethernet / NSS 钉到不同核
+# START=94: 在 smp_affinity(93) 之后运行, 确保我们的分配为最终生效值
 # shellcheck disable=SC2034  # START/STOP read by /etc/rc.common framework
-START=92
+START=94
 STOP=10
 
 set_aff() {

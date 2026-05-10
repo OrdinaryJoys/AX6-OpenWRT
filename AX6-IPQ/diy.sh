@@ -152,4 +152,4 @@ chmod +x ./files/etc/hotplug.d/*/* 2>/dev/null
 
 # 启用 IRQ 亲和性服务(开机自动)
 mkdir -p ./files/etc/rc.d
-( cd ./files/etc/rc.d && ln -sf ../init.d/ax6-irq-affinity S92ax6-irq-affinity 2>/dev/null )
+( cd ./files/etc/rc.d && ln -sf ../init.d/ax6-irq-affinity S94ax6-irq-affinity 2>/dev/null )

@@ -75,7 +75,7 @@ GitHub UI → Actions → `Build OpenWRT for AX6-NSS` → Run workflow → 选 v
 
 - 所有 GitHub Actions 已 pin 到 SHA(防 supply chain)
 - 依赖清单固化在仓内(无 `curl | apt install`)
-- WiFi 默认 country=CN(覆盖:`echo US > /etc/config/ax6_wifi_country`)
+- WiFi 默认 country=US (FCC 最大功率; 覆盖: `echo CN > /etc/config/ax6_wifi_country && reboot`)
 - Release artifact 自带 SHA256SUMS-AX6.txt 校验
 
 ## 实机验证
@@ -97,7 +97,7 @@ nss-check -v
 | [coolsnowwolf/lede](https://github.com/coolsnowwolf/lede) | AX6-LEDE 备用源 | branch `master` | ✓ |
 | [qosmio/nss-packages](https://github.com/qosmio/nss-packages) | OpenWrt feed 参考源(间接,未直接使用) | branch `main-nss` | ✓ |
 | [VIKINGYFY/nss-packages](https://github.com/VIKINGYFY/nss-packages) | OpenWrt feed (NSS 用户态包,immortalwrt-nss feeds 使用) | pin `8a93f51` | ✓ |
-| [VIKINGYFY/nss-packages-618](https://github.com/VIKINGYFY/nss-packages-618) | OpenWrt feed (NSS 包 6.18 兼容版,NSS workflow 使用) | pin `0f3a7fb` | ✓ |
+| [VIKINGYFY/nss-packages-618](https://github.com/VIKINGYFY/nss-packages-618) | OpenWrt feed (NSS 包 6.18 兼容版,NSS workflow 使用) | pin `1306d122` | ✓ |
 | [OrdinaryJoys/luci](https://github.com/OrdinaryJoys/luci) | OpenWrt feed (LuCI Web UI) | branch `master` | ✓ |
 | [VIKINGYFY/immortalwrt](https://github.com/VIKINGYFY/immortalwrt) | nss-fork 的上游(间接) | 通过 nss-fork | ✓ |
 | [Openwrt-Passwall/openwrt-passwall](https://github.com/Openwrt-Passwall/openwrt-passwall) | LEDE 科学上网包(原 `xiaorouji` 已迁移) | tip | ✓ |
