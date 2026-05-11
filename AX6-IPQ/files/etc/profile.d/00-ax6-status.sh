@@ -7,8 +7,10 @@ _color() { printf '\033[%sm%s\033[0m' "$1" "$2"; }
 # NSS 模块数
 _nss_count=$(lsmod 2>/dev/null | grep -c '^qca_nss')
 
-# NSS Core 启动状态
-if dmesg 2>/dev/null | grep -q 'NSS core .* booted'; then
+# NSS Core 启动状态 (检查 /proc 而非反复 grep dmesg)
+if [ -d /sys/kernel/debug/qca-nss-drv ]; then
+    _nss_state="$(_color '32' 'OK')"
+elif dmesg 2>/dev/null | grep -q 'NSS core .* booted'; then
     _nss_state="$(_color '32' 'OK')"
 else
     _nss_state="$(_color '31' 'NOT-BOOTED')"

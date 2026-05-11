@@ -1,4 +1,4 @@
 #!/bin/sh
-# wifi reload 后重新绑 IRQ (nohup 防止 SIGUP 终止后台进程)
-[ "$ACTION" = "add" ] && nohup /etc/init.d/ax6-irq-affinity reload >/dev/null 2>&1 &
+# wifi reload 后重新绑 IRQ (延迟等待 IRQ 注册, nohup 防止 SIGUP)
+[ "$ACTION" = "add" ] && nohup sh -c 'sleep 2; /etc/init.d/ax6-irq-affinity reload' >/dev/null 2>&1 &
 

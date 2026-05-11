@@ -83,10 +83,17 @@ for iface in $(uci show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-iface/{print
     fi
 done
 
-uci -q commit wireless
+if uci -q commit wireless; then
+    logger -t ax6-wifi-tune "WiFi configured: country=$COUNTRY, radios=$(echo $RADIOS | wc -w)"
+else
+    logger -t ax6-wifi-tune "ERROR: uci commit wireless failed — WiFi may use board defaults (CN)"
+fi
 
 # ath11k firmware applies built-in regdb on init — must set iw reg BEFORE wifi starts.
-# This init script runs at START=10 (before network/wifi) on every boot.
+# On subsequent boots, the init script below runs at START=10.
+# On this first boot (procd already scanned rc.d), we call iw reg set directly.
+iw reg set "$COUNTRY" 2>/dev/null
+
 if [ ! -f /etc/init.d/ax6-wifi-regdom ]; then
     cat > /etc/init.d/ax6-wifi-regdom << 'INIT'
 #!/bin/sh /etc/rc.common
