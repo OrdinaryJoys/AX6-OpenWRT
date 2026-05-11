@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: read
-  issues: write
 
 jobs:
   check:
@@ -20,11 +19,17 @@ jobs:
         id: probe
         run: |
           set -eo pipefail
-          VIKING_HEAD=$(git ls-remote https://github.com/VIKINGYFY/immortalwrt.git refs/heads/main | cut -f1)
-          NSS_PKGS_HEAD=$(git ls-remote https://github.com/VIKINGYFY/nss-packages.git refs/heads/main | cut -f1)
-          NSS_PKGS_618_HEAD=$(git ls-remote https://github.com/VIKINGYFY/nss-packages-618.git refs/heads/main | cut -f1)
-          NSS_DP_HEAD=$(git ls-remote https://github.com/openwrt/qca-nss-dp.git refs/heads/main | cut -f1)
-          LUCI_HEAD=$(git ls-remote https://github.com/OrdinaryJoys/luci.git refs/heads/master | cut -f1)
+          VIKING_HEAD=$(git ls-remote https://github.com/VIKINGYFY/immortalwrt.git refs/heads/main 2>/dev/null | cut -f1)
+          NSS_PKGS_HEAD=$(git ls-remote https://github.com/VIKINGYFY/nss-packages.git refs/heads/main 2>/dev/null | cut -f1)
+          NSS_PKGS_618_HEAD=$(git ls-remote https://github.com/VIKINGYFY/nss-packages-618.git refs/heads/main 2>/dev/null | cut -f1)
+          NSS_DP_HEAD=$(git ls-remote https://github.com/openwrt/qca-nss-dp.git refs/heads/main 2>/dev/null | cut -f1)
+          LUCI_HEAD=$(git ls-remote https://github.com/OrdinaryJoys/luci.git refs/heads/master 2>/dev/null | cut -f1)
+          # Fallback for unreachable repos
+          [ -z "$VIKING_HEAD" ] && VIKING_HEAD="(unreachable)"
+          [ -z "$NSS_PKGS_HEAD" ] && NSS_PKGS_HEAD="(unreachable)"
+          [ -z "$NSS_PKGS_618_HEAD" ] && NSS_PKGS_618_HEAD="(unreachable)"
+          [ -z "$NSS_DP_HEAD" ] && NSS_DP_HEAD="(unreachable)"
+          [ -z "$LUCI_HEAD" ] && LUCI_HEAD="(unreachable)"
           {
             echo "viking=$VIKING_HEAD"
             echo "nss_pkgs=$NSS_PKGS_HEAD"
@@ -42,29 +47,4 @@ jobs:
             echo "| VIKINGYFY/nss-packages-618 main | \`$NSS_PKGS_618_HEAD\` |"
             echo "| openwrt/qca-nss-dp main | \`$NSS_DP_HEAD\` |"
             echo "| OrdinaryJoys/luci master | \`$LUCI_HEAD\` |"
-          } > /tmp/report.md
-          cat /tmp/report.md
-
-      - name: Open / update tracking issue
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7.0.1
-        with:
-          script: |
-            const fs = require('fs');
-            const body = fs.readFileSync('/tmp/report.md', 'utf8');
-            const title = 'Weekly upstream HEAD report';
-            const issues = await github.rest.issues.listForRepo({
-              owner: context.repo.owner, repo: context.repo.repo,
-              state: 'open', labels: 'upstream-tracker'
-            });
-            const existing = issues.data.find(i => i.title === title);
-            if (existing) {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner, repo: context.repo.repo,
-                issue_number: existing.number, body
-              });
-            } else {
-              await github.rest.issues.create({
-                owner: context.repo.owner, repo: context.repo.repo,
-                title, body, labels: ['upstream-tracker']
-              });
-            }
+          } >> "$GITHUB_STEP_SUMMARY"
