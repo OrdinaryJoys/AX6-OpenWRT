@@ -150,6 +150,7 @@ chmod +x ./files/etc/init.d/* 2>/dev/null
 chmod +x ./files/sbin/* 2>/dev/null
 chmod +x ./files/etc/hotplug.d/*/* 2>/dev/null
 
-# 启用 IRQ 亲和性服务(开机自动)
+# 启用 IRQ 亲和性 + Boot Guard (每次启动自动纠正 NSS 配置)
 mkdir -p ./files/etc/rc.d
 ( cd ./files/etc/rc.d && ln -sf ../init.d/ax6-irq-affinity S94ax6-irq-affinity 2>/dev/null )
+( cd ./files/etc/rc.d && ln -sf ../init.d/ax6-boot-guard S11ax6-boot-guard 2>/dev/null )
