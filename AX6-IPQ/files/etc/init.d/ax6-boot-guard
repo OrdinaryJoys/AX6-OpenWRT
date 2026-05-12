@@ -34,7 +34,22 @@ start() {
         logger -t ax6-boot-guard "Corrected NSS-incompatible settings (likely from sysupgrade with preserved config)"
     fi
 
-    # 6. WiFi 国家码同步
+    # 6. Conntrack TCP timeout: 86400s (24h), 不被 11-nf-conntrack.conf (7440) 覆盖
+    ECM_FILE="/etc/sysctl.d/qca-nss-ecm.conf"
+    if [ -f "$ECM_FILE" ]; then
+        cur_timeout=$(grep "tcp_timeout_established" "$ECM_FILE" 2>/dev/null | grep -o '[0-9]*')
+        if [ "${cur_timeout:-0}" != "86400" ]; then
+            if grep -q "tcp_timeout_established" "$ECM_FILE"; then
+                sed -i "s/.*tcp_timeout_established=.*/net.netfilter.nf_conntrack_tcp_timeout_established=86400/" "$ECM_FILE"
+            else
+                echo "net.netfilter.nf_conntrack_tcp_timeout_established=86400" >> "$ECM_FILE"
+            fi
+            sysctl -p "$ECM_FILE" >/dev/null 2>&1
+            logger -t ax6-boot-guard "Corrected conntrack TCP timeout to 86400s"
+        fi
+    fi
+
+    # 7. WiFi 国家码同步
     country=$(uci -q get wireless.radio0.country 2>/dev/null)
     [ -z "$country" ] && country="US"
     [ "$(iw reg get 2>/dev/null | awk '/country/{print $2; exit}' | tr -d ':')" != "$country" ] && iw reg set "$country" 2>/dev/null
