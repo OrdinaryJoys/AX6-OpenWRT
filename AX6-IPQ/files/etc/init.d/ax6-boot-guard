@@ -34,18 +34,30 @@ start() {
         logger -t ax6-boot-guard "Corrected NSS-incompatible settings (likely from sysupgrade with preserved config)"
     fi
 
-    # 6. Conntrack TCP timeout: 86400s (24h), 不被 11-nf-conntrack.conf (7440) 覆盖
+    # 6. Conntrack: 修正 qca-nss-ecm.conf (无数字前缀, procd-sysctl 最后处理, 优先级最高)
+    #    993 脚本仅首启运行, sysupgrade 后需此弥补
     ECM_FILE="/etc/sysctl.d/qca-nss-ecm.conf"
     if [ -f "$ECM_FILE" ]; then
-        cur_timeout=$(grep "tcp_timeout_established" "$ECM_FILE" 2>/dev/null | grep -o '[0-9]*')
+        ECM_CHANGED=0
+        # max=65536 — qca-nss-ecm 默认 65535, 11-nf-conntrack 也有 65535
+        cur_max=$(grep "nf_conntrack_max" "$ECM_FILE" 2>/dev/null | grep -oE '[0-9]+' | tail -1)
+        if [ "${cur_max:-0}" != "65536" ]; then
+            sed -i "s/^.*nf_conntrack_max=.*/net.netfilter.nf_conntrack_max=65536/" "$ECM_FILE"
+            ECM_CHANGED=1
+        fi
+        # timeout=86400 — 11-nf-conntrack.conf 设 7440, 需覆盖
+        cur_timeout=$(grep "tcp_timeout_established" "$ECM_FILE" 2>/dev/null | grep -oE '[0-9]+' | tail -1)
         if [ "${cur_timeout:-0}" != "86400" ]; then
-            if grep -q "tcp_timeout_established" "$ECM_FILE"; then
-                sed -i "s/.*tcp_timeout_established=.*/net.netfilter.nf_conntrack_tcp_timeout_established=86400/" "$ECM_FILE"
+            if grep -q "tcp_timeout_established" "$ECM_FILE" 2>/dev/null; then
+                sed -i "s/^.*tcp_timeout_established=.*/net.netfilter.nf_conntrack_tcp_timeout_established=86400/" "$ECM_FILE"
             else
                 echo "net.netfilter.nf_conntrack_tcp_timeout_established=86400" >> "$ECM_FILE"
             fi
+            ECM_CHANGED=1
+        fi
+        if [ "$ECM_CHANGED" = "1" ]; then
             sysctl -p "$ECM_FILE" >/dev/null 2>&1
-            logger -t ax6-boot-guard "Corrected conntrack TCP timeout to 86400s"
+            logger -t ax6-boot-guard "Corrected conntrack settings in qca-nss-ecm.conf (max=65536, timeout=86400)"
         fi
     fi
 
