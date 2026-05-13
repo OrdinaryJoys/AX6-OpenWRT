@@ -178,10 +178,9 @@ jobs:
           rm -rf tmp/
           ./scripts/feeds update -a
           ./scripts/feeds install -a
-          # 补充 nss-drv nss_ipv4_reasm.c 缺少的前置声明(与 feed 0029 互补)
-          cp "$GITHUB_WORKSPACE/AX6-IPQ/patches/0040-nss-drv-fix-missing-prototypes.patch" \
-             feeds/nss_packages/qca-nss-drv/patches/
-          # qca-mcs kernel 6.18 兼容补丁已在 feed 0005-kernel-6.18.patch 中,无需重复复制
+          # nss_ipv4_reasm 前置声明已由 feed 0035-nss-drv-add-ipv4-reasm-prototypes.patch
+          # (在 nss-packages-618@1306d122 自带) 提供, 不再需要补丁 0040.
+          # qca-mcs kernel 6.18 兼容补丁也已在 feed 0005-kernel-6.18.patch 中.
 
       - name: Load custom config and apply DIY
         run: |

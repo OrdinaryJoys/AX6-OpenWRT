@@ -84,7 +84,7 @@ for iface in $(uci show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-iface/{print
 done
 
 if uci -q commit wireless; then
-    logger -t ax6-wifi-tune "WiFi configured: country=$COUNTRY, radios=$(echo $RADIOS | wc -w)"
+    logger -t ax6-wifi-tune "WiFi configured: country=$COUNTRY, radios=$(echo "$RADIOS" | wc -w)"
 else
     logger -t ax6-wifi-tune "ERROR: uci commit wireless failed — WiFi may use board defaults (CN)"
 fi
