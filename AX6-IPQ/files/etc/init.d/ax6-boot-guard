@@ -37,7 +37,7 @@ start() {
     fi
 
     # Conntrack 值防御性直接设置 + 清理 kernel 6.18 不存在的键
-    sed -i '/^nf_conntrack_helper=/s/^/#/' /etc/sysctl.d/11-nf-conntrack.conf 2>/dev/null
+    sed -i '/^net.netfilter.nf_conntrack_helper=/s/^/#/' /etc/sysctl.d/11-nf-conntrack.conf 2>/dev/null
     [ "$(sysctl -n net.netfilter.nf_conntrack_max 2>/dev/null)" != "65535" ] && sysctl -w net.netfilter.nf_conntrack_max=65535 >/dev/null 2>&1
     [ "$(sysctl -n net.netfilter.nf_conntrack_tcp_timeout_established 2>/dev/null)" != "86400" ] && sysctl -w net.netfilter.nf_conntrack_tcp_timeout_established=86400 >/dev/null 2>&1
 
