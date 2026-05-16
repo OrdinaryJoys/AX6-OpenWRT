@@ -112,10 +112,13 @@ else
 fi
 
 # ---- 7. ath11k board file 加载 ----
-if echo "$_dmesg" | grep -qE "ath11k.*board.*Redmi-AX6"; then
-    ok "ath11k board-2.bin: Redmi-AX6 calibration variant loaded"
+# board_id 0xff = generic calibration (大多数 IPQ8074 设备)
+# 部分固件使用 board_id 0x0..0xfe 的特定校准文件
+if echo "$_dmesg" | grep -qE "ath11k.*board_id 0x[0-9a-fA-F]+"; then
+    board_id=$(echo "$_dmesg" | grep -oE "board_id 0x[0-9a-fA-F]+" | tail -n 1)
+    ok "ath11k board file loaded (${board_id})"
 else
-    warn "未在 dmesg 找到 'Redmi-AX6' calibration 字样(可能仍 OK,看 dmesg | grep ath11k)"
+    warn "未在 dmesg 找到 ath11k board_id"
 fi
 
 # ---- 8. ath11k fw memory mode ----
@@ -151,15 +154,14 @@ else
     ok "No conflicting flow-offload kernel modules (NSS ECM handles offload)"
 fi
 
-# ---- 10. ECM connection_count(NSS 工作中应 > 0)----
+# ---- 10. ECM connection_count ----
+# ECM 追踪经过 NSS 的连接，空载时为 0 是正常的
 ecm_path="/sys/kernel/debug/ecm/ecm_db/connection_count_simple"
 if [ -r "$ecm_path" ]; then
     cc=$(cat "$ecm_path")
-    if [ "${cc:-0}" -gt 0 ] 2>/dev/null; then
-        ok "ECM connection_count = $cc (NSS 正在卸载流量)"
-    else
-        warn "ECM connection_count = 0 (没流量?跑 ping/curl 后再测)"
-    fi
+    # 提取数字部分 (格式: "tcp N udp M other O total T")
+    total=$(echo "$cc" | grep -oE '[0-9]+' | tail -n 1)
+    ok "ECM total_connections = ${total:-0} (NSS ECM 计数器正常)"
 else
     warn "ECM debugfs 不可读($ecm_path — 是否 mounted?)"
 fi
@@ -211,18 +213,22 @@ else
     ok "无 'bridge-vlan' 段配置 (NSS 兼容)"
 fi
 
-# 8021q kmod 加载
-if lsmod | grep -q "^8021q "; then
-    ok "kmod-8021q 已加载(VLAN tagging 可用)"
+# 8021q / NSS VLAN 支持 (只要有一种 VLAN 机制就 pass)
+if lsmod | grep -qE "^(8021q|qca_nss_vlan) "; then
+    ok "VLAN 支持: $(lsmod | grep -oE '^(8021q|qca_nss_vlan)[^ ]*')"
 else
-    warn "kmod-8021q 未加载;如需 VLAN 用 'modprobe 8021q' 或 'vlan-add' 助手"
+    # 8021q 可能编入内核 (CONFIG_VLAN_8021Q=y), 无独立模块
+    # 只要 /proc/net/vlan 存在就说明 VLAN 可用
+    if [ -e /proc/net/vlan/config ]; then
+        ok "VLAN 支持: 内核内置或通过 NSS"
+    else
+        warn "VLAN 状态未知 (无 8021q/qca_nss_vlan 模块,且 /proc/net/vlan 不存在)"
+    fi
 fi
 
-# qca-nss-drv-vlan-mgr 加载
-if lsmod | grep -q "^qca_nss_vlan_mgr "; then
-    ok "qca-nss-drv-vlan-mgr 已加载(NSS VLAN 卸载就绪)"
-else
-    warn "qca-nss-drv-vlan-mgr 未加载;无 VLAN 时无影响"
+# NSS VLAN 卸载 (qca_nss_vlan 提供硬件 VLAN tag 处理)
+if lsmod | grep -q "^qca_nss_vlan "; then
+    ok "NSS VLAN 卸载就绪 (qca_nss_vlan)"
 fi
 
 if [ "$QUIET" -eq 0 ]; then
