@@ -1,22 +1,6 @@
 #!/bin/bash
 set -eo pipefail
 
-# Git 稀疏克隆模板 — 仅在需要从 monorepo 子目录拿包时启用
-# (当前所有调用都被注释,函数保留以便未来按需启用)
-# shellcheck disable=SC2317
-git_sparse_clone() {
-  local branch="$1" repourl="$2"
-  shift 2
-  git clone --depth=1 -b "$branch" --single-branch --filter=blob:none --sparse "$repourl"
-  local repodir
-  repodir=$(basename "$repourl" .git)
-  ( cd "$repodir" && git sparse-checkout set "$@" )
-  for d in "$@"; do
-    mv -f "$repodir/$d" package/
-  done
-  rm -rf "$repodir"
-}
-
 # Add packages
 git clone --depth 1 https://github.com/jerrykuku/luci-theme-argon package/luci-theme-argon
 git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config package/luci-app-argon-config
