@@ -41,7 +41,16 @@ start() {
     [ "$(sysctl -n net.netfilter.nf_conntrack_max 2>/dev/null)" != "65535" ] && sysctl -w net.netfilter.nf_conntrack_max=65535 >/dev/null 2>&1
     [ "$(sysctl -n net.netfilter.nf_conntrack_tcp_timeout_established 2>/dev/null)" != "86400" ] && sysctl -w net.netfilter.nf_conntrack_tcp_timeout_established=86400 >/dev/null 2>&1
 
-    # 6. WiFi 国家码同步
+    # 6. 安全加固 — 内核指针隐藏 + ICMP 重定向禁用
+    # kptr_restrict=1 — sysctl.d 可设置, 此处兜底
+    [ "$(sysctl -n kernel.kptr_restrict 2>/dev/null)" != "1" ] && sysctl -w kernel.kptr_restrict=1 >/dev/null 2>&1
+    # send_redirects — all/default 不级联到已有接口, 必须逐接口设置
+    for iface in $(ls /sys/class/net/ 2>/dev/null); do
+        [ "$(sysctl -n "net.ipv4.conf.${iface}.send_redirects" 2>/dev/null)" != "0" ] && \
+            sysctl -w "net.ipv4.conf.${iface}.send_redirects=0" >/dev/null 2>&1
+    done
+
+    # 7. WiFi 国家码同步
     country=$(uci -q get wireless.radio0.country 2>/dev/null)
     [ -z "$country" ] && country="US"
     [ "$(iw reg get 2>/dev/null | awk '/country/{print $2; exit}' | tr -d ':')" != "$country" ] && iw reg set "$country" 2>/dev/null
