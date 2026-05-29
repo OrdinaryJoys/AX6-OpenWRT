@@ -79,7 +79,7 @@ if [ -f "$AX6_DTS" ]; then
   # 通过 .config 中的 CONFIG_TARGET_PROFILE 检测构建变体
   if [ -f .config ] && grep -q '^CONFIG_TARGET_PROFILE="DEVICE_redmi_ax6"$' .config; then
     echo "[diy.sh] Expanded variant detected (256MB NAND assumed) — patching rootfs reg"
-    sed -i 's|reg[ \t]*=[ \t]*<0x02dc0000 0x05220000>;|reg = <0x02dc0000 0x0C000000>;  /* AX6-build: expanded 256MiB NAND, rootfs 192 MiB, 18 MiB UBI reserve */|' "$AX6_DTS"
+    sed -i 's|reg[ \t]*=[ \t]*<0x0*2dc0000 0x0*5220000>;|reg = <0x02dc0000 0x0C000000>;  /* AX6-build: expanded 256MiB NAND, rootfs 192 MiB, 18 MiB UBI reserve */|' "$AX6_DTS"
   else
     echo "[diy.sh] Stock variant — DT partition layout untouched (Xiaomi SMEM)"
   fi
