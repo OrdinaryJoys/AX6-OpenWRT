@@ -103,3 +103,12 @@ chmod +x ./files/etc/hotplug.d/*/* 2>/dev/null
 mkdir -p ./files/etc/rc.d
 ( cd ./files/etc/rc.d && ln -sf ../init.d/ax6-irq-affinity S95ax6-irq-affinity 2>/dev/null )
 ( cd ./files/etc/rc.d && ln -sf ../init.d/ax6-boot-guard S12ax6-boot-guard 2>/dev/null )
+
+# ----------------------------------------------------
+# 移除空的 Plugins 菜单页（无实际插件, 仅显示空白开关）
+# ----------------------------------------------------
+PLUGINS_JSON=$(find . -path "*/menu.d/luci-mod-system.json" -not -path "./files/*" 2>/dev/null | head -1)
+if [ -f "$PLUGINS_JSON" ]; then
+    sed -i '/"admin\/system\/plugins": {/,/^[[:space:]]*}[[:space:]]*,*$/d' "$PLUGINS_JSON"
+    echo "[diy.sh] Removed empty Plugins menu entry"
+fi
