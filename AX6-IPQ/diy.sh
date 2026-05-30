@@ -109,6 +109,10 @@ mkdir -p ./files/etc/rc.d
 # ----------------------------------------------------
 PLUGINS_JSON=$(find . -path "*/menu.d/luci-mod-system.json" -not -path "./files/*" 2>/dev/null | head -1)
 if [ -f "$PLUGINS_JSON" ]; then
-    sed -i '/"admin\/system\/plugins": {/,/^[[:space:]]*}[[:space:]]*,*$/d' "$PLUGINS_JSON"
-    echo "[diy.sh] Removed empty Plugins menu entry"
+    start=$(grep -n '"admin/system/plugins"' "$PLUGINS_JSON" | cut -d: -f1)
+    next=$(grep -n '"admin/system/startup"' "$PLUGINS_JSON" | cut -d: -f1)
+    if [ -n "$start" ] && [ -n "$next" ] && [ "$start" -lt "$next" ]; then
+        sed -i "${start},$((next - 1))d" "$PLUGINS_JSON"
+        echo "[diy.sh] Removed empty Plugins menu entry"
+    fi
 fi
