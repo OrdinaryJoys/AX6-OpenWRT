@@ -118,7 +118,7 @@ if [ -f "$PLUGINS_JSON" ]; then
 fi
 
 # 移除 OpenClash keep.d (会导致 sysupgrade 备份 50MB 数据库)
-OPENCLASH_KEEP="package/feeds/luci/luci-app-openclash/root/lib/upgrade/keep.d/luci-app-openclash"
+OPENCLASH_KEEP=$(find . -path "*/luci-app-openclash/root/lib/upgrade/keep.d/luci-app-openclash" -not -path "./files/*" 2>/dev/null | head -1)
 if [ -f "$OPENCLASH_KEEP" ]; then
     rm -f "$OPENCLASH_KEEP"
     echo "[diy.sh] Removed OpenClash keep.d (excludes 50MB DB from sysupgrade backups)"
