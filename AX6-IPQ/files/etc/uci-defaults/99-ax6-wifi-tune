@@ -20,20 +20,23 @@ for radio in $RADIOS; do
 
     uci -q set "wireless.${radio}.cell_density=0"
     uci -q set "wireless.${radio}.legacy_rates=1"
-    uci -q set "wireless.${radio}.noscan=1"
+    # Keep 20/40 coexistence active. HE40 may fall back to HE20 when 2.4G is busy.
+    uci -q delete "wireless.${radio}.noscan"
     uci -q set "wireless.${radio}.beacon_int=100"
     uci -q set "wireless.${radio}.dtim_period=1"
 
+    # Keep broadly supported beamforming; leave MU-EDCA, BSS color and spatial
+    # reuse to ath11k/hostapd so they can adapt to the active channel.
     uci -q set "wireless.${radio}.he_su_beamformer=1"
     uci -q set "wireless.${radio}.he_su_beamformee=1"
     uci -q set "wireless.${radio}.he_mu_beamformer=1"
     uci -q set "wireless.${radio}.mu_beamformer=1"
-    uci -q set "wireless.${radio}.he_mu_edca=1"
-    uci -q set "wireless.${radio}.he_bss_color=8"
     uci -q set "wireless.${radio}.he_twt_required=0"
-    uci -q set "wireless.${radio}.he_spr_sr_control=1"
-    uci -q set "wireless.${radio}.he_spr_non_srg_obss_pd_max_offset=3"
-    uci -q set "wireless.${radio}.he_default_pe_duration=4"
+    uci -q delete "wireless.${radio}.he_mu_edca"
+    uci -q delete "wireless.${radio}.he_bss_color"
+    uci -q delete "wireless.${radio}.he_spr_sr_control"
+    uci -q delete "wireless.${radio}.he_spr_non_srg_obss_pd_max_offset"
+    uci -q delete "wireless.${radio}.he_default_pe_duration"
 
     case "$band" in
         5g)
@@ -53,34 +56,17 @@ for radio in $RADIOS; do
             ;;
     esac
 
-    uci -q set "wireless.${radio}.ieee80211k=1"
-    uci -q set "wireless.${radio}.ieee80211v=1"
-    uci -q set "wireless.${radio}.ieee80211r=0"
-    uci -q set "wireless.${radio}.bss_transition=1"
-    uci -q set "wireless.${radio}.rrm_neighbor_report=1"
-    uci -q set "wireless.${radio}.rrm_beacon_report=1"
-
-    uci -q set "wireless.${radio}.short_gi_20=1"
-    uci -q set "wireless.${radio}.short_gi_40=1"
-    uci -q set "wireless.${radio}.short_gi_80=1"
-    uci -q set "wireless.${radio}.short_gi_160=1"
-    uci -q set "wireless.${radio}.tx_stbc_2by1=1"
-    uci -q set "wireless.${radio}.rx_stbc=3"
-    uci -q set "wireless.${radio}.ldpc=1"
-    uci -q set "wireless.${radio}.greenfield=0"
-    uci -q set "wireless.${radio}.max_amsdu=1"
-    uci -q set "wireless.${radio}.dsss_cck_40=1"
 done
 
 for iface in $(uci show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-iface/{print $2}'); do
+    # WMM is required for 802.11n/ac/ax. Keep low-ACK disconnect disabled for
+    # long-range and sleeping IoT clients, but do not force isolation-like
+    # proxy/multicast behavior or PMF/U-APSD on every SSID.
     uci -q set "wireless.${iface}.disassoc_low_ack=0"
     uci -q set "wireless.${iface}.wmm=1"
-    uci -q set "wireless.${iface}.uapsd=1"
-    uci -q set "wireless.${iface}.proxy_arp=1"
-    uci -q set "wireless.${iface}.multicast_to_unicast=1"
-    if [ -z "$(uci -q get "wireless.${iface}.ieee80211w")" ]; then
-        uci -q set "wireless.${iface}.ieee80211w=1"
-    fi
+    uci -q delete "wireless.${iface}.uapsd"
+    uci -q delete "wireless.${iface}.proxy_arp"
+    uci -q delete "wireless.${iface}.multicast_to_unicast"
 done
 
 if uci -q commit wireless; then
@@ -111,4 +97,3 @@ INIT
 fi
 
 exit 0
-

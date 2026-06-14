@@ -1,6 +1,6 @@
 #!/bin/sh /etc/rc.common
-# AX6 IRQ 亲和性 — 把 ath11k / ethernet / NSS 钉到不同核
-# START=95: 在 qca-nss-drv(94) 之后运行, NSS IRQ 此时已由驱动注册完毕
+# AX6 IRQ 亲和性手动基准测试工具 — 把 ath11k / ethernet / NSS 钉到不同核
+# 默认不启用,避免覆盖上游 qualcommax 的 set-irq-affinity / smp_affinity。
 # shellcheck disable=SC2034  # START/STOP read by /etc/rc.common framework
 START=95
 STOP=10
@@ -38,4 +38,3 @@ start() {
 
 reload() { apply; }
 restart() { apply; }
-

@@ -19,8 +19,7 @@ on:
         default: false
 
 env:
-  REPO_URL: https://github.com/OrdinaryJoys/immortalwrt-nss.git
-  REPO_BRANCH: main
+  BUILD_LOCK: .github/ax6-nss-lock.env
   EXTRA_CONFIG: AX6-IPQ/nss-extra.config
   DIY_SH: AX6-IPQ/diy.sh
   FILES: AX6-IPQ/files
@@ -156,23 +155,51 @@ jobs:
           sudo timedatectl set-timezone "$TZ"
           sudo chown -R "$USER":"$(id -gn)" "$GITHUB_WORKSPACE"
 
-      - name: Clone source code
-        run: git clone "$REPO_URL" -b "$REPO_BRANCH" openwrt
+      - name: Load and verify build lock
+        run: |
+          set -eo pipefail
+          set -a
+          # shellcheck source=.github/ax6-nss-lock.env
+          . "$BUILD_LOCK"
+          set +a
+          for name in SOURCE_REPO SOURCE_COMMIT NSS_FEED_URL NSS_FEED_COMMIT LUCI_FEED_URL LUCI_FEED_COMMIT; do
+            value="${!name:-}"
+            if [ -z "$value" ]; then
+              echo "::error::$name is missing from $BUILD_LOCK"
+              exit 1
+            fi
+            echo "$name=$value" >> "$GITHUB_ENV"
+          done
+          for name in SOURCE_COMMIT NSS_FEED_COMMIT LUCI_FEED_COMMIT; do
+            value="${!name}"
+            if ! [[ "$value" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::error::$name must be a full 40-character lowercase commit SHA"
+              exit 1
+            fi
+          done
+
+      - name: Clone locked source code
+        run: |
+          set -eo pipefail
+          git init openwrt
+          git -C openwrt remote add origin "$SOURCE_REPO"
+          git -C openwrt fetch --depth 1 origin "$SOURCE_COMMIT"
+          git -C openwrt checkout --detach FETCH_HEAD
+          actual=$(git -C openwrt rev-parse HEAD)
+          [ "$actual" = "$SOURCE_COMMIT" ] || {
+            echo "::error::Source lock mismatch: expected $SOURCE_COMMIT, got $actual"
+            exit 1
+          }
 
       - name: Add NSS feed and prepare feeds
         run: |
           set -eo pipefail
           cd openwrt
-          # 关于 feed pin 的单一真相:
-          #   immortalwrt-nss/feeds.conf.default 内的 nss_packages 行是 fork 自己直接构建用的;
-          #   AX6-NSS 工作流总是删掉那一行,改用本仓固定的 1306d122 版本以保证可复现。
-          #   如果 fork 那边升级了上游而工作流没跟,以工作流版本为准。
-          # 幂等写入 NSS feed, pin 到 1306d12 (NSS-12.5-K6.x HEAD 2026-05, kernel 6.18 兼容)
+          # Replace moving feeds with the commits in .github/ax6-nss-lock.env.
           sed -i '/^src-git nss_packages/d' feeds.conf.default
-          echo "src-git nss_packages https://github.com/VIKINGYFY/nss-packages-618.git^1306d122aec63abd997e626f8cd52b3a78267499" >> feeds.conf.default
-          # 替换 luci feed, pin 到 OrdinaryJoys/luci 快照 (2025-10-13)
+          echo "src-git nss_packages ${NSS_FEED_URL}^${NSS_FEED_COMMIT}" >> feeds.conf.default
           sed -i '/^src-git luci/d' feeds.conf.default
-          echo 'src-git luci https://github.com/OrdinaryJoys/luci.git^48884afb432f84c93052f32603ceaed4b49feb14' >> feeds.conf.default
+          echo "src-git luci ${LUCI_FEED_URL}^${LUCI_FEED_COMMIT}" >> feeds.conf.default
           # 全量刷新
           ./scripts/feeds clean
           rm -rf tmp/
@@ -294,7 +321,24 @@ jobs:
                -o -name 'feeds.buildinfo' -o -name 'version.buildinfo' \) \
             -exec cp {} upload/ \;
           cd upload
-          sha256sum -- *.bin *.ubi *.itb >SHA256SUMS-AX6.txt 2>/dev/null
+          mapfile -d '' firmware < <(
+            find . -maxdepth 1 -type f \
+              \( -name '*.bin' -o -name '*.ubi' -o -name '*.itb' \) \
+              -print0
+          )
+          if [ "${#firmware[@]}" -eq 0 ]; then
+            echo "::error::No AX6 firmware artifacts were produced"
+            exit 1
+          fi
+          sha256sum -- "${firmware[@]}" >SHA256SUMS-AX6.txt
+          {
+            echo "SOURCE_REPO=$SOURCE_REPO"
+            echo "SOURCE_COMMIT=$SOURCE_COMMIT"
+            echo "NSS_FEED_URL=$NSS_FEED_URL"
+            echo "NSS_FEED_COMMIT=$NSS_FEED_COMMIT"
+            echo "LUCI_FEED_URL=$LUCI_FEED_URL"
+            echo "LUCI_FEED_COMMIT=$LUCI_FEED_COMMIT"
+          } > BUILD-LOCK-AX6.txt
           # Embed nss-check tool into release for offline use
           cp ../AX6-IPQ/files/sbin/nss-check ./nss-check.sh
           ls -lh

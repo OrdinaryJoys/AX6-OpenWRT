@@ -36,6 +36,78 @@ jobs:
       - name: Yamllint (relaxed)
         run: yamllint -d relaxed .github/
 
+      - name: AX6 NSS build lock check
+        run: |
+          set -eo pipefail
+          set -a
+          . .github/ax6-nss-lock.env
+          set +a
+          for name in SOURCE_REPO SOURCE_COMMIT NSS_FEED_URL NSS_FEED_COMMIT LUCI_FEED_URL LUCI_FEED_COMMIT; do
+            value="${!name:-}"
+            [ -n "$value" ] || {
+              echo "::error::$name is missing from .github/ax6-nss-lock.env"
+              exit 1
+            }
+          done
+          for name in SOURCE_COMMIT NSS_FEED_COMMIT LUCI_FEED_COMMIT; do
+            value="${!name}"
+            [[ "$value" =~ ^[0-9a-f]{40}$ ]] || {
+              echo "::error::$name must be a full 40-character lowercase commit SHA"
+              exit 1
+            }
+          done
+
+      - name: ZRAM config dependency check
+        run: |
+          set -eo pipefail
+          required=(
+            CONFIG_KERNEL_SWAP=y
+            CONFIG_BUSYBOX_CONFIG_MKSWAP=y
+            CONFIG_BUSYBOX_CONFIG_SWAPON=y
+            CONFIG_BUSYBOX_CONFIG_FEATURE_SWAPON_DISCARD=y
+            CONFIG_BUSYBOX_CONFIG_FEATURE_SWAPON_PRI=y
+            CONFIG_BUSYBOX_CONFIG_SWAPOFF=y
+            CONFIG_PACKAGE_kmod-zram=y
+          )
+          for cfg in AX6-IPQ/.config-stock AX6-IPQ/.config-expand; do
+            grep -qx 'CONFIG_PACKAGE_zram-swap=y' "$cfg" || continue
+            for symbol in "${required[@]}"; do
+              grep -qx "$symbol" "$cfg" || {
+                echo "::error file=$cfg::zram-swap requires $symbol"
+                exit 1
+              }
+            done
+          done
+
+      - name: WiFi compatibility defaults check
+        run: |
+          set -eo pipefail
+          wifi=AX6-IPQ/files/etc/uci-defaults/99-ax6-wifi-tune
+          grep -qx 'COUNTRY="US"' "$wifi"
+          grep -q 'htmode=HE40' "$wifi"
+          grep -q 'channel=auto' "$wifi"
+          grep -q 'htmode=HE80' "$wifi"
+          for unsafe in \
+            'noscan=1' \
+            'uapsd=1' \
+            'proxy_arp=1' \
+            'multicast_to_unicast=1'; do
+            if grep -Fq "$unsafe" "$wifi"; then
+              echo "::error file=$wifi::unsafe WiFi default found: $unsafe"
+              exit 1
+            fi
+          done
+
+      - name: IRQ policy ownership check
+        run: |
+          set -eo pipefail
+          if grep -R -n -E \
+            'S95ax6-irq-affinity|ax6-irq-affinity reload' \
+            AX6-IPQ/diy.sh AX6-IPQ/files/etc/hotplug.d; then
+            echo "::error::custom AX6 IRQ policy must remain manual and must not override upstream"
+            exit 1
+          fi
+
       - name: NSS .config conflict check (merged with nss-extra)
         run: |
           set -eo pipefail

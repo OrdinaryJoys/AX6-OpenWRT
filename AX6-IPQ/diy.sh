@@ -99,9 +99,9 @@ chmod +x ./files/etc/init.d/* 2>/dev/null
 chmod +x ./files/sbin/* 2>/dev/null
 chmod +x ./files/etc/hotplug.d/*/* 2>/dev/null
 
-# 启用 IRQ 亲和性 + Boot Guard (每次启动自动纠正 NSS 配置)
+# 启用 Boot Guard。IRQ/RPS 自动策略由上游 qualcommax 脚本统一管理;
+# ax6-irq-affinity 保留为手动基准测试工具,不在启动或 WiFi hotplug 时覆盖上游。
 mkdir -p ./files/etc/rc.d
-( cd ./files/etc/rc.d && ln -sf ../init.d/ax6-irq-affinity S95ax6-irq-affinity 2>/dev/null )
 ( cd ./files/etc/rc.d && ln -sf ../init.d/ax6-boot-guard S12ax6-boot-guard 2>/dev/null )
 
 # ----------------------------------------------------
