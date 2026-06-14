@@ -60,7 +60,7 @@ fi
 # 两种 SKU 通过 .config 选择,DT 这里只补扩容版分区。
 #
 # (1) Stock (redmi,ax6-stock):
-#       Xiaomi 原始 SMEM 分区,rootfs ≈ 102 MiB,**零变砖风险**
+#       Xiaomi 原始 SMEM 分区,rootfs ≈ 102 MiB,刷写前仍须备份并核对硬件
 #       — DT 不动 partition 节点(ax6-stock.dts 已 /delete-node/)
 #
 # (2) Expanded (redmi,ax6):

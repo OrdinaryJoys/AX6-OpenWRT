@@ -10,7 +10,7 @@ on:
         type: choice
         default: 'stock'
         options:
-          - stock     # 1GB RAM + 128MB NAND (Xiaomi original) — ZERO brick risk
+          - stock     # 1GB RAM + 128MB NAND (Xiaomi original) — standard SMEM layout
           - expand    # 1GB RAM + 256MB NAND (HW-modded only) — DANGER if NAND <256MB
       ssh:
         description: 'SSH debug connection'
@@ -64,7 +64,7 @@ jobs:
           case "$VARIANT_INPUT" in
             stock)
               CFG="AX6-IPQ/.config-stock"; TAG="STOCK"
-              echo "::notice::Building STOCK variant — Xiaomi SMEM partitioning, 102MB rootfs, zero brick risk"
+              echo "::notice::Building STOCK variant — Xiaomi SMEM partitioning, 102MB rootfs"
               ;;
             expand)
               CFG="AX6-IPQ/.config-expand"; TAG="EXPAND"
@@ -332,6 +332,9 @@ jobs:
           fi
           sha256sum -- "${firmware[@]}" >SHA256SUMS-AX6.txt
           {
+            echo "BUILD_REPOSITORY=$GITHUB_REPOSITORY"
+            echo "BUILD_WORKFLOW_COMMIT=$GITHUB_SHA"
+            echo "BUILD_RUN_ID=$GITHUB_RUN_ID"
             echo "SOURCE_REPO=$SOURCE_REPO"
             echo "SOURCE_COMMIT=$SOURCE_COMMIT"
             echo "NSS_FEED_URL=$NSS_FEED_URL"
@@ -350,6 +353,7 @@ jobs:
         uses: ncipollo/release-action@2c591bcc8ecdcd2db72b97d6147f871fcd833ba5  # v1.14.0
         with:
           tag: AX6_NSS_${{ env.VARIANT_TAG }}_${{ env.CURRENT_DATE }}
+          commit: ${{ github.sha }}
           artifacts: upload/*
           allowUpdates: true
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -362,7 +366,7 @@ jobs:
 
             | 变体 | 适用 | 风险 |
             |---|---|---|
-            | STOCK | 1GB RAM + 128MB NAND(标准 Xiaomi 出厂)| 0%(沿用 SMEM 分区)|
+            | STOCK | 1GB RAM + 128MB NAND(标准 Xiaomi 出厂)| 沿用 SMEM 分区,刷写前仍须备份并核对硬件 |
             | EXPAND | 1GB RAM + 256MB NAND(已硬件改 NAND)| 高(分区表会写死) |
 
             **不知道是哪个 → 选 STOCK**。

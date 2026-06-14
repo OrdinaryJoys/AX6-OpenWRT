@@ -13,7 +13,7 @@ Redmi AX6 一键编译脚本 — 完整 NSS 加速 + WiFi 6 满血 + 双变体�
 
 | 变体 | 适用 | rootfs | 变砖风险 |
 |---|---|---|---|
-| **STOCK**(默认)| 1GB RAM + 128MB NAND(Xiaomi 出厂) | ~102 MB | **0%** |
+| **STOCK**(默认)| 1GB RAM + 128MB NAND(Xiaomi 出厂) | ~102 MB | 较低,刷写前仍须备份并核对硬件 |
 | **EXPAND** | 1GB RAM + 256MB NAND(已硬件改装 NAND)| ~192 MB | 高(刷错变砖) |
 
 不知道选哪个 → **选 STOCK**。详见 [`AX6-IPQ/HARDWARE.md`](AX6-IPQ/HARDWARE.md)。
@@ -27,9 +27,9 @@ GitHub UI → Actions → `Build OpenWRT for AX6-NSS` → Run workflow → 选 v
 - **WiFi 6 满血**:HE80 + 4×4 MU-MIMO + 1024-QAM + LDPC + STBC + Beamforming + OBSS PD
 - **NSS 完整卸载**:`frame_mode=2`,数据通路绕过 SoftIRQ,实测 NAT 速率单核占用 < 1%
 - **23 个 NSS kmod**:bridge / vlan / pppoe / pptp / l2tp / gre / vxlan / shaper / crypto / ecm 全开 (mesh 需 FW 11.4，当前 12.5 不支持)
-- **IRQ 智能绑核**:eth/wifi/nss IRQ 分散到 4 个核
-- **WPA3 + IPv6 + 漫游**(11k/v + bss_transition)
-- **`nss-check`**:自带 13 项健康自检,cron 每 30 分钟自动跑
+- **IRQ/RPS 策略**:由上游 qualcommax 脚本统一管理,避免多个脚本互相覆盖
+- **WPA3 + IPv6 + 漫游支持**(11k/v + bss_transition)
+- **`nss-check`**:自带 17 项健康自检,cron 每 30 分钟自动跑
 
 ## 默认登录
 
@@ -85,7 +85,7 @@ GitHub UI → Actions → `Build OpenWRT for AX6-NSS` → Run workflow → 选 v
 nss-check -v
 ```
 
-13 项检查会输出 PASS/FAIL,失败项可贴到 issue 我帮你看。
+17 项检查会输出 PASS/FAIL,失败项可贴到 issue 我帮你看。
 
 ## 关联仓库矩阵(实测可达性 + 引用关系)
 

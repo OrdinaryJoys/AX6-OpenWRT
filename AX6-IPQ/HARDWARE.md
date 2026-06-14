@@ -16,7 +16,7 @@ NSS:         qca-nss-drv + qca-nss-dp + qca-nss-ecm
 
 | 变体 | 适用硬件 | rootfs 容量 | 选哪个? | 变砖风险 |
 |---|---|---|---|---|
-| **STOCK** | 标准 1G+128M(出厂) | ~102 MB(SMEM 给的) | **绝大多数人选这个** | **0%** |
+| **STOCK** | 标准 1G+128M(出厂) | ~102 MB(SMEM 给的) | **绝大多数人选这个** | 较低,刷写前仍须备份并核对硬件 |
 | **EXPAND** | 1G+256M(改 NAND 颗粒后) | ~192 MB(DT 写死,留 18MB UBI 坏块 reserve)| 只有亲手换过 NAND 才能选 | **极高**(刷错变砖)|
 
 ### 怎么知道我是哪种?
@@ -85,7 +85,7 @@ scp root@<router>:/tmp/{appsbl,appsblenv,art,bdata}.bin ~/ax6-backup/
 
 ## 5. 刷机步骤
 
-### STOCK(零风险)
+### STOCK(标准 SMEM 分区)
 
 ```bash
 # 1. SSH 进入当前固件(stock 或之前刷的同变体)

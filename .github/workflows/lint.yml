@@ -36,6 +36,16 @@ jobs:
       - name: Yamllint (relaxed)
         run: yamllint -d relaxed .github/
 
+      - name: Release tag provenance check
+        run: |
+          set -eo pipefail
+          while IFS= read -r workflow; do
+            if ! grep -Fq 'commit: ${{ github.sha }}' "$workflow"; then
+              echo "::error file=$workflow::release-action must tag the workflow commit"
+              exit 1
+            fi
+          done < <(grep -Rl 'uses: ncipollo/release-action@' .github/workflows)
+
       - name: AX6 NSS build lock check
         run: |
           set -eo pipefail
