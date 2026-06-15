@@ -64,6 +64,7 @@ for iface in $(uci show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-iface/{print
     # proxy/multicast behavior or PMF/U-APSD on every SSID.
     uci -q set "wireless.${iface}.disassoc_low_ack=0"
     uci -q set "wireless.${iface}.wmm=1"
+    uci -q set "wireless.${iface}.isolate=0"
     uci -q delete "wireless.${iface}.uapsd"
     uci -q delete "wireless.${iface}.proxy_arp"
     uci -q delete "wireless.${iface}.multicast_to_unicast"

@@ -248,6 +248,10 @@ fi
 # ---- 16. WiFi 兼容性危险项 ----
 wifi_unsafe=0
 for iface in $(uci -q show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-iface$/{print $2}'); do
+    if [ "$(uci -q get "wireless.${iface}.isolate")" = "1" ]; then
+        fail "wireless.$iface.isolate=1 客户端隔离仍启用"
+        wifi_unsafe=1
+    fi
     for option in uapsd proxy_arp multicast_to_unicast; do
         if [ "$(uci -q get "wireless.${iface}.${option}")" = "1" ]; then
             fail "wireless.$iface.$option=1 可能破坏 IoT/mDNS 兼容性"
@@ -255,7 +259,7 @@ for iface in $(uci -q show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-iface$/{p
         fi
     done
 done
-[ "$wifi_unsafe" -eq 0 ] && ok "WiFi 未启用强制 U-APSD/proxy-ARP/multicast-to-unicast"
+[ "$wifi_unsafe" -eq 0 ] && ok "WiFi 客户端隔离和强制 U-APSD/proxy-ARP/multicast-to-unicast 均关闭"
 
 # ---- 17. IRQ 策略所有权 ----
 if find /etc/rc.d -maxdepth 1 -name 'S*ax6-irq-affinity' 2>/dev/null | grep -q .; then
@@ -274,4 +278,3 @@ if [ "$QUIET" -eq 0 ]; then
     fi
 fi
 exit "$FAIL"
-

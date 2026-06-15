@@ -97,6 +97,7 @@ jobs:
           grep -q 'htmode=HE40' "$wifi"
           grep -q 'channel=auto' "$wifi"
           grep -q 'htmode=HE80' "$wifi"
+          grep -q 'isolate=0' "$wifi"
           for unsafe in \
             'noscan=1' \
             'uapsd=1' \
@@ -111,12 +112,14 @@ jobs:
       - name: IRQ policy ownership check
         run: |
           set -eo pipefail
-          if grep -R -n -E \
-            'S95ax6-irq-affinity|ax6-irq-affinity reload' \
-            AX6-IPQ/diy.sh AX6-IPQ/files/etc/hotplug.d; then
+          if [ -e AX6-IPQ/files/etc/init.d/ax6-irq-affinity ] || \
+             grep -R -n -E \
+               'S[0-9]+ax6-irq-affinity|ax6-irq-affinity (apply|reload|restart)' \
+               AX6-IPQ/diy.sh AX6-IPQ/files/etc/hotplug.d AX6-IPQ/files/etc/rc.d 2>/dev/null; then
             echo "::error::custom AX6 IRQ policy must remain manual and must not override upstream"
             exit 1
           fi
+          test -x AX6-IPQ/files/usr/sbin/ax6-irq-affinity
 
       - name: NSS .config conflict check (merged with nss-extra)
         run: |

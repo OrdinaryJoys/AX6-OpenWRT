@@ -94,13 +94,13 @@ fi
 # 修改默认IP
 sed -i 's/192.168.1.1/192.168.5.1/g' package/base-files/files/bin/config_generate
 
-for dir in ./files/etc/uci-defaults ./files/etc/init.d ./files/sbin ./files/etc/hotplug.d; do
+for dir in ./files/etc/uci-defaults ./files/etc/init.d ./files/sbin ./files/usr/sbin ./files/etc/hotplug.d; do
   [ -d "$dir" ] || continue
   find "$dir" -type f -exec chmod +x {} +
 done
 
 # 启用 Boot Guard。IRQ/RPS 自动策略由上游 qualcommax 脚本统一管理;
-# ax6-irq-affinity 保留为手动基准测试工具,不在启动或 WiFi hotplug 时覆盖上游。
+# /usr/sbin/ax6-irq-affinity 保留为手动基准测试工具,不在启动或 WiFi hotplug 时覆盖上游。
 mkdir -p ./files/etc/rc.d
 ( cd ./files/etc/rc.d && ln -sf ../init.d/ax6-boot-guard S12ax6-boot-guard 2>/dev/null )
 

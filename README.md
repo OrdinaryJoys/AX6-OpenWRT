@@ -59,7 +59,7 @@ GitHub UI → Actions → `Build OpenWRT for AX6-NSS` → Run workflow → 选 v
 │   ├── HARDWARE.md                 # 硬件参考 + 救机文档
 │   └── files/                      # rootfs 注入文件
 │       ├── etc/banner
-│       ├── etc/init.d/ax6-irq-affinity
+│       ├── usr/sbin/ax6-irq-affinity
 │       ├── etc/modprobe.d/ath11k.conf
 │       ├── etc/profile.d/00-ax6-status.sh
 │       ├── etc/sysctl.d/99-ax6-tune.conf

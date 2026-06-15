@@ -311,6 +311,47 @@ jobs:
           echo "$(nproc) thread compile"
           make -j"$(nproc)" V=s || make -j1 V=s
 
+      - name: Validate final rootfs contents
+        run: |
+          set -eo pipefail
+          mapfile -d '' images < <(
+            find openwrt/bin/targets -type f -name '*-squashfs-sysupgrade.bin' -print0
+          )
+          if [ "${#images[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one squashfs sysupgrade image, found ${#images[@]}"
+            exit 1
+          fi
+
+          mkdir -p image-verify
+          tar -xf "${images[0]}" -C image-verify
+          rootfs="$(find image-verify -type f -name root -print -quit)"
+          [ -n "$rootfs" ] || {
+            echo "::error::Sysupgrade image does not contain a root filesystem"
+            exit 1
+          }
+          unsquashfs -ll "$rootfs" > image-verify/rootfs-files.txt
+
+          for required in \
+            'lib/modules/.*/qca-nss-drv\.ko' \
+            'lib/modules/.*/qca-nss-qdisc\.ko' \
+            'lib/modules/.*/zram\.ko' \
+            'etc/init\.d/zram' \
+            'sbin/nss-check' \
+            'usr/sbin/ax6-irq-affinity'; do
+            grep -Eq "squashfs-root/${required}( ->|$)" image-verify/rootfs-files.txt || {
+              echo "::error::Final rootfs is missing required path: $required"
+              exit 1
+            }
+          done
+
+          if grep -Eq \
+            'squashfs-root/etc/(init\.d/ax6-irq-affinity|rc\.d/[SK][0-9]+ax6-irq-affinity)( ->|$)' \
+            image-verify/rootfs-files.txt; then
+            echo "::error::Final rootfs auto-enables the manual AX6 IRQ override"
+            exit 1
+          fi
+          echo "Final rootfs validation: PASS"
+
       - name: Stage release artifacts + checksums
         run: |
           set -eo pipefail
