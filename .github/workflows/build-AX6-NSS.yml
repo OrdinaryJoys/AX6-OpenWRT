@@ -91,11 +91,6 @@ jobs:
           PAT_Y = re.compile(r'^CONFIG_(PACKAGE_[\w-]+)=([ymn])$')
           PAT_N = re.compile(r'^# CONFIG_(PACKAGE_[\w-]+) is not set$')
 
-          # 这些包不在 NSS_BLACKLIST 中(可能在 .config 显式 =y 而非 sed 拉黑),
-          # 但启用后与 NSS 运行时互斥,pre-flight 应直接报错
-          EXTRA_RUNTIME_CONFLICT = ('sqm-scripts', 'kmod-sched-cake')
-
-
           def parse_config(path):
               """读取 OpenWrt .config,返回 {symbol: 'y'|'n'} 字典。"""
               result = {}
@@ -115,9 +110,8 @@ jobs:
           def main():
               cfg_path = os.environ['_PREFLIGHT_CFG']
               extra_path = 'AX6-IPQ/nss-extra.config'
-              # 与 env.NSS_BLACKLIST 共用同一份黑名单(以及补充的运行时冲突项)
+              # 与 env.NSS_BLACKLIST 共用同一份真正互斥的 flow-offload 黑名单。
               blacklist = os.environ['NSS_BLACKLIST'].split()
-              conflicts = blacklist + list(EXTRA_RUNTIME_CONFLICT)
 
               merged = parse_config(cfg_path)
               merged.update(parse_config(extra_path))
@@ -126,7 +120,7 @@ jobs:
                   print(f'Pre-flight skip (no NSS) for {cfg_path}')
                   return 0
 
-              for pkg in conflicts:
+              for pkg in blacklist:
                   if merged.get(f'PACKAGE_{pkg}') == 'y':
                       print(
                           f'::error::NSS conflict: PACKAGE_{pkg}=y '
@@ -162,7 +156,18 @@ jobs:
           # shellcheck source=.github/ax6-nss-lock.env
           . "$BUILD_LOCK"
           set +a
-          for name in SOURCE_REPO SOURCE_COMMIT NSS_FEED_URL NSS_FEED_COMMIT LUCI_FEED_URL LUCI_FEED_COMMIT; do
+          for name in \
+            SOURCE_REPO SOURCE_TRACKING_BRANCH SOURCE_COMMIT \
+            NSS_FEED_URL NSS_FEED_TRACKING_REF NSS_FEED_COMMIT \
+            SQM_SCRIPTS_NSS_URL SQM_SCRIPTS_NSS_COMMIT \
+            LUCI_FEED_URL LUCI_FEED_COMMIT \
+            PACKAGES_FEED_URL PACKAGES_FEED_COMMIT \
+            ROUTING_FEED_URL ROUTING_FEED_COMMIT \
+            TELEPHONY_FEED_URL TELEPHONY_FEED_COMMIT \
+            VIDEO_FEED_URL VIDEO_FEED_COMMIT \
+            ARGON_THEME_URL ARGON_THEME_COMMIT \
+            ARGON_CONFIG_URL ARGON_CONFIG_COMMIT \
+            OPENCLASH_URL OPENCLASH_COMMIT OPENCLASH_VERSION; do
             value="${!name:-}"
             if [ -z "$value" ]; then
               echo "::error::$name is missing from $BUILD_LOCK"
@@ -170,7 +175,11 @@ jobs:
             fi
             echo "$name=$value" >> "$GITHUB_ENV"
           done
-          for name in SOURCE_COMMIT NSS_FEED_COMMIT LUCI_FEED_COMMIT; do
+          for name in \
+            SOURCE_COMMIT NSS_FEED_COMMIT SQM_SCRIPTS_NSS_COMMIT LUCI_FEED_COMMIT \
+            PACKAGES_FEED_COMMIT ROUTING_FEED_COMMIT TELEPHONY_FEED_COMMIT \
+            VIDEO_FEED_COMMIT ARGON_THEME_COMMIT ARGON_CONFIG_COMMIT \
+            OPENCLASH_COMMIT; do
             value="${!name}"
             if ! [[ "$value" =~ ^[0-9a-f]{40}$ ]]; then
               echo "::error::$name must be a full 40-character lowercase commit SHA"
@@ -195,18 +204,23 @@ jobs:
         run: |
           set -eo pipefail
           cd openwrt
-          # Replace moving feeds with the commits in .github/ax6-nss-lock.env.
-          sed -i '/^src-git nss_packages/d' feeds.conf.default
-          echo "src-git nss_packages ${NSS_FEED_URL}^${NSS_FEED_COMMIT}" >> feeds.conf.default
-          sed -i '/^src-git luci/d' feeds.conf.default
-          echo "src-git luci ${LUCI_FEED_URL}^${LUCI_FEED_COMMIT}" >> feeds.conf.default
+          # Replace every moving feed with the commits in the build lock.
+          cat > feeds.conf.default <<EOF
+          src-git nss_packages ${NSS_FEED_URL}^${NSS_FEED_COMMIT}
+          src-git sqm_scripts_nss ${SQM_SCRIPTS_NSS_URL}^${SQM_SCRIPTS_NSS_COMMIT}
+          src-git packages ${PACKAGES_FEED_URL}^${PACKAGES_FEED_COMMIT}
+          src-git luci ${LUCI_FEED_URL}^${LUCI_FEED_COMMIT}
+          src-git routing ${ROUTING_FEED_URL}^${ROUTING_FEED_COMMIT}
+          src-git telephony ${TELEPHONY_FEED_URL}^${TELEPHONY_FEED_COMMIT}
+          src-git video ${VIDEO_FEED_URL}^${VIDEO_FEED_COMMIT}
+          EOF
           # 全量刷新
           ./scripts/feeds clean
           rm -rf tmp/
           ./scripts/feeds update -a
           ./scripts/feeds install -a
-          # nss_ipv4_reasm 前置声明已由 feed 0035-nss-drv-add-ipv4-reasm-prototypes.patch
-          # (在 nss-packages-618@1306d122 自带) 提供, 不再需要补丁 0040.
+          # nss_ipv4_reasm 前置声明已由锁定 NSS feed 的
+          # 0035-nss-drv-add-ipv4-reasm-prototypes.patch 提供,不再需要补丁 0040.
           # qca-mcs kernel 6.18 兼容补丁也已在 feed 0005-kernel-6.18.patch 中.
 
       - name: Load custom config and apply DIY
@@ -333,10 +347,23 @@ jobs:
 
           for required in \
             'lib/modules/.*/qca-nss-drv\.ko' \
+            'lib/modules/.*/qca-nss-netlink\.ko' \
             'lib/modules/.*/qca-nss-qdisc\.ko' \
+            'lib/modules/.*/act_nssmirred\.ko' \
             'lib/modules/.*/zram\.ko' \
+            'etc/config/nss' \
+            'etc/config/pbuf' \
+            'etc/init\.d/qca-nss-drv' \
+            'etc/init\.d/qca-nss-netlink' \
+            'etc/init\.d/qca-nss-pbuf' \
+            'etc/init\.d/set-irq-affinity' \
+            'etc/init\.d/smp_affinity' \
             'etc/init\.d/zram' \
+            'etc/uci-defaults/15_smp_affinity\.sh' \
+            'usr/lib/sqm/nss-zk\.qos' \
             'sbin/nss-check' \
+            'sbin/ax6-config-audit' \
+            'etc/init\.d/ax6-wifi-regdom' \
             'usr/sbin/ax6-irq-affinity'; do
             grep -Eq "squashfs-root/${required}( ->|$)" image-verify/rootfs-files.txt || {
               echo "::error::Final rootfs is missing required path: $required"
@@ -350,6 +377,19 @@ jobs:
             echo "::error::Final rootfs auto-enables the manual AX6 IRQ override"
             exit 1
           fi
+          for enabled in \
+            'etc/rc\.d/S10ax6-wifi-regdom' \
+            'etc/rc\.d/S12ax6-boot-guard' \
+            'etc/rc\.d/S15zram' \
+            'etc/rc\.d/S93smp_affinity' \
+            'etc/rc\.d/S94qca-nss-drv' \
+            'etc/rc\.d/S95qca-nss-pbuf' \
+            'etc/rc\.d/S99set-irq-affinity'; do
+            grep -Eq "squashfs-root/${enabled}( ->|$)" image-verify/rootfs-files.txt || {
+              echo "::error::Final rootfs is missing required startup link: $enabled"
+              exit 1
+            }
+          done
           echo "Final rootfs validation: PASS"
 
       - name: Stage release artifacts + checksums
@@ -377,14 +417,33 @@ jobs:
             echo "BUILD_WORKFLOW_COMMIT=$GITHUB_SHA"
             echo "BUILD_RUN_ID=$GITHUB_RUN_ID"
             echo "SOURCE_REPO=$SOURCE_REPO"
+            echo "SOURCE_TRACKING_BRANCH=$SOURCE_TRACKING_BRANCH"
             echo "SOURCE_COMMIT=$SOURCE_COMMIT"
             echo "NSS_FEED_URL=$NSS_FEED_URL"
             echo "NSS_FEED_COMMIT=$NSS_FEED_COMMIT"
+            echo "SQM_SCRIPTS_NSS_URL=$SQM_SCRIPTS_NSS_URL"
+            echo "SQM_SCRIPTS_NSS_COMMIT=$SQM_SCRIPTS_NSS_COMMIT"
             echo "LUCI_FEED_URL=$LUCI_FEED_URL"
             echo "LUCI_FEED_COMMIT=$LUCI_FEED_COMMIT"
+            echo "PACKAGES_FEED_URL=$PACKAGES_FEED_URL"
+            echo "PACKAGES_FEED_COMMIT=$PACKAGES_FEED_COMMIT"
+            echo "ROUTING_FEED_URL=$ROUTING_FEED_URL"
+            echo "ROUTING_FEED_COMMIT=$ROUTING_FEED_COMMIT"
+            echo "TELEPHONY_FEED_URL=$TELEPHONY_FEED_URL"
+            echo "TELEPHONY_FEED_COMMIT=$TELEPHONY_FEED_COMMIT"
+            echo "VIDEO_FEED_URL=$VIDEO_FEED_URL"
+            echo "VIDEO_FEED_COMMIT=$VIDEO_FEED_COMMIT"
+            echo "ARGON_THEME_URL=$ARGON_THEME_URL"
+            echo "ARGON_THEME_COMMIT=$ARGON_THEME_COMMIT"
+            echo "ARGON_CONFIG_URL=$ARGON_CONFIG_URL"
+            echo "ARGON_CONFIG_COMMIT=$ARGON_CONFIG_COMMIT"
+            echo "OPENCLASH_URL=$OPENCLASH_URL"
+            echo "OPENCLASH_COMMIT=$OPENCLASH_COMMIT"
+            echo "OPENCLASH_VERSION=$OPENCLASH_VERSION"
           } > BUILD-LOCK-AX6.txt
           # Embed nss-check tool into release for offline use
           cp ../AX6-IPQ/files/sbin/nss-check ./nss-check.sh
+          cp ../AX6-IPQ/files/sbin/ax6-config-audit ./ax6-config-audit.sh
           ls -lh
 
       - name: Get current date

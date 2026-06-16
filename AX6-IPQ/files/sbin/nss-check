@@ -1,5 +1,5 @@
 #!/bin/sh
-# AX6 NSS / WiFi 健康自检工具
+# AX6 NSS / hardware health check
 # 用法:
 #   nss-check        简洁(只列 FAIL)
 #   nss-check -v     详细(全部检查)
@@ -145,9 +145,14 @@ case "$fw_mode" in
         ;;
 esac
 
-# ---- 9. 防火墙 flow_offload 内核模块必须关 ----
-# (firewall4 使用 nftables, UCI flow_offloading 选项不存在;
-#  直接检查内核冲突模块是否被加载)
+# ---- 9. 防火墙 flow_offload 配置和冲突模块必须关 ----
+flow_offloading=$(uci -q get firewall.@defaults[0].flow_offloading)
+flow_offloading_hw=$(uci -q get firewall.@defaults[0].flow_offloading_hw)
+if [ "$flow_offloading" = "1" ] || [ "$flow_offloading_hw" = "1" ]; then
+    fail "firewall flow_offloading=${flow_offloading:-unset}, flow_offloading_hw=${flow_offloading_hw:-unset}; NSS ECM 模式应均为 0"
+else
+    ok "firewall UCI flow offload disabled (NSS ECM handles offload)"
+fi
 if lsmod | grep -Eq '^(nf_flow_table|nft_flow_offload|ipt_FLOWOFFLOAD) ' 2>/dev/null; then
     fail "Conflicting flow-offload kernel module loaded — rmmod + check /etc/modprobe.d/nss-no-flow.conf"
 else
@@ -197,25 +202,23 @@ if [ -r "$fm_path" ]; then
     esac
 fi
 
-# ---- 14. VLAN 配置兼容性(qosmio 强制要求)----
-# bridge_vlan_filtering 与 NSS WiFi 不兼容 — 应该 unset 或 =0
-vf_violation=0
+# ---- 14. VLAN 配置与 NSS WiFi offload ----
+# qosmio 上游明确要求 NSS WiFi 使用 802.1q 子接口,不要使用 DSA bridge VLAN filtering。
+vf_bad=0
 for d in $(uci -q show network 2>/dev/null | awk -F'[.=]' '/=device$/{print $2}'); do
     if [ "$(uci -q get "network.${d}.vlan_filtering")" = "1" ]; then
-        fail "network.$d.vlan_filtering=1 与 NSS 不兼容!运行: uci del network.$d.vlan_filtering && uci commit network && reboot"
-        vf_violation=1
+        fail "network.$d.vlan_filtering=1 与 qosmio NSS WiFi offload 说明冲突;改用 802.1q 子接口"
+        vf_bad=1
     fi
 done
-if [ "$vf_violation" -eq 0 ]; then
-    ok "无 bridge_vlan_filtering=1 (NSS 兼容)"
-fi
 
-# bridge-vlan 段不应存在
 if uci -q show network 2>/dev/null | grep -q '=bridge-vlan'; then
-    fail "/etc/config/network 中存在 'bridge-vlan' 段(DSA 语法,与 NSS 不兼容);改用 8021q 子接口 vlan-add"
+    fail "/etc/config/network 存在 bridge-vlan 段; qosmio 上游说明它不兼容 NSS WiFi offload"
+    vf_bad=1
 else
-    ok "无 'bridge-vlan' 段配置 (NSS 兼容)"
+    ok "无 bridge-vlan 段配置"
 fi
+[ "$vf_bad" -eq 0 ] && ok "未启用 bridge VLAN filtering (使用 802.1q 子接口拓扑)"
 
 # 8021q / NSS VLAN 支持 (只要有一种 VLAN 机制就 pass)
 if lsmod | grep -qE "^(8021q|qca_nss_vlan) "; then
@@ -245,23 +248,53 @@ else
     fail "ZRAM 设备未加入 /proc/swaps — 检查 /etc/init.d/zram"
 fi
 
-# ---- 16. WiFi 兼容性危险项 ----
-wifi_unsafe=0
-for iface in $(uci -q show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-iface$/{print $2}'); do
-    if [ "$(uci -q get "wireless.${iface}.isolate")" = "1" ]; then
-        fail "wireless.$iface.isolate=1 客户端隔离仍启用"
-        wifi_unsafe=1
+# ---- 16. WiFi 2.4G HE40/HE20 coexistence ----
+coex_bad=0
+for radio in $(uci -q show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-device$/{print $2}'); do
+    [ "$(uci -q get "wireless.${radio}.band")" = "2g" ] || continue
+    if [ "$(uci -q get "wireless.${radio}.htmode")" = "HE40" ] &&
+       [ "$(uci -q get "wireless.${radio}.ht_coex")" != "1" ]; then
+        fail "wireless.$radio uses HE40 without ht_coex=1"
+        coex_bad=1
     fi
-    for option in uapsd proxy_arp multicast_to_unicast; do
-        if [ "$(uci -q get "wireless.${iface}.${option}")" = "1" ]; then
-            fail "wireless.$iface.$option=1 可能破坏 IoT/mDNS 兼容性"
-            wifi_unsafe=1
-        fi
-    done
+    if [ "$(uci -q get "wireless.${radio}.noscan")" = "1" ]; then
+        fail "wireless.$radio.noscan=1 disables coexistence checks"
+        coex_bad=1
+    fi
 done
-[ "$wifi_unsafe" -eq 0 ] && ok "WiFi 客户端隔离和强制 U-APSD/proxy-ARP/multicast-to-unicast 均关闭"
+[ "$coex_bad" -eq 0 ] && ok "2.4G HE40/HE20 coexistence configuration is safe"
 
-# ---- 17. IRQ 策略所有权 ----
+# ---- 17. 上游 IRQ/RPS 启动链 ----
+for svc in \
+    S93smp_affinity \
+    S94qca-nss-drv \
+    S95qca-nss-pbuf \
+    S99set-irq-affinity; do
+    if [ -e "/etc/rc.d/$svc" ]; then
+        ok "Upstream IRQ/RPS service enabled: $svc"
+    else
+        fail "Missing upstream IRQ/RPS startup link: /etc/rc.d/$svc"
+    fi
+done
+
+nss_rps_enable=$(sysctl -n dev.nss.rps.enable 2>/dev/null)
+if [ "$nss_rps_enable" = "1" ]; then
+    ok "NSS internal RPS enabled (dev.nss.rps.enable=1)"
+else
+    warn "NSS internal RPS enable=${nss_rps_enable:-unset}; qca-nss-drv may not have completed"
+fi
+
+nss_hash_bitmap=$(sysctl -n dev.nss.rps.hash_bitmap 2>/dev/null)
+case "$nss_hash_bitmap" in
+    ""|0)
+        warn "NSS RPS hash_bitmap=${nss_hash_bitmap:-unset}; qca-nss-pbuf may not have completed"
+        ;;
+    *)
+        ok "NSS RPS hash_bitmap=$nss_hash_bitmap"
+        ;;
+esac
+
+# ---- 18. IRQ 策略所有权 ----
 if find /etc/rc.d -maxdepth 1 -name 'S*ax6-irq-affinity' 2>/dev/null | grep -q .; then
     fail "ax6-irq-affinity 被自动启用,会覆盖上游 qualcommax IRQ/RPS 策略"
 else
@@ -276,5 +309,6 @@ if [ "$QUIET" -eq 0 ]; then
     else
         echo "状态: ✗ 有问题,看上面 FAIL 项"
     fi
+    echo "场景配置审计: ax6-config-audit -v"
 fi
 exit "$FAIL"

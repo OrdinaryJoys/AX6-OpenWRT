@@ -1,0 +1,311 @@
+#!/bin/sh
+# Read-only audit for scenario-dependent WiFi, NSS SQM, ZeroTier, UPnP and OpenClash config.
+# Usage: ax6-config-audit [-v|-q]
+
+VERBOSE=0
+QUIET=0
+
+case "${1:-}" in
+    ""|"--") ;;
+    -v|--verbose) VERBOSE=1 ;;
+    -q|--quiet) QUIET=1 ;;
+    -h|--help)
+        sed -n '2,3p' "$0" | sed 's/^# //'
+        exit 0
+        ;;
+    *)
+        echo "ax6-config-audit: unknown option '$1' (use -v / -q / -h)" >&2
+        exit 64
+        ;;
+esac
+
+PASS=0
+WARN=0
+FAIL=0
+
+ok() {
+    PASS=$((PASS + 1))
+    [ "$VERBOSE" -eq 1 ] && [ "$QUIET" -eq 0 ] && echo " ✓ $1"
+}
+
+warn() {
+    WARN=$((WARN + 1))
+    [ "$QUIET" -eq 0 ] && echo " ! $1"
+}
+
+fail() {
+    FAIL=$((FAIL + 1))
+    [ "$QUIET" -eq 0 ] && echo " ✗ $1"
+}
+
+is_private_v4() {
+    case "$1" in
+        10.*|192.168.*|172.1[6-9].*|172.2[0-9].*|172.3[01].*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+zerotier_include_ok() {
+    _zt_section="$1"
+    _zt_expected_path="$2"
+    _zt_expected_chain="$3"
+    [ "$(uci -q get "firewall.${_zt_section}.type")" = "nftables" ] &&
+        [ "$(uci -q get "firewall.${_zt_section}.path")" = "$_zt_expected_path" ] &&
+        [ "$(uci -q get "firewall.${_zt_section}.position")" = "chain-pre" ] &&
+        [ "$(uci -q get "firewall.${_zt_section}.chain")" = "$_zt_expected_chain" ]
+}
+
+if [ "$QUIET" -eq 0 ]; then
+    echo "=== AX6 scenario configuration audit (read-only) ==="
+fi
+
+# WiFi: only coexistence settings are universal. BSS policy is reported, not fixed.
+wifi_seen=0
+for radio in $(uci -q show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-device$/{print $2}'); do
+    wifi_seen=1
+    band=$(uci -q get "wireless.${radio}.band")
+    htmode=$(uci -q get "wireless.${radio}.htmode")
+    if [ "$band" = "2g" ] && [ "$htmode" = "HE40" ]; then
+        if [ "$(uci -q get "wireless.${radio}.ht_coex")" = "1" ] &&
+           [ "$(uci -q get "wireless.${radio}.noscan")" != "1" ]; then
+            ok "WiFi $radio: HE40 with 20/40 coexistence enabled"
+        else
+            fail "WiFi $radio: HE40 requires ht_coex=1 and noscan unset"
+        fi
+    fi
+    if [ "$band" = "2g" ] && [ "$(uci -q get "wireless.${radio}.legacy_rates")" = "0" ]; then
+        warn "WiFi $radio: legacy rates disabled; some 2.4G IoT devices may not associate"
+    fi
+done
+[ "$wifi_seen" -eq 1 ] || fail "WiFi: no radio configuration found"
+
+for iface in $(uci -q show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-iface$/{print $2}'); do
+    ssid=$(uci -q get "wireless.${iface}.ssid")
+    [ -n "$ssid" ] || ssid="$iface"
+    [ "$(uci -q get "wireless.${iface}.isolate")" = "1" ] &&
+        warn "WiFi $ssid: client isolation enabled; correct for guest/untrusted SSIDs, incompatible with peer discovery"
+    [ "$(uci -q get "wireless.${iface}.proxy_arp")" = "1" ] &&
+        warn "WiFi $ssid: proxy_arp enabled; verify IoT and peer-discovery requirements"
+    [ "$(uci -q get "wireless.${iface}.multicast_to_unicast")" = "1" ] &&
+        warn "WiFi $ssid: multicast_to_unicast enabled; verify mDNS discovery"
+    [ "$(uci -q get "wireless.${iface}.uapsd")" = "0" ] &&
+        warn "WiFi $ssid: U-APSD explicitly disabled; this may increase client power usage"
+    [ "$(uci -q get "wireless.${iface}.wmm")" = "0" ] &&
+        fail "WiFi $ssid: WMM disabled; 802.11n/ac/ax operation requires WMM"
+    [ "$(uci -q get "wireless.${iface}.hidden")" = "1" ] &&
+        warn "WiFi $ssid: hidden SSID may break IoT provisioning"
+    [ "$(uci -q get "wireless.${iface}.ieee80211w")" = "2" ] &&
+        warn "WiFi $ssid: PMF required; older IoT clients may not associate"
+    encryption=$(uci -q get "wireless.${iface}.encryption")
+    case "$encryption" in
+        sae|sae-*)
+            warn "WiFi $ssid: WPA3-only encryption may reject older IoT clients"
+            ;;
+    esac
+done
+
+# VLAN: qosmio upstream requires 802.1q subinterfaces for NSS WiFi offload.
+vlan_bad=0
+for device in $(uci -q show network 2>/dev/null | awk -F'[.=]' '/=device$/{print $2}'); do
+    if [ "$(uci -q get "network.${device}.vlan_filtering")" = "1" ]; then
+        fail "VLAN $device: vlan_filtering=1 conflicts with qosmio NSS WiFi offload guidance"
+        vlan_bad=1
+    fi
+done
+if uci -q show network 2>/dev/null | grep -q '=bridge-vlan'; then
+    fail "VLAN: config bridge-vlan is present; use 802.1q subinterfaces such as lan1.40 instead"
+    vlan_bad=1
+fi
+[ "$vlan_bad" -eq 0 ] && ok "VLAN: no DSA bridge VLAN filtering detected"
+
+# NSS SQM: installed CAKE dependencies are harmless until a non-NSS queue is enabled.
+if [ -r /etc/config/sqm ]; then
+    sqm_seen=0
+    for section in $(uci -q show sqm 2>/dev/null | awk -F'[.=]' '/=queue$/{print $2}'); do
+        [ "$(uci -q get "sqm.${section}.enabled")" = "1" ] || continue
+        sqm_seen=1
+        script=$(uci -q get "sqm.${section}.script")
+        if [ "$script" = "nss-zk.qos" ]; then
+            ok "NSS SQM $section: nss-zk.qos selected"
+        else
+            warn "NSS SQM $section: enabled script '${script:-unset}' uses the CPU path; select nss-zk.qos for NSS shaping"
+        fi
+    done
+    [ "$sqm_seen" -eq 1 ] || ok "NSS SQM: installed and disabled"
+fi
+
+# ZeroTier: routing and trust policy is scenario-dependent.
+if uci -q get zerotier.global >/dev/null 2>&1; then
+    if [ "$(uci -q get zerotier.global.enabled)" = "1" ]; then
+        if pidof zerotier-one >/dev/null 2>&1; then
+            ok "ZeroTier: daemon running"
+        else
+            fail "ZeroTier: enabled but daemon is not running"
+        fi
+        if find /sys/class/net -maxdepth 1 -name 'zt*' 2>/dev/null | grep -q .; then
+            ok "ZeroTier: runtime interface present"
+        else
+            warn "ZeroTier: enabled but no zt* interface is present"
+        fi
+        zt_need_input=$(uci -q get zerotier.global.fw_allow_input)
+        [ "$zt_need_input" = "1" ] || zt_need_input=0
+        zt_need_forward=0
+        zt_need_srcnat=0
+        for section in $(uci -q show zerotier 2>/dev/null | awk -F'[.=]' '/=network$/{print $2}'); do
+            [ "$(uci -q get "zerotier.${section}.enabled")" = "0" ] && continue
+            [ -n "$(uci -q get "zerotier.${section}.id")" ] ||
+                fail "ZeroTier $section: enabled network has no network id"
+            [ "$(uci -q get "zerotier.${section}.allow_default")" = "1" ] &&
+                warn "ZeroTier $section: remote network may install a default route"
+            [ "$(uci -q get "zerotier.${section}.allow_global")" = "1" ] &&
+                warn "ZeroTier $section: remote network may install global routes"
+            [ "$(uci -q get "zerotier.${section}.allow_dns")" = "1" ] &&
+                warn "ZeroTier $section: remote network may replace DNS"
+            [ "$(uci -q get "zerotier.${section}.fw_allow_input")" = "1" ] &&
+                zt_need_input=1
+            [ "$(uci -q get "zerotier.${section}.fw_allow_forward")" = "1" ] &&
+                zt_need_forward=1
+            [ "$(uci -q get "zerotier.${section}.fw_allow_masq")" = "1" ] &&
+                zt_need_srcnat=1
+        done
+        for section in $(uci -q show network 2>/dev/null | awk -F'[.=]' '/=interface$/{print $2}'); do
+            device=$(uci -q get "network.${section}.device")
+            case "$device" in
+                zt*)
+                    [ "$(uci -q get "network.${section}.proto")" = "dhcp" ] &&
+                        fail "ZeroTier interface $section uses DHCP; ZeroTier must manage its own addresses"
+                    ;;
+            esac
+        done
+        if [ "$zt_need_input" = "1" ]; then
+            if zerotier_include_ok zerotier_input /var/run/zerotier-one/_fw4/input.nft input; then
+                ok "ZeroTier: dynamic nftables input include installed"
+            else
+                fail "ZeroTier: input permission enabled but dynamic nftables include is missing or malformed"
+            fi
+        fi
+        if [ "$zt_need_forward" = "1" ]; then
+            if zerotier_include_ok zerotier_forward /var/run/zerotier-one/_fw4/forward.nft forward; then
+                ok "ZeroTier: dynamic nftables forward include installed"
+            else
+                fail "ZeroTier: forwarding enabled but dynamic nftables include is missing or malformed"
+            fi
+        fi
+        if [ "$zt_need_srcnat" = "1" ]; then
+            if zerotier_include_ok zerotier_srcnat /var/run/zerotier-one/_fw4/srcnat.nft srcnat; then
+                ok "ZeroTier: dynamic nftables srcnat include installed"
+            else
+                fail "ZeroTier: masquerading enabled but dynamic nftables include is missing or malformed"
+            fi
+        fi
+        [ "$zt_need_input$zt_need_forward$zt_need_srcnat" = "000" ] &&
+            ok "ZeroTier: no package-managed firewall permissions requested"
+    else
+        ok "ZeroTier: installed and disabled"
+    fi
+else
+    ok "ZeroTier: not installed"
+fi
+
+# UPnP: enabled operation requires secure mode and a final deny rule.
+if uci -q get upnpd.config >/dev/null 2>&1; then
+    if [ "$(uci -q get upnpd.config.enabled)" = "1" ]; then
+        if [ "$(uci -q get upnpd.config.secure_mode)" = "1" ]; then
+            ok "UPnP: secure_mode enabled"
+        else
+            fail "UPnP: enabled without secure_mode=1"
+        fi
+        last_perm_rule=
+        for section in $(uci -q show upnpd 2>/dev/null | awk -F'[.=]' '/=perm_rule$/{print $2}'); do
+            last_perm_rule="$section"
+        done
+        if [ -n "$last_perm_rule" ] &&
+           [ "$(uci -q get "upnpd.${last_perm_rule}.action")" = "deny" ] &&
+           [ "$(uci -q get "upnpd.${last_perm_rule}.ext_ports")" = "0-65535" ] &&
+           [ "$(uci -q get "upnpd.${last_perm_rule}.int_addr")" = "0.0.0.0/0" ] &&
+           [ "$(uci -q get "upnpd.${last_perm_rule}.int_ports")" = "0-65535" ]; then
+            ok "UPnP: final permission rule is complete default deny"
+        else
+            fail "UPnP: final permission rule is not a complete default deny"
+        fi
+        case " $(uci -q get upnpd.config.internal_iface) " in
+            *" wan "*)
+                fail "UPnP: WAN must not be configured as an internal interface"
+                ;;
+        esac
+        wan_ip=$(ubus call network.interface.wan status 2>/dev/null |
+            jsonfilter -e '@["ipv4-address"][0].address' 2>/dev/null)
+        is_private_v4 "$wan_ip" &&
+            warn "UPnP: WAN address ${wan_ip:-unknown} is private; upstream NAT may prevent mappings"
+    else
+        ok "UPnP: disabled"
+    fi
+else
+    ok "UPnP: not installed"
+fi
+
+# OpenClash owns dnsmasq redirection while enabled and must revert it when stopped.
+if uci -q get openclash.config >/dev/null 2>&1; then
+    dns_port=$(uci -q get openclash.config.dns_port)
+    [ -n "$dns_port" ] || dns_port=7874
+    dns_server=$(uci -q get dhcp.@dnsmasq[0].server)
+    redirect_mode=$(uci -q get openclash.config.enable_redirect_dns)
+    [ -n "$redirect_mode" ] || redirect_mode=1
+    if [ "$(uci -q get openclash.config.enable)" = "1" ]; then
+        if pidof clash >/dev/null 2>&1; then
+            ok "OpenClash: core process running"
+        else
+            fail "OpenClash: enabled but core process is not running"
+        fi
+        case "$redirect_mode" in
+            1)
+                if echo "$dns_server" | grep -q "127.0.0.1#${dns_port}"; then
+                    ok "OpenClash: dnsmasq redirect points to ${dns_port}"
+                else
+                    fail "OpenClash: Dnsmasq Redirect mode does not point to ${dns_port}"
+                fi
+                [ "$(uci -q get dhcp.@dnsmasq[0].noresolv)" = "1" ] ||
+                    warn "OpenClash: Dnsmasq Redirect mode normally requires noresolv=1"
+                warn "OpenClash: Dnsmasq Redirect mode makes DNS depend on the local core; monitor core availability"
+                ;;
+            2)
+                if nft list chain inet fw4 openclash_dns_redirect 2>/dev/null |
+                   grep -q 'OpenClash DNS Hijack'; then
+                    ok "OpenClash: Firewall Redirect nftables DNS rule is active"
+                else
+                    fail "OpenClash: Firewall Redirect mode is enabled but its nftables DNS rule is missing"
+                fi
+                echo "$dns_server" | grep -q "127.0.0.1#${dns_port}" &&
+                    warn "OpenClash: Firewall Redirect mode still has a dnsmasq redirect to ${dns_port}"
+                ;;
+            0)
+                ok "OpenClash: DNS hijacking is disabled"
+                echo "$dns_server" | grep -q "127.0.0.1#${dns_port}" &&
+                    warn "OpenClash: DNS hijacking is disabled but dnsmasq still redirects to ${dns_port}"
+                ;;
+            *)
+                warn "OpenClash: unknown DNS redirect mode ${redirect_mode}; verify DNS ownership"
+                ;;
+        esac
+    else
+        if echo "$dns_server" | grep -q "127.0.0.1#${dns_port}"; then
+            fail "OpenClash: disabled but dnsmasq still points to ${dns_port}"
+        else
+            ok "OpenClash: disabled and dnsmasq redirect reverted"
+        fi
+    fi
+else
+    ok "OpenClash: not installed"
+fi
+
+if [ "$QUIET" -eq 0 ]; then
+    echo ""
+    echo "=== Summary: PASS=$PASS WARN=$WARN FAIL=$FAIL ==="
+    if [ "$FAIL" -eq 0 ]; then
+        echo "Status: no definite configuration faults"
+    else
+        echo "Status: definite configuration faults found"
+    fi
+fi
+
+exit "$FAIL"

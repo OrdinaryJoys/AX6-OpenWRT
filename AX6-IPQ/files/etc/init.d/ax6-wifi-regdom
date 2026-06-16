@@ -1,0 +1,38 @@
+#!/bin/sh /etc/rc.common
+# Apply the configured regulatory domain before network startup.
+
+# shellcheck disable=SC2034  # START is read by /etc/rc.common
+START=10
+
+COUNTRY_FILE="/etc/config/ax6_wifi_country"
+
+get_country() {
+    country=""
+    if [ -r "$COUNTRY_FILE" ]; then
+        country="$(head -n 1 "$COUNTRY_FILE" | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')"
+    fi
+
+    if [ -z "$country" ]; then
+        radio=$(uci -q show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-device$/{print $2; exit}')
+        country=$(uci -q get "wireless.${radio}.country" 2>/dev/null)
+    fi
+
+    case "$country" in
+        [A-Z][A-Z]) printf '%s\n' "$country" ;;
+        *) printf '%s\n' "US" ;;
+    esac
+}
+
+start() {
+    country="$(get_country)"
+    changed=0
+
+    for radio in $(uci -q show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-device$/{print $2}'); do
+        if [ "$(uci -q get "wireless.${radio}.country")" != "$country" ]; then
+            uci -q set "wireless.${radio}.country=$country" && changed=1
+        fi
+    done
+    [ "$changed" -eq 0 ] || uci -q commit wireless
+
+    iw reg set "$country" 2>/dev/null
+}

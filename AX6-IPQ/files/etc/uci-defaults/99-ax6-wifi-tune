@@ -1,5 +1,5 @@
 #!/bin/sh
-# AX6 WiFi max performance — IPQ8074 4x4 AX
+# AX6 radio defaults — IPQ8074 4x4 AX
 # Override country: echo CN > /etc/config/ax6_wifi_country && reboot
 # Runs once via uci-defaults on first boot.
 
@@ -8,7 +8,13 @@ COUNTRY="US"
 if [ -r "$COUNTRY_FILE" ]; then
     COUNTRY="$(head -n 1 "$COUNTRY_FILE" | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')"
 fi
-[ -n "$COUNTRY" ] || COUNTRY="US"
+case "$COUNTRY" in
+    [A-Z][A-Z]) ;;
+    *)
+        logger -t ax6-wifi-tune "Invalid country override '$COUNTRY'; using US"
+        COUNTRY="US"
+        ;;
+esac
 
 RADIOS="$(uci show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-device/{print $2}')"
 
@@ -20,7 +26,6 @@ for radio in $RADIOS; do
 
     uci -q set "wireless.${radio}.cell_density=0"
     uci -q set "wireless.${radio}.legacy_rates=1"
-    # Keep 20/40 coexistence active. HE40 may fall back to HE20 when 2.4G is busy.
     uci -q delete "wireless.${radio}.noscan"
     uci -q set "wireless.${radio}.beacon_int=100"
     uci -q set "wireless.${radio}.dtim_period=1"
@@ -45,29 +50,20 @@ for radio in $RADIOS; do
             if [ -z "$cur_chan" ] || [ "$cur_chan" = "auto" ]; then
                 uci -q set "wireless.${radio}.channel=36"
             fi
-            uci -q set "wireless.${radio}.tx_antenna=15"
-            uci -q set "wireless.${radio}.rx_antenna=15"
             ;;
         2g)
             uci -q set "wireless.${radio}.htmode=HE40"
+            # Required by this wifi-scripts branch: its implicit default is 0,
+            # which disables ongoing 20/40 coexistence.
+            uci -q set "wireless.${radio}.ht_coex=1"
             uci -q set "wireless.${radio}.channel=auto"
-            uci -q set "wireless.${radio}.tx_antenna=3"
-            uci -q set "wireless.${radio}.rx_antenna=3"
             ;;
     esac
 
-done
-
-for iface in $(uci show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-iface/{print $2}'); do
-    # WMM is required for 802.11n/ac/ax. Keep low-ACK disconnect disabled for
-    # long-range and sleeping IoT clients, but do not force isolation-like
-    # proxy/multicast behavior or PMF/U-APSD on every SSID.
-    uci -q set "wireless.${iface}.disassoc_low_ack=0"
-    uci -q set "wireless.${iface}.wmm=1"
-    uci -q set "wireless.${iface}.isolate=0"
-    uci -q delete "wireless.${iface}.uapsd"
-    uci -q delete "wireless.${iface}.proxy_arp"
-    uci -q delete "wireless.${iface}.multicast_to_unicast"
+    # wifi-scripts uses txantenna/rxantenna and defaults both to all available
+    # chains. Remove obsolete underscore variants without forcing a chain mask.
+    uci -q delete "wireless.${radio}.tx_antenna"
+    uci -q delete "wireless.${radio}.rx_antenna"
 done
 
 if uci -q commit wireless; then
@@ -76,25 +72,8 @@ else
     logger -t ax6-wifi-tune "ERROR: uci commit wireless failed — WiFi may use board defaults (CN)"
 fi
 
-# ath11k firmware applies built-in regdb on init — must set iw reg BEFORE wifi starts.
-# On subsequent boots, the init script below runs at START=10.
-# On this first boot (procd already scanned rc.d), we call iw reg set directly.
+# The static ax6-wifi-regdom service applies this before network startup on
+# subsequent boots. Apply it directly during the first-boot uci-defaults run.
 iw reg set "$COUNTRY" 2>/dev/null
-
-if [ ! -f /etc/init.d/ax6-wifi-regdom ]; then
-    cat > /etc/init.d/ax6-wifi-regdom << 'INIT'
-#!/bin/sh /etc/rc.common
-# AX6: set iw reg domain before wifi starts (ath11k firmware reads regdb at init)
-START=10
-start() {
-    RADIO=$(uci -q show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-device/{print $2; exit}')
-    COUNTRY=$(uci -q get "wireless.${RADIO}.country" 2>/dev/null)
-    [ -z "$COUNTRY" ] && COUNTRY="US"
-    iw reg set "$COUNTRY" 2>/dev/null
-}
-INIT
-    chmod +x /etc/init.d/ax6-wifi-regdom
-    /etc/init.d/ax6-wifi-regdom enable 2>/dev/null
-fi
 
 exit 0

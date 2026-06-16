@@ -20,7 +20,7 @@ rmmod nft_flow_offload 2>/dev/null || true
 rmmod ipt_FLOWOFFLOAD 2>/dev/null || true
 
 # ===================================================================
-# Layer 2: UCI 配置级别 — firewall + device 级禁用 (qosmio 规范)
+# Layer 2: UCI 配置级别 — firewall4 flow offload 必须关闭
 # ===================================================================
 
 # firewall 级别
@@ -28,18 +28,4 @@ uci -q set firewall.@defaults[0].flow_offloading='0'
 uci -q set firewall.@defaults[0].flow_offloading_hw='0'
 uci commit firewall
 
-# network device 级别 (per-device, 防止 sysupgrade dirty config 泄漏)
-dev_count=$(uci -q show network 2>/dev/null | grep -c "=device$")
-if [ "${dev_count:-0}" -gt 0 ]; then
-	for d in $(uci -q show network 2>/dev/null | awk -F'[.=]' '/=device$/{print $2}'); do
-		uci -q set "network.${d}.packet_steering=0"
-		uci -q set "network.${d}.flow_offloading=0"
-		uci -q set "network.${d}.flow_offloading_hw=0"
-	done
-	uci commit network
-else
-	logger -t nss-tune "WARNING: no network device sections found, skip device-level offload disable"
-fi
-
 exit 0
-
