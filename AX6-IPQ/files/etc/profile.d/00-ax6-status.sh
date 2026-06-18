@@ -1,3 +1,4 @@
+#!/bin/sh
 # shellcheck shell=sh
 # SSH 登录时显示 NSS / WiFi 简报(只在 SSH session 显示,console 静默)
 [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ] || return 0
