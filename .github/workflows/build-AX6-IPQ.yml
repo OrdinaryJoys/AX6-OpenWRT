@@ -206,8 +206,8 @@ jobs:
             'etc/rc\.d/S12ax6-boot-guard' \
             'etc/rc\.d/S15zram' \
             'etc/rc\.d/S93smp_affinity' \
-            'etc/rc\.d/S94qca-nss-drv' \
-            'etc/rc\.d/S95qca-nss-pbuf' \
+            'etc/rc\.d/S28qca-nss-drv' \
+            'etc/rc\.d/S27qca-nss-pbuf' \
             'etc/rc\.d/S99set-irq-affinity'; do
             grep -Eq "squashfs-root/${enabled}( ->|$)" image-verify/rootfs-files.txt || {
               echo "::error::Final rootfs is missing required startup link: $enabled"

@@ -218,7 +218,7 @@ iw reg get | head -3                          # US (FCC)
 
 **IRQ/RPS 分层特别注意**:
 - `packet_steering=0` 只关闭 OpenWrt netifd 的通用 packet steering。
-- 本构建仍应保留上游 qualcommax/NSS 启动链: `S93smp_affinity`、`S94qca-nss-drv`、`S95qca-nss-pbuf`、`S99set-irq-affinity`。
+- 本构建仍应保留上游 qualcommax/NSS 启动链: `S93smp_affinity`、`S28qca-nss-drv`、`S27qca-nss-pbuf`、`S99set-irq-affinity`。
 - 这些脚本分别管理 EDMA IRQ、NSS IRQ/internal RPS、NSS pbuf/hash bitmap、Linux RPS/XPS；不要用自定义 `ax6-irq-affinity` 开机覆盖，除非是在单次基准测试中手动执行并记录结果。
 - `nss-check -v` 会检查上述启动链是否存在，并提示 NSS internal RPS 状态。
 

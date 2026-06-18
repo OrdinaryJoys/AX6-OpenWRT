@@ -267,8 +267,8 @@ done
 # ---- 17. 上游 IRQ/RPS 启动链 ----
 for svc in \
     S93smp_affinity \
-    S94qca-nss-drv \
-    S95qca-nss-pbuf \
+    S28qca-nss-drv \
+    S27qca-nss-pbuf \
     S99set-irq-affinity; do
     if [ -e "/etc/rc.d/$svc" ]; then
         ok "Upstream IRQ/RPS service enabled: $svc"
