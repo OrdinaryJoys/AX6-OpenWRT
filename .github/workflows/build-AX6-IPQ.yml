@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901c50afe2ea8f4192d45a5a2b40f99a7a  # v4.1.1
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
 
       - name: Free disk space
         uses: easimon/maximize-build-space@fc881a613ad2a34aca9c9624518214ebc21dfc0c  # v10
@@ -244,7 +244,7 @@ jobs:
         run: echo "CURRENT_DATE=$(date '+%Y%m%d%H%M%S')" >> "$GITHUB_ENV"
 
       - name: Upload firmware to Release
-        uses: ncipollo/release-action@440c8e339ad0f2abe51c7b321b060ea6622fa517  # v1.14.0
+        uses: ncipollo/release-action@2c591bcc8ecdcd2db72b97d6147f871fcd833ba5  # v1.14.0
         with:
           tag: AX6_IPQ_${{ env.CURRENT_DATE }}
           commit: ${{ github.sha }}
@@ -271,7 +271,7 @@ jobs:
             - 场景配置使用 `/sbin/ax6-config-audit -v` 只读检查
 
       - name: Delete old releases
-        uses: dev-drprasad/delete-older-releases@bb8bb6e0fb7a8c3e4310d833a0a64ae86b91f2e6  # v0.3.4
+        uses: dev-drprasad/delete-older-releases@dfbe6be2a006e9475dfcbe5b8d201f1824c2a9fe  # v0.3.4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
