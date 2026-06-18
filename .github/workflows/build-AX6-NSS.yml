@@ -232,6 +232,7 @@ jobs:
           # 关键修复:把 NSS 互斥/必需配置追加到 .config
           if [ -e "$EXTRA_CONFIG" ]; then
             cat "$EXTRA_CONFIG" >> openwrt/.config
+          fi
           chmod +x "$DIY_SH"
           ( cd openwrt && "$GITHUB_WORKSPACE/$DIY_SH" )
 
@@ -330,6 +331,7 @@ jobs:
           if [ "${#images[@]}" -ne 1 ]; then
             echo "::error::Expected exactly one squashfs sysupgrade image, found ${#images[@]}"
             exit 1
+          fi
 
           mkdir -p image-verify
           tar -xf "${images[0]}" -C image-verify
@@ -371,6 +373,7 @@ jobs:
             image-verify/rootfs-files.txt; then
             echo "::error::Final rootfs auto-enables the manual AX6 IRQ override"
             exit 1
+          fi
           for enabled in \
             'etc/rc\.d/S10ax6-wifi-regdom' \
             'etc/rc\.d/S12ax6-boot-guard' \
@@ -404,6 +407,7 @@ jobs:
           if [ "${#firmware[@]}" -eq 0 ]; then
             echo "::error::No AX6 firmware artifacts were produced"
             exit 1
+          fi
           sha256sum -- "${firmware[@]}" >SHA256SUMS-AX6.txt
           {
             echo "BUILD_REPOSITORY=$GITHUB_REPOSITORY"
