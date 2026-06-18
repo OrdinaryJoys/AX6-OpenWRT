@@ -71,7 +71,6 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
           check_locked "OrdinaryJoys/immortalwrt-nss $SOURCE_TRACKING_BRANCH" "$SOURCE_REPO" "refs/heads/$SOURCE_TRACKING_BRANCH" "$SOURCE_COMMIT"
-          check_locked "VIKINGYFY/nss-packages-618 $NSS_FEED_TRACKING_REF" "$NSS_FEED_URL" "$NSS_FEED_TRACKING_REF" "$NSS_FEED_COMMIT"
           check_locked "qosmio/sqm-scripts-nss main" "$SQM_SCRIPTS_NSS_URL" refs/heads/main "$SQM_SCRIPTS_NSS_COMMIT"
           check_locked "OrdinaryJoys/luci master" "$LUCI_FEED_URL" refs/heads/master "$LUCI_FEED_COMMIT"
           check_locked "immortalwrt/packages HEAD" "$PACKAGES_FEED_URL" HEAD "$PACKAGES_FEED_COMMIT"
