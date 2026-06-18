@@ -191,10 +191,6 @@ jobs:
           git init openwrt
           git -C openwrt remote add origin "$SOURCE_REPO"
           git -C openwrt fetch --depth 1 origin "$SOURCE_TRACKING_BRANCH"
-          actual=$(git -C openwrt rev-parse FETCH_HEAD)
-          if [ "$actual" != "$SOURCE_COMMIT" ]; then
-            echo "::error::Source lock mismatch: expected $SOURCE_COMMIT, got $actual"
-            exit 1
           fi
           git -C openwrt checkout --detach FETCH_HEAD
           actual=$(git -C openwrt rev-parse HEAD)

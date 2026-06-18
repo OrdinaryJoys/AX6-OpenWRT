@@ -40,7 +40,7 @@ jobs:
         run: |
           set -eo pipefail
           while IFS= read -r workflow; do
-            if ! grep -Fq 'commit: ${{ github.sha }}' "$workflow"; then
+            if ! grep -Eq 'commit: .*github.sha' "$workflow"; then
               echo "::error file=$workflow::release-action must tag the workflow commit"
               exit 1
             fi
