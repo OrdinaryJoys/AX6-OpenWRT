@@ -17,9 +17,10 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-22.04
+    timeout-minutes: 180
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
 
       - name: Free disk space
         uses: easimon/maximize-build-space@fc881a613ad2a34aca9c9624518214ebc21dfc0c  # v10
@@ -93,7 +94,7 @@ jobs:
         run: echo "CURRENT_DATE=$(date '+%Y%m%d%H%M%S')" >> "$GITHUB_ENV"
 
       - name: Upload firmware to Release
-        uses: ncipollo/release-action@2c591bcc8ecdcd2db72b97d6147f871fcd833ba5  # v1.14.0
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd  # v1.21.0
         with:
           tag: LEDE_AX6_${{ env.CURRENT_DATE }}
           commit: ${{ github.sha }}

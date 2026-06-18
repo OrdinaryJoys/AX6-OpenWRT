@@ -12,8 +12,9 @@ permissions:
 jobs:
   lint:
     runs-on: ubuntu-22.04
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
 
       - name: Install tools
         run: |
@@ -74,6 +75,7 @@ jobs:
             exit 1
           }
           for name in \
+            SOURCE_COMMIT SQM_SCRIPTS_NSS_COMMIT LUCI_FEED_COMMIT \
             PACKAGES_FEED_COMMIT ROUTING_FEED_COMMIT TELEPHONY_FEED_COMMIT \
             VIDEO_FEED_COMMIT ARGON_THEME_COMMIT ARGON_CONFIG_COMMIT \
             OPENCLASH_COMMIT; do
@@ -82,6 +84,34 @@ jobs:
               echo "::error::$name must be a full 40-character lowercase commit SHA"
               exit 1
             }
+          done
+
+      - name: Obsolete NSS config symbol check
+        run: |
+          set -eo pipefail
+          obsolete=(
+            NSS_DRV_C2C_ENABLE
+            NSS_DRV_IPV4_FORWARD_ENABLE
+            NSS_DRV_IPV6_FORWARD_ENABLE
+            NSS_DRV_CONNTRACK_ENABLE
+            NSS_DRV_QVPN_ENABLE
+            NSS_DRV_TSTAMP_ENABLE
+            NSS_DRV_WIFI_LEGACY_ENABLE
+            NSS_DRV_NATP_ENABLE
+            NSS_DRV_PORTID_ENABLE
+          )
+          for cfg in AX6-IPQ/.config-stock AX6-IPQ/.config-expand; do
+            for symbol in "${obsolete[@]}"; do
+              if grep -q "^CONFIG_${symbol}=" "$cfg"; then
+                echo "::error file=$cfg::obsolete symbol from pre-built-in NSS config: CONFIG_${symbol}"
+                exit 1
+              fi
+            done
+            if grep -q '^CONFIG_NSS_DRV_TRUSTSEC_RX_ENABLE=y$' "$cfg" &&
+               ! grep -q '^CONFIG_NSS_DRV_TRUSTSEC_ENABLE=y$' "$cfg"; then
+              echo "::error file=$cfg::TRUSTSEC_RX cannot be enabled while TRUSTSEC is disabled"
+              exit 1
+            fi
           done
 
       - name: AX6 NSS selected feed coverage check
@@ -216,6 +246,23 @@ jobs:
           # shellcheck disable=SC2016 # Match vlan-add literal UCI templates.
           if grep -Eq 'set network\.br_\$NAME\.vlan_filtering=' "$vlan"; then
             echo "::error file=$vlan::802.1q helper must not generate bridge VLAN filtering fields"
+            exit 1
+          fi
+
+      - name: Router maintenance script safety check
+        run: |
+          set -eo pipefail
+          backup="backup-router-config.sh"
+          deploy="deploy-openclash-runtime.sh"
+          test -x "$backup"
+          test -x "$deploy"
+          grep -Fq 'sysupgrade-config-backup.tar.gz' "$backup"
+          grep -Fq 'openclash-runtime.tar.gz' "$backup"
+          grep -Fq 'openclash-runtime.tar.gz' "$deploy"
+          grep -Fq 'The complete sysupgrade archive was not restored automatically.' "$deploy"
+          grep -Fq 'ax6-backup-*/' .gitignore
+          if grep -Eq 'el1si7d_doggygosubs|head -[0-9]+ /etc/openclash/config' "$backup" "$deploy"; then
+            echo "::error::router maintenance scripts must not hard-code a subscription filename or truncate backups"
             exit 1
           fi
 
