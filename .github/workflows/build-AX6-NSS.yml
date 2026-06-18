@@ -10,7 +10,7 @@ on:
         type: choice
         default: 'stock'
         options:
-          - stock     # 1GB RAM + 128MB NAND (Xiaomi original) — ZERO brick risk
+          - stock     # 1GB RAM + 128MB NAND (Xiaomi original) — standard SMEM layout
           - expand    # 1GB RAM + 256MB NAND (HW-modded only) — DANGER if NAND <256MB
       ssh:
         description: 'SSH debug connection'
@@ -19,8 +19,7 @@ on:
         default: false
 
 env:
-  REPO_URL: https://github.com/OrdinaryJoys/immortalwrt-nss.git
-  REPO_BRANCH: main
+  BUILD_LOCK: .github/ax6-nss-lock.env
   EXTRA_CONFIG: AX6-IPQ/nss-extra.config
   DIY_SH: AX6-IPQ/diy.sh
   FILES: AX6-IPQ/files
@@ -65,7 +64,7 @@ jobs:
           case "$VARIANT_INPUT" in
             stock)
               CFG="AX6-IPQ/.config-stock"; TAG="STOCK"
-              echo "::notice::Building STOCK variant — Xiaomi SMEM partitioning, 102MB rootfs, zero brick risk"
+              echo "::notice::Building STOCK variant — Xiaomi SMEM partitioning, 102MB rootfs"
               ;;
             expand)
               CFG="AX6-IPQ/.config-expand"; TAG="EXPAND"
@@ -92,11 +91,6 @@ jobs:
           PAT_Y = re.compile(r'^CONFIG_(PACKAGE_[\w-]+)=([ymn])$')
           PAT_N = re.compile(r'^# CONFIG_(PACKAGE_[\w-]+) is not set$')
 
-          # 这些包不在 NSS_BLACKLIST 中(可能在 .config 显式 =y 而非 sed 拉黑),
-          # 但启用后与 NSS 运行时互斥,pre-flight 应直接报错
-          EXTRA_RUNTIME_CONFLICT = ('sqm-scripts', 'kmod-sched-cake')
-
-
           def parse_config(path):
               """读取 OpenWrt .config,返回 {symbol: 'y'|'n'} 字典。"""
               result = {}
@@ -116,9 +110,8 @@ jobs:
           def main():
               cfg_path = os.environ['_PREFLIGHT_CFG']
               extra_path = 'AX6-IPQ/nss-extra.config'
-              # 与 env.NSS_BLACKLIST 共用同一份黑名单(以及补充的运行时冲突项)
+              # 与 env.NSS_BLACKLIST 共用同一份真正互斥的 flow-offload 黑名单。
               blacklist = os.environ['NSS_BLACKLIST'].split()
-              conflicts = blacklist + list(EXTRA_RUNTIME_CONFLICT)
 
               merged = parse_config(cfg_path)
               merged.update(parse_config(extra_path))
@@ -127,7 +120,7 @@ jobs:
                   print(f'Pre-flight skip (no NSS) for {cfg_path}')
                   return 0
 
-              for pkg in conflicts:
+              for pkg in blacklist:
                   if merged.get(f'PACKAGE_{pkg}') == 'y':
                       print(
                           f'::error::NSS conflict: PACKAGE_{pkg}=y '
@@ -156,30 +149,75 @@ jobs:
           sudo timedatectl set-timezone "$TZ"
           sudo chown -R "$USER":"$(id -gn)" "$GITHUB_WORKSPACE"
 
-      - name: Clone source code
-        run: git clone "$REPO_URL" -b "$REPO_BRANCH" openwrt
+      - name: Load and verify build lock
+        run: |
+          set -eo pipefail
+          set -a
+          # shellcheck source=.github/ax6-nss-lock.env
+          . "$BUILD_LOCK"
+          set +a
+          for name in \
+            SOURCE_REPO SOURCE_TRACKING_BRANCH SOURCE_COMMIT \
+            SQM_SCRIPTS_NSS_URL SQM_SCRIPTS_NSS_COMMIT \
+            LUCI_FEED_URL LUCI_FEED_COMMIT \
+            PACKAGES_FEED_URL PACKAGES_FEED_COMMIT \
+            ROUTING_FEED_URL ROUTING_FEED_COMMIT \
+            TELEPHONY_FEED_URL TELEPHONY_FEED_COMMIT \
+            VIDEO_FEED_URL VIDEO_FEED_COMMIT \
+            ARGON_THEME_URL ARGON_THEME_COMMIT \
+            ARGON_CONFIG_URL ARGON_CONFIG_COMMIT \
+            OPENCLASH_URL OPENCLASH_COMMIT OPENCLASH_VERSION; do
+            value="${!name:-}"
+            if [ -z "$value" ]; then
+              echo "::error::$name is missing from $BUILD_LOCK"
+              exit 1
+            fi
+            echo "$name=$value" >> "$GITHUB_ENV"
+          done
+          for name in \
+            PACKAGES_FEED_COMMIT ROUTING_FEED_COMMIT TELEPHONY_FEED_COMMIT \
+            VIDEO_FEED_COMMIT ARGON_THEME_COMMIT ARGON_CONFIG_COMMIT \
+            OPENCLASH_COMMIT; do
+            value="${!name}"
+            if ! [[ "$value" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::error::$name must be a full 40-character lowercase commit SHA"
+              exit 1
+            fi
+          done
+
+      - name: Clone locked source code
+        run: |
+          set -eo pipefail
+          git init openwrt
+          git -C openwrt remote add origin "$SOURCE_REPO"
+          git -C openwrt fetch --depth 1 origin "$SOURCE_COMMIT"
+          git -C openwrt checkout --detach FETCH_HEAD
+          actual=$(git -C openwrt rev-parse HEAD)
+          [ "$actual" = "$SOURCE_COMMIT" ] || {
+            echo "::error::Source lock mismatch: expected $SOURCE_COMMIT, got $actual"
+            exit 1
+          }
 
       - name: Add NSS feed and prepare feeds
         run: |
           set -eo pipefail
           cd openwrt
-          # 关于 feed pin 的单一真相:
-          #   immortalwrt-nss/feeds.conf.default 内的 nss_packages 行是 fork 自己直接构建用的;
-          #   AX6-NSS 工作流总是删掉那一行,改用本仓固定的 1306d122 版本以保证可复现。
-          #   如果 fork 那边升级了上游而工作流没跟,以工作流版本为准。
-          # 幂等写入 NSS feed, pin 到 1306d12 (NSS-12.5-K6.x HEAD 2026-05, kernel 6.18 兼容)
-          sed -i '/^src-git nss_packages/d' feeds.conf.default
-          echo "src-git nss_packages https://github.com/VIKINGYFY/nss-packages-618.git^1306d122aec63abd997e626f8cd52b3a78267499" >> feeds.conf.default
-          # 替换 luci feed, pin 到 OrdinaryJoys/luci 快照 (2025-10-13)
-          sed -i '/^src-git luci/d' feeds.conf.default
-          echo 'src-git luci https://github.com/OrdinaryJoys/luci.git^48884afb432f84c93052f32603ceaed4b49feb14' >> feeds.conf.default
+          # Replace every moving feed with the commits in the build lock.
+          cat > feeds.conf.default <<EOF
+          src-git sqm_scripts_nss ${SQM_SCRIPTS_NSS_URL}^${SQM_SCRIPTS_NSS_COMMIT}
+          src-git packages ${PACKAGES_FEED_URL}^${PACKAGES_FEED_COMMIT}
+          src-git luci ${LUCI_FEED_URL}^${LUCI_FEED_COMMIT}
+          src-git routing ${ROUTING_FEED_URL}^${ROUTING_FEED_COMMIT}
+          src-git telephony ${TELEPHONY_FEED_URL}^${TELEPHONY_FEED_COMMIT}
+          src-git video ${VIDEO_FEED_URL}^${VIDEO_FEED_COMMIT}
+          EOF
           # 全量刷新
           ./scripts/feeds clean
           rm -rf tmp/
           ./scripts/feeds update -a
           ./scripts/feeds install -a
-          # nss_ipv4_reasm 前置声明已由 feed 0035-nss-drv-add-ipv4-reasm-prototypes.patch
-          # (在 nss-packages-618@1306d122 自带) 提供, 不再需要补丁 0040.
+          # nss_ipv4_reasm 前置声明已由锁定 NSS feed 的
+          # 0035-nss-drv-add-ipv4-reasm-prototypes.patch 提供,不再需要补丁 0040.
           # qca-mcs kernel 6.18 兼容补丁也已在 feed 0005-kernel-6.18.patch 中.
 
       - name: Load custom config and apply DIY
@@ -284,6 +322,73 @@ jobs:
           echo "$(nproc) thread compile"
           make -j"$(nproc)" V=s || make -j1 V=s
 
+      - name: Validate final rootfs contents
+        run: |
+          set -eo pipefail
+          mapfile -d '' images < <(
+            find openwrt/bin/targets -type f -name '*-squashfs-sysupgrade.bin' -print0
+          )
+          if [ "${#images[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one squashfs sysupgrade image, found ${#images[@]}"
+            exit 1
+          fi
+
+          mkdir -p image-verify
+          tar -xf "${images[0]}" -C image-verify
+          rootfs="$(find image-verify -type f -name root -print -quit)"
+          [ -n "$rootfs" ] || {
+            echo "::error::Sysupgrade image does not contain a root filesystem"
+            exit 1
+          }
+          unsquashfs -ll "$rootfs" > image-verify/rootfs-files.txt
+
+          for required in \
+            'lib/modules/.*/qca-nss-drv\.ko' \
+            'lib/modules/.*/qca-nss-netlink\.ko' \
+            'lib/modules/.*/qca-nss-qdisc\.ko' \
+            'lib/modules/.*/act_nssmirred\.ko' \
+            'lib/modules/.*/zram\.ko' \
+            'etc/config/nss' \
+            'etc/config/pbuf' \
+            'etc/init\.d/qca-nss-drv' \
+            'etc/init\.d/qca-nss-netlink' \
+            'etc/init\.d/qca-nss-pbuf' \
+            'etc/init\.d/set-irq-affinity' \
+            'etc/init\.d/smp_affinity' \
+            'etc/init\.d/zram' \
+            'etc/uci-defaults/15_smp_affinity\.sh' \
+            'usr/lib/sqm/nss-zk\.qos' \
+            'sbin/nss-check' \
+            'sbin/ax6-config-audit' \
+            'etc/init\.d/ax6-wifi-regdom' \
+            'usr/sbin/ax6-irq-affinity'; do
+            grep -Eq "squashfs-root/${required}( ->|$)" image-verify/rootfs-files.txt || {
+              echo "::error::Final rootfs is missing required path: $required"
+              exit 1
+            }
+          done
+
+          if grep -Eq \
+            'squashfs-root/etc/(init\.d/ax6-irq-affinity|rc\.d/[SK][0-9]+ax6-irq-affinity)( ->|$)' \
+            image-verify/rootfs-files.txt; then
+            echo "::error::Final rootfs auto-enables the manual AX6 IRQ override"
+            exit 1
+          fi
+          for enabled in \
+            'etc/rc\.d/S10ax6-wifi-regdom' \
+            'etc/rc\.d/S12ax6-boot-guard' \
+            'etc/rc\.d/S15zram' \
+            'etc/rc\.d/S93smp_affinity' \
+            'etc/rc\.d/S94qca-nss-drv' \
+            'etc/rc\.d/S95qca-nss-pbuf' \
+            'etc/rc\.d/S99set-irq-affinity'; do
+            grep -Eq "squashfs-root/${enabled}( ->|$)" image-verify/rootfs-files.txt || {
+              echo "::error::Final rootfs is missing required startup link: $enabled"
+              exit 1
+            }
+          done
+          echo "Final rootfs validation: PASS"
+
       - name: Stage release artifacts + checksums
         run: |
           set -eo pipefail
@@ -294,9 +399,46 @@ jobs:
                -o -name 'feeds.buildinfo' -o -name 'version.buildinfo' \) \
             -exec cp {} upload/ \;
           cd upload
-          sha256sum -- *.bin *.ubi *.itb >SHA256SUMS-AX6.txt 2>/dev/null
+          mapfile -d '' firmware < <(
+            find . -maxdepth 1 -type f \
+              \( -name '*.bin' -o -name '*.ubi' -o -name '*.itb' \) \
+              -print0
+          )
+          if [ "${#firmware[@]}" -eq 0 ]; then
+            echo "::error::No AX6 firmware artifacts were produced"
+            exit 1
+          fi
+          sha256sum -- "${firmware[@]}" >SHA256SUMS-AX6.txt
+          {
+            echo "BUILD_REPOSITORY=$GITHUB_REPOSITORY"
+            echo "BUILD_WORKFLOW_COMMIT=$GITHUB_SHA"
+            echo "BUILD_RUN_ID=$GITHUB_RUN_ID"
+            echo "SOURCE_REPO=$SOURCE_REPO"
+            echo "SOURCE_TRACKING_BRANCH=$SOURCE_TRACKING_BRANCH"
+            echo "SOURCE_COMMIT=$SOURCE_COMMIT"
+            echo "SQM_SCRIPTS_NSS_URL=$SQM_SCRIPTS_NSS_URL"
+            echo "SQM_SCRIPTS_NSS_COMMIT=$SQM_SCRIPTS_NSS_COMMIT"
+            echo "LUCI_FEED_URL=$LUCI_FEED_URL"
+            echo "LUCI_FEED_COMMIT=$LUCI_FEED_COMMIT"
+            echo "PACKAGES_FEED_URL=$PACKAGES_FEED_URL"
+            echo "PACKAGES_FEED_COMMIT=$PACKAGES_FEED_COMMIT"
+            echo "ROUTING_FEED_URL=$ROUTING_FEED_URL"
+            echo "ROUTING_FEED_COMMIT=$ROUTING_FEED_COMMIT"
+            echo "TELEPHONY_FEED_URL=$TELEPHONY_FEED_URL"
+            echo "TELEPHONY_FEED_COMMIT=$TELEPHONY_FEED_COMMIT"
+            echo "VIDEO_FEED_URL=$VIDEO_FEED_URL"
+            echo "VIDEO_FEED_COMMIT=$VIDEO_FEED_COMMIT"
+            echo "ARGON_THEME_URL=$ARGON_THEME_URL"
+            echo "ARGON_THEME_COMMIT=$ARGON_THEME_COMMIT"
+            echo "ARGON_CONFIG_URL=$ARGON_CONFIG_URL"
+            echo "ARGON_CONFIG_COMMIT=$ARGON_CONFIG_COMMIT"
+            echo "OPENCLASH_URL=$OPENCLASH_URL"
+            echo "OPENCLASH_COMMIT=$OPENCLASH_COMMIT"
+            echo "OPENCLASH_VERSION=$OPENCLASH_VERSION"
+          } > BUILD-LOCK-AX6.txt
           # Embed nss-check tool into release for offline use
           cp ../AX6-IPQ/files/sbin/nss-check ./nss-check.sh
+          cp ../AX6-IPQ/files/sbin/ax6-config-audit ./ax6-config-audit.sh
           ls -lh
 
       - name: Get current date
@@ -306,6 +448,7 @@ jobs:
         uses: ncipollo/release-action@2c591bcc8ecdcd2db72b97d6147f871fcd833ba5  # v1.14.0
         with:
           tag: AX6_NSS_${{ env.VARIANT_TAG }}_${{ env.CURRENT_DATE }}
+          commit: ${{ github.sha }}
           artifacts: upload/*
           allowUpdates: true
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -318,7 +461,7 @@ jobs:
 
             | 变体 | 适用 | 风险 |
             |---|---|---|
-            | STOCK | 1GB RAM + 128MB NAND(标准 Xiaomi 出厂)| 0%(沿用 SMEM 分区)|
+            | STOCK | 1GB RAM + 128MB NAND(标准 Xiaomi 出厂)| 沿用 SMEM 分区,刷写前仍须备份并核对硬件 |
             | EXPAND | 1GB RAM + 256MB NAND(已硬件改 NAND)| 高(分区表会写死) |
 
             **不知道是哪个 → 选 STOCK**。

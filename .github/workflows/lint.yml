@@ -36,6 +36,203 @@ jobs:
       - name: Yamllint (relaxed)
         run: yamllint -d relaxed .github/
 
+      - name: Release tag provenance check
+        run: |
+          set -eo pipefail
+          while IFS= read -r workflow; do
+            if ! grep -Fq 'commit: ${{ github.sha }}' "$workflow"; then
+              echo "::error file=$workflow::release-action must tag the workflow commit"
+              exit 1
+            fi
+          done < <(grep -Rl 'uses: ncipollo/release-action@' .github/workflows)
+
+      - name: AX6 NSS build lock check
+        run: |
+          set -eo pipefail
+          set -a
+          . .github/ax6-nss-lock.env
+          set +a
+          for name in \
+            SOURCE_REPO SOURCE_TRACKING_BRANCH SOURCE_COMMIT \
+            NSS_FEED_URL NSS_FEED_TRACKING_REF NSS_FEED_COMMIT \
+            SQM_SCRIPTS_NSS_URL SQM_SCRIPTS_NSS_COMMIT \
+            LUCI_FEED_URL LUCI_FEED_COMMIT \
+            PACKAGES_FEED_URL PACKAGES_FEED_COMMIT \
+            ROUTING_FEED_URL ROUTING_FEED_COMMIT \
+            TELEPHONY_FEED_URL TELEPHONY_FEED_COMMIT \
+            VIDEO_FEED_URL VIDEO_FEED_COMMIT \
+            ARGON_THEME_URL ARGON_THEME_COMMIT \
+            ARGON_CONFIG_URL ARGON_CONFIG_COMMIT \
+            OPENCLASH_URL OPENCLASH_COMMIT OPENCLASH_VERSION; do
+            value="${!name:-}"
+            [ -n "$value" ] || {
+              echo "::error::$name is missing from .github/ax6-nss-lock.env"
+              exit 1
+            }
+          done
+          [[ "$OPENCLASH_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "::error::OPENCLASH_VERSION must be a numeric release version"
+            exit 1
+          }
+          for name in \
+            SOURCE_COMMIT NSS_FEED_COMMIT SQM_SCRIPTS_NSS_COMMIT LUCI_FEED_COMMIT \
+            PACKAGES_FEED_COMMIT ROUTING_FEED_COMMIT TELEPHONY_FEED_COMMIT \
+            VIDEO_FEED_COMMIT ARGON_THEME_COMMIT ARGON_CONFIG_COMMIT \
+            OPENCLASH_COMMIT; do
+            value="${!name}"
+            [[ "$value" =~ ^[0-9a-f]{40}$ ]] || {
+              echo "::error::$name must be a full 40-character lowercase commit SHA"
+              exit 1
+            }
+          done
+
+      - name: AX6 NSS selected feed coverage check
+        run: |
+          set -eo pipefail
+          workflow=.github/workflows/build-AX6-NSS.yml
+          for cfg in AX6-IPQ/.config-stock AX6-IPQ/.config-expand; do
+            if grep -q '^CONFIG_PACKAGE_kmod-qca-nss-nft=' "$cfg"; then
+              echo "::error file=$cfg::kmod-qca-nss-nft is not defined by the locked source or NSS feed"
+              exit 1
+            fi
+            grep -qx 'CONFIG_PACKAGE_sqm-scripts-nss=y' "$cfg" || continue
+            # shellcheck disable=SC2016 # Match the workflow's literal lock-variable references.
+            grep -Fq 'src-git sqm_scripts_nss ${SQM_SCRIPTS_NSS_URL}^${SQM_SCRIPTS_NSS_COMMIT}' "$workflow" || {
+              echo "::error file=$workflow::sqm-scripts-nss is selected by $cfg but its locked feed is missing"
+              exit 1
+            }
+            grep -qx 'CONFIG_PACKAGE_sqm-scripts=y' AX6-IPQ/nss-extra.config
+            grep -qx 'CONFIG_PACKAGE_kmod-sched-cake=y' AX6-IPQ/nss-extra.config
+          done
+
+      - name: ZRAM config dependency check
+        run: |
+          set -eo pipefail
+          required=(
+            CONFIG_KERNEL_SWAP=y
+            CONFIG_BUSYBOX_CONFIG_MKSWAP=y
+            CONFIG_BUSYBOX_CONFIG_SWAPON=y
+            CONFIG_BUSYBOX_CONFIG_FEATURE_SWAPON_DISCARD=y
+            CONFIG_BUSYBOX_CONFIG_FEATURE_SWAPON_PRI=y
+            CONFIG_BUSYBOX_CONFIG_SWAPOFF=y
+            CONFIG_PACKAGE_kmod-zram=y
+          )
+          for cfg in AX6-IPQ/.config-stock AX6-IPQ/.config-expand; do
+            grep -qx 'CONFIG_PACKAGE_zram-swap=y' "$cfg" || continue
+            for symbol in "${required[@]}"; do
+              grep -qx "$symbol" "$cfg" || {
+                echo "::error file=$cfg::zram-swap requires $symbol"
+                exit 1
+              }
+            done
+          done
+          grep -Fq "'etc/rc\\.d/S15zram'" .github/workflows/build-AX6-NSS.yml
+          grep -Fq "'etc/rc\\.d/S15zram'" .github/workflows/build-AX6-IPQ.yml
+
+      - name: WiFi compatibility defaults check
+        run: |
+          set -eo pipefail
+          wifi=AX6-IPQ/files/etc/uci-defaults/99-ax6-wifi-tune
+          regdom=AX6-IPQ/files/etc/init.d/ax6-wifi-regdom
+          grep -qx 'COUNTRY="US"' "$wifi"
+          grep -Fq 'COUNTRY_FILE="/etc/config/ax6_wifi_country"' "$regdom"
+          grep -Fq "for radio in \$(uci -q show wireless" "$regdom"
+          grep -Fq "wireless.\${radio}.country=\$country" "$regdom"
+          grep -Fq "iw reg set \"\$country\"" "$regdom"
+          grep -q 'htmode=HE40' "$wifi"
+          grep -q 'ht_coex=1' "$wifi"
+          grep -q 'channel=auto' "$wifi"
+          grep -q 'htmode=HE80' "$wifi"
+          if grep -Eq 'uci([[:space:]]+-q)?[[:space:]]+set .*\\.(tx_antenna|rx_antenna)=' "$wifi"; then
+            echo "::error file=$wifi::wifi-scripts uses txantenna/rxantenna; underscore antenna keys are ignored"
+            exit 1
+          fi
+          for unsafe in \
+            'noscan=1' \
+            'isolate=0' \
+            'proxy_arp=1' \
+            'multicast_to_unicast=1'; do
+            if grep -Fq "$unsafe" "$wifi"; then
+              echo "::error file=$wifi::unsafe WiFi default found: $unsafe"
+              exit 1
+            fi
+          done
+          if grep -Rq 'wireless.*isolate=0' AX6-IPQ/files/etc/init.d; then
+            echo "::error::boot services must not override SSID isolation policy"
+            exit 1
+          fi
+          guard=AX6-IPQ/files/etc/init.d/ax6-boot-guard
+          grep -Fq 'network.globals.packet_steering' "$guard"
+          grep -Fq 'for option in flow_offloading flow_offloading_hw' "$guard"
+          grep -Fq 'firewall.@defaults[0].' "$guard"
+          grep -q 'ax6-config-audit' AX6-IPQ/files/sbin/nss-check
+          if grep -RqE \
+            'uci([[:space:]]+-q)?[[:space:]]+set "network\.\$\{d\}\.(packet_steering|flow_offloading|flow_offloading_hw)=0"' \
+            AX6-IPQ/files/etc/init.d AX6-IPQ/files/etc/uci-defaults; then
+            echo "::error::device-level packet steering/flow offload options are not consumed by netifd or firewall4"
+            exit 1
+          fi
+
+      - name: Scenario policy ownership check
+        run: |
+          set -eo pipefail
+          audit=AX6-IPQ/files/sbin/ax6-config-audit
+          vlan=AX6-IPQ/files/sbin/vlan-add
+          test -x "$audit"
+          test -x "$vlan"
+          if grep -Eq 'uci[[:space:]].*(set|delete|del|commit)|/etc/init\.d/.*(restart|reload)' "$audit"; then
+            echo "::error file=$audit::scenario audit must remain read-only"
+            exit 1
+          fi
+          # shellcheck disable=SC2016 # Match the audit helper's literal UCI expression.
+          for required in \
+            '/var/run/zerotier-one/_fw4/input.nft' \
+            '/var/run/zerotier-one/_fw4/forward.nft' \
+            '/var/run/zerotier-one/_fw4/srcnat.nft' \
+            'firewall.${_zt_section}.position' \
+            'vlan_filtering=1 conflicts with qosmio NSS WiFi offload guidance' \
+            'config bridge-vlan is present' \
+            'openclash_dns_redirect' \
+            'OpenClash DNS Hijack'; do
+            grep -Fq "$required" "$audit" || {
+              echo "::error file=$audit::scenario audit is missing runtime check: $required"
+              exit 1
+            }
+          done
+          if grep -RqE \
+            'upnpd\.config\.enabled=|zerotier\..*fw_allow_|openclash\.config\.|wireless\..*isolate=|=bridge-vlan|vlan_filtering' \
+            AX6-IPQ/files/etc/init.d AX6-IPQ/files/etc/uci-defaults; then
+            echo "::error::boot/default scripts must not force scenario-dependent service policy"
+            exit 1
+          fi
+          grep -Fq "grep -q '=bridge-vlan'" "$vlan"
+          # shellcheck disable=SC2016 # Match vlan-add literal awk field reference.
+          grep -Fq '/=zone$/{print $2}' "$vlan"
+          grep -Fq "firewall zone named" "$vlan"
+          # shellcheck disable=SC2016 # Match vlan-add literal UCI templates.
+          grep -Fq 'set firewall.$NAME=zone' "$vlan"
+          # shellcheck disable=SC2016 # Match vlan-add literal UCI templates.
+          grep -Fq 'set firewall.${NAME}_wan=forwarding' "$vlan"
+          # shellcheck disable=SC2016 # Match vlan-add literal UCI templates.
+          grep -Fq 'set dhcp.$NAME=dhcp' "$vlan"
+          # shellcheck disable=SC2016 # Match vlan-add literal UCI templates.
+          if grep -Eq 'set network\.br_\$NAME\.vlan_filtering=' "$vlan"; then
+            echo "::error file=$vlan::802.1q helper must not generate bridge VLAN filtering fields"
+            exit 1
+          fi
+
+      - name: IRQ policy ownership check
+        run: |
+          set -eo pipefail
+          if [ -e AX6-IPQ/files/etc/init.d/ax6-irq-affinity ] || \
+             grep -R -n -E \
+               'S[0-9]+ax6-irq-affinity|ax6-irq-affinity (apply|reload|restart)' \
+               AX6-IPQ/diy.sh AX6-IPQ/files/etc/hotplug.d AX6-IPQ/files/etc/rc.d 2>/dev/null; then
+            echo "::error::custom AX6 IRQ policy must remain manual and must not override upstream"
+            exit 1
+          fi
+          test -x AX6-IPQ/files/usr/sbin/ax6-irq-affinity
+
       - name: NSS .config conflict check (merged with nss-extra)
         run: |
           set -eo pipefail
@@ -56,8 +253,6 @@ jobs:
               ('kmod-qca-nss-drv', 'kmod-fast-classifier'),
               ('kmod-qca-nss-drv', 'kmod-shortcut-fe'),
               ('kmod-qca-nss-drv', 'kmod-shortcut-fe-cm'),
-              ('kmod-qca-nss-drv', 'sqm-scripts'),
-              ('kmod-qca-nss-drv', 'kmod-sched-cake'),
           )
           # 推荐启用(=y)。kmod-qca-rfs / kmod-qca-pppe 已由 nss-packages-618 内置
           # NSS_REDIRECT 已被上游 mac80211 更新删除(ath11k 不需要)

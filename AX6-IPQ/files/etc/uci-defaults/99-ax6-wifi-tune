@@ -1,5 +1,5 @@
 #!/bin/sh
-# AX6 WiFi max performance — IPQ8074 4x4 AX
+# AX6 radio defaults — IPQ8074 4x4 AX
 # Override country: echo CN > /etc/config/ax6_wifi_country && reboot
 # Runs once via uci-defaults on first boot.
 
@@ -8,7 +8,13 @@ COUNTRY="US"
 if [ -r "$COUNTRY_FILE" ]; then
     COUNTRY="$(head -n 1 "$COUNTRY_FILE" | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')"
 fi
-[ -n "$COUNTRY" ] || COUNTRY="US"
+case "$COUNTRY" in
+    [A-Z][A-Z]) ;;
+    *)
+        logger -t ax6-wifi-tune "Invalid country override '$COUNTRY'; using US"
+        COUNTRY="US"
+        ;;
+esac
 
 RADIOS="$(uci show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-device/{print $2}')"
 
@@ -20,20 +26,22 @@ for radio in $RADIOS; do
 
     uci -q set "wireless.${radio}.cell_density=0"
     uci -q set "wireless.${radio}.legacy_rates=1"
-    uci -q set "wireless.${radio}.noscan=1"
+    uci -q delete "wireless.${radio}.noscan"
     uci -q set "wireless.${radio}.beacon_int=100"
     uci -q set "wireless.${radio}.dtim_period=1"
 
+    # Keep broadly supported beamforming; leave MU-EDCA, BSS color and spatial
+    # reuse to ath11k/hostapd so they can adapt to the active channel.
     uci -q set "wireless.${radio}.he_su_beamformer=1"
     uci -q set "wireless.${radio}.he_su_beamformee=1"
     uci -q set "wireless.${radio}.he_mu_beamformer=1"
     uci -q set "wireless.${radio}.mu_beamformer=1"
-    uci -q set "wireless.${radio}.he_mu_edca=1"
-    uci -q set "wireless.${radio}.he_bss_color=8"
     uci -q set "wireless.${radio}.he_twt_required=0"
-    uci -q set "wireless.${radio}.he_spr_sr_control=1"
-    uci -q set "wireless.${radio}.he_spr_non_srg_obss_pd_max_offset=3"
-    uci -q set "wireless.${radio}.he_default_pe_duration=4"
+    uci -q delete "wireless.${radio}.he_mu_edca"
+    uci -q delete "wireless.${radio}.he_bss_color"
+    uci -q delete "wireless.${radio}.he_spr_sr_control"
+    uci -q delete "wireless.${radio}.he_spr_non_srg_obss_pd_max_offset"
+    uci -q delete "wireless.${radio}.he_default_pe_duration"
 
     case "$band" in
         5g)
@@ -42,45 +50,20 @@ for radio in $RADIOS; do
             if [ -z "$cur_chan" ] || [ "$cur_chan" = "auto" ]; then
                 uci -q set "wireless.${radio}.channel=36"
             fi
-            uci -q set "wireless.${radio}.tx_antenna=15"
-            uci -q set "wireless.${radio}.rx_antenna=15"
             ;;
         2g)
             uci -q set "wireless.${radio}.htmode=HE40"
+            # Required by this wifi-scripts branch: its implicit default is 0,
+            # which disables ongoing 20/40 coexistence.
+            uci -q set "wireless.${radio}.ht_coex=1"
             uci -q set "wireless.${radio}.channel=auto"
-            uci -q set "wireless.${radio}.tx_antenna=3"
-            uci -q set "wireless.${radio}.rx_antenna=3"
             ;;
     esac
 
-    uci -q set "wireless.${radio}.ieee80211k=1"
-    uci -q set "wireless.${radio}.ieee80211v=1"
-    uci -q set "wireless.${radio}.ieee80211r=0"
-    uci -q set "wireless.${radio}.bss_transition=1"
-    uci -q set "wireless.${radio}.rrm_neighbor_report=1"
-    uci -q set "wireless.${radio}.rrm_beacon_report=1"
-
-    uci -q set "wireless.${radio}.short_gi_20=1"
-    uci -q set "wireless.${radio}.short_gi_40=1"
-    uci -q set "wireless.${radio}.short_gi_80=1"
-    uci -q set "wireless.${radio}.short_gi_160=1"
-    uci -q set "wireless.${radio}.tx_stbc_2by1=1"
-    uci -q set "wireless.${radio}.rx_stbc=3"
-    uci -q set "wireless.${radio}.ldpc=1"
-    uci -q set "wireless.${radio}.greenfield=0"
-    uci -q set "wireless.${radio}.max_amsdu=1"
-    uci -q set "wireless.${radio}.dsss_cck_40=1"
-done
-
-for iface in $(uci show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-iface/{print $2}'); do
-    uci -q set "wireless.${iface}.disassoc_low_ack=0"
-    uci -q set "wireless.${iface}.wmm=1"
-    uci -q set "wireless.${iface}.uapsd=1"
-    uci -q set "wireless.${iface}.proxy_arp=1"
-    uci -q set "wireless.${iface}.multicast_to_unicast=1"
-    if [ -z "$(uci -q get "wireless.${iface}.ieee80211w")" ]; then
-        uci -q set "wireless.${iface}.ieee80211w=1"
-    fi
+    # wifi-scripts uses txantenna/rxantenna and defaults both to all available
+    # chains. Remove obsolete underscore variants without forcing a chain mask.
+    uci -q delete "wireless.${radio}.tx_antenna"
+    uci -q delete "wireless.${radio}.rx_antenna"
 done
 
 if uci -q commit wireless; then
@@ -89,26 +72,8 @@ else
     logger -t ax6-wifi-tune "ERROR: uci commit wireless failed — WiFi may use board defaults (CN)"
 fi
 
-# ath11k firmware applies built-in regdb on init — must set iw reg BEFORE wifi starts.
-# On subsequent boots, the init script below runs at START=10.
-# On this first boot (procd already scanned rc.d), we call iw reg set directly.
+# The static ax6-wifi-regdom service applies this before network startup on
+# subsequent boots. Apply it directly during the first-boot uci-defaults run.
 iw reg set "$COUNTRY" 2>/dev/null
 
-if [ ! -f /etc/init.d/ax6-wifi-regdom ]; then
-    cat > /etc/init.d/ax6-wifi-regdom << 'INIT'
-#!/bin/sh /etc/rc.common
-# AX6: set iw reg domain before wifi starts (ath11k firmware reads regdb at init)
-START=10
-start() {
-    RADIO=$(uci -q show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-device/{print $2; exit}')
-    COUNTRY=$(uci -q get "wireless.${RADIO}.country" 2>/dev/null)
-    [ -z "$COUNTRY" ] && COUNTRY="US"
-    iw reg set "$COUNTRY" 2>/dev/null
-}
-INIT
-    chmod +x /etc/init.d/ax6-wifi-regdom
-    /etc/init.d/ax6-wifi-regdom enable 2>/dev/null
-fi
-
 exit 0
-

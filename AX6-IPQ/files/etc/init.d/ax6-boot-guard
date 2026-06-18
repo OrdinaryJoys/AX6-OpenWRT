@@ -1,7 +1,7 @@
 #!/bin/sh /etc/rc.common
-# AX6 Boot Guard — 每次启动强制执行关键 NSS/WiFi 安全设置
-# 防止 sysupgrade 保留配置时 uci-defaults 跳过导致的配置泄漏
-# START=12: 早于 network(20) / firewall, 保证 UCI 守护在它们读 config 前生效
+# AX6 Boot Guard — enforce only settings that conflict directly with NSS.
+# Scenario-dependent WiFi, VLAN, firewall and service policy is audit-only.
+# START=12: before network(20) / firewall so they read the corrected NSS UCI.
 # shellcheck disable=SC2034  # START/STOP read by /etc/rc.common framework
 START=12
 
@@ -10,48 +10,29 @@ start() {
     cur=$(uci -q get network.globals.packet_steering 2>/dev/null)
     [ "$cur" != "0" ] && uci set network.globals.packet_steering='0' && CHANGED=1
 
-    # 2. 所有 device 级别 offload 禁止
-    for d in $(uci -q show network 2>/dev/null | awk -F'[.=]' '/=device$/{print $2}'); do
-        [ "$(uci -q get "network.${d}.packet_steering")" != "0" ] && uci -q set "network.${d}.packet_steering=0" && CHANGED=1
-        [ "$(uci -q get "network.${d}.flow_offloading")" != "0" ] && uci -q set "network.${d}.flow_offloading=0" && CHANGED=1
-        [ "$(uci -q get "network.${d}.flow_offloading_hw")" != "0" ] && uci -q set "network.${d}.flow_offloading_hw=0" && CHANGED=1
+    # 2. firewall4 software/hardware flow offload conflicts with NSS ECM.
+    for option in flow_offloading flow_offloading_hw; do
+        [ "$(uci -q get "firewall.@defaults[0].${option}")" != "0" ] &&
+            uci -q set "firewall.@defaults[0].${option}=0" && FIREWALL_CHANGED=1
     done
 
-    # 3. vlan_filtering 必须 !=1 (NSS WiFi 不兼容)
+    # 3. Remove obsolete device-level copies. netifd/firewall only consume the
+    # global packet_steering and firewall defaults above.
     for d in $(uci -q show network 2>/dev/null | awk -F'[.=]' '/=device$/{print $2}'); do
-        [ "$(uci -q get "network.${d}.vlan_filtering")" = "1" ] && uci -q set "network.${d}.vlan_filtering=0" && CHANGED=1
-    done
-
-    # 4. bridge-vlan 段不应存在
-    if uci -q show network 2>/dev/null | grep -q '=bridge-vlan'; then
-        for section in $(uci -q show network 2>/dev/null | awk -F'[.=]' '/=bridge-vlan/{print $2}'); do
-            uci -q delete "network.${section}"
+        for option in packet_steering flow_offloading flow_offloading_hw; do
+            if uci -q get "network.${d}.${option}" >/dev/null 2>&1; then
+                uci -q delete "network.${d}.${option}" && CHANGED=1
+            fi
         done
-        CHANGED=1
-    fi
+    done
 
-    # 5. 仅在检测到异常时提交 + 日志
+    # 4. Only commit settings owned by the NSS data path.
     if [ "${CHANGED:-0}" = "1" ]; then
         uci commit network
         logger -t ax6-boot-guard "Corrected NSS-incompatible settings (likely from sysupgrade with preserved config)"
     fi
-
-    # Conntrack 值防御性直接设置 + 清理 kernel 6.18 不存在的键
-    sed -i '/^net.netfilter.nf_conntrack_helper=/s/^/#/' /etc/sysctl.d/11-nf-conntrack.conf 2>/dev/null
-    [ "$(sysctl -n net.netfilter.nf_conntrack_max 2>/dev/null)" != "65535" ] && sysctl -w net.netfilter.nf_conntrack_max=65535 >/dev/null 2>&1
-    [ "$(sysctl -n net.netfilter.nf_conntrack_tcp_timeout_established 2>/dev/null)" != "86400" ] && sysctl -w net.netfilter.nf_conntrack_tcp_timeout_established=86400 >/dev/null 2>&1
-
-    # 6. 安全加固 — 内核指针隐藏 + ICMP 重定向禁用
-    # kptr_restrict=1 — sysctl.d 可设置, 此处兜底
-    [ "$(sysctl -n kernel.kptr_restrict 2>/dev/null)" != "1" ] && sysctl -w kernel.kptr_restrict=1 >/dev/null 2>&1
-    # send_redirects — all/default 不级联到已有接口, 必须逐接口设置
-    for iface in $(ls /sys/class/net/ 2>/dev/null); do
-        [ "$(sysctl -n "net.ipv4.conf.${iface}.send_redirects" 2>/dev/null)" != "0" ] && \
-            sysctl -w "net.ipv4.conf.${iface}.send_redirects=0" >/dev/null 2>&1
-    done
-
-    # 7. WiFi 国家码同步
-    country=$(uci -q get wireless.radio0.country 2>/dev/null)
-    [ -z "$country" ] && country="US"
-    [ "$(iw reg get 2>/dev/null | awk '/country/{print $2; exit}' | tr -d ':')" != "$country" ] && iw reg set "$country" 2>/dev/null
+    if [ "${FIREWALL_CHANGED:-0}" = "1" ]; then
+        uci commit firewall
+        logger -t ax6-boot-guard "Disabled firewall flow offload so NSS ECM remains the only offload owner"
+    fi
 }

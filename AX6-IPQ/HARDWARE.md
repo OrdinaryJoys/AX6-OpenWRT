@@ -16,7 +16,7 @@ NSS:         qca-nss-drv + qca-nss-dp + qca-nss-ecm
 
 | 变体 | 适用硬件 | rootfs 容量 | 选哪个? | 变砖风险 |
 |---|---|---|---|---|
-| **STOCK** | 标准 1G+128M(出厂) | ~102 MB(SMEM 给的) | **绝大多数人选这个** | **0%** |
+| **STOCK** | 标准 1G+128M(出厂) | ~102 MB(SMEM 给的) | **绝大多数人选这个** | 较低,刷写前仍须备份并核对硬件 |
 | **EXPAND** | 1G+256M(改 NAND 颗粒后) | ~192 MB(DT 写死,留 18MB UBI 坏块 reserve)| 只有亲手换过 NAND 才能选 | **极高**(刷错变砖)|
 
 ### 怎么知道我是哪种?
@@ -85,7 +85,7 @@ scp root@<router>:/tmp/{appsbl,appsblenv,art,bdata}.bin ~/ax6-backup/
 
 ## 5. 刷机步骤
 
-### STOCK(零风险)
+### STOCK(标准 SMEM 分区)
 
 ```bash
 # 1. SSH 进入当前固件(stock 或之前刷的同变体)
@@ -213,12 +213,18 @@ iw reg get | head -3                          # US (FCC)
 |---|---|---|---|
 | Flow offload 冲突模块 | 命令行 | `lsmod \| grep -E 'nf_flow_table\|nft_flow_offload'` | **空 (无输出)** |
 | Modprobe blacklist | /etc/modprobe.d/ | `cat /etc/modprobe.d/nss-no-flow.conf` | **存在** |
-| Packet steering | 网络 → 接口 → 常规设置 | `uci get network.globals.packet_steering` | **=0**(NSS 加载时,失败时回 1) |
-| **Bridge VLAN filtering**(DSA 语法)| LuCI Network → Devices → bridge → bridge VLAN tab | `uci show network \| grep bridge-vlan` | **不能有** |
+| Packet steering | 网络 → 接口 → 常规设置 | `uci get network.globals.packet_steering` | **=0**(本 NSS 专用构建固定关闭) |
+| Bridge VLAN filtering(DSA 语法) | LuCI Network → Devices → bridge → bridge VLAN tab | `uci show network \| grep bridge-vlan` | **不要使用**；qosmio 说明不兼容 NSS WiFi offload |
+
+**IRQ/RPS 分层特别注意**:
+- `packet_steering=0` 只关闭 OpenWrt netifd 的通用 packet steering。
+- 本构建仍应保留上游 qualcommax/NSS 启动链: `S93smp_affinity`、`S94qca-nss-drv`、`S95qca-nss-pbuf`、`S99set-irq-affinity`。
+- 这些脚本分别管理 EDMA IRQ、NSS IRQ/internal RPS、NSS pbuf/hash bitmap、Linux RPS/XPS；不要用自定义 `ax6-irq-affinity` 开机覆盖，除非是在单次基准测试中手动执行并记录结果。
+- `nss-check -v` 会检查上述启动链是否存在，并提示 NSS internal RPS 状态。
 
 **Bridge VLAN filtering** 特别注意:
-- ❌ 错误用法(会断 NSS):`config bridge-vlan` + `list ports 'lan1:u*'`
-- ✅ 正确用法:用 `config device` 加 `option type 'bridge'` + 单独 vlan 接口 `lan1.20`
+- 以 qosmio 当前上游说明为准: `option vlan_filtering 1`、`config bridge-vlan` 和 `list ports 'lan1:u*'` 这类 DSA bridge VLAN filtering 写法不兼容 NSS WiFi offload。
+- 请使用经典 802.1q 子接口(如 `lan1.20`) + 独立 bridge。
 - 详见 https://github.com/qosmio/openwrt-ipq/blob/main-nss/nss-setup/example/README.md
 
 ### ⚠️ NSS Firmware 12.5 不支持的功能(用 11.4 才支持)
@@ -242,20 +248,18 @@ iw reg get | head -3                          # US (FCC)
 
 这些不用就是了,不影响普通家用。
 
-## 10. NSS-兼容的 VLAN 设置(完整支持)
+## 10. NSS-兼容的 VLAN 设置(802.1q)
 
-### 核心规则
+### 唯一推荐拓扑
 
-NSS 与 OpenWrt 的 **DSA bridge VLAN filtering** 不兼容(会断 WiFi NSS offload),
-必须用经典 **8021q 子接口**(如 `lan1.40`)+ 独立 bridge 实现 VLAN。
+按 qosmio `main-nss` 当前说明，NSS WiFi offload 场景应使用经典 **802.1q
+子接口**(如 `lan1.40`) + 独立 bridge。不要使用 DSA bridge VLAN filtering。
 
-### ✅ 自动防御
+### 配置审计
 
-本固件每次 boot 自动跑 `/etc/uci-defaults/95-ax6-nss-vlan-guard`:
-- 删除任何 `option vlan_filtering '1'`(LuCI 不小心打开过会被清掉)
-- 删除 `config bridge-vlan` 段(DSA 语法,清掉)
-
-清理动作会写到 syslog: `logread | grep nss-vlan-guard`
+本固件不会自动删除 VLAN 配置。`nss-check -v` 或 `ax6-config-audit -v`
+发现 `vlan_filtering=1` 或 `config bridge-vlan` 时会报告确定性故障，
+由管理员手动迁移到 802.1q 子接口拓扑。
 
 ### 🛠️ 命令行助手 `vlan-add`
 
@@ -274,16 +278,19 @@ vlan-add 50 office 192.168.50.1/24
 执行后会自动:
 - 创建 `br-iot` bridge,用 `lan1.40 lan2.40` 作为 tagged port
 - 创建 `interface iot` 静态 IP
+- 创建 `firewall iot` zone,默认允许入站/出站、拒绝跨区转发,并允许转发到 `wan`
+- 创建 `dhcp iot`,默认地址池 `100-249`
 
-后续仍需手动加 firewall zone / DHCP / WiFi(脚本会提示具体 UCI 段落)。
+后续只需按场景手动添加 WiFi SSID(SSID、密码、隔离策略不应由脚本猜测):
+把新 SSID 的 `option network` 指向对应 VLAN 网络名,例如 `iot`。
 
 ### 📐 LuCI Web 操作步骤(等价手动)
 
-1. **网络 → 接口**:不要在 device 上勾选 "VLAN filtering"!如果勾了赶紧取消
+1. **网络 → 接口**:确认现有网络使用经典 802.1q 子接口方案，而不是混用未知的 bridge VLAN 拓扑
 2. **网络 → 设备 → 添加桥接设备**:
    - 名称: `br-iot`
    - 桥接接口: 留空(下一步加 vlan 子接口)
-3. **网络 → 设备 → 编辑 lan1**(或物理口):**不要**改"网桥 VLAN 过滤"
+3. **网络 → 设备 → 编辑 lan1**(或物理口):保持该经典 802.1q 方案的端口设置一致
 4. **网络 → 接口 → 添加新接口**:
    - 名称: `iot`
    - 协议: 静态地址
@@ -293,12 +300,14 @@ vlan-add 50 office 192.168.50.1/24
 6. **防火墙 → 新建 Zone** 把 iot 网络拉进去,转发到 wan
 7. **DHCP**:启用 iot 接口的 DHCP
 
+命令行助手会自动完成第 2-7 步的基础配置；LuCI 步骤主要用于人工审查或手动迁移已有网络。
+
 ### 🔬 验证 NSS VLAN offload 工作
 
 ```bash
 # 1. VLAN manager 内核模块加载
-lsmod | grep qca_nss_vlan_mgr
-# 期望:qca_nss_vlan_mgr 32768 0
+lsmod | grep qca_nss_vlan
+# 期望:qca_nss_vlan 32768 0
 
 # 2. NSS 连接表带 VLAN 信息(跑流量后)
 cat /sys/kernel/debug/ecm/ecm_db/connection_count_simple
@@ -307,21 +316,6 @@ cat /sys/kernel/debug/ecm/ecm_db/connection_count_simple
 # 3. NSS VLAN debugfs(若内核暴露)
 ls /sys/kernel/debug/qca-nss-drv/vlan/  2>/dev/null
 ```
-
-### ❌ 错误用法(会断 NSS WiFi 加速)
-
-绝对不要做:
-```
-config device
-    option type 'bridge'
-    option name 'br-lan'
-    option vlan_filtering '1'    ← 错!
-config bridge-vlan
-    option vlan '20'
-    list ports 'lan1:t'           ← 错!
-```
-
-DSA 语法 = bridge_vlan_filtering = 与 NSS 不兼容。**95-ax6-nss-vlan-guard 会自动清掉**,你勾了 LuCI 也无效(下次 boot 被回滚)。
 
 ### 完整 VLAN 范例(network/wireless/firewall)
 

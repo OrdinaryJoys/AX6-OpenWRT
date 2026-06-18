@@ -1,16 +1,47 @@
 #!/bin/bash
 set -eo pipefail
 
-# Add packages
-git clone --depth 1 https://github.com/jerrykuku/luci-theme-argon package/luci-theme-argon
-git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config package/luci-app-argon-config
+# Add packages from the verified build lock exported by the workflow.
+clone_locked() {
+  url="$1"
+  commit="$2"
+  destination="$3"
+  [ -n "$url" ] && [ -n "$commit" ] || {
+    echo "[diy.sh] missing locked source for $destination" >&2
+    exit 2
+  }
+  rm -rf "$destination"
+  git init -q "$destination"
+  git -C "$destination" remote add origin "$url"
+  git -C "$destination" fetch -q --depth 1 origin "$commit"
+  git -C "$destination" checkout -q --detach FETCH_HEAD
+  [ "$(git -C "$destination" rev-parse HEAD)" = "$commit" ] || {
+    echo "[diy.sh] locked source mismatch for $destination" >&2
+    exit 2
+  }
+}
+
+clone_locked "$ARGON_THEME_URL" "$ARGON_THEME_COMMIT" package/luci-theme-argon
+clone_locked "$ARGON_CONFIG_URL" "$ARGON_CONFIG_COMMIT" package/luci-app-argon-config
+
+# The locked LuCI feed contains an older OpenClash. Use the independently
+# locked upstream package so factory reset and rebuilds install the audited
+# 0.47.097 implementation.
+rm -rf package/feeds/luci/luci-app-openclash
+clone_locked "$OPENCLASH_URL" "$OPENCLASH_COMMIT" package/luci-app-openclash-source
+mv package/luci-app-openclash-source/luci-app-openclash package/luci-app-openclash
+rm -rf package/luci-app-openclash-source
+grep -qx "PKG_VERSION:=${OPENCLASH_VERSION}" package/luci-app-openclash/Makefile || {
+  echo "[diy.sh] OpenClash version does not match build lock" >&2
+  exit 2
+}
 
 
 # ----------------------------------------------------
 # 切断 firewall4→kmod-nft-offload→kmod-nf-flow 依赖链
-# NSS 通过 kmod-qca-nss-nft 提供硬件卸载,kmod-nft-offload 多余且其
-# 依赖的 kmod-nf-flow 与 NSS ECM 互斥。make defconfig 会通过 Kconfig
-# +select 强制拉回 =y,唯有从源头上移除 DEPENDS 才能彻底阻断。
+# NSS ECM owns connection acceleration. firewall4's kmod-nft-offload dependency
+# pulls in the generic nf_flow_table path, which conflicts with that ownership.
+# Remove the dependency before defconfig so it cannot be selected again.
 # ----------------------------------------------------
 FW4_MK="package/network/config/firewall4/Makefile"
 if [ -f "$FW4_MK" ] && grep -q '^CONFIG_PACKAGE_kmod-qca-nss-drv=y' .config 2>/dev/null; then
@@ -49,7 +80,8 @@ if [ -f "$NSS_ECM" ] && ! grep -q '\[ -f "\$FILE" \] || exit 0' "$NSS_ECM" 2>/de
   sed -i '/^FILE=/a [ -f "$FILE" ] || exit 0' "$NSS_ECM"
 fi
 
-# (e) 991_set-network.sh: packet_steering 回退已推送至 nss-fork,此处不再修补
+# (e) 991_set-network.sh: global packet_steering policy is supplied by nss-fork;
+# Boot Guard removes obsolete per-device copies left by older source revisions.
 
 # (f) [removed] 235-003 skip — 使用 VIKINGYFY 6.18 基线 + nss-packages-618
 #     NSS mac80211 patches 已由上游维护,不再需要运行时跳过任何 patch。
@@ -60,7 +92,7 @@ fi
 # 两种 SKU 通过 .config 选择,DT 这里只补扩容版分区。
 #
 # (1) Stock (redmi,ax6-stock):
-#       Xiaomi 原始 SMEM 分区,rootfs ≈ 102 MiB,**零变砖风险**
+#       Xiaomi 原始 SMEM 分区,rootfs ≈ 102 MiB,刷写前仍须备份并核对硬件
 #       — DT 不动 partition 节点(ax6-stock.dts 已 /delete-node/)
 #
 # (2) Expanded (redmi,ax6):
@@ -94,15 +126,17 @@ fi
 # 修改默认IP
 sed -i 's/192.168.1.1/192.168.5.1/g' package/base-files/files/bin/config_generate
 
-chmod +x ./files/etc/uci-defaults/* 2>/dev/null
-chmod +x ./files/etc/init.d/* 2>/dev/null
-chmod +x ./files/sbin/* 2>/dev/null
-chmod +x ./files/etc/hotplug.d/*/* 2>/dev/null
+for dir in ./files/etc/uci-defaults ./files/etc/init.d ./files/sbin ./files/usr/sbin ./files/etc/hotplug.d; do
+  [ -d "$dir" ] || continue
+  find "$dir" -type f -exec chmod +x {} +
+done
 
-# 启用 IRQ 亲和性 + Boot Guard (每次启动自动纠正 NSS 配置)
+# 启用仅负责 NSS 数据路径冲突项的 Boot Guard，以及静态国家码服务。
+# IRQ/RPS 自动策略由上游 qualcommax 脚本统一管理;
+# /usr/sbin/ax6-irq-affinity 保留为手动基准测试工具,不在启动或 WiFi hotplug 时覆盖上游。
 mkdir -p ./files/etc/rc.d
-( cd ./files/etc/rc.d && ln -sf ../init.d/ax6-irq-affinity S95ax6-irq-affinity 2>/dev/null )
 ( cd ./files/etc/rc.d && ln -sf ../init.d/ax6-boot-guard S12ax6-boot-guard 2>/dev/null )
+( cd ./files/etc/rc.d && ln -sf ../init.d/ax6-wifi-regdom S10ax6-wifi-regdom 2>/dev/null )
 
 # ----------------------------------------------------
 # 移除空的 Plugins 菜单页（无实际插件, 仅显示空白开关）
@@ -115,11 +149,4 @@ if [ -f "$PLUGINS_JSON" ]; then
         sed -i "${start},$((next - 1))d" "$PLUGINS_JSON"
         echo "[diy.sh] Removed empty Plugins menu entry"
     fi
-fi
-
-# 移除 OpenClash keep.d (会导致 sysupgrade 备份 50MB 数据库)
-OPENCLASH_KEEP=$(find . -path "*/luci-app-openclash/root/lib/upgrade/keep.d/luci-app-openclash" -not -path "./files/*" 2>/dev/null | head -1)
-if [ -f "$OPENCLASH_KEEP" ]; then
-    rm -f "$OPENCLASH_KEEP"
-    echo "[diy.sh] Removed OpenClash keep.d (excludes 50MB DB from sysupgrade backups)"
 fi

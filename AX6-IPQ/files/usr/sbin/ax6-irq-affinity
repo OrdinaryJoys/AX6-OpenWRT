@@ -1,0 +1,48 @@
+#!/bin/sh
+# Manual IRQ affinity benchmark tool. Upstream qualcommax owns the boot policy.
+
+set_aff() {
+    [ -e "/proc/irq/$1/smp_affinity" ] || return 0
+    echo "$2" > "/proc/irq/$1/smp_affinity" 2>/dev/null
+}
+
+show() {
+    while IFS=: read -r irq rest; do
+        case "$rest" in
+            *ppdu-end*|*wifi*|*ath11k*|*eth*|*edma*|*dp[0-9]*|*nss*)
+                irq=$(echo "$irq" | tr -d ' ')
+                affinity=$(cat "/proc/irq/$irq/smp_affinity" 2>/dev/null)
+                printf '%-5s affinity=%-8s %s\n' "$irq" "${affinity:-?}" "$rest"
+                ;;
+        esac
+    done < /proc/interrupts
+}
+
+apply() {
+    # 4-core IPQ8074 benchmark layout:
+    # CPU0 system, CPU1 ethernet/2.4G, CPU2 5G, CPU3 NSS firmware.
+    while IFS=: read -r irq rest; do
+        irq=$(echo "$irq" | tr -d ' ')
+        case "$rest" in
+            *ppdu-end*mac1*|*wifi0*|*ath11k*hw0*) set_aff "$irq" 4 ;;
+            *ppdu-end*mac3*|*wifi1*|*ath11k*hw1*) set_aff "$irq" 2 ;;
+            *eth*|*edma*|*dp[0-9]*|*nss-dp*) set_aff "$irq" 2 ;;
+            *nss*) set_aff "$irq" 8 ;;
+        esac
+    done < /proc/interrupts
+}
+
+case "${1:-}" in
+    show)
+        show
+        ;;
+    apply)
+        apply
+        show
+        ;;
+    *)
+        echo "Usage: ax6-irq-affinity {show|apply}" >&2
+        echo "The apply command temporarily overrides upstream qualcommax IRQ policy." >&2
+        exit 2
+        ;;
+esac

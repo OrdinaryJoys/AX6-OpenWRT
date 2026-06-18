@@ -19,32 +19,78 @@ jobs:
         id: probe
         run: |
           set -eo pipefail
-          VIKING_HEAD=$(git ls-remote https://github.com/VIKINGYFY/immortalwrt.git refs/heads/main 2>/dev/null | cut -f1)
-          NSS_PKGS_HEAD=$(git ls-remote https://github.com/VIKINGYFY/nss-packages.git refs/heads/main 2>/dev/null | cut -f1)
-          NSS_PKGS_618_HEAD=$(git ls-remote https://github.com/VIKINGYFY/nss-packages-618.git refs/heads/main 2>/dev/null | cut -f1)
-          NSS_DP_HEAD=$(git ls-remote https://github.com/openwrt/qca-nss-dp.git refs/heads/main 2>/dev/null | cut -f1)
-          LUCI_HEAD=$(git ls-remote https://github.com/OrdinaryJoys/luci.git refs/heads/master 2>/dev/null | cut -f1)
-          # Fallback for unreachable repos
-          [ -z "$VIKING_HEAD" ] && VIKING_HEAD="(unreachable)"
-          [ -z "$NSS_PKGS_HEAD" ] && NSS_PKGS_HEAD="(unreachable)"
-          [ -z "$NSS_PKGS_618_HEAD" ] && NSS_PKGS_618_HEAD="(unreachable)"
-          [ -z "$NSS_DP_HEAD" ] && NSS_DP_HEAD="(unreachable)"
-          [ -z "$LUCI_HEAD" ] && LUCI_HEAD="(unreachable)"
+          set -a
+          . .github/ax6-nss-lock.env
+          set +a
+
+          failures=0
+          drift=0
+
+          probe() {
+            git ls-remote "$1" "$2" 2>/dev/null | awk 'NR == 1 { print $1 }' || true
+          }
+
+          check_locked() {
+            label="$1"
+            url="$2"
+            ref="$3"
+            locked="$4"
+            remote="$(probe "$url" "$ref")"
+            if [ -z "$remote" ]; then
+              echo "| $label | \`$locked\` | unreachable |" >> "$GITHUB_STEP_SUMMARY"
+              echo "::error::$label is unreachable"
+              failures=$((failures + 1))
+            elif [ "$remote" = "$locked" ]; then
+              echo "| $label | \`$locked\` | current |" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "| $label | \`$locked\` | drift: \`$remote\` |" >> "$GITHUB_STEP_SUMMARY"
+              echo "::warning::$label moved from $locked to $remote"
+              drift=$((drift + 1))
+            fi
+          }
+
+          probe_reference() {
+            label="$1"
+            url="$2"
+            ref="$3"
+            remote="$(probe "$url" "$ref")"
+            if [ -z "$remote" ]; then
+              echo "| $label | reference only | unreachable |" >> "$GITHUB_STEP_SUMMARY"
+              echo "::error::$label is unreachable"
+              failures=$((failures + 1))
+            else
+              echo "| $label | reference only | \`$remote\` |" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          }
+
           {
-            echo "viking=$VIKING_HEAD"
-            echo "nss_pkgs=$NSS_PKGS_HEAD"
-            echo "nss_pkgs_618=$NSS_PKGS_618_HEAD"
-            echo "nss_dp=$NSS_DP_HEAD"
-            echo "luci=$LUCI_HEAD"
-          } >> "$GITHUB_OUTPUT"
-          {
-            echo "## Weekly upstream HEAD probe ($(date -u +%F))"
+            echo "## Weekly AX6 build lock probe ($(date -u +%F))"
             echo ""
-            echo "| repo | HEAD |"
-            echo "|---|---|"
-            echo "| VIKINGYFY/immortalwrt main | \`$VIKING_HEAD\` |"
-            echo "| VIKINGYFY/nss-packages main | \`$NSS_PKGS_HEAD\` |"
-            echo "| VIKINGYFY/nss-packages-618 main | \`$NSS_PKGS_618_HEAD\` |"
-            echo "| openwrt/qca-nss-dp main | \`$NSS_DP_HEAD\` |"
-            echo "| OrdinaryJoys/luci master | \`$LUCI_HEAD\` |"
+            echo "| repository | locked | status/current HEAD |"
+            echo "|---|---|---|"
           } >> "$GITHUB_STEP_SUMMARY"
+
+          check_locked "OrdinaryJoys/immortalwrt-nss $SOURCE_TRACKING_BRANCH" "$SOURCE_REPO" "refs/heads/$SOURCE_TRACKING_BRANCH" "$SOURCE_COMMIT"
+          check_locked "VIKINGYFY/nss-packages-618 $NSS_FEED_TRACKING_REF" "$NSS_FEED_URL" "$NSS_FEED_TRACKING_REF" "$NSS_FEED_COMMIT"
+          check_locked "qosmio/sqm-scripts-nss main" "$SQM_SCRIPTS_NSS_URL" refs/heads/main "$SQM_SCRIPTS_NSS_COMMIT"
+          check_locked "OrdinaryJoys/luci master" "$LUCI_FEED_URL" refs/heads/master "$LUCI_FEED_COMMIT"
+          check_locked "immortalwrt/packages HEAD" "$PACKAGES_FEED_URL" HEAD "$PACKAGES_FEED_COMMIT"
+          check_locked "openwrt/routing HEAD" "$ROUTING_FEED_URL" HEAD "$ROUTING_FEED_COMMIT"
+          check_locked "openwrt/telephony HEAD" "$TELEPHONY_FEED_URL" HEAD "$TELEPHONY_FEED_COMMIT"
+          check_locked "openwrt/video HEAD" "$VIDEO_FEED_URL" HEAD "$VIDEO_FEED_COMMIT"
+          check_locked "jerrykuku/luci-theme-argon HEAD" "$ARGON_THEME_URL" HEAD "$ARGON_THEME_COMMIT"
+          check_locked "jerrykuku/luci-app-argon-config HEAD" "$ARGON_CONFIG_URL" HEAD "$ARGON_CONFIG_COMMIT"
+          check_locked "vernesong/OpenClash master" "$OPENCLASH_URL" refs/heads/master "$OPENCLASH_COMMIT"
+
+          probe_reference "OrdinaryJoys/immortalwrt-nss main" https://github.com/OrdinaryJoys/immortalwrt-nss.git refs/heads/main
+          probe_reference "LiBwrt/openwrt-6.x main-nss" https://github.com/LiBwrt/openwrt-6.x.git refs/heads/main-nss
+          probe_reference "VIKINGYFY/immortalwrt main" https://github.com/VIKINGYFY/immortalwrt.git refs/heads/main
+          probe_reference "qosmio/openwrt-ipq main-nss" https://github.com/qosmio/openwrt-ipq.git refs/heads/main-nss
+          probe_reference "VIKINGYFY/nss-packages HEAD" https://github.com/VIKINGYFY/nss-packages.git HEAD
+          probe_reference "openwrt/qca-nss-dp openwrt" https://github.com/openwrt/qca-nss-dp.git refs/heads/openwrt
+
+          {
+            echo ""
+            echo "Locked drift: $drift; unreachable: $failures"
+          } >> "$GITHUB_STEP_SUMMARY"
+          [ "$failures" -eq 0 ] && [ "$drift" -eq 0 ]
