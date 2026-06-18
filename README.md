@@ -18,6 +18,14 @@ Redmi AX6 一键编译脚本 — 完整 NSS 加速 + WiFi 6 满血 + 双变体�
 
 不知道选哪个 → **选 STOCK**。详见 [`AX6-IPQ/HARDWARE.md`](AX6-IPQ/HARDWARE.md)。
 
+完整检查、修复、文件变更、验证证据和遗留问题见
+[`AX6-IPQ/AUDIT-REPAIR-REPORT-2026-06-18.md`](AX6-IPQ/AUDIT-REPAIR-REPORT-2026-06-18.md)。
+
+> **当前构建供应链告警（2026-06-18）**：
+> 锁文件引用的 `VIKINGYFY/nss-packages-618` 已不可访问。已发布的
+> `AX6_NSS_STOCK_20260616203522` 构建成功，但再次从零构建前必须先恢复该提交的
+> 可用镜像，或完成新版内置 `package/qca-nss` 迁移和全量验证。
+
 ### 触发编译
 
 GitHub UI → Actions → `Build OpenWRT for AX6-NSS` → Run workflow → 选 variant。
@@ -111,8 +119,8 @@ ax6-config-audit -v
 | [immortalwrt/immortalwrt](https://github.com/immortalwrt/immortalwrt) | AX6-IMM 备用源(无 NSS) | branch `openwrt-23.05` | ✓ |
 | [coolsnowwolf/lede](https://github.com/coolsnowwolf/lede) | AX6-LEDE 备用源 | branch `master` | ✓ |
 | [qosmio/nss-packages](https://github.com/qosmio/nss-packages) | OpenWrt feed 参考源(间接,未直接使用) | branch `main-nss` | ✓ |
-| [VIKINGYFY/nss-packages-618](https://github.com/VIKINGYFY/nss-packages-618) | OpenWrt feed (NSS 包 6.18 兼容版,immortalwrt-nss feeds + NSS workflow 使用) | 完整 SHA 锁定 | ✓ |
-| [VIKINGYFY/nss-packages](https://github.com/VIKINGYFY/nss-packages) | OpenWrt feed 参考源(sync-check 监控,当前与 -618 同 HEAD) | `HEAD` | ✓ |
+| `VIKINGYFY/nss-packages-618` | OpenWrt feed (NSS 包 6.18 兼容版,immortalwrt-nss feeds + NSS workflow 使用) | 完整 SHA 锁定 | **不可访问（2026-06-18）** |
+| `VIKINGYFY/nss-packages` | 历史 OpenWrt feed 参考源 | `HEAD` | **公开仓库列表中不存在（2026-06-18）** |
 | [openwrt/qca-nss-dp](https://github.com/openwrt/qca-nss-dp) | NSS 数据路径间接上游,sync-check 监控 | branch `openwrt` | ✓ |
 | [qosmio/sqm-scripts-nss](https://github.com/qosmio/sqm-scripts-nss) | NSS SQM feed | 完整 SHA 锁定 | ✓ |
 | [OrdinaryJoys/luci](https://github.com/OrdinaryJoys/luci) | OpenWrt feed (LuCI Web UI) | 完整 SHA 锁定 | ✓ |
