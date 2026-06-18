@@ -93,7 +93,7 @@ jobs:
         run: echo "CURRENT_DATE=$(date '+%Y%m%d%H%M%S')" >> "$GITHUB_ENV"
 
       - name: Upload firmware to Release
-        uses: ncipollo/release-action@2c591bcc8ecdcd2db72b97d6147f871fcd833ba5  # v1.14.0
+        uses: ncipollo/release-action@440c8e339ad0f2abe51c7b321b060ea6622fa517  # v1.14.0
         with:
           tag: LEDE_AX6_${{ env.CURRENT_DATE }}
           commit: ${{ github.sha }}
@@ -113,7 +113,7 @@ jobs:
             - 测试发现 WIFI 上传速度异常,建议优先选 AX6-NSS 工作流
 
       - name: Delete old releases
-        uses: dev-drprasad/delete-older-releases@dfbe6be2a006e9475dfcbe5b8d201f1824c2a9fe  # v0.3.4
+        uses: dev-drprasad/delete-older-releases@bb8bb6e0fb7a8c3e4310d833a0a64ae86b91f2e6  # v0.3.4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:

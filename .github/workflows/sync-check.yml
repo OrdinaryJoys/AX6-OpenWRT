@@ -13,7 +13,7 @@ jobs:
   check:
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+      - uses: actions/checkout@11bd71901c50afe2ea8f4192d45a5a2b40f99a7a  # v4.1.1
 
       - name: Probe upstream HEAD
         id: probe
