@@ -1,5 +1,16 @@
 # AX6 OpenWrt/NSS 检查、修复与遗留问题总报告
 
+> ⚠️ **快照声明（2026-06-18 更新）:**  
+> 本报告基于 stability 分支 `0b75a6b` (2026-06-16) 撰写。  
+> **后续变更 (Jun 18):**  
+> - qca-nss 从外部 feed 迁移到源码树内置 (`package/qca-nss/`, 10 包 73 文件)  
+> - CI/lint pipeline 修复 (15 次构建失败 → 恢复)  
+> - immortalwrt-nss 上游同步 (538 commits caught up → 0 behind)  
+> - 锁文件恢复原始设计: `codex/p0-nss-sync` @ `8cee9ec5f2`  
+> 
+> 当前状态见 `README.md` 和 `.github/ax6-nss-lock.env`。  
+> 最新 CI 构建: [#27767524533](https://github.com/OrdinaryJoys/AX6-OpenWRT/actions/runs/27767524533) (使用新源码)。
+
 > 报告对象：`OrdinaryJoys/AX6-OpenWRT`  
 > 工作分支：`codex/p0-ax6-stability`  
 > 已验证提交：`0b75a6b590cb72e267b485ab76e8e37859942fdc`  
