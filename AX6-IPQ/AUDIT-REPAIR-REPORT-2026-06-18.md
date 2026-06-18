@@ -202,8 +202,8 @@
 | 项目 | 修复后所有权 |
 |---|---|
 | EDMA IRQ | 上游 `S93smp_affinity` |
-| NSS 驱动/RPS | 上游 `S94qca-nss-drv` |
-| NSS pbuf/hash bitmap | 上游 `S95qca-nss-pbuf` |
+| NSS 驱动/RPS | 上游 `S28qca-nss-drv` |
+| NSS pbuf/hash bitmap | 上游 `S27qca-nss-pbuf` |
 | Linux RPS/XPS | 上游 `S99set-irq-affinity` |
 | 自定义 `ax6-irq-affinity` | 仅保留手动 `show/apply` 基准工具 |
 | WiFi hotplug 重写 IRQ | 已删除 |
@@ -383,8 +383,8 @@ ls -l /etc/rc.d/S10ax6-wifi-regdom
 ls -l /etc/rc.d/S12ax6-boot-guard
 ls -l /etc/rc.d/S15zram
 ls -l /etc/rc.d/S93smp_affinity
-ls -l /etc/rc.d/S94qca-nss-drv
-ls -l /etc/rc.d/S95qca-nss-pbuf
+ls -l /etc/rc.d/S28qca-nss-drv
+ls -l /etc/rc.d/S27qca-nss-pbuf
 ls -l /etc/rc.d/S99set-irq-affinity
 
 cat /proc/swaps

@@ -252,7 +252,7 @@ jobs:
               ('kmod-qca-nss-drv', 'kmod-shortcut-fe'),
               ('kmod-qca-nss-drv', 'kmod-shortcut-fe-cm'),
           )
-          # 推荐启用(=y)。kmod-qca-rfs / kmod-qca-pppe 已由 nss-packages-618 内置
+          # 推荐启用(=y)。kmod-qca-rfs / kmod-qca-pppe 已由 package/qca-nss 内置
           # NSS_REDIRECT 已被上游 mac80211 更新删除(ath11k 不需要)
           NSS_RECOMMENDED = (
               'MAC80211_NSS_SUPPORT',
