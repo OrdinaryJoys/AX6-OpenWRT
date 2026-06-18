@@ -67,6 +67,7 @@
 | P0 | 锁检查漏掉 3 个关键 commit | lint/build 只验证部分 feed SHA | 补充 SOURCE、SQM、LuCI 的 40 位 SHA 校验 |
 | P1 | CI 可无限挂起 | jobs 未设置超时 | NSS/IPQ/IMM/LEDE 设 180 分钟，lint 20 分钟，sync 15 分钟 |
 | P1 | 环境初始化拉取整套 TeX Live | `asciidoc` 推荐依赖导致数 GB 无关文档工具链安装 | 所有构建统一使用 `--no-install-recommends`、下载重试并移除全局 autoremove |
+| P1 | NSS 磁盘清理后重新安装编译器 | `large-packages: true` 删除显式依赖的 Clang/LLVM，初始化又装回 | 保留 large packages，只清理 Android/.NET/Haskell/Docker 等无关内容 |
 | P1 | Actions 仍使用 Node 20 版本 | 之前所谓 Node 24 SHA 未正确验证后被回退 | 使用官方标签验证的 checkout v7、release-action v1.21 完整 SHA |
 | P1 | `.config-*` 含陈旧 NSS 符号 | built-in qca-nss 迁移后保留旧配置项 | 从 stock/expand 同步删除并加入 lint 防回归 |
 | P1 | `TRUSTSEC_RX=y` 但 TRUSTSEC 关闭 | 旧配置未经过当前 Kconfig 依赖清理 | 删除无效项并加入 lint 依赖检查 |
@@ -180,6 +181,7 @@ packages 的 51 个提交包含 Go 安全更新、strongSwan 修复、Python 包
 | `27774751677` | `6e3b963...` | in_progress/stale | 超过一天卡在环境初始化，未进入编译 |
 | `27774914959` | `878c97d...` | success | 仅 lint 成功，不能替代固件构建 |
 | `27776232029` | `35bc28f...` | cancelled | 复现环境初始化异常；日志确认卡在 TeX Live 推荐依赖解包 |
+| `27777378927` | `9eee531...` | cancelled | 去除推荐依赖后仍慢；交叉确认磁盘清理删除了随后要重装的 Clang/LLVM |
 
 截至审计时，最新 Release 仍为：
 

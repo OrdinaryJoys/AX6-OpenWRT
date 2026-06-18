@@ -281,6 +281,7 @@ jobs:
               exit 1
             fi
           done
+          grep -Fq 'large-packages: false' .github/workflows/build-AX6-NSS.yml
 
       - name: IRQ policy ownership check
         run: |
