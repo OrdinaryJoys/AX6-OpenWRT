@@ -158,7 +158,6 @@ jobs:
           set +a
           for name in \
             SOURCE_REPO SOURCE_TRACKING_BRANCH SOURCE_COMMIT \
-            NSS_FEED_URL NSS_FEED_TRACKING_REF NSS_FEED_COMMIT \
             SQM_SCRIPTS_NSS_URL SQM_SCRIPTS_NSS_COMMIT \
             LUCI_FEED_URL LUCI_FEED_COMMIT \
             PACKAGES_FEED_URL PACKAGES_FEED_COMMIT \
@@ -176,7 +175,6 @@ jobs:
             echo "$name=$value" >> "$GITHUB_ENV"
           done
           for name in \
-            SOURCE_COMMIT NSS_FEED_COMMIT SQM_SCRIPTS_NSS_COMMIT LUCI_FEED_COMMIT \
             PACKAGES_FEED_COMMIT ROUTING_FEED_COMMIT TELEPHONY_FEED_COMMIT \
             VIDEO_FEED_COMMIT ARGON_THEME_COMMIT ARGON_CONFIG_COMMIT \
             OPENCLASH_COMMIT; do
@@ -206,7 +204,6 @@ jobs:
           cd openwrt
           # Replace every moving feed with the commits in the build lock.
           cat > feeds.conf.default <<EOF
-          src-git nss_packages ${NSS_FEED_URL}^${NSS_FEED_COMMIT}
           src-git sqm_scripts_nss ${SQM_SCRIPTS_NSS_URL}^${SQM_SCRIPTS_NSS_COMMIT}
           src-git packages ${PACKAGES_FEED_URL}^${PACKAGES_FEED_COMMIT}
           src-git luci ${LUCI_FEED_URL}^${LUCI_FEED_COMMIT}
@@ -419,8 +416,6 @@ jobs:
             echo "SOURCE_REPO=$SOURCE_REPO"
             echo "SOURCE_TRACKING_BRANCH=$SOURCE_TRACKING_BRANCH"
             echo "SOURCE_COMMIT=$SOURCE_COMMIT"
-            echo "NSS_FEED_URL=$NSS_FEED_URL"
-            echo "NSS_FEED_COMMIT=$NSS_FEED_COMMIT"
             echo "SQM_SCRIPTS_NSS_URL=$SQM_SCRIPTS_NSS_URL"
             echo "SQM_SCRIPTS_NSS_COMMIT=$SQM_SCRIPTS_NSS_COMMIT"
             echo "LUCI_FEED_URL=$LUCI_FEED_URL"
