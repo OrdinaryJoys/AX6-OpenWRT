@@ -266,6 +266,22 @@ jobs:
             exit 1
           fi
 
+      - name: Build dependency installation policy check
+        run: |
+          set -eo pipefail
+          for workflow in \
+            .github/workflows/build-AX6-IPQ.yml \
+            .github/workflows/build-AX6-NSS.yml \
+            .github/workflows/build-IMM.yml \
+            .github/workflows/build-LEDE.yml; do
+            grep -Fq -- '--no-install-recommends' "$workflow"
+            grep -Fq 'Acquire::Retries=3' "$workflow"
+            if grep -Eq 'apt-get .*autoremove' "$workflow"; then
+              echo "::error file=$workflow::do not autoremove runner packages after installing build dependencies"
+              exit 1
+            fi
+          done
+
       - name: IRQ policy ownership check
         run: |
           set -eo pipefail

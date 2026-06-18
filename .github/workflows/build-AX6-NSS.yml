@@ -143,9 +143,8 @@ jobs:
           set -eo pipefail
           # 改用仓内固化的依赖清单(去除远程 curl|apt 注入风险)
           mapfile -t PKGS < <(grep -v '^\s*#' .github/depends-ubuntu-2204.txt | grep -v '^\s*$')
-          sudo -E apt-get -qq update
-          sudo -E apt-get -qq install -y "${PKGS[@]}"
-          sudo -E apt-get -qq autoremove --purge
+          sudo -E apt-get -qq -o Acquire::Retries=3 update
+          sudo -E apt-get -qq -o Acquire::Retries=3 install -y --no-install-recommends "${PKGS[@]}"
           sudo -E apt-get -qq clean
           sudo timedatectl set-timezone "$TZ"
           sudo chown -R "$USER":"$(id -gn)" "$GITHUB_WORKSPACE"
