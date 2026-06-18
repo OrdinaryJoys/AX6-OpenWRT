@@ -85,7 +85,7 @@ jobs:
           probe_reference "LiBwrt/openwrt-6.x main-nss" https://github.com/LiBwrt/openwrt-6.x.git refs/heads/main-nss
           probe_reference "VIKINGYFY/immortalwrt main" https://github.com/VIKINGYFY/immortalwrt.git refs/heads/main
           probe_reference "qosmio/openwrt-ipq main-nss" https://github.com/qosmio/openwrt-ipq.git refs/heads/main-nss
-          probe_reference "VIKINGYFY/nss-packages HEAD" https://github.com/VIKINGYFY/nss-packages.git HEAD
+          probe_reference "qosmio/nss-packages NSS-12.5-K6.x" https://github.com/qosmio/nss-packages.git refs/heads/NSS-12.5-K6.x
           probe_reference "openwrt/qca-nss-dp openwrt" https://github.com/openwrt/qca-nss-dp.git refs/heads/openwrt
 
           {
