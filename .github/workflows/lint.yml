@@ -59,7 +59,10 @@ jobs:
               echo "::error file=$workflow::unlocked backup workflows must not publish Releases"
               exit 1
             fi
-            grep -Fq 'UNVALIDATED_${{ github.sha }}' "$workflow"
+            grep -Fq 'UNVALIDATED_${{"{{"}} github.sha }}' "$workflow" || {
+              echo "::error file=$workflow::backup artifact must include UNVALIDATED_${{"{{"}} github.sha }} marker"
+              exit 1
+            }
           done
 
       - name: STOCK image safety policy
