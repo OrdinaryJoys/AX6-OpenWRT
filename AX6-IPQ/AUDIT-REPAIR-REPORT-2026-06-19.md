@@ -28,8 +28,9 @@
 
 当前状态不能表述为“所有问题已修复”。准确表述应为：
 
-> **确定性仓库问题已修正并通过本地检查、完整 STOCK 编译和 rootfs 校验；
-> 尚未完成的是测试分支 Artifact 整体成功状态和经用户确认后的实机运行时验证。**
+> **确定性仓库问题已继续修正并通过本地检查；较早提交已完成 STOCK 编译、
+> rootfs 校验和 Artifact 上传。最新严格复审又发现 ath11k 无效模块参数等问题，
+> 因此仍需对最新修复 HEAD 重新执行云端构建。实机验证必须等待用户确认。**
 
 ## 2. 用户检查清单复核
 
@@ -187,7 +188,9 @@ packages 的 51 个提交包含 Go 安全更新、strongSwan 修复、Python 包
 | `27777378927` | `9eee531...` | cancelled | 去除推荐依赖后仍慢；交叉确认磁盘清理删除了随后要重装的 Clang/LLVM |
 | `27778615180` | `4a0f6b2...` | failure | 编译到 `kmod-ath11k` 后因缺少 `qca-nss-drv.ko` 包依赖失败 |
 | `27798416475` | `c56c020...` | release failure | Compile、ATH11K 打包、rootfs 和制品整理成功；测试分支创建 Release 返回 403 |
-| `27801325559` | `0ed2e88...` | in progress | 截至本轮收尾仍在 Compile；不轮询等待，且不包含本轮后续配置清理 |
+| `27801325559` | `0ed2e88...` | success | Compile、rootfs 校验、制品整理和 Artifact 上传全部成功 |
+| `27809022908` | `20e27a6...` | success | 最新已推送 HEAD 的 lint 成功 |
+| `27809077890` | `20e27a6...` | in progress | 仍在编译，但不包含随后发现的 ath11k/恢复安全修复，不能作为最终验证 |
 
 截至审计时，最新 Release 仍为：
 
@@ -248,7 +251,7 @@ packages 的 51 个提交包含 Go 安全更新、strongSwan 修复、Python 包
 
 | 优先级 | 项目 | 完成条件 |
 |---|---|---|
-| P0 | 测试分支 Artifact 整体工作流 | Artifact 上传成功且 workflow conclusion 为 success |
+| P0 | 最新修复 HEAD 的 Artifact 整体工作流 | lint、编译、rootfs 校验和 Artifact 上传均成功 |
 | P1 | main 正式 Release | PR 审核合并后由 main 构建创建 |
 | P1 | built-in qca-nss 运行时 | 测试机 `nss-check -v` 无 FAIL |
 | P1 | WiFi 2.4G IoT | 多设备完成关联、DHCP、联网和局域网发现 |
@@ -368,3 +371,59 @@ packages 的 51 个提交包含 Go 安全更新、strongSwan 修复、Python 包
 
 因此，仓库级确定问题已继续修复并通过静态与隔离测试，但在新提交完成云端构建、
 并经用户确认完成实机验证之前，仍不能声称“完全没有故障”。
+
+## 15. 严格复审补充
+
+本节通过锁定源码、哈希匹配的官方 backports 6.18.26、当前上游说明和隔离测试，
+纠正“已构建即无问题”的过度结论。
+
+### 15.1 新确认并修复
+
+| 优先级 | 问题 | 交叉验证 | 修复 |
+|---|---|---|---|
+| P0 | `options ath11k rx_hash=1` 引用不存在的参数 | 官方 backports 只有 `crypto_mode`/`frame_mode`；NSS 补丁只新增 `nss_offload` | 删除该项，lint 和最终 squashfs 内容检查防回归 |
+| P1 | `nss-check` 写反 `frame_mode=0/1` | 驱动定义为 `0=raw, 1=native WiFi, 2=ethernet` | 修正诊断，只有 2 判为 NSS WiFi 正常 |
+| P1 | radio 上的 `dtim_period=1` 无效 | wifi-scripts schema 将 DTIM 定义为 `wifi-iface` 选项 | 删除无效项，保留 hostapd 标准默认，不强制所有 SSID |
+| P1 | stock/expand 同时声明 `kmod-sched-core=n` 和 `=y` | 全量 Kconfig 赋值冲突扫描 | 删除旧否定项，CI 通用拒绝冲突赋值 |
+| P1 | ZRAM uci-defaults 文件无 Git 执行位 | 原先依赖 DIY 批量 chmod 才可执行 | 文件模式改为 `100755` |
+| P1 | OpenClash allowlist 不检查 tar 成员类型 | 允许路径内的链接仍可逃逸恢复边界 | 只接受普通文件和目录，拒绝目标端现有链接 |
+| P1 | OpenClash “回滚包”不会自动回滚 | 恢复、cron 或启动失败会留下半恢复状态 | 保存原文件/crontab，失败自动恢复并增加 mock 测试 |
+
+### 15.2 锁定依赖源码核对
+
+| 子系统 | 锁定来源 | 结果 |
+|---|---|---|
+| OpenClash | `a86fb847...` | `enable`、DNS 字段、`pidof clash` 和 nft 链名称匹配 |
+| ZeroTier | packages `a53af9bb...` | `fw_allow_*`、动态 nft include 名称/路径匹配 |
+| UPnP | packages `a53af9bb...` | `secure_mode` 和末尾完整 default-deny 规则匹配 |
+| SQM NSS | `4b4ed863...` | 依赖普通 SQM 框架、qdisc/IGS；脚本为 `nss-zk.qos` |
+| ZRAM | 当前源码树 | `zram_size_mb`、`zram_comp_algo` 字段匹配 |
+| WiFi | backports 6.18.26 + NSS 补丁 | `frame_mode=2`、`nss_offload=1` 有效；`rx_hash` 无效 |
+
+### 15.3 最新上游结论
+
+- `VIKINGYFY/main` 当前为 `321f440d4af86c33ee18b83cadda7547f482ad22`。
+- 该提交把普通 `ATH11K_NSS_SUPPORT` 合并为 mesh 语义，自动选择/加载
+  `qca-nss-wifi-meshmgr`，并删除当前构建依赖的 NSS drv/ECM/WIFIOFFLOAD select。
+- qosmio 当前说明仍明确 WDS/MESH 需要 NSS FW 11.4；本构建使用 FW 12.5。
+- 因此 `321f440d` 不能直接合并，必须在独立分支重做配置模型并完整验证。
+- `qosmio/openwrt-ipq main-nss` 仍为 `92a2d104...`。
+- SQM、LuCI、routing、telephony、video、Argon 和 OpenClash 锁均未漂移。
+- `immortalwrt/packages` 已从 `a53af9bb...` 漂移到 `8ed3556d...`，继续保持锁定，
+  不与 NSS/WiFi 核心迁移同时升级。
+
+### 15.4 当前验证边界
+
+已完成：
+
+- 锁定依赖和上游 HEAD 实时核对。
+- ShellCheck、Actionlint、Yamllint、`git diff --check`。
+- VLAN 成功与失败回滚测试。
+- OpenClash 非法路径、链接成员和恢复失败自动回滚测试。
+- Kconfig 冲突扫描和 NSS WiFi 配置策略检查。
+
+未完成：
+
+- `27809077890` 不包含本节修复，不能作为最新 HEAD 的最终验证。
+- 最新修复 HEAD 尚未完成云端 lint、STOCK 编译、rootfs 和 Artifact 验证。
+- 未进行任何路由器重启、配置修改、刷写或射频实测。

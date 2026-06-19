@@ -28,7 +28,6 @@ for radio in $RADIOS; do
     uci -q set "wireless.${radio}.legacy_rates=1"
     uci -q delete "wireless.${radio}.noscan"
     uci -q set "wireless.${radio}.beacon_int=100"
-    uci -q set "wireless.${radio}.dtim_period=1"
 
     # Keep broadly supported beamforming; leave MU-EDCA, BSS color and spatial
     # reuse to ath11k/hostapd so they can adapt to the active channel.

@@ -195,9 +195,9 @@ fm_path="/sys/module/ath11k/parameters/frame_mode"
 if [ -r "$fm_path" ]; then
     fm=$(cat "$fm_path")
     case "$fm" in
-        2) ok "ath11k frame_mode=2 (NSS_DP, 满血卸载)" ;;
-        1) warn "ath11k frame_mode=1 (RAW, 部分加速)" ;;
-        0) fail "ath11k frame_mode=0 (NATIVE, NSS 旁路!)" ;;
+        2) ok "ath11k frame_mode=2 (ethernet decapsulation, NSS WiFi offload)" ;;
+        1) fail "ath11k frame_mode=1 (native WiFi); expected ethernet mode 2 for NSS offload" ;;
+        0) fail "ath11k frame_mode=0 (raw); expected ethernet mode 2 for NSS offload" ;;
         *) warn "ath11k frame_mode=$fm 未知" ;;
     esac
 fi

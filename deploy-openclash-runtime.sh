@@ -11,6 +11,10 @@ umask 077
 
 ROUTER="${1:-192.168.5.1}"
 TARGET="root@$ROUTER"
+PRE_RESTORE=
+PRE_CRONTAB=
+RESTORE_STARTED=0
+RESTORE_COMPLETE=0
 
 if [ "$#" -ge 2 ]; then
     BACKUP_DIR="$2"
@@ -42,8 +46,60 @@ if ! tar -tzf "$ARCHIVE" | awk '
     exit 2
 fi
 
+if ! tar -tvzf "$ARCHIVE" | awk '
+    {
+        type = substr($1, 1, 1)
+        if (type != "-" && type != "d") {
+            bad=1
+            print "unsafe archive member type: " $0 > "/dev/stderr"
+        }
+    }
+    END { exit bad }
+'; then
+    echo "error: OpenClash archive contains links or special files" >&2
+    exit 2
+fi
+
 say() {
     printf '%s\n' "$*"
+}
+
+rollback_on_error() {
+    rc=$?
+    trap - EXIT HUP INT TERM
+
+    if [ "$RESTORE_STARTED" -eq 1 ] &&
+       [ "$RESTORE_COMPLETE" -ne 1 ] &&
+       [ -s "$PRE_RESTORE" ]; then
+        say ""
+        say "[rollback] Restore failed; reverting OpenClash files and crontab"
+        if ssh "$TARGET" '
+            /etc/init.d/openclash stop >/dev/null 2>&1 || true
+            rm -rf \
+                /etc/config/openclash \
+                /etc/openclash/custom \
+                /etc/openclash/config \
+                /etc/openclash/proxy_provider \
+                /etc/openclash/rule_provider \
+                /usr/share/openclash/fix_dot.sh
+            tar -xzf - -C /
+        ' < "$PRE_RESTORE" &&
+           ssh "$TARGET" '
+               crontab -
+               /etc/init.d/cron restart
+               /etc/init.d/openclash restart
+           ' < "$PRE_CRONTAB"; then
+            say "  [ok] previous OpenClash state restored"
+        else
+            say "  [error] automatic rollback failed; use $PRE_RESTORE manually" >&2
+        fi
+    fi
+
+    exit "$rc"
+}
+
+abort_restore() {
+    exit 130
 }
 
 say "=== AX6 OpenClash Runtime Restore ==="
@@ -55,11 +111,22 @@ say "[1/5] Verify target and OpenClash installation"
 ssh "$TARGET" '
     test -x /etc/init.d/openclash
     test -d /etc/openclash
+    test ! -L /etc/openclash
+    for path in \
+        /etc/config/openclash \
+        /etc/openclash/custom \
+        /etc/openclash/config \
+        /etc/openclash/proxy_provider \
+        /etc/openclash/rule_provider \
+        /usr/share/openclash/fix_dot.sh; do
+        test ! -L "$path"
+    done
 '
 say "  [ok] OpenClash is installed"
 
 say "[2/5] Save current target state for rollback"
 PRE_RESTORE="$BACKUP_DIR/openclash-pre-restore-$(date +%Y%m%d-%H%M%S).tar.gz"
+PRE_CRONTAB="${PRE_RESTORE%.tar.gz}.crontab"
 ssh "$TARGET" '
     set --
     for path in \
@@ -78,9 +145,13 @@ ssh "$TARGET" '
     say "  [error] pre-restore archive is empty"
     exit 3
 }
+ssh "$TARGET" 'crontab -l 2>/dev/null || true' > "$PRE_CRONTAB"
 say "  [ok] $(basename "$PRE_RESTORE")"
 
 say "[3/5] Restore archived OpenClash runtime files"
+trap rollback_on_error EXIT
+trap abort_restore HUP INT TERM
+RESTORE_STARTED=1
 ssh "$TARGET" '
     /etc/init.d/openclash stop >/dev/null 2>&1 || true
     tar -xzf - -C /
@@ -145,6 +216,8 @@ ssh "$TARGET" '
     [ ! -x /sbin/ax6-config-audit ] || ax6-config-audit -v || true
 '
 
+RESTORE_COMPLETE=1
+trap - EXIT HUP INT TERM
 say ""
 say "=== OpenClash runtime restore complete ==="
 say "The complete sysupgrade archive was not restored automatically."

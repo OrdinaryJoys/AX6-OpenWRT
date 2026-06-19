@@ -2898,7 +2898,6 @@ CONFIG_PACKAGE_kmod-qrtr-smd=y
 # CONFIG_PACKAGE_kmod-sched-bldc is not set
 # CONFIG_PACKAGE_kmod-sched-fq_codel is not set
 # CONFIG_PACKAGE_kmod-sched-connmark is not set
-# CONFIG_PACKAGE_kmod-sched-core is not set
 # CONFIG_PACKAGE_kmod-sched-ctinfo is not set
 # CONFIG_PACKAGE_kmod-sched-drr is not set
 # CONFIG_PACKAGE_kmod-sched-flower is not set

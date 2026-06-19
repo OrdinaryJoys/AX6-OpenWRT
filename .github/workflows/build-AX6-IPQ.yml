@@ -214,6 +214,15 @@ jobs:
               exit 1
             }
           done
+          unsquashfs -cat "$rootfs" etc/modprobe.d/ath11k.conf \
+            > image-verify/ath11k.conf
+          grep -Fqx 'options ath11k frame_mode=2' image-verify/ath11k.conf
+          grep -Fqx 'options ath11k nss_offload=1' image-verify/ath11k.conf
+          if grep -Eq '^[[:space:]]*options[[:space:]]+ath11k[[:space:]].*rx_hash=' \
+            image-verify/ath11k.conf; then
+            echo "::error::Final rootfs contains unsupported ath11k rx_hash parameter"
+            exit 1
+          fi
           echo "Final rootfs validation: PASS"
 
       - name: Stage release artifacts
