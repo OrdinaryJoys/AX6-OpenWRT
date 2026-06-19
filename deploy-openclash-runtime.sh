@@ -29,6 +29,19 @@ ARCHIVE="$BACKUP_DIR/openclash-runtime.tar.gz"
     exit 2
 }
 
+if ! tar -tzf "$ARCHIVE" | awk '
+    /^\.\// { sub(/^\.\//, "") }
+    /(^|\/)\.\.(\/|$)/ { bad=1; print "unsafe archive path: " $0 > "/dev/stderr"; next }
+    /^etc\/config\/openclash$/ { next }
+    /^etc\/openclash\/(custom|config|proxy_provider|rule_provider)(\/|$)/ { next }
+    /^usr\/share\/openclash\/fix_dot\.sh$/ { next }
+    { bad=1; print "unexpected archive path: " $0 > "/dev/stderr" }
+    END { exit bad }
+'; then
+    echo "error: OpenClash archive contains paths outside the restore allowlist" >&2
+    exit 2
+fi
+
 say() {
     printf '%s\n' "$*"
 }
@@ -112,12 +125,22 @@ ssh "$TARGET" '
     custom_count=$(find /etc/openclash/custom -maxdepth 1 -type f 2>/dev/null | wc -l)
     printf "OpenClash YAML configs: %s\n" "$config_count"
     printf "OpenClash custom files: %s\n" "$custom_count"
-    printf "OpenClash enabled: %s\n" "$(uci -q get openclash.config.enable || echo unset)"
-    if pidof clash >/dev/null 2>&1; then
-        echo "OpenClash core: running"
+    enabled=$(uci -q get openclash.config.enable || echo 0)
+    printf "OpenClash enabled: %s\n" "$enabled"
+    if [ "$enabled" = "1" ]; then
+        retries=30
+        while ! pidof clash >/dev/null 2>&1 && [ "$retries" -gt 0 ]; do
+            sleep 1
+            retries=$((retries - 1))
+        done
+        if pidof clash >/dev/null 2>&1; then
+            echo "OpenClash core: running"
+        else
+            echo "OpenClash core: not running after 30 seconds; inspect /tmp/openclash.log" >&2
+            exit 4
+        fi
     else
-        echo "OpenClash core: not running; inspect /tmp/openclash.log" >&2
-        exit 4
+        echo "OpenClash core: disabled by restored configuration"
     fi
     [ ! -x /sbin/ax6-config-audit ] || ax6-config-audit -v || true
 '

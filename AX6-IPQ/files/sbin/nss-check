@@ -244,6 +244,33 @@ if [ ! -r /proc/swaps ]; then
 elif grep -q '/dev/zram' /proc/swaps; then
     zram_kb=$(awk '/\/dev\/zram/{total += $3} END{print total + 0}' /proc/swaps)
     ok "ZRAM swap active: ${zram_kb} kB"
+    zram_expected_mb=$(uci -q get system.@system[0].zram_size_mb)
+    [ -n "$zram_expected_mb" ] || zram_expected_mb=256
+    case "$zram_expected_mb" in
+        ''|*[!0-9]*|0)
+            fail "Invalid system zram_size_mb='${zram_expected_mb}'"
+            ;;
+        *)
+            zram_expected_kb=$((zram_expected_mb * 1024))
+            if [ "$zram_kb" -ge $((zram_expected_kb - 1024)) ] &&
+               [ "$zram_kb" -le $((zram_expected_kb + 1024)) ]; then
+                ok "ZRAM size matches UCI policy: ${zram_expected_mb} MB"
+            else
+                warn "ZRAM size ${zram_kb} kB differs from UCI policy ${zram_expected_mb} MB"
+            fi
+            ;;
+    esac
+    zram_device=$(awk '/\/dev\/zram/{print $1; exit}' /proc/swaps)
+    zram_device=${zram_device##*/}
+    zram_algo=$(sed -n 's/.*\[\([^]]*\)\].*/\1/p' \
+        "/sys/block/${zram_device}/comp_algorithm" 2>/dev/null)
+    zram_expected_algo=$(uci -q get system.@system[0].zram_comp_algo)
+    [ -n "$zram_expected_algo" ] || zram_expected_algo=zstd
+    if [ "$zram_algo" = "$zram_expected_algo" ]; then
+        ok "ZRAM compressor active: $zram_algo"
+    else
+        fail "ZRAM compressor is ${zram_algo:-unknown}; expected $zram_expected_algo"
+    fi
 else
     fail "ZRAM 设备未加入 /proc/swaps — 检查 /etc/init.d/zram"
 fi

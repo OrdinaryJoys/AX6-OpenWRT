@@ -278,8 +278,10 @@ vlan-add 50 office 192.168.50.1/24
 执行后会自动:
 - 创建 `br-iot` bridge,用 `lan1.40 lan2.40` 作为 tagged port
 - 创建 `interface iot` 静态 IP
-- 创建 `firewall iot` zone,默认允许入站/出站、拒绝跨区转发,并允许转发到 `wan`
-- 创建 `dhcp iot`,默认地址池 `100-249`
+- 创建 `firewall iot` zone，默认拒绝访问路由器本机、允许出站并转发到 `wan`
+- 仅显式允许到路由器的 DHCP 与 DNS 请求
+- 创建适配 CIDR 大小的 `dhcp iot` 地址池
+- 任一步骤失败时恢复 network/firewall/dhcp 三个配置文件
 
 后续只需按场景手动添加 WiFi SSID(SSID、密码、隔离策略不应由脚本猜测):
 把新 SSID 的 `option network` 指向对应 VLAN 网络名,例如 `iot`。

@@ -93,6 +93,7 @@ say "[6/6] Write manifest and checksums"
     echo "RESTORE_POLICY=Do not restore the whole sysupgrade archive automatically after changing firmware branches."
 } > "$BACKUP_DIR/MANIFEST.txt"
 
+rm -f "$BACKUP_DIR/SHA256SUMS.txt"
 if command -v sha256sum >/dev/null 2>&1; then
     (cd "$BACKUP_DIR" && sha256sum ./* > SHA256SUMS.txt)
 elif command -v shasum >/dev/null 2>&1; then

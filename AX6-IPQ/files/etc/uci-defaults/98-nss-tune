@@ -4,20 +4,11 @@
 # Runs once via uci-defaults on first boot.
 
 # ===================================================================
-# Layer 1: 内核模块级别 — modprobe blacklist + rmmod (主线方案)
+# Layer 1: 内核模块级别 — 静态 blacklist 文件随镜像安装,这里只清理已加载模块
 # ===================================================================
-if [ ! -f /etc/modprobe.d/nss-no-flow.conf ]; then
-    cat > /etc/modprobe.d/nss-no-flow.conf << 'EOF'
-# NSS ECM handles hardware offload — these conflict
-blacklist nf_flow_table
-blacklist nft_flow_offload
-blacklist ipt_FLOWOFFLOAD
-EOF
-fi
-
-rmmod nf_flow_table 2>/dev/null || true
-rmmod nft_flow_offload 2>/dev/null || true
 rmmod ipt_FLOWOFFLOAD 2>/dev/null || true
+rmmod nft_flow_offload 2>/dev/null || true
+rmmod nf_flow_table 2>/dev/null || true
 
 # ===================================================================
 # Layer 2: UCI 配置级别 — firewall4 flow offload 必须关闭

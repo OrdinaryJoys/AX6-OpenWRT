@@ -278,14 +278,13 @@ jobs:
           for pkg in $NSS_BLACKLIST; do
             sed -i "s|^CONFIG_PACKAGE_${pkg}=y$|# CONFIG_PACKAGE_${pkg} is not set|" .config
           done
-          # defconfig Kconfig select 会重新启用 NSS FW 12.5 不支持的 NSS_DRV 选项,
-          # 此处 sed 强制覆盖为 =n (qosmio 官方矩阵确认 FW 12.5 不支持):
+          # 当前源树仍定义的 WIFI_MESH 需要 FW 11.4；本构建使用 FW 12.5。
           #   https://github.com/qosmio/openwrt-ipq#nss-support-matrix
-          for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_DTLS_ENABLE NSS_DRV_CAPWAP_ENABLE NSS_DRV_PVXLAN_ENABLE NSS_DRV_SFE_ENABLE NSS_DRV_WIFI_MESH_ENABLE NSS_DRV_WDS_ENABLE; do
+          for opt in NSS_DRV_WIFI_MESH_ENABLE; do
             sed -i "s|^CONFIG_${opt}=y$|# CONFIG_${opt} is not set|" .config
           done
           # 验证 NSS_DRV 不支持项已清除 (不包括 RMNET:🟨 qca-nss-netlink 依赖)
-          for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_DTLS_ENABLE NSS_DRV_CAPWAP_ENABLE NSS_DRV_PVXLAN_ENABLE NSS_DRV_SFE_ENABLE NSS_DRV_WIFI_MESH_ENABLE NSS_DRV_WDS_ENABLE; do
+          for opt in NSS_DRV_WIFI_MESH_ENABLE; do
             if grep -q "^CONFIG_${opt}=y$" .config; then
               echo "::error::NSS FW 12.5 unsupported: CONFIG_${opt}=y still enabled after sed"
               exit 2
@@ -369,6 +368,8 @@ jobs:
             'etc/init\.d/set-irq-affinity' \
             'etc/init\.d/smp_affinity' \
             'etc/init\.d/zram' \
+            'etc/modprobe\.d/nss-no-flow\.conf' \
+            'etc/uci-defaults/95-ax6-zram-defaults' \
             'etc/uci-defaults/15_smp_affinity\.sh' \
             'usr/lib/sqm/nss-zk\.qos' \
             'sbin/nss-check' \

@@ -122,12 +122,12 @@ jobs:
                 exit 2
               fi
             done
-            # NSS FW 12.5 不支持项强制 =n (defconfig Kconfig select 可能重新启用)
-            for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_DTLS_ENABLE NSS_DRV_CAPWAP_ENABLE NSS_DRV_PVXLAN_ENABLE NSS_DRV_SFE_ENABLE NSS_DRV_WIFI_MESH_ENABLE NSS_DRV_WDS_ENABLE; do
+            # 当前源树仍定义且 FW 12.5 不支持的选项强制 =n。
+            for opt in NSS_DRV_WIFI_MESH_ENABLE; do
               sed -i "s|^CONFIG_${opt}=y$|# CONFIG_${opt} is not set|" .config
             done
             # 验证 NSS_DRV 不支持项已清除
-            for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_DTLS_ENABLE NSS_DRV_CAPWAP_ENABLE NSS_DRV_PVXLAN_ENABLE NSS_DRV_SFE_ENABLE NSS_DRV_WIFI_MESH_ENABLE NSS_DRV_WDS_ENABLE; do
+            for opt in NSS_DRV_WIFI_MESH_ENABLE; do
               if grep -q "^CONFIG_${opt}=y$" .config; then
                 echo "::error::NSS FW 12.5 unsupported: CONFIG_${opt}=y still enabled after sed"
                 exit 2
@@ -184,6 +184,8 @@ jobs:
             'etc/init\.d/set-irq-affinity' \
             'etc/init\.d/smp_affinity' \
             'etc/init\.d/zram' \
+            'etc/modprobe\.d/nss-no-flow\.conf' \
+            'etc/uci-defaults/95-ax6-zram-defaults' \
             'etc/uci-defaults/15_smp_affinity\.sh' \
             'usr/lib/sqm/nss-zk\.qos' \
             'sbin/nss-check' \
