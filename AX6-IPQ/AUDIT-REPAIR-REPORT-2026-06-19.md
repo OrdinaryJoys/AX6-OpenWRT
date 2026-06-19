@@ -1,5 +1,9 @@
 # AX6 OpenWrt/NSS 全量审计、修复与重构报告
 
+> **历史报告提示：** 本文件采用追加方式记录 2026-06-19 多轮审计，页首基线和
+> 中间结论已经被后续提交推翻。当前状态、有效问题和验证边界必须以
+> [`CURRENT-STATUS-2026-06-19.md`](CURRENT-STATUS-2026-06-19.md) 为准。
+
 > 审计日期：2026-06-19（Asia/Shanghai）
 > 仓库：`OrdinaryJoys/AX6-OpenWRT`
 > 审计基线：`main@878c97d79bd2e999185cf8066c9c6ea348917228`
