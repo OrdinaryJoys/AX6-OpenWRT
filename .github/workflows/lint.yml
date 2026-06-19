@@ -85,7 +85,10 @@ jobs:
               exit 1
             }
           done
-          grep -Fq 'SOURCE_TRACKING_BRANCH=codex/fix-ath11k-nss-depends' "$BUILD_LOCK"
+          [ "$SOURCE_TRACKING_BRANCH" = codex/fix-ath11k-nss-depends ] || {
+            echo "::error::unexpected source tracking branch: $SOURCE_TRACKING_BRANCH"
+            exit 1
+          }
 
       - name: Obsolete NSS config symbol check
         run: |
