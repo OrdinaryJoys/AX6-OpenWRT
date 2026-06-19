@@ -65,17 +65,22 @@ else
     fail "RAM only ${mem_kb:-?} kB < 800MB — 不是 1GB 高配 SKU,nss-extra.config 配置可能不匹配"
 fi
 
-# ---- 2. NAND 大小 ----
-mtd12_size=$(awk -F'[: ]+' '/^mtd12:/{print $2}' /proc/mtd 2>/dev/null)
-case "$mtd12_size" in
-    06640000)
-        ok "NAND rootfs: 102 MiB (stock layout)"
+# ---- 2. NAND 布局 ----
+rootfs_size=$(awk '$4 == "\"rootfs\"" {print $2}' /proc/mtd 2>/dev/null)
+rootfs1_size=$(awk '$4 == "\"rootfs_1\"" {print $2}' /proc/mtd 2>/dev/null)
+overlay_size=$(awk '$4 == "\"overlay\"" {print $2}' /proc/mtd 2>/dev/null)
+case "${rootfs_size}:${rootfs1_size}:${overlay_size}" in
+    023[cC]0000:023[cC]0000:01[eE][cC]0000)
+        ok "NAND layout: stock SMEM (rootfs/rootfs_1 each 35.75 MiB)"
         ;;
-    0[Cc]000000)
-        ok "NAND rootfs: 192 MiB (expand layout, modded NAND)"
+    0[Cc]000000::)
+        ok "NAND layout: expanded 192 MiB rootfs (modded NAND)"
+        ;;
+    06640000::*)
+        warn "NAND layout: custom merged 102.25 MiB rootfs, not Xiaomi stock SMEM"
         ;;
     *)
-        warn "NAND rootfs size 0x${mtd12_size:-?} — 非典型"
+        warn "NAND layout is non-standard: rootfs=0x${rootfs_size:-?}, rootfs_1=0x${rootfs1_size:-none}, overlay=0x${overlay_size:-none}"
         ;;
 esac
 

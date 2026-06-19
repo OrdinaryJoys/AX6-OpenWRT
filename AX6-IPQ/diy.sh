@@ -36,6 +36,21 @@ grep -qx "PKG_VERSION:=${OPENCLASH_VERSION}" package/luci-app-openclash/Makefile
   exit 2
 }
 
+# The stock SMEM slot is only 35.75 MiB for kernel + squashfs. OpenClash can
+# download dashboards, GeoSite/MMDB and rule data together with its runtime
+# core, so do not embed those replaceable assets in the compact STOCK image.
+if [ -f .config ] &&
+   grep -q '^CONFIG_TARGET_PROFILE="DEVICE_redmi_ax6-stock"$' .config; then
+  rm -f \
+    package/luci-app-openclash/root/etc/openclash/GeoSite.dat \
+    package/luci-app-openclash/root/etc/openclash/Country.mmdb \
+    package/luci-app-openclash/root/etc/openclash/rule_provider/oc-cn-domain.mrs
+  rm -rf \
+    package/luci-app-openclash/root/usr/share/openclash/ui/metacubexd \
+    package/luci-app-openclash/root/usr/share/openclash/ui/zashboard
+  echo "[diy.sh] STOCK: removed downloadable OpenClash data and dashboards"
+fi
+
 
 # ----------------------------------------------------
 # 切断 firewall4→kmod-nft-offload→kmod-nf-flow 依赖链
@@ -92,7 +107,8 @@ fi
 # 两种 SKU 通过 .config 选择,DT 这里只补扩容版分区。
 #
 # (1) Stock (redmi,ax6-stock):
-#       Xiaomi 原始 SMEM 分区,rootfs ≈ 102 MiB,刷写前仍须备份并核对硬件
+#       Xiaomi 原始 SMEM 双槽,rootfs/rootfs_1 各 0x023c0000 (35.75 MiB)
+#       内核与 squashfs 共用当前 UBI 槽,源码 profile 负责执行容量门禁
 #       — DT 不动 partition 节点(ax6-stock.dts 已 /delete-node/)
 #
 # (2) Expanded (redmi,ax6):

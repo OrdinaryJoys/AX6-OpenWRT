@@ -6,8 +6,13 @@
 > 修复分支：`codex/full-audit-20260619`
 > 源码仓库：`OrdinaryJoys/immortalwrt-nss`
 > 原源码基线：`3e7a3febdd3fba88a8ca248afd3cc946f9853ee9`
-> 修复源码：`4b0b74e7da5a04c2a054e6d33363defb0abd77de`
+> 修复源码：`8273846cf00ee72cfb0c0a992d6af29f9f5ec755`
 > 用户提供清单：`FIX_CHECKLIST_2026-06-19.md`
+
+> **P0 安全更正（2026-06-19 晚间复审）：**此前报告把成功编译和 rootfs
+> 内容检查误当成 STOCK 可刷验证。原厂 SMEM 的 `rootfs`/`rootfs_1`
+> 各为 `0x023c0000`(35.75 MiB),而 `main@af83982` 的 `factory.ubi`
+> 为 62,521,344 字节。该产物超过原厂单槽,不得刷写。
 
 ## 1. 最终结论
 
@@ -22,7 +27,7 @@
 | 配置状态 | 已继续清理 ATH11K、NSS、ZRAM、IPQ 和直接内核符号残留，并关闭 SFE 专用 SKB 预分配 |
 | 路由器备份脚本 | 原实现不是完整备份，已重构 |
 | OpenClash 恢复脚本 | 原实现未使用备份目录且硬编码订阅名，已重构 |
-| VIKINGYFY 最新更新 | 远端 `main` 已移动到 `321f440d...`；当前锁定源码未盲目跟随 |
+| VIKINGYFY 最新更新 | 远端 `main` 已移动到 `5f520e5c...`；当前锁定源码未盲目跟随 |
 | packages feed | 落后 51 个提交；变化广泛，不应在本轮盲目升级 |
 | 实机验证 | 尚未完成；本轮不刷写路由器 |
 
@@ -44,7 +49,7 @@
 | lint 最近多次成功 | 属实 |
 | `main` 最新提交为 `878c97d` | 属实 |
 | `immortalwrt-nss` 本地/远端 main 与 sync 分支一致 | 属实，均为真实 SHA `3e7a3febdd3f...` |
-| STOCK 与 EXPAND 配置软件部分一致 | 属实，差异仅为目标设备/profile |
+| STOCK 与 EXPAND 配置软件部分一致 | 旧状态属实；现因原厂槽限制,STOCK 有意移除大包和下载型 OpenClash 资源 |
 
 ### 2.2 清单中错误或过度结论
 
@@ -58,7 +63,7 @@
 | 备份脚本已完成 | 只保存订阅 YAML 前 100 行，未完整备份 | 无法可靠恢复 |
 | 部署脚本已完成 | `BACKUP_DIR` 未使用，硬编码订阅文件名，关键失败仍继续 | 可能误报部署成功 |
 | 仓库最终状态 `main=b7888e7` | 页首写 `878c97d`，两处矛盾；实际为 `878c97d` | 清单内部状态不一致 |
-| 上游落后为 0 | VIKINGYFY 随后继续移动，2026-06-19 已到 `321f440d...` | 当前源码与上游再次分叉 |
+| 上游落后为 0 | VIKINGYFY 随后继续移动，2026-06-19 已到 `5f520e5c...` | 当前源码与上游再次分叉 |
 
 ## 3. 本轮发现并修复的问题
 
@@ -124,16 +129,16 @@
 
 | 仓库/分支 | HEAD | 状态 |
 |---|---|---|
-| OrdinaryJoys `codex/fix-ath11k-nss-depends` | `4b0b74e7da5a...` | 当前锁定的 ATH11K NSS 依赖修复源码 |
+| OrdinaryJoys `codex/fix-ath11k-nss-depends` | `8273846cf00e...` | ATH11K NSS 依赖与 STOCK UBI 容量门禁源码 |
 | OrdinaryJoys `codex/p0-nss-sync` | `3e7a3febdd3f...` | 与 OrdinaryJoys main 一致 |
 | OrdinaryJoys `main` | `3e7a3febdd3f...` | 原始审计基线，尚未包含 ATH11K 依赖修复 |
-| VIKINGYFY `main` | `321f440d4af8...` | 2026-06-19 远端 HEAD；未在本轮直接合并 |
+| VIKINGYFY `main` | `5f520e5c2b...` | 2026-06-19 远端 HEAD；未在本轮直接合并 |
 | VIKINGYFY `owrt` | `dfe9c76b658c...` | 非当前 NSS 构建基线 |
 | qosmio/openwrt-ipq `main-nss` | `92a2d104145c...` | 与前次检查一致 |
 | qosmio/nss-packages `NSS-12.5-K6.x` | `0d970dbf0185...` | 参考 feed 已继续更新 |
 
-此前相对本地已抓取的 VIKINGYFY `38e28da...` 为 `42 left / 1 right`。远端现在已经
-继续移动到 `321f440d...`，因此该计数不再代表最新差异，不能据此直接 rebase。
+当前锁定源码相对 VIKINGYFY `5f520e5c...` 为 `43 left / 2 right`。
+两边均有独立修改,不能据此直接 rebase。
 
 ### 5.2 已抓取的 VIKINGYFY 清理提交影响
 
@@ -262,7 +267,7 @@ packages 的 51 个提交包含 Go 安全更新、strongSwan 修复、Python 包
 
 ## 11. 后续重构任务
 
-### 11.1 VIKINGYFY `321f440d` 集成
+### 11.1 VIKINGYFY `5f520e5c` 集成
 
 必须在独立源码分支完成：
 
@@ -288,7 +293,7 @@ packages 的 51 个提交包含 Go 安全更新、strongSwan 修复、Python 包
 
 1. 不要把卡住的 `#27774751677` 当作编译验证。
 2. 不要继续使用短 SHA 判断锁文件正确性。
-3. 不要直接合并 VIKINGYFY `321f440d`。
+3. 不要直接合并 VIKINGYFY `5f520e5c`。
 4. 不要同时升级核心源码和 packages feed。
 5. 不要自动恢复完整 sysupgrade 备份到不同源码基线。
 6. 不要把敏感备份目录加入 Git。
@@ -304,7 +309,7 @@ packages 的 51 个提交包含 Go 安全更新、strongSwan 修复、Python 包
 5. 确认新 Release 和 BUILD-LOCK。
 6. 用户手动刷写测试机。
 7. 执行 `nss-check -v` 与 `ax6-config-audit -v`。
-8. 再开启 VIKINGYFY `321f440d` 独立重构。
+8. 再开启 VIKINGYFY `5f520e5c` 独立重构。
 
 ## 14. 后续全量静态审计补充
 
@@ -353,7 +358,7 @@ packages 的 51 个提交包含 Go 安全更新、strongSwan 修复、Python 包
 | `actionlint` | PASS |
 | `yamllint -d relaxed` | PASS |
 | `git diff --check` | PASS |
-| stock/expand 除目标 profile 外的一致性 | PASS |
+| stock/expand 核心 NSS/WiFi/ZRAM 配置一致,体积差异符合 allowlist | PASS |
 | active `CONFIG_*` 重复键检查 | PASS |
 | VLAN mock 成功提交 | PASS |
 | VLAN firewall commit 失败回滚 | PASS |
@@ -364,7 +369,7 @@ packages 的 51 个提交包含 Go 安全更新、strongSwan 修复、Python 包
 | 优先级 | 项目 | 当前状态 |
 |---|---|---|
 | P0 | 包含本节全部修改的全量云端构建 | 尚未触发；旧 run `27801325559` 不包含这些未提交修改 |
-| P1 | `VIKINGYFY/main@321f440d...` 详细差异集成 | 仅确认远端 HEAD；应在独立源码分支抓取并审查，不能直接改当前锁 |
+| P1 | `VIKINGYFY/main@5f520e5c...` 详细差异集成 | 已抓取并确认存在两提交重构；应在独立源码分支继续审查，不能直接改当前锁 |
 | P1 | 真实 NSS/WiFi/VLAN/ZRAM/SQM 运行时 | 必须等待用户确认后在路由器执行 |
 | P1 | 2.4G IoT 多芯片关联矩阵 | 必须在真实射频环境验证 WPA、PMF、RSSI、DHCP 和发现协议 |
 | P2 | 备用 IPQ/IMM/LEDE 工作流完全可复现 | 仍跟踪移动分支/feeds；它们不是当前主 NSS 发布基线 |
@@ -402,11 +407,11 @@ packages 的 51 个提交包含 Go 安全更新、strongSwan 修复、Python 包
 
 ### 15.3 最新上游结论
 
-- `VIKINGYFY/main` 当前为 `321f440d4af86c33ee18b83cadda7547f482ad22`。
+- `VIKINGYFY/main` 当前为 `5f520e5c2bc7ee41b0a3e25c0686be22d59af34f`。
 - 该提交把普通 `ATH11K_NSS_SUPPORT` 合并为 mesh 语义，自动选择/加载
   `qca-nss-wifi-meshmgr`，并删除当前构建依赖的 NSS drv/ECM/WIFIOFFLOAD select。
 - qosmio 当前说明仍明确 WDS/MESH 需要 NSS FW 11.4；本构建使用 FW 12.5。
-- 因此 `321f440d` 不能直接合并，必须在独立分支重做配置模型并完整验证。
+- 因此 `5f520e5c` 不能直接合并，必须在独立分支重做配置模型并完整验证。
 - `qosmio/openwrt-ipq main-nss` 仍为 `92a2d104...`。
 - SQM、LuCI、routing、telephony、video、Argon 和 OpenClash 锁均未漂移。
 - `immortalwrt/packages` 已从 `a53af9bb...` 漂移到 `8ed3556d...`，继续保持锁定，
@@ -427,3 +432,58 @@ packages 的 51 个提交包含 Go 安全更新、strongSwan 修复、Python 包
 - `27809077890` 不包含本节修复，不能作为最新 HEAD 的最终验证。
 - 最新修复 HEAD 尚未完成云端 lint、STOCK 编译、rootfs 和 Artifact 验证。
 - 未进行任何路由器重启、配置修改、刷写或射频实测。
+
+## 16. 最终产物与 STOCK 分区闭环复审
+
+### 16.1 新确认的 P0 根因
+
+| 问题 | 证据 | 影响 |
+|---|---|---|
+| STOCK 容量模型写错 | 原厂 `/proc/mtd` 为 `rootfs=023c0000`、`rootfs_1=023c0000`、`overlay=01ec0000` | 文档误把第三方合并后的 `06640000` 当成原厂 STOCK |
+| 构建无分区容量门禁 | `redmi_ax6-stock` 清空 `KERNEL_SIZE` 且未设置 `IMAGE_SIZE/NAND_SIZE` | 超大 UBI 仍会显示编译成功 |
+| 最新产物不可装入原厂槽 | run `27813375966` 的 `factory.ubi` 为 62,521,344 字节,槽为 37,486,592 字节 | 超限 25,034,752 字节 |
+| 软件集与设计说明冲突 | rootfs 同时内置 `sing-box`、`xray-core`、`ddns-go`,但 OpenClash 注释声明核心应在线安装 | 无必要地占用 STOCK 固件空间 |
+| 发布物用途混杂 | 同一 artifact/release 包含 sysupgrade、factory UBI、initramfs ITB | 用户容易把恢复镜像用于 LuCI 或 raw NAND |
+| 恢复命令不安全 | Release 使用未定义 `stock.bin` 的通用 `nand erase/write rootfs` 示例 | sysupgrade tar 或错误布局镜像可能被直接写入 NAND |
+| 备用工作流直接发布未锁定产物 | IPQ/IMM/LEDE 跟随移动源码/feeds,后两者没有最终镜像验证 | 未验证镜像会被误认为正式 Release |
+
+### 16.2 已实施修正
+
+- 源码 stock profile 增加 `IMAGE_SIZE := 36608k` 与 `NAND_SIZE := 128m`,
+  触发 `append-ubi` 的坏块预留容量检查。
+- CI 再按原始 `0x023c0000` 检查完整 STOCK `factory.ubi`,而不是只看
+  squashfs；EXPAND 同时按 `0x0c000000` 检查。
+- STOCK 不再内置 `sing-box`、`xray-core`、`ddns-go` 和 `vim-fuller`。
+  OpenClash 保留 LuCI/运行框架,核心按既定设计在设备上另行安装。
+- STOCK 同时剥离 OpenClash 可在线下载的 GeoSite/MMDB、规则数据和两个
+  Dashboard；EXPAND 仍保留完整静态资源。
+- Release 只包含正常升级用 sysupgrade；factory UBI/initramfs ITB 移入
+  独立 RECOVERY artifact 并附禁止误用说明。
+- 删除通用 raw NAND 恢复命令和未经验证的 STOCK→EXPAND 转换步骤。
+- `nss-check` 改为按分区名称和完整三分区组合识别 stock,并把
+  `06640000` 明确标为第三方合并布局。
+- lint 新增 STOCK 大包、容量门禁、artifact 隔离和危险刷写命令检查。
+- IPQ/IMM/LEDE 备用工作流取消 Release 与仓库写权限,仅保留 7 天、明确标记
+  `UNVALIDATED` 的 Actions artifact。
+
+### 16.3 上游状态
+
+- `VIKINGYFY/main` 于 2026-06-19 更新到 `5f520e5c2b`,比当前锁定源码多
+  `38e28da692`、`5f520e5c2b` 两个提交。
+- 更新仍把 `ATH11K_NSS_SUPPORT` 同时绑定 mesh、512M profile 和
+  `qca-nss-drv-wifi-meshmgr`,与 AX6 1GB、NSS FW 12.5、禁用 mesh 的配置
+  模型冲突,本轮不直接合并。
+- ImmortalWrt 官方当前仍保留 `redmi_ax6-stock` 双槽升级逻辑,但同样没有
+  为该 profile 声明容量；本仓源码修复是必要的本地安全补充。
+
+### 16.4 当前验证边界
+
+旧 run `27813375966` 只能证明编译流程完成,已经判定为 STOCK 容量不合格。
+新的源码提交和编译仓提交完成后,必须至少通过：
+
+1. 源码 `append-ubi` 容量门禁。
+2. CI 完整 UBI 原始槽容量复核。
+3. sysupgrade board/metadata、rootfs 内容和禁止大包复核。
+4. sysupgrade 与 RECOVERY artifact 分离检查。
+
+在新的云端构建通过这些门禁前,不能发布或刷写新的 STOCK 固件。

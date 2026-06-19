@@ -16,19 +16,22 @@ NSS:         qca-nss-drv + qca-nss-dp + qca-nss-ecm
 
 | 变体 | 适用硬件 | rootfs 容量 | 选哪个? | 变砖风险 |
 |---|---|---|---|---|
-| **STOCK** | 标准 1G+128M(出厂) | ~102 MB(SMEM 给的) | **绝大多数人选这个** | 较低,刷写前仍须备份并核对硬件 |
+| **STOCK** | 标准 1G+128M(出厂) | 双槽,每槽 35.75 MiB | **绝大多数人选这个** | 较低,刷写前仍须备份并核对硬件 |
 | **EXPAND** | 1G+256M(改 NAND 颗粒后) | ~192 MB(DT 写死,留 18MB UBI 坏块 reserve)| 只有亲手换过 NAND 才能选 | **极高**(刷错变砖)|
 
 ### 怎么知道我是哪种?
 
 ```bash
 # 已经能进 OpenWrt 的话
-ssh root@192.168.5.1 'cat /proc/mtd | grep rootfs'
-# 输出 mtd12: 06640000 → 102MB,是 STOCK
-# 输出 mtd12: 0C000000 → 192MB,是 EXPAND
+ssh root@192.168.5.1 'cat /proc/mtd | grep -E "\"rootfs(_1)?\"|\"overlay\""'
+# STOCK: rootfs=023c0000, rootfs_1=023c0000, overlay=01ec0000
+# EXPAND: rootfs=0c000000
 ```
 
 如果不能进系统 / 不知道:**默认选 STOCK,不要冒险**。
+
+`06640000` 是第三方合并分区后的 102.25 MiB 单槽布局,不是 Xiaomi 原厂
+STOCK SMEM,不能作为 `redmi_ax6-stock` 的识别依据。
 
 ### EXPAND 前置确认清单
 
@@ -56,9 +59,14 @@ mtd8:  0:art          0.5MB  WiFi cal (board-2.bin) ★
 mtd9:  bdata          0.5MB  Xiaomi 设备数据
 mtd10: crash          0.5MB
 mtd11: crash_syslog   0.5MB
-mtd12: rootfs         102MB  ★ 本固件刷写位置
-mtd13: rsvd0          0.5MB
+mtd12: rootfs         35.75MB ★ 启动槽 0
+mtd13: rootfs_1       35.75MB ★ 启动槽 1
+mtd14: overlay        30.75MB 原厂数据分区
+mtd15: rsvd0          0.5MB
 ```
+
+内核与 squashfs 共同装入当前 UBI 槽。构建必须按完整 UBI 镜像校验,
+不能只比较 rootfs 文件大小。
 
 ★ 标记的分区**永远不要乱刷**:
 - mtd7 appsbl(u-boot)被破坏 → 必须串口 + USB-Flash 救
@@ -88,42 +96,37 @@ scp root@<router>:/tmp/{appsbl,appsblenv,art,bdata}.bin ~/ax6-backup/
 ### STOCK(标准 SMEM 分区)
 
 ```bash
-# 1. SSH 进入当前固件(stock 或之前刷的同变体)
+# 1. 仅从已支持 redmi,ax6-stock 的 OpenWrt/ImmortalWrt 进入
 ssh root@192.168.5.1
 
-# 2. 上传我们的镜像
+# 2. 再次确认是双 0x023c0000 槽
+cat /proc/mtd | grep -E '"rootfs(_1)?"'
+
+# 3. 校验 SHA256 后,只上传 Release 中的 sysupgrade 镜像
 scp downloads/openwrt-qualcommax-ipq807x-redmi_ax6-stock-squashfs-sysupgrade.bin root@192.168.5.1:/tmp/
 
-# 3. 直接 sysupgrade(保留配置)
+# 4. 使用 sysupgrade 正常升级
 sysupgrade -v /tmp/openwrt-*.bin
 # 或不保留:sysupgrade -n
 ```
 
+不能从 Xiaomi 原厂 Web 升级页直接刷 `sysupgrade.bin`。`factory.ubi` 与
+initramfs ITB 也不是 LuCI/sysupgrade 的替代文件。
+
 ### EXPAND(高风险)
 
-如果当前是 stock 镜像,先 sysupgrade 到 stock 的我们的镜像,再走以下流程切到 expand:
+只允许从已经使用相同 `redmi,ax6` EXPAND 分区布局的系统升级。先确认
+物理 NAND 已改为至少 256 MiB,并且当前 `rootfs` 确实为 `0c000000`:
 
 ```bash
-# 1. 上传 initramfs 镜像(不是 sysupgrade)
-scp downloads/openwrt-qualcommax-ipq807x-redmi_ax6-initramfs-uImage.itb root@192.168.5.1:/tmp/
-
-# 2. 启动 initramfs(机器进入 RAM 模式)
-sysupgrade /tmp/openwrt-*-initramfs-uImage.itb
-# 等设备重启后进入 initramfs RAM 模式
-
-# 3. SSH 进 initramfs(IP 还是 192.168.5.1 但状态在内存)
-ssh root@192.168.5.1
-
-# 4. 重格 UBI 分区(危险点,一旦执行无回滚)
-ubidetach -p /dev/mtd12 || true
-ubiformat /dev/mtd12 -y
-
-# 5. 上传 expand sysupgrade 镜像
+cat /proc/mtd | grep '"rootfs"'
 scp downloads/openwrt-qualcommax-ipq807x-redmi_ax6-squashfs-sysupgrade.bin root@192.168.5.1:/tmp/
-
-# 6. 写入
 sysupgrade -n /tmp/openwrt-*.bin
 ```
+
+从 STOCK 转换到 EXPAND 会改写 MIBIB/bootloader/分区表,不能靠
+`sysupgrade` 启动 initramfs ITB 或手工 `ubiformat /dev/mtd12` 通用完成。
+转换流程必须针对实机现有 bootloader 和备份单独确认,本仓库不自动执行。
 
 ## 6. 变砖恢复(救命方案)
 
@@ -131,9 +134,9 @@ sysupgrade -n /tmp/openwrt-*.bin
 
 ```bash
 # 1. 长按 reset 10 秒进 fastboot
-fastboot devices                              # 看到 AX6 ID
-fastboot flash rootfs stock-rootfs.bin        # 刷回备份的 rootfs
-fastboot reboot
+fastboot devices
+# 后续命令取决于当前 bootloader、MIBIB 和事先备份。
+# 未确认分区布局前不要执行 fastboot flash 或 raw NAND 写入。
 ```
 
 ### B. 硬变砖(进不了 fastboot)
@@ -143,15 +146,12 @@ fastboot reboot
 ```
 1. 接串口,115200 8N1
 2. 按住 reset 加电进 u-boot 命令模式
-3. 通过 TFTP 恢复:
-   ipq807x# tftpboot 0x44000000 appsbl.bin
-   ipq807x# nand erase 0x700000 0x100000     # mtd7 appsbl offset=7MB
-   ipq807x# nand write 0x44000000 0x700000 0x100000
-4. 同样恢复 appsblenv / art / bdata 分区
-5. reset
+3. 核对串口输出中的 NAND/MIBIB 分区表与备份清单。
+4. 只使用设备自身备份和与当前 bootloader 明确匹配的恢复流程。
+5. `sysupgrade.bin` 是 tar 容器,不能用 `nand write` 当作 raw 分区镜像。
 ```
 
-详细引脚和 TFTP 服务器 setup,Google "redmi ax6 ttl unbrick"。
+恢复 APPSBL/MIBIB/ART 属于高风险实机操作,必须在确认具体硬件和备份后单独制定命令。
 
 ## 7. NSS / WiFi 验证清单(刷完跑这套确认正常)
 

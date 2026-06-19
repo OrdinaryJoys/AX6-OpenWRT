@@ -66,7 +66,7 @@ jobs:
           case "$VARIANT_INPUT" in
             stock)
               CFG="AX6-IPQ/.config-stock"; TAG="STOCK"
-              echo "::notice::Building STOCK variant — Xiaomi SMEM partitioning, 102MB rootfs"
+              echo "::notice::Building STOCK variant — Xiaomi SMEM dual-slot layout, 35.75 MiB per UBI slot"
               ;;
             expand)
               CFG="AX6-IPQ/.config-expand"; TAG="EXPAND"
@@ -210,6 +210,18 @@ jobs:
               exit 1
             }
           done
+          image_mk="openwrt/target/linux/qualcommax/image/ipq807x.mk"
+          stock_profile=$(
+            sed -n '/^define Device\/redmi_ax6-stock$/,/^endef$/p' "$image_mk"
+          )
+          grep -Fq 'IMAGE_SIZE := 36608k' <<<"$stock_profile" || {
+            echo "::error file=$image_mk::redmi_ax6-stock lacks the 35.75 MiB IMAGE_SIZE guard"
+            exit 1
+          }
+          grep -Fq 'NAND_SIZE := 128m' <<<"$stock_profile" || {
+            echo "::error file=$image_mk::redmi_ax6-stock lacks the 128 MiB NAND reserve model"
+            exit 1
+          }
 
       - name: Add NSS feed and prepare feeds
         run: |
@@ -321,6 +333,25 @@ jobs:
 
           sys.exit(main())
           PY
+          if [ "$VARIANT_TAG" = STOCK ]; then
+            for package in sing-box xray-core ddns-go vim-fuller; do
+              if grep -Fqx "CONFIG_PACKAGE_${package}=y" .config; then
+                echo "::error::STOCK defconfig re-enabled oversized optional package: $package"
+                exit 1
+              fi
+            done
+            for asset in \
+              package/luci-app-openclash/root/etc/openclash/GeoSite.dat \
+              package/luci-app-openclash/root/etc/openclash/Country.mmdb \
+              package/luci-app-openclash/root/etc/openclash/rule_provider/oc-cn-domain.mrs \
+              package/luci-app-openclash/root/usr/share/openclash/ui/metacubexd \
+              package/luci-app-openclash/root/usr/share/openclash/ui/zashboard; do
+              if [ -e "$asset" ]; then
+                echo "::error::STOCK still embeds downloadable OpenClash asset: $asset"
+                exit 1
+              fi
+            done
+          fi
           make download -j8
           find dl -size -1024c -exec ls -l {} \;
           find dl -size -1024c -exec rm -f {} \;
@@ -408,28 +439,77 @@ jobs:
             echo "::error::Final rootfs contains unsupported ath11k rx_hash parameter"
             exit 1
           fi
+          if [ "$VARIANT_TAG" = STOCK ] &&
+             grep -Eq \
+               'squashfs-root/(etc/openclash/(GeoSite\.dat|Country\.mmdb|rule_provider/oc-cn-domain\.mrs)|usr/share/openclash/ui/(metacubexd|zashboard))(/| ->|$)' \
+               image-verify/rootfs-files.txt; then
+            echo "::error::STOCK rootfs contains downloadable OpenClash data or dashboards"
+            exit 1
+          fi
+
+          if [ "$VARIANT_TAG" = STOCK ]; then
+            mapfile -d '' factory_images < <(
+              find openwrt/bin/targets -type f \
+                -name '*-redmi_ax6-stock-squashfs-factory.ubi' -print0
+            )
+            if [ "${#factory_images[@]}" -ne 1 ]; then
+              echo "::error::Expected exactly one STOCK factory UBI image, found ${#factory_images[@]}"
+              exit 1
+            fi
+            stock_partition_size=$((0x023c0000))
+            factory_size=$(stat -c %s "${factory_images[0]}")
+            if [ "$factory_size" -gt "$stock_partition_size" ]; then
+              echo "::error::STOCK UBI is ${factory_size} bytes, exceeding the 0x023c0000 (${stock_partition_size} byte) Xiaomi SMEM slot"
+              exit 1
+            fi
+            echo "STOCK UBI size: ${factory_size}/${stock_partition_size} bytes"
+          else
+            mapfile -d '' factory_images < <(
+              find openwrt/bin/targets -type f \
+                -name '*-redmi_ax6-squashfs-factory.ubi' -print0
+            )
+            if [ "${#factory_images[@]}" -ne 1 ]; then
+              echo "::error::Expected exactly one EXPAND factory UBI image, found ${#factory_images[@]}"
+              exit 1
+            fi
+            expand_partition_size=$((0x0c000000))
+            factory_size=$(stat -c %s "${factory_images[0]}")
+            if [ "$factory_size" -gt "$expand_partition_size" ]; then
+              echo "::error::EXPAND UBI is ${factory_size} bytes, exceeding the configured 0x0c000000 rootfs partition"
+              exit 1
+            fi
+            echo "EXPAND UBI size: ${factory_size}/${expand_partition_size} bytes"
+          fi
           echo "Final rootfs validation: PASS"
 
       - name: Stage release artifacts + checksums
         run: |
           set -eo pipefail
-          mkdir -p upload
-          find openwrt/bin/targets -type f \
-            \( -name '*.ubi' -o -name '*.bin' -o -name '*.itb' \
-               -o -name 'sha256sums' -o -name 'config.buildinfo' \
-               -o -name 'feeds.buildinfo' -o -name 'version.buildinfo' \) \
-            -exec cp {} upload/ \;
-          cd upload
-          mapfile -d '' firmware < <(
-            find . -maxdepth 1 -type f \
-              \( -name '*.bin' -o -name '*.ubi' -o -name '*.itb' \) \
-              -print0
+          rm -rf upload
+          mkdir -p upload/upgrade upload/recovery
+
+          mapfile -d '' upgrade_images < <(
+            find openwrt/bin/targets -type f \
+              -name '*-squashfs-sysupgrade.bin' -print0
           )
-          if [ "${#firmware[@]}" -eq 0 ]; then
-            echo "::error::No AX6 firmware artifacts were produced"
+          if [ "${#upgrade_images[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one sysupgrade image, found ${#upgrade_images[@]}"
             exit 1
           fi
-          sha256sum -- "${firmware[@]}" >SHA256SUMS-AX6.txt
+          cp "${upgrade_images[@]}" upload/upgrade/
+
+          find openwrt/bin/targets -type f \
+            \( -name 'config.buildinfo' -o -name 'feeds.buildinfo' \
+               -o -name 'version.buildinfo' \) \
+            -exec cp {} upload/upgrade/ \;
+
+          find openwrt/bin/targets -type f \
+            \( -name '*-squashfs-factory.ubi' \
+               -o -name '*-initramfs-uImage.itb' \) \
+            -exec cp {} upload/recovery/ \;
+
+          cd upload/upgrade
+          sha256sum -- ./*-squashfs-sysupgrade.bin >SHA256SUMS-AX6.txt
           {
             echo "BUILD_REPOSITORY=$GITHUB_REPOSITORY"
             echo "BUILD_WORKFLOW_COMMIT=$GITHUB_SHA"
@@ -457,19 +537,42 @@ jobs:
             echo "OPENCLASH_COMMIT=$OPENCLASH_COMMIT"
             echo "OPENCLASH_VERSION=$OPENCLASH_VERSION"
           } > BUILD-LOCK-AX6.txt
-          # Embed nss-check tool into release for offline use
-          cp ../AX6-IPQ/files/sbin/nss-check ./nss-check.sh
-          cp ../AX6-IPQ/files/sbin/ax6-config-audit ./ax6-config-audit.sh
+          cp ../../AX6-IPQ/files/sbin/nss-check ./nss-check.sh
+          cp ../../AX6-IPQ/files/sbin/ax6-config-audit ./ax6-config-audit.sh
+          ls -lh
+
+          cd ../recovery
+          mapfile -d '' recovery_images < <(
+            find . -maxdepth 1 -type f \
+              \( -name '*.ubi' -o -name '*.itb' \) -print0
+          )
+          if [ "${#recovery_images[@]}" -gt 0 ]; then
+            sha256sum -- "${recovery_images[@]}" >SHA256SUMS-RECOVERY.txt
+          fi
+          printf '%s\n' \
+            'RECOVERY IMAGES - NOT FOR LUCI OR NORMAL SYSUPGRADE' \
+            'factory.ubi and initramfs ITB have different bootloader/recovery purposes.' \
+            'Do not write either image to a raw NAND partition without a device-specific, verified procedure.' \
+            >RECOVERY-README.txt
           ls -lh
 
       - name: Get current date
         run: echo "CURRENT_DATE=$(date '+%Y%m%d%H%M%S')" >> "$GITHUB_ENV"
 
-      - name: Upload validated build artifact
+      - name: Upload validated sysupgrade artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
-          name: AX6_NSS_${{ env.VARIANT_TAG }}_${{ github.sha }}
-          path: upload/*
+          name: AX6_NSS_${{ env.VARIANT_TAG }}_SYSUPGRADE_${{ github.sha }}
+          path: upload/upgrade/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+      - name: Upload recovery images separately
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: AX6_NSS_${{ env.VARIANT_TAG }}_RECOVERY_${{ github.sha }}
+          path: upload/recovery/*
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
@@ -480,7 +583,7 @@ jobs:
         with:
           tag: AX6_NSS_${{ env.VARIANT_TAG }}_${{ env.CURRENT_DATE }}
           commit: ${{ github.sha }}
-          artifacts: upload/*
+          artifacts: upload/upgrade/*
           allowUpdates: true
           token: ${{ secrets.GITHUB_TOKEN }}
           body: |
@@ -492,10 +595,13 @@ jobs:
 
             | 变体 | 适用 | 风险 |
             |---|---|---|
-            | STOCK | 1GB RAM + 128MB NAND(标准 Xiaomi 出厂)| 沿用 SMEM 分区,刷写前仍须备份并核对硬件 |
+            | STOCK | 1GB RAM + 128MB NAND(标准 Xiaomi 出厂)| 原厂 SMEM 双槽,每槽 35.75 MiB,构建强制校验容量 |
             | EXPAND | 1GB RAM + 256MB NAND(已硬件改 NAND)| 高(分区表会写死) |
 
             **不知道是哪个 → 选 STOCK**。
+            Release 仅提供正常升级使用的 `sysupgrade.bin`。`factory.ubi` 和
+            initramfs ITB 只在 Actions 的独立 RECOVERY artifact 中提供,不能用于
+            LuCI 正常升级,也不能当作 sysupgrade 镜像直接写入 NAND。
             刷 EXPAND 前必须确认:
             1. 已用烙铁/热风枪换过 NAND 颗粒
             2. SSH 进入设备 `cat /proc/mtd` 看 mtd12 size 是否 ≥ 0x0C000000
@@ -513,8 +619,9 @@ jobs:
             ## 变砖恢复(应急)
             - 物理 reset 长按 10 秒进 fastboot
             - 通过 USB-TTL 串口(115200 8N1)进 u-boot
-            - `tftpboot 0x44000000 stock.bin && nand erase rootfs && nand write 0x44000000 rootfs`
-            - 详见 AX6-IPQ/HARDWARE.md
+            - 恢复操作必须使用事先备份并与当前 MIBIB/分区布局匹配的镜像
+            - 不要把 `sysupgrade.bin`、`factory.ubi` 或 initramfs ITB 当作通用 raw NAND 镜像
+            - 详见 AX6-IPQ/HARDWARE.md,未确认分区表前不要执行擦写
 
       - name: Delete old releases
         if: github.ref == 'refs/heads/main'
