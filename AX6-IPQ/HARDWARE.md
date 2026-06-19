@@ -41,7 +41,7 @@ ssh root@192.168.5.1 'cat /proc/mtd | grep -E "\"rootfs(_1)?\"|\"overlay\""'
 - [ ] 你**亲手或店家换过** NAND 芯片(从 128MB 颗粒改到 ≥256MB 颗粒)
 - [ ] 设备能进 ImmortalWrt SSH,`/proc/mtd` 中名为 `rootfs` 的分区为 `0x0C000000`
 - [ ] 你有 USB-TTL 串口和 fastboot 救机经验
-- [ ] 你能接受刷错变砖的 1% 概率
+- [ ] 你已准备与当前 MIBIB/分区布局匹配的完整备份和恢复方案
 
 任何一项打不上勾都不能使用 EXPAND。
 
@@ -55,10 +55,10 @@ ssh root@192.168.5.1 'cat /proc/mtd | grep -E "\"rootfs(_1)?\"|\"overlay\""'
 内核会按 MIBIB 动态生成 MTD，因此不能用固定 `mtd12/mtd13` 作为布局
 判断或恢复依据，必须同时核对分区名称和大小。
 
-★ 标记的分区**永远不要乱刷**:
-- mtd7 appsbl(u-boot)被破坏 → 必须串口 + USB-Flash 救
-- mtd8 art(WiFi 校准)被破坏 → WiFi 永久坏,要从他人备份恢复
-- mtd6 appsblenv 被乱改 → bootcmd 错误,无法启动
+以下关键分区**永远不要按固定 mtd 编号乱刷**:
+- `0:appsbl` (U-Boot) 被破坏 → 通常需要串口和底层恢复工具
+- `0:art` (WiFi 校准) 被破坏 → WiFi 校准数据丢失，必须使用本机备份恢复
+- `0:appsblenv` 被误改 → bootcmd/启动变量可能导致设备无法启动
 
 ## 4. 刷机前 — 强制备份(避免无限恢复)
 
@@ -118,7 +118,8 @@ sysupgrade -n /tmp/openwrt-*.bin
 ```
 
 从 STOCK 转换到 EXPAND 会改写 MIBIB/bootloader/分区表,不能靠
-`sysupgrade` 启动 initramfs ITB 或手工 `ubiformat /dev/mtd12` 通用完成。
+`sysupgrade` 启动 initramfs ITB 或对某个固定 `/dev/mtdX` 执行 `ubiformat`
+来通用完成。
 转换流程必须针对实机现有 bootloader 和备份单独确认,本仓库不自动执行。
 
 ## 6. 变砖恢复(救命方案)
@@ -191,7 +192,7 @@ iw reg get | head -3                          # US (FCC)
 | 症状 | 原因 | 处理 |
 |---|---|---|
 | 启动卡 ImmortalWrt logo,无法 SSH | rootfs 损坏 | 等 30 秒,长按 reset 入 fastboot,刷回备份 |
-| WiFi 完全没了 | mtd8 art 损坏 | 串口 + TFTP 写回 art.bin 备份 |
+| WiFi 完全没了 | `0:art` 校准分区损坏 | 串口 + TFTP 写回本机 art.bin 备份 |
 | 网口灯都不亮 | u-boot 损坏 | 串口救机 |
 | 启动循环 | bootcmd 错或 kernel mismatch | u-boot `setenv bootcmd ...` |
 | sysupgrade 后变砖 | 刷错变体(stock vs expand) | fastboot 刷回正确变体 |

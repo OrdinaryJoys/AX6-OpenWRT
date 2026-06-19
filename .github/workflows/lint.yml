@@ -166,7 +166,7 @@ jobs:
               exit 1
             }
           done
-          [ "$SOURCE_TRACKING_BRANCH" = codex/fix-ath11k-nss-depends ] || {
+          [ "$SOURCE_TRACKING_BRANCH" = codex/fix-ath11k-kconfig-cycle ] || {
             echo "::error::unexpected source tracking branch: $SOURCE_TRACKING_BRANCH"
             exit 1
           }
@@ -550,10 +550,9 @@ jobs:
               ('kmod-qca-nss-drv', 'kmod-shortcut-fe'),
               ('kmod-qca-nss-drv', 'kmod-shortcut-fe-cm'),
           )
-          # 推荐启用(=y)。kmod-qca-rfs / kmod-qca-pppe 已由 package/qca-nss 内置
-          # NSS_REDIRECT 已被上游 mac80211 更新删除(ath11k 不需要)
-          NSS_RECOMMENDED = (
-              'MAC80211_NSS_SUPPORT',
+          # 推荐启用的包。ATH11K_NSS_SUPPORT 不是 PACKAGE_ 符号，由前面的
+          # locked-source/config checks 单独验证。
+          NSS_RECOMMENDED_PACKAGES = (
               'kmod-qca-ssdk',
           )
           NSS_EXTRA = 'AX6-IPQ/nss-extra.config'
@@ -601,7 +600,7 @@ jobs:
                           )
                           fail_count += 1
 
-                  for need in NSS_RECOMMENDED:
+                  for need in NSS_RECOMMENDED_PACKAGES:
                       if merged.get(f'PACKAGE_{need}') != 'y':
                           print(
                               f'::warning file={cfg}::missing recommended '
