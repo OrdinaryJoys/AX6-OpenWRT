@@ -51,6 +51,79 @@ jobs:
           workflow=.github/workflows/build-AX6-NSS.yml
           grep -Fq 'uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' "$workflow"
           test "$(grep -F 'if: github.ref ==' "$workflow" | grep -Fc 'refs/heads/main')" -eq 2
+          for workflow in \
+            .github/workflows/build-AX6-IPQ.yml \
+            .github/workflows/build-IMM.yml \
+            .github/workflows/build-LEDE.yml; do
+            if grep -Fq 'uses: ncipollo/release-action@' "$workflow"; then
+              echo "::error file=$workflow::unlocked backup workflows must not publish Releases"
+              exit 1
+            fi
+            grep -Fq 'UNVALIDATED_${{ github.sha }}' "$workflow"
+          done
+
+      - name: STOCK image safety policy
+        run: |
+          set -eo pipefail
+          workflow=.github/workflows/build-AX6-NSS.yml
+          grep -Fq "stock_partition_size=\$((0x06640000))" "$workflow"
+          grep -Fq "stock_ubi_limit=\$((0x06340000))" "$workflow"
+          grep -Fq 'xiaomi_stock_check_image_size' "$workflow"
+          grep -Fq 'artifacts: upload/upgrade/*' "$workflow"
+          grep -Fq 'path: upload/recovery/*' "$workflow"
+
+          if grep -Eq 'nand (erase|write).*rootfs|fastboot flash rootfs' \
+            "$workflow" AX6-IPQ/HARDWARE.md; then
+            echo "::error::Generic raw rootfs flashing commands are forbidden"
+            exit 1
+          fi
+
+          grep -Fq 'SMEM/custom U-Boot merged rootfs' AX6-IPQ/files/sbin/nss-check
+          grep -Fq '06640000' AX6-IPQ/HARDWARE.md
+
+      - name: STOCK and EXPAND config difference allowlist
+        run: |
+          python3 - <<'PY'
+          import re
+          import sys
+
+
+          def parse(path):
+              values = {}
+              with open(path) as stream:
+                  for raw in stream:
+                      line = raw.strip()
+                      match = re.match(r'^(CONFIG_[A-Za-z0-9_-]+)=(.*)$', line)
+                      if match:
+                          values[match.group(1)] = match.group(2)
+                          continue
+                      match = re.match(
+                          r'^# (CONFIG_[A-Za-z0-9_-]+) is not set$', line
+                      )
+                      if match:
+                          values[match.group(1)] = 'n'
+              return values
+
+
+          allowed = {
+              'CONFIG_TARGET_PROFILE',
+              'CONFIG_TARGET_qualcommax_ipq807x_DEVICE_redmi_ax6',
+              'CONFIG_TARGET_qualcommax_ipq807x_DEVICE_redmi_ax6-stock',
+          }
+          stock = parse('AX6-IPQ/.config-stock')
+          expand = parse('AX6-IPQ/.config-expand')
+          unexpected = [
+              symbol
+              for symbol in sorted(set(stock) | set(expand))
+              if stock.get(symbol) != expand.get(symbol) and symbol not in allowed
+          ]
+          if unexpected:
+              print(
+                  '::error::Unexpected STOCK/EXPAND config differences: '
+                  + ' '.join(unexpected)
+              )
+              sys.exit(1)
+          PY
 
       - name: AX6 NSS build lock check
         run: |

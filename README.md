@@ -2,30 +2,33 @@
 
 [![Lint](https://github.com/OrdinaryJoys/AX6-OpenWRT/actions/workflows/lint.yml/badge.svg)](https://github.com/OrdinaryJoys/AX6-OpenWRT/actions/workflows/lint.yml)
 
-Redmi AX6 一键编译脚本 — 完整 NSS 加速 + WiFi 6 满血 + 双变体支持。
+Redmi AX6 一键编译脚本 — 完整 NSS 加速 + WiFi 6 满血 + 分区布局门禁。
 
 ## 主仓输出:`Build OpenWRT for AX6-NSS`
 
 基于 [OrdinaryJoys/immortalwrt-nss](https://github.com/OrdinaryJoys/immortalwrt-nss)
 (VIKINGYFY 上游 + 本仓 NSS 修复)编译,带满血 NSS 加速,500 Mbps NAT 流量 CPU 占用 < 5%。
 
-### 两个硬件变体
+### 支持的构建目标
 
-| 变体 | 适用 | rootfs | 变砖风险 |
+| 变体 | 适用布局 | rootfs | 变砖风险 |
 |---|---|---|---|
-| **STOCK**(默认)| 1GB RAM + 128MB NAND(Xiaomi 出厂) | ~102 MB | 较低,刷写前仍须备份并核对硬件 |
+| **STOCK** | 128MB NAND + custom U-Boot/SMEM 合并布局 | 单 `rootfs=0x06640000` | 中,必须核对 `/proc/mtd` |
 | **EXPAND** | 1GB RAM + 256MB NAND(已硬件改装 NAND)| ~192 MB | 高(刷错变砖) |
 
-不知道选哪个 → **选 STOCK**。详见 [`AX6-IPQ/HARDWARE.md`](AX6-IPQ/HARDWARE.md)。
+Xiaomi 原厂双 `0x023c0000` 槽与合并布局共享 `redmi,ax6-stock`
+兼容标识，但本仓完整 STOCK 镜像面向合并布局。布局不明确时不要刷写。
+详见 [`AX6-IPQ/HARDWARE.md`](AX6-IPQ/HARDWARE.md)。
 
 最新全量检查、修复、文件变更、验证证据和遗留问题见
 [`AX6-IPQ/AUDIT-REPAIR-REPORT-2026-06-19.md`](AX6-IPQ/AUDIT-REPAIR-REPORT-2026-06-19.md)。
 
 > **供应链已恢复（2026-06-18）**：
 > qca-nss 已迁移到源码树内置 (`package/qca-nss/`, 10 包 73 文件)。
-> 锁文件指向 `codex/fix-ath11k-nss-depends` 的已审计提交 `4b0b74e7da5a...`。
+> 锁文件指向 `codex/fix-ath11k-nss-depends` 的已审计提交 `9b711aebd554...`。
 > 外部 feed `VIKINGYFY/nss-packages-618` 已废弃。
-> VIKINGYFY 后续 `38e28da...` 涉及 qca-nss/mac80211 重构，尚未合并。
+> VIKINGYFY 后续 `38e28da...`、`5f520e5...` 涉及 qca-nss/mac80211
+> 重构，尚未合并。
 
 ### 触发编译
 
@@ -39,6 +42,8 @@ GitHub UI → Actions → `Build OpenWRT for AX6-NSS` → Run workflow → 选 v
 - **IRQ/RPS 策略**:由上游 qualcommax 脚本统一管理,避免多个脚本互相覆盖
 - **WPA3 + IPv6 + 漫游支持**(11k/v + bss_transition)
 - **分层检查**:`nss-check` 检查硬件/NSS 确定性故障,`ax6-config-audit` 只读审计场景配置
+- **双重容量门禁**:CI 按合并分区和坏块预留校验；sysupgrade 按实机 MTD 几何再次拒绝超限镜像
+- **完整软件集**:合并布局保留 OpenClash、sing-box、xray-core 与 DDNS 组件
 
 ## 默认登录
 
@@ -55,7 +60,7 @@ GitHub UI → Actions → `Build OpenWRT for AX6-NSS` → Run workflow → 选 v
 ├── .github/
 │   ├── depends-ubuntu-2204.txt    # 固化构建依赖(替代 curl|apt)
 │   └── workflows/
-│       ├── build-AX6-NSS.yml      # 主固件 (双变体输入)
+│       ├── build-AX6-NSS.yml      # 主固件 (合并 SMEM / 256M 扩容)
 │       ├── build-AX6-IPQ.yml      # 备用:基于 LiBwrt(原 LiBwrt-op 已改名)
 │       ├── build-IMM.yml          # 无 NSS,基于 official ImmortalWrt 23.05
 │       ├── build-LEDE.yml         # 基于 coolsnowwolf/lede
@@ -85,7 +90,8 @@ GitHub UI → Actions → `Build OpenWRT for AX6-NSS` → Run workflow → 选 v
 - 所有 GitHub Actions 已 pin 到 SHA(防 supply chain)
 - 依赖清单固化在仓内(无 `curl | apt install`)
 - WiFi 默认 country=US (FCC 最大功率; 覆盖: `echo CN > /etc/config/ax6_wifi_country && reboot`)
-- Release artifact 自带 SHA256SUMS-AX6.txt 校验
+- Release 只发布正常升级用 `sysupgrade.bin`,并自带 SHA256SUMS-AX6.txt 校验
+- `factory.ubi`/initramfs ITB 位于独立 RECOVERY artifact,不能用于 LuCI 正常升级
 
 ## 实机验证
 
@@ -109,7 +115,9 @@ ax6-config-audit -v
 - WiFi 首次启动脚本只设置 radio 级默认值，不覆盖 SSID 隔离、PMF、漫游或 IoT 策略。
 - VLAN、ZeroTier、UPnP 和 OpenClash 由管理员按网络拓扑配置，仓库工具只读审计。
 - 主构建的源码、全部 feeds、Argon 和 OpenClash 都固定到完整提交 SHA。
-- AX6-IPQ 备用构建跟随 LiBwrt `main-nss`，会记录实际源码提交和 `feeds.buildinfo`，但不属于完全锁定构建，也没有主构建级别的历史成功验证。
+- AX6-IPQ/IMM/LEDE 备用构建跟随移动分支或 feeds,只上传 7 天
+  `UNVALIDATED` Actions artifact,不创建 Release。它们没有主构建级别的锁定、
+  容量和最终产物验证,不得当作已验证固件发布。
 
 ## 关联仓库矩阵(实测可达性 + 引用关系)
 

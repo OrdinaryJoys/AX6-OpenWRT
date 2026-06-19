@@ -12,7 +12,7 @@ env:
   TZ: Asia/Shanghai
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -86,29 +86,11 @@ jobs:
           find openwrt/bin/targets -type f \( -name '*.ubi' -o -name '*.bin' \) -exec cp {} upload/ \;
           ls -lh upload/
 
-      - name: Get current date
-        run: echo "CURRENT_DATE=$(date '+%Y%m%d%H%M%S')" >> "$GITHUB_ENV"
-
-      - name: Upload firmware to Release
-        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd  # v1.21.0
+      - name: Upload unvalidated backup artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
-          tag: AX6_IMM_${{ env.CURRENT_DATE }}
-          commit: ${{ github.sha }}
-          artifacts: upload/*
-          allowUpdates: true
-          token: ${{ secrets.GITHUB_TOKEN }}
-          body: |
-            基于 immortalwrt openwrt-23.05 构建,无 NSS 加速。
-
-            ## 默认登录
-            - 管理 IP: 192.168.1.1
-            - 用户: root
-            - 密码: **首次登录通过 Web 或 SSH 设置**
-
-      - name: Delete old releases
-        uses: dev-drprasad/delete-older-releases@dfbe6be2a006e9475dfcbe5b8d201f1824c2a9fe  # v0.3.4
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          keep_latest: 10
-          delete_tags: true
+          name: AX6_IMM_UNVALIDATED_${{ github.sha }}
+          path: upload/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7

@@ -36,7 +36,6 @@ grep -qx "PKG_VERSION:=${OPENCLASH_VERSION}" package/luci-app-openclash/Makefile
   exit 2
 }
 
-
 # ----------------------------------------------------
 # 切断 firewall4→kmod-nft-offload→kmod-nf-flow 依赖链
 # NSS ECM owns connection acceleration. firewall4's kmod-nft-offload dependency
@@ -91,9 +90,10 @@ fi
 # ----------------------------------------------------
 # 两种 SKU 通过 .config 选择,DT 这里只补扩容版分区。
 #
-# (1) Stock (redmi,ax6-stock):
-#       Xiaomi 原始 SMEM 分区,rootfs ≈ 102 MiB,刷写前仍须备份并核对硬件
-#       — DT 不动 partition 节点(ax6-stock.dts 已 /delete-node/)
+# (1) SMEM/custom U-Boot (redmi,ax6-stock):
+#       DTS 从 MIBIB/SMEM 读取实际分区。本仓主构建面向 rootfs=0x06640000
+#       的 128MiB NAND 合并布局。源码升级预检会拒绝装不进当前分区的镜像。
+#       原厂双 0x023c0000 槽也使用相同 compatible,但不能使用本仓完整镜像。
 #
 # (2) Expanded (redmi,ax6):
 #       NAND 必须已硬件改装到 ≥256MiB,否则刷下去会变砖!

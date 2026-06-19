@@ -1,5 +1,12 @@
 # 更新日志
 
+> **2026-06-19 安全更正:**历史 Release 中约 50-60 MB 的
+> `redmi_ax6-stock` UBI/sysupgrade 产物超过 Xiaomi 原厂
+> `0x023c0000`(35.75 MiB)单槽容量,不得用于原厂 STOCK 双槽布局。
+> `06640000` 是 custom U-Boot/MIBIB 合并分区值，也是本仓完整 STOCK
+> workflow 的实际目标。两者共享上游 `redmi,ax6-stock` compatible，
+> 因此新版源码改为在 sysupgrade 前按实机 MTD 几何执行硬容量检查。
+
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/),
 版本号采用 release tag(`AX6_NSS_<VARIANT>_<TIMESTAMP>`)。
 
