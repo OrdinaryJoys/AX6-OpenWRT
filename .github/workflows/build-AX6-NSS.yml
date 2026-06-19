@@ -457,7 +457,17 @@ jobs:
       - name: Get current date
         run: echo "CURRENT_DATE=$(date '+%Y%m%d%H%M%S')" >> "$GITHUB_ENV"
 
+      - name: Upload validated build artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: AX6_NSS_${{ env.VARIANT_TAG }}_${{ github.sha }}
+          path: upload/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
       - name: Upload firmware to Release
+        if: github.ref == 'refs/heads/main'
         uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd  # v1.21.0
         with:
           tag: AX6_NSS_${{ env.VARIANT_TAG }}_${{ env.CURRENT_DATE }}
@@ -499,6 +509,7 @@ jobs:
             - 详见 AX6-IPQ/HARDWARE.md
 
       - name: Delete old releases
+        if: github.ref == 'refs/heads/main'
         uses: dev-drprasad/delete-older-releases@dfbe6be2a006e9475dfcbe5b8d201f1824c2a9fe  # v0.3.4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

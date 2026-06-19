@@ -14,12 +14,12 @@
 | 项目 | 审计结论 |
 |---|---|
 | 6 月 16 日旧源码 STOCK 固件 | 已成功构建并生成 Release |
-| 迁移到 built-in `package/qca-nss` 后的新源码固件 | **尚未成功完成构建验证** |
+| 迁移到 built-in `package/qca-nss` 后的新源码固件 | 已完成编译和 rootfs 校验；测试分支 Release 权限失败不影响固件内容 |
 | 清单中的 CI `#27774751677` | 不是“编译中”，而是超过一天卡在 `Initialize environment` |
 | 清单中的 `SOURCE_COMMIT` | **错误**；写入了 GitHub 上不存在的完整 SHA |
-| NSS init START 修正 | 代码已改为 `S28qca-nss-drv` / `S27qca-nss-pbuf`，仍需新构建验证 |
-| 构建供应链 | 外部 NSS feed 已移除；源码锁和 ATH11K NSS 依赖已修正，等待新构建验证 |
-| 配置状态 | 存在 9 个当前源码未定义的陈旧 NSS 符号和 1 个无效依赖组合 |
+| NSS init START 修正 | 新镜像 rootfs 已验证 `S28qca-nss-drv` / `S27qca-nss-pbuf` |
+| 构建供应链 | 外部 NSS feed 已移除；源码锁和 ATH11K NSS 依赖已通过完整编译 |
+| 配置状态 | 9 个陈旧 NSS 符号和 1 个无效依赖组合已清理 |
 | 路由器备份脚本 | 原实现不是完整备份，已重构 |
 | OpenClash 恢复脚本 | 原实现未使用备份目录且硬编码订阅名，已重构 |
 | VIKINGYFY 最新更新 | 新增 `38e28da... cleanup qca-nss config`，与当前本地修复有冲突 |
@@ -28,8 +28,8 @@
 
 当前状态不能表述为“所有问题已修复”。准确表述应为：
 
-> **确定性仓库问题已修正并通过本地检查；built-in qca-nss 新基线仍需新的
-> GitHub Actions STOCK 构建、rootfs 校验和测试机运行时验证。**
+> **确定性仓库问题已修正并通过本地检查、完整 STOCK 编译和 rootfs 校验；
+> 尚未完成的是测试分支 Artifact 整体成功状态和经用户确认后的实机运行时验证。**
 
 ## 2. 用户检查清单复核
 
@@ -186,18 +186,21 @@ packages 的 51 个提交包含 Go 安全更新、strongSwan 修复、Python 包
 | `27776232029` | `35bc28f...` | cancelled | 复现环境初始化异常；日志确认卡在 TeX Live 推荐依赖解包 |
 | `27777378927` | `9eee531...` | cancelled | 去除推荐依赖后仍慢；交叉确认磁盘清理删除了随后要重装的 Clang/LLVM |
 | `27778615180` | `4a0f6b2...` | failure | 编译到 `kmod-ath11k` 后因缺少 `qca-nss-drv.ko` 包依赖失败 |
+| `27798416475` | `c56c020...` | release failure | Compile、ATH11K 打包、rootfs 和制品整理成功；测试分支创建 Release 返回 403 |
 
 截至审计时，最新 Release 仍为：
 
 `AX6_NSS_STOCK_20260616203522`
 
-它不能证明 built-in qca-nss 新源码和 `S28/S27` 校验已经通过。
+该旧 Release 仍不应刷写；built-in qca-nss 新源码已由 run `27798416475`
+完成编译和 rootfs 校验，但尚未发布为正式 Release。
 
 ## 7. GitHub Actions 供应链修复
 
 | Action | 原固定版本 | 新固定版本 | 验证 |
 |---|---|---|---|
 | `actions/checkout` | v4.1.1 / Node 20 | v7.0.0 / Node 24 | 官方 tag SHA `9c091bb...` |
+| `actions/upload-artifact` | 未配置 | v7.0.1 / Node 24 | 官方 tag SHA `043fb46...` |
 | `ncipollo/release-action` | v1.14.0 | v1.21.0 / Node 24 | 官方 tag SHA `339a818...` |
 | `dev-drprasad/delete-older-releases` | v0.3.4 | 保持 | 当前最新仍为 v0.3.4 |
 | `jlumbroso/free-disk-space` | v1.3.1 | 保持 | tag SHA 与 workflow 一致 |
@@ -234,6 +237,8 @@ packages 的 51 个提交包含 Go 安全更新、strongSwan 修复、Python 包
 | `sh -n` / `bash -n` | PASS |
 | `git diff --check` | PASS |
 | 空 Git 仓库按真实完整 SHA 拉取源码 | PASS |
+| ATH11K NSS 四条条件依赖 | PASS |
+| 云端 STOCK 编译与 rootfs 校验 | PASS (`27798416475`) |
 | mock SSH 备份流程 | PASS |
 | mock SSH OpenClash 恢复流程 | PASS |
 | stock/expand 配置差异 | 仅目标设备/profile |
@@ -242,8 +247,8 @@ packages 的 51 个提交包含 Go 安全更新、strongSwan 修复、Python 包
 
 | 优先级 | 项目 | 完成条件 |
 |---|---|---|
-| P0 | 新源码 STOCK 云端构建 | Compile、rootfs validation、Release 全部成功 |
-| P0 | `S28/S27` rootfs 链接 | 新镜像内实际存在 |
+| P0 | 测试分支 Artifact 整体工作流 | Artifact 上传成功且 workflow conclusion 为 success |
+| P1 | main 正式 Release | PR 审核合并后由 main 构建创建 |
 | P1 | built-in qca-nss 运行时 | 测试机 `nss-check -v` 无 FAIL |
 | P1 | WiFi 2.4G IoT | 多设备完成关联、DHCP、联网和局域网发现 |
 | P1 | VLAN | 802.1q 子接口实流量和 NSS VLAN 计数验证 |
