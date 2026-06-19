@@ -40,6 +40,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-22.04
+    timeout-minutes: 180
     steps:
       - name: Free disk space
         uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be  # v1.3.1
@@ -48,12 +49,13 @@ jobs:
           android: true
           dotnet: true
           haskell: true
-          large-packages: true
+          # Keep preinstalled Clang/LLVM: they are explicit OpenWrt dependencies.
+          large-packages: false
           docker-images: true
           swap-storage: true
 
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
 
       - name: Set variant config + brick-safety pre-flight
         id: variant
@@ -142,9 +144,8 @@ jobs:
           set -eo pipefail
           # 改用仓内固化的依赖清单(去除远程 curl|apt 注入风险)
           mapfile -t PKGS < <(grep -v '^\s*#' .github/depends-ubuntu-2204.txt | grep -v '^\s*$')
-          sudo -E apt-get -qq update
-          sudo -E apt-get -qq install -y "${PKGS[@]}"
-          sudo -E apt-get -qq autoremove --purge
+          sudo -E apt-get -qq -o Acquire::Retries=3 update
+          sudo -E apt-get -qq -o Acquire::Retries=3 install -y --no-install-recommends "${PKGS[@]}"
           sudo -E apt-get -qq clean
           sudo timedatectl set-timezone "$TZ"
           sudo chown -R "$USER":"$(id -gn)" "$GITHUB_WORKSPACE"
@@ -175,6 +176,7 @@ jobs:
             echo "$name=$value" >> "$GITHUB_ENV"
           done
           for name in \
+            SOURCE_COMMIT SQM_SCRIPTS_NSS_COMMIT LUCI_FEED_COMMIT \
             PACKAGES_FEED_COMMIT ROUTING_FEED_COMMIT TELEPHONY_FEED_COMMIT \
             VIDEO_FEED_COMMIT ARGON_THEME_COMMIT ARGON_CONFIG_COMMIT \
             OPENCLASH_COMMIT; do
@@ -190,13 +192,24 @@ jobs:
           set -eo pipefail
           git init openwrt
           git -C openwrt remote add origin "$SOURCE_REPO"
-          git -C openwrt fetch --depth 1 origin "$SOURCE_TRACKING_BRANCH"
+          git -C openwrt fetch --depth 1 origin "$SOURCE_COMMIT"
           git -C openwrt checkout --detach FETCH_HEAD
           actual=$(git -C openwrt rev-parse HEAD)
           [ "$actual" = "$SOURCE_COMMIT" ] || {
             echo "::error::Source lock mismatch: expected $SOURCE_COMMIT, got $actual"
             exit 1
           }
+          ath_mk="openwrt/package/kernel/mac80211/ath.mk"
+          for dependency in \
+            '+ATH11K_NSS_SUPPORT:kmod-qca-nss-drv' \
+            '+ATH11K_NSS_MESH_SUPPORT:kmod-qca-nss-drv-wifi-meshmgr' \
+            '+@(ATH11K_NSS_SUPPORT):NSS_DRV_WIFIOFFLOAD_ENABLE' \
+            '+@(ATH11K_NSS_SUPPORT):NSS_DRV_WIFI_EXT_VDEV_ENABLE'; do
+            grep -Fq "$dependency" "$ath_mk" || {
+              echo "::error file=$ath_mk::missing ATH11K NSS dependency: $dependency"
+              exit 1
+            }
+          done
 
       - name: Add NSS feed and prepare feeds
         run: |
@@ -265,19 +278,16 @@ jobs:
           for pkg in $NSS_BLACKLIST; do
             sed -i "s|^CONFIG_PACKAGE_${pkg}=y$|# CONFIG_PACKAGE_${pkg} is not set|" .config
           done
-          # defconfig Kconfig select 会重新启用 NSS FW 12.5 不支持的 NSS_DRV 选项,
-          # 此处 sed 强制覆盖为 =n (qosmio 官方矩阵确认 FW 12.5 不支持):
+          # 当前源树仍定义的 WIFI_MESH 需要 FW 11.4；本构建使用 FW 12.5。
           #   https://github.com/qosmio/openwrt-ipq#nss-support-matrix
-          for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_DTLS_ENABLE NSS_DRV_CAPWAP_ENABLE NSS_DRV_PVXLAN_ENABLE NSS_DRV_SFE_ENABLE NSS_DRV_WIFI_MESH_ENABLE NSS_DRV_WDS_ENABLE; do
-            sed -i "s|^CONFIG_${opt}=y$|# CONFIG_${opt} is not set|" .config
-          done
+          sed -i \
+            's|^CONFIG_NSS_DRV_WIFI_MESH_ENABLE=y$|# CONFIG_NSS_DRV_WIFI_MESH_ENABLE is not set|' \
+            .config
           # 验证 NSS_DRV 不支持项已清除 (不包括 RMNET:🟨 qca-nss-netlink 依赖)
-          for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_DTLS_ENABLE NSS_DRV_CAPWAP_ENABLE NSS_DRV_PVXLAN_ENABLE NSS_DRV_SFE_ENABLE NSS_DRV_WIFI_MESH_ENABLE NSS_DRV_WDS_ENABLE; do
-            if grep -q "^CONFIG_${opt}=y$" .config; then
-              echo "::error::NSS FW 12.5 unsupported: CONFIG_${opt}=y still enabled after sed"
-              exit 2
-            fi
-          done
+          if grep -q '^CONFIG_NSS_DRV_WIFI_MESH_ENABLE=y$' .config; then
+            echo "::error::NSS FW 12.5 unsupported: CONFIG_NSS_DRV_WIFI_MESH_ENABLE=y still enabled after sed"
+            exit 2
+          fi
           # 验证:确保 NSS 冲突包不再出现
           python3 - <<'PY'
           """Post-defconfig 校验:sed 拉黑后再扫一遍 .config,确保没漏。"""
@@ -356,6 +366,8 @@ jobs:
             'etc/init\.d/set-irq-affinity' \
             'etc/init\.d/smp_affinity' \
             'etc/init\.d/zram' \
+            'etc/modprobe\.d/nss-no-flow\.conf' \
+            'etc/uci-defaults/95-ax6-zram-defaults' \
             'etc/uci-defaults/15_smp_affinity\.sh' \
             'usr/lib/sqm/nss-zk\.qos' \
             'sbin/nss-check' \
@@ -387,6 +399,15 @@ jobs:
               exit 1
             }
           done
+          unsquashfs -cat "$rootfs" etc/modprobe.d/ath11k.conf \
+            > image-verify/ath11k.conf
+          grep -Fqx 'options ath11k frame_mode=2' image-verify/ath11k.conf
+          grep -Fqx 'options ath11k nss_offload=1' image-verify/ath11k.conf
+          if grep -Eq '^[[:space:]]*options[[:space:]]+ath11k[[:space:]].*rx_hash=' \
+            image-verify/ath11k.conf; then
+            echo "::error::Final rootfs contains unsupported ath11k rx_hash parameter"
+            exit 1
+          fi
           echo "Final rootfs validation: PASS"
 
       - name: Stage release artifacts + checksums
@@ -444,8 +465,18 @@ jobs:
       - name: Get current date
         run: echo "CURRENT_DATE=$(date '+%Y%m%d%H%M%S')" >> "$GITHUB_ENV"
 
+      - name: Upload validated build artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: AX6_NSS_${{ env.VARIANT_TAG }}_${{ github.sha }}
+          path: upload/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
       - name: Upload firmware to Release
-        uses: ncipollo/release-action@2c591bcc8ecdcd2db72b97d6147f871fcd833ba5  # v1.14.0
+        if: github.ref == 'refs/heads/main'
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd  # v1.21.0
         with:
           tag: AX6_NSS_${{ env.VARIANT_TAG }}_${{ env.CURRENT_DATE }}
           commit: ${{ github.sha }}
@@ -486,6 +517,7 @@ jobs:
             - 详见 AX6-IPQ/HARDWARE.md
 
       - name: Delete old releases
+        if: github.ref == 'refs/heads/main'
         uses: dev-drprasad/delete-older-releases@dfbe6be2a006e9475dfcbe5b8d201f1824c2a9fe  # v0.3.4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -19,8 +19,11 @@ fi
 
 # ECM 连接数(NSS 卸载工作中)
 _ecm_count=0
-[ -r /sys/kernel/debug/ecm/ecm_db/connection_count_simple ] && \
-    _ecm_count=$(cat /sys/kernel/debug/ecm/ecm_db/connection_count_simple 2>/dev/null)
+if [ -r /sys/kernel/debug/ecm/ecm_db/connection_count_simple ]; then
+    _ecm_raw=$(cat /sys/kernel/debug/ecm/ecm_db/connection_count_simple 2>/dev/null)
+    _ecm_count=$(echo "$_ecm_raw" | grep -oE '[0-9]+' | tail -n 1)
+    [ -n "$_ecm_count" ] || _ecm_count=0
+fi
 
 # WiFi 状态
 _wifi_state=""
@@ -38,5 +41,4 @@ printf ' NSS: modules=%d  core=%b  ecm=%d  WiFi: %b  RAM: %d/%d MB\n' \
     "$_nss_count" "$_nss_state" "$_ecm_count" "$_wifi_state" "$_ram_used_mb" "$_ram_total_mb"
 printf ' Run: %s for full health check\n\n' "$(_color '36' 'nss-check -v')"
 
-unset _color _nss_count _nss_state _ecm_count _wifi_state _ram_used_mb _ram_total_mb
-
+unset _color _nss_count _nss_state _ecm_raw _ecm_count _wifi_state _ram_used_mb _ram_total_mb

@@ -16,6 +16,8 @@
 #
 # 这是 qosmio NSS 推荐的 8021q 子接口方式,不是 bridge_vlan_filtering
 
+set -u
+
 usage() {
     cat <<EOF
 Usage: $0 <vlan-id> <name> <ip/cidr> [port1 port2 ...]
@@ -46,6 +48,32 @@ NAME="$2"
 IPADDR="$3"
 shift 3
 PORTS="${*:-lan1 lan2 lan3 lan4}"
+CONFIG_DIR="${VLAN_ADD_CONFIG_DIR:-/etc/config}"
+BACKUP_DIR=
+SUCCESS=0
+
+cleanup() {
+    rc=$?
+    trap - EXIT HUP INT TERM
+    if [ -n "$BACKUP_DIR" ]; then
+        if [ "$SUCCESS" -ne 1 ]; then
+            for package in network firewall dhcp; do
+                cp "$BACKUP_DIR/$package" "$CONFIG_DIR/$package" 2>/dev/null || true
+                uci -q revert "$package" 2>/dev/null || true
+            done
+            echo "error: configuration failed; network, firewall and DHCP files were restored" >&2
+        fi
+        rm -rf "$BACKUP_DIR"
+    fi
+    exit "$rc"
+}
+
+abort_signal() {
+    exit 130
+}
+
+trap cleanup EXIT
+trap abort_signal HUP INT TERM
 
 # ---- 输入校验 -----------------------------------------------------------
 
@@ -68,6 +96,10 @@ if ! echo "$NAME" | grep -Eq '^[a-z][a-z0-9_]*$'; then
     echo "error: name must match [a-z][a-z0-9_]* (UCI section names allow only alphanumeric and underscore)" >&2
     exit 2
 fi
+if [ "${#NAME}" -gt 12 ]; then
+    echo "error: name must be at most 12 characters (Linux bridge names are limited to 15)" >&2
+    exit 2
+fi
 
 # ip/cidr: 形如 192.168.x.y/N
 if ! echo "$IPADDR" | grep -Eq '^[0-9.]+/[0-9]+$'; then
@@ -76,17 +108,59 @@ if ! echo "$IPADDR" | grep -Eq '^[0-9.]+/[0-9]+$'; then
 fi
 IP="${IPADDR%/*}"
 MASK_BITS="${IPADDR#*/}"
-if ! awk -v ip="$IP" -v bits="$MASK_BITS" 'BEGIN {
+NETWORK_VALUES=$(awk -v ip="$IP" -v bits="$MASK_BITS" 'BEGIN {
     n = split(ip, octets, ".")
     if (n != 4) exit 1
     for (i = 1; i <= 4; i++) {
         if (octets[i] !~ /^[0-9]+$/ || octets[i] < 0 || octets[i] > 255) exit 1
     }
-    if (bits !~ /^[0-9]+$/ || bits < 1 || bits > 32) exit 1
-}'; then
+    if (bits !~ /^[0-9]+$/ || bits < 1 || bits > 30) exit 1
+
+    ipnum = octets[1] * 16777216 + octets[2] * 65536 + octets[3] * 256 + octets[4]
+    size = 2 ^ (32 - bits)
+    host = ipnum % size
+    if (host != 1) exit 2
+
+    mask = 4294967295 - size + 1
+    for (i = 3; i >= 0; i--) {
+        netmask = netmask sprintf("%d%s", int(mask / 2 ^ (8 * i)) % 256, (i ? "." : ""))
+    }
+
+    usable = size - 2
+    if (usable >= 249) {
+        start = 100
+        limit = 150
+    } else {
+        start = 2
+        limit = usable - 1
+    }
+    printf "%s %d %d", netmask, start, limit
+}' 2>/dev/null)
+network_rc=$?
+if [ "$network_rc" -eq 2 ]; then
+    echo "error: gateway must be the first usable address in its subnet (for example 192.168.40.1/24)" >&2
+    exit 2
+elif [ "$network_rc" -ne 0 ]; then
     echo "error: ip must be a valid IPv4 CIDR e.g. 192.168.40.1/24" >&2
+    echo "       supported prefix length is /1 through /30" >&2
     exit 2
 fi
+set -- $NETWORK_VALUES
+NETMASK="$1"
+DHCP_START="$2"
+DHCP_LIMIT="$3"
+
+# Do not mix this transaction with administrator changes already staged in UCI.
+for package in network firewall dhcp; do
+    [ -f "$CONFIG_DIR/$package" ] || {
+        echo "error: missing UCI config file '$CONFIG_DIR/$package'" >&2
+        exit 7
+    }
+    if uci -q changes "$package" 2>/dev/null | grep -q .; then
+        echo "error: uncommitted UCI changes exist in '$package'; commit or revert them first" >&2
+        exit 7
+    fi
+done
 
 # ---- 拓扑提示 -----------------------------------------------------------
 VLAN_FILTERING_BAD=0
@@ -127,6 +201,12 @@ if uci -q get "firewall.${NAME}_wan" >/dev/null 2>&1; then
     echo "error: firewall forwarding 'firewall.${NAME}_wan' already exists" >&2
     exit 4
 fi
+for section in "${NAME}_dns" "${NAME}_dhcp"; do
+    if uci -q get "firewall.$section" >/dev/null 2>&1; then
+        echo "error: firewall rule 'firewall.$section' already exists" >&2
+        exit 4
+    fi
+done
 if uci -q get "dhcp.$NAME" >/dev/null 2>&1; then
     echo "error: DHCP section 'dhcp.$NAME' already exists" >&2
     exit 4
@@ -134,10 +214,26 @@ fi
 
 # ---- 构造 ports 列表 ----------------------------------------------------
 PORT_LIST=""
+SEEN_PORTS=""
 # shellcheck disable=SC2086 # PORTS 故意不引号:用空格切分多个端口名
 for p in $PORTS; do
     case "$p" in
         lan1|lan2|lan3|lan4)
+            case " $SEEN_PORTS " in
+                *" $p "*)
+                    echo "error: duplicate port '$p'" >&2
+                    exit 5
+                    ;;
+            esac
+            ip link show "$p" >/dev/null 2>&1 || {
+                echo "error: physical port '$p' does not exist" >&2
+                exit 5
+            }
+            if ip link show "$p.$VID" >/dev/null 2>&1; then
+                echo "error: VLAN device '$p.$VID' already exists" >&2
+                exit 5
+            fi
+            SEEN_PORTS="$SEEN_PORTS $p"
             PORT_LIST="$PORT_LIST $p.$VID"
             ;;
         *)
@@ -150,8 +246,17 @@ done
 echo "Adding VLAN $VID '$NAME' on:$PORT_LIST"
 echo "  br-$NAME → $IPADDR"
 
+# Back up all three UCI files before staging a single transaction.
+BACKUP_DIR=$(mktemp -d /tmp/vlan-add.XXXXXX) || {
+    echo "error: cannot create transaction backup" >&2
+    exit 8
+}
+for package in network firewall dhcp; do
+    cp "$CONFIG_DIR/$package" "$BACKUP_DIR/$package" || exit 8
+done
+
 # ---- (1) bridge device --------------------------------------------------
-uci -q batch <<EOF
+uci -q batch <<EOF || exit 8
 set network.br_$NAME=device
 set network.br_$NAME.type=bridge
 set network.br_$NAME.name=br-$NAME
@@ -159,19 +264,11 @@ set network.br_$NAME.bridge_empty=1
 EOF
 # shellcheck disable=SC2086 # PORT_LIST 故意不引号:用空格切分多个端口名
 for p in $PORT_LIST; do
-    uci -q add_list "network.br_$NAME.ports=$p"
+    uci -q add_list "network.br_$NAME.ports=$p" || exit 8
 done
 
 # ---- (2) interface ------------------------------------------------------
-# CIDR 位数 → 点分十进制(用 awk -v 安全传参,避免 shell 注入)
-NETMASK="$(awk -v bits="$MASK_BITS" 'BEGIN {
-    m = 4294967295 - 2^(32 - bits) + 1
-    for (i = 3; i >= 0; i--) {
-        printf "%d%s", int(m / 2^(8 * i)) % 256, (i ? "." : "")
-    }
-}')"
-
-uci -q batch <<EOF
+uci -q batch <<EOF || exit 8
 set network.$NAME=interface
 set network.$NAME.proto=static
 set network.$NAME.device=br-$NAME
@@ -179,41 +276,59 @@ set network.$NAME.ipaddr=$IP
 set network.$NAME.netmask=$NETMASK
 EOF
 
-uci commit network
-
 # ---- (3) firewall zone + WAN forwarding --------------------------------
-uci -q batch <<EOF
+# The new network may reach WAN, DHCP and DNS, but cannot administer the router.
+uci -q batch <<EOF || exit 8
 set firewall.$NAME=zone
 set firewall.$NAME.name=$NAME
-set firewall.$NAME.input=ACCEPT
+set firewall.$NAME.input=REJECT
 set firewall.$NAME.output=ACCEPT
 set firewall.$NAME.forward=REJECT
 add_list firewall.$NAME.network=$NAME
 set firewall.${NAME}_wan=forwarding
 set firewall.${NAME}_wan.src=$NAME
 set firewall.${NAME}_wan.dest=wan
+set firewall.${NAME}_dns=rule
+set firewall.${NAME}_dns.name=${NAME}-Allow-DNS
+set firewall.${NAME}_dns.src=$NAME
+set firewall.${NAME}_dns.dest_port=53
+set firewall.${NAME}_dns.proto='tcp udp'
+set firewall.${NAME}_dns.target=ACCEPT
+set firewall.${NAME}_dhcp=rule
+set firewall.${NAME}_dhcp.name=${NAME}-Allow-DHCP
+set firewall.${NAME}_dhcp.src=$NAME
+set firewall.${NAME}_dhcp.dest_port=67
+set firewall.${NAME}_dhcp.proto=udp
+set firewall.${NAME}_dhcp.family=ipv4
+set firewall.${NAME}_dhcp.target=ACCEPT
 EOF
-uci commit firewall
 
 # ---- (4) DHCP -----------------------------------------------------------
-uci -q batch <<EOF
+uci -q batch <<EOF || exit 8
 set dhcp.$NAME=dhcp
 set dhcp.$NAME.interface=$NAME
-set dhcp.$NAME.start=100
-set dhcp.$NAME.limit=150
+set dhcp.$NAME.start=$DHCP_START
+set dhcp.$NAME.limit=$DHCP_LIMIT
 set dhcp.$NAME.leasetime=12h
 EOF
-uci commit dhcp
+
+# Commit only after all packages have been staged successfully. The EXIT trap
+# restores every file if any commit fails.
+uci -q commit network || exit 8
+uci -q commit firewall || exit 8
+uci -q commit dhcp || exit 8
+SUCCESS=1
 
 cat <<EOF
 
-✓ VLAN $VID '$NAME' added.
+VLAN $VID '$NAME' added.
 
 Created:
   - network.br_$NAME bridge with:$PORT_LIST
   - network.$NAME static gateway $IPADDR
-  - firewall.$NAME zone with forwarding to wan
-  - dhcp.$NAME pool 100-249
+  - firewall.$NAME zone with input REJECT and forwarding to wan
+  - explicit DHCP and DNS allow rules
+  - dhcp.$NAME pool offset $DHCP_START, limit $DHCP_LIMIT
 
 Optional WiFi SSID:
   Add a wifi-iface with option network '$NAME' and your own SSID/key.

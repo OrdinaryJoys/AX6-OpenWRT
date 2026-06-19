@@ -19,9 +19,10 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-22.04
+    timeout-minutes: 180
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
 
       - name: Free disk space
         uses: easimon/maximize-build-space@fc881a613ad2a34aca9c9624518214ebc21dfc0c  # v10
@@ -41,9 +42,8 @@ jobs:
           set -eo pipefail
           # shellcheck disable=SC2086,SC2128
           mapfile -t PKGS < <(grep -v '^\s*#' .github/depends-ubuntu-2204.txt | grep -v '^\s*$')
-          sudo -E apt-get -qq update
-          sudo -E apt-get -qq install -y "${PKGS[@]}"
-          sudo -E apt-get -qq autoremove --purge
+          sudo -E apt-get -qq -o Acquire::Retries=3 update
+          sudo -E apt-get -qq -o Acquire::Retries=3 install -y --no-install-recommends "${PKGS[@]}"
           sudo -E apt-get -qq clean
           sudo timedatectl set-timezone "$TZ"
           sudo chown -R "$USER":"$(id -gn)" "$GITHUB_WORKSPACE"
@@ -122,17 +122,15 @@ jobs:
                 exit 2
               fi
             done
-            # NSS FW 12.5 不支持项强制 =n (defconfig Kconfig select 可能重新启用)
-            for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_DTLS_ENABLE NSS_DRV_CAPWAP_ENABLE NSS_DRV_PVXLAN_ENABLE NSS_DRV_SFE_ENABLE NSS_DRV_WIFI_MESH_ENABLE NSS_DRV_WDS_ENABLE; do
-              sed -i "s|^CONFIG_${opt}=y$|# CONFIG_${opt} is not set|" .config
-            done
+            # 当前源树仍定义且 FW 12.5 不支持的选项强制 =n。
+            sed -i \
+              's|^CONFIG_NSS_DRV_WIFI_MESH_ENABLE=y$|# CONFIG_NSS_DRV_WIFI_MESH_ENABLE is not set|' \
+              .config
             # 验证 NSS_DRV 不支持项已清除
-            for opt in NSS_DRV_IPSEC_ENABLE NSS_DRV_CLMAP_ENABLE NSS_DRV_TLS_ENABLE NSS_DRV_DTLS_ENABLE NSS_DRV_CAPWAP_ENABLE NSS_DRV_PVXLAN_ENABLE NSS_DRV_SFE_ENABLE NSS_DRV_WIFI_MESH_ENABLE NSS_DRV_WDS_ENABLE; do
-              if grep -q "^CONFIG_${opt}=y$" .config; then
-                echo "::error::NSS FW 12.5 unsupported: CONFIG_${opt}=y still enabled after sed"
-                exit 2
-              fi
-            done
+            if grep -q '^CONFIG_NSS_DRV_WIFI_MESH_ENABLE=y$' .config; then
+              echo "::error::NSS FW 12.5 unsupported: CONFIG_NSS_DRV_WIFI_MESH_ENABLE=y still enabled after sed"
+              exit 2
+            fi
           fi
           # kmod-nf-ipt: 确保 IP_NF_IPTABLES=m (kernel 6.18 默认关闭 LEGACY 框架)
           # 缺失会导致 kmod-nf-ipt 空包 → firewall4 启动失败
@@ -184,6 +182,8 @@ jobs:
             'etc/init\.d/set-irq-affinity' \
             'etc/init\.d/smp_affinity' \
             'etc/init\.d/zram' \
+            'etc/modprobe\.d/nss-no-flow\.conf' \
+            'etc/uci-defaults/95-ax6-zram-defaults' \
             'etc/uci-defaults/15_smp_affinity\.sh' \
             'usr/lib/sqm/nss-zk\.qos' \
             'sbin/nss-check' \
@@ -214,6 +214,15 @@ jobs:
               exit 1
             }
           done
+          unsquashfs -cat "$rootfs" etc/modprobe.d/ath11k.conf \
+            > image-verify/ath11k.conf
+          grep -Fqx 'options ath11k frame_mode=2' image-verify/ath11k.conf
+          grep -Fqx 'options ath11k nss_offload=1' image-verify/ath11k.conf
+          if grep -Eq '^[[:space:]]*options[[:space:]]+ath11k[[:space:]].*rx_hash=' \
+            image-verify/ath11k.conf; then
+            echo "::error::Final rootfs contains unsupported ath11k rx_hash parameter"
+            exit 1
+          fi
           echo "Final rootfs validation: PASS"
 
       - name: Stage release artifacts
@@ -244,7 +253,7 @@ jobs:
         run: echo "CURRENT_DATE=$(date '+%Y%m%d%H%M%S')" >> "$GITHUB_ENV"
 
       - name: Upload firmware to Release
-        uses: ncipollo/release-action@2c591bcc8ecdcd2db72b97d6147f871fcd833ba5  # v1.14.0
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd  # v1.21.0
         with:
           tag: AX6_IPQ_${{ env.CURRENT_DATE }}
           commit: ${{ github.sha }}

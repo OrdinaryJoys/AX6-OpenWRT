@@ -12,8 +12,9 @@ permissions:
 jobs:
   lint:
     runs-on: ubuntu-22.04
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
 
       - name: Install tools
         run: |
@@ -29,6 +30,8 @@ jobs:
           set -eo pipefail
           find . -type f \( -name "*.sh" -o -path "*/uci-defaults/*" \) ! -path "./.git/*" -print0 | \
             xargs -0 -P4 shellcheck -S error -f gcc
+          sh tests/test-vlan-add.sh
+          sh tests/test-openclash-archive.sh
 
       - name: Actionlint
         run: actionlint -color .github/workflows/*.yml
@@ -45,6 +48,9 @@ jobs:
               exit 1
             fi
           done < <(grep -Rl 'uses: ncipollo/release-action@' .github/workflows)
+          workflow=.github/workflows/build-AX6-NSS.yml
+          grep -Fq 'uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' "$workflow"
+          test "$(grep -F 'if: github.ref ==' "$workflow" | grep -Fc 'refs/heads/main')" -eq 2
 
       - name: AX6 NSS build lock check
         run: |
@@ -74,6 +80,7 @@ jobs:
             exit 1
           }
           for name in \
+            SOURCE_COMMIT SQM_SCRIPTS_NSS_COMMIT LUCI_FEED_COMMIT \
             PACKAGES_FEED_COMMIT ROUTING_FEED_COMMIT TELEPHONY_FEED_COMMIT \
             VIDEO_FEED_COMMIT ARGON_THEME_COMMIT ARGON_CONFIG_COMMIT \
             OPENCLASH_COMMIT; do
@@ -82,6 +89,103 @@ jobs:
               echo "::error::$name must be a full 40-character lowercase commit SHA"
               exit 1
             }
+          done
+          [ "$SOURCE_TRACKING_BRANCH" = codex/fix-ath11k-nss-depends ] || {
+            echo "::error::unexpected source tracking branch: $SOURCE_TRACKING_BRANCH"
+            exit 1
+          }
+
+      - name: Obsolete NSS config symbol check
+        run: |
+          set -eo pipefail
+          obsolete=(
+            ATH11K_NSS_TX_SUPPORT
+            ATH11K_TX_QUEUE_SIZE
+            ATH11K_NSS_4ADDR_SUPPORT
+            ATH11K_MEM_PROFILE_1G
+            ATH11K_MEM_PROFILE_256M
+            ATH11K_NAPI_WEIGHT_1G
+            ARM_PSCI_CPUIDLE
+            ARM_PSCI_CPUIDLE_DOMAIN
+            CPU_FREQ_MIN
+            IPQ_MEM_PROFILE_1024
+            IPQ_MEM_PROFILE_512
+            IPQ_MEM_PROFILE_256
+            KERNEL_IPQ_MEM_PROFILE
+            KERNEL_BRIDGE_NETFILTER
+            KERNEL_BRIDGE_NF_EBTABLES
+            KERNEL_NET_RX_BUSY_POLL
+            MAC80211_RC_DEFAULT_MINSTREL_HT
+            MAC80211_RC_DEFAULT_MINSTREL_VHT
+            MAC80211_RC_MINSTREL_VHT_AUTOFALLBACK
+            NSS_DRV_C2C_ENABLE
+            NSS_DRV_CAPWAP_ENABLE
+            NSS_DRV_CLMAP_ENABLE
+            NSS_DRV_IPV4_FORWARD_ENABLE
+            NSS_DRV_IPV6_FORWARD_ENABLE
+            NSS_DRV_IPV6_REDIRECT
+            NSS_DRV_CONNTRACK_ENABLE
+            NSS_DRV_DEBUG
+            NSS_DRV_DTLS_ENABLE
+            NSS_DRV_IPSEC_ENABLE
+            NSS_DRV_OAM_ENABLE
+            NSS_DRV_PVXLAN_ENABLE
+            NSS_DRV_QVPN_ENABLE
+            NSS_DRV_SFE_ENABLE
+            NSS_DRV_TLS_ENABLE
+            NSS_DRV_TSTAMP_ENABLE
+            NSS_DRV_WDS_ENABLE
+            NSS_DRV_WIFI_LEGACY_ENABLE
+            NSS_DRV_NATP_ENABLE
+            NSS_DRV_PORTID_ENABLE
+            NSS_MEM_PROFILE_HIGH
+            NSS_MEM_PROFILE_MEDIUM
+            NSS_MEM_PROFILE_LOW
+            NSS_MEM_PROFILE_HIGH_PERF
+            NSS_PPE_QSZ_4096
+            PACKAGE_MAC80211_NSS_SUPPORT
+            REGULATOR_FIXED_VOLTAGE
+            SERIAL_8250_RUNTIME_UARTS
+            ZRAM_DEF_COMP_LZORLE
+            ZRAM_DEF_COMP_LZO
+            ZRAM_DEF_COMP_LZ4
+            ZRAM_DEF_COMP_LZ4HC
+            ZRAM_DEF_COMP_ZSTD
+            ZRAM_SIZE
+          )
+          for cfg in \
+            AX6-IPQ/.config-stock \
+            AX6-IPQ/.config-expand \
+            AX6-IPQ/nss-extra.config; do
+            for symbol in "${obsolete[@]}"; do
+              if grep -Eq "^(# )?CONFIG_${symbol}(=| is not set)" "$cfg"; then
+                echo "::error file=$cfg::obsolete or undefined symbol: CONFIG_${symbol}"
+                exit 1
+              fi
+            done
+          done
+          for cfg in AX6-IPQ/.config-stock AX6-IPQ/.config-expand; do
+            grep -qx 'CONFIG_ATH11K_MEM_PROFILE_512M=y' "$cfg" || {
+              echo "::error file=$cfg::current ath11k NSS source requires the 512M memory profile"
+              exit 1
+            }
+            if grep -q '^CONFIG_NSS_DRV_TRUSTSEC_RX_ENABLE=y$' "$cfg" &&
+               ! grep -q '^CONFIG_NSS_DRV_TRUSTSEC_ENABLE=y$' "$cfg"; then
+              echo "::error file=$cfg::TRUSTSEC_RX cannot be enabled while TRUSTSEC is disabled"
+              exit 1
+            fi
+            grep -qx '# CONFIG_KERNEL_SKB_RECYCLER_PREALLOC is not set' "$cfg" || {
+              echo "::error file=$cfg::SKB preallocation is documented by current source as SFE-only, not NSS"
+              exit 1
+            }
+            duplicates=$(awk -F= '
+              /^CONFIG_[A-Za-z0-9_]+=/ { count[$1]++ }
+              END { for (key in count) if (count[key] > 1) print key }
+            ' "$cfg")
+            if [ -n "$duplicates" ]; then
+              echo "::error file=$cfg::duplicate active config keys: $duplicates"
+              exit 1
+            fi
           done
 
       - name: AX6 NSS selected feed coverage check
@@ -114,6 +218,8 @@ jobs:
             CONFIG_BUSYBOX_CONFIG_FEATURE_SWAPON_PRI=y
             CONFIG_BUSYBOX_CONFIG_SWAPOFF=y
             CONFIG_PACKAGE_kmod-zram=y
+            CONFIG_KERNEL_ZRAM_BACKEND_ZSTD=y
+            CONFIG_KERNEL_ZRAM_DEF_COMP_ZSTD=y
           )
           for cfg in AX6-IPQ/.config-stock AX6-IPQ/.config-expand; do
             grep -qx 'CONFIG_PACKAGE_zram-swap=y' "$cfg" || continue
@@ -126,6 +232,56 @@ jobs:
           done
           grep -Fq "'etc/rc\\.d/S15zram'" .github/workflows/build-AX6-NSS.yml
           grep -Fq "'etc/rc\\.d/S15zram'" .github/workflows/build-AX6-IPQ.yml
+          zram_defaults=AX6-IPQ/files/etc/uci-defaults/95-ax6-zram-defaults
+          grep -Fq "zram_size_mb='256'" "$zram_defaults"
+          grep -Fq "zram_comp_algo='zstd'" "$zram_defaults"
+          grep -Fq 'system.@system[0].zram_size_mb' AX6-IPQ/files/sbin/nss-check
+          grep -Fq 'system.@system[0].zram_comp_algo' AX6-IPQ/files/sbin/nss-check
+
+      - name: Kconfig assignment consistency check
+        run: |
+          set -eo pipefail
+          for cfg in AX6-IPQ/.config-stock AX6-IPQ/.config-expand AX6-IPQ/nss-extra.config; do
+            awk '
+              function add(symbol, value) {
+                if (!(symbol in stored)) {
+                  stored[symbol] = value
+                } else if (stored[symbol] != value) {
+                  printf "%s has conflicting assignments: %s and %s\n",
+                    symbol, stored[symbol], value > "/dev/stderr"
+                  conflicts = 1
+                }
+              }
+              /^CONFIG_[^=]+=/ {
+                symbol = $0
+                sub(/=.*/, "", symbol)
+                value = $0
+                sub(/^[^=]+=/, "", value)
+                add(symbol, value)
+                next
+              }
+              /^# CONFIG_.* is not set$/ {
+                symbol = $0
+                sub(/^# /, "", symbol)
+                sub(/ is not set$/, "", symbol)
+                add(symbol, "n")
+              }
+              END { exit conflicts }
+            ' "$cfg" || {
+              echo "::error file=$cfg::conflicting Kconfig assignments found"
+              exit 1
+            }
+          done
+
+      - name: Package repository ownership check
+        run: |
+          set -eo pipefail
+          test ! -e AX6-IPQ/files/etc/opkg/distfeeds.conf
+          grep -Fq '由当前锁定源码在构建时生成' 备用源.md
+          if grep -Rq 'downloads\.immortalwrt\.org/releases/24\.10-SNAPSHOT' AX6-IPQ/files; then
+            echo "::error::image overlay must not replace build-generated package repositories"
+            exit 1
+          fi
 
       - name: WiFi compatibility defaults check
         run: |
@@ -141,8 +297,20 @@ jobs:
           grep -q 'ht_coex=1' "$wifi"
           grep -q 'channel=auto' "$wifi"
           grep -q 'htmode=HE80' "$wifi"
+          ath11k_options=AX6-IPQ/files/etc/modprobe.d/ath11k.conf
+          grep -Fq 'options ath11k frame_mode=2' "$ath11k_options"
+          grep -Fq 'options ath11k nss_offload=1' "$ath11k_options"
+          if grep -Eq '^[[:space:]]*options[[:space:]]+ath11k[[:space:]].*rx_hash=' "$ath11k_options"; then
+            echo "::error file=$ath11k_options::backports 6.18.26 has no ath11k rx_hash module parameter"
+            exit 1
+          fi
           if grep -Eq 'uci([[:space:]]+-q)?[[:space:]]+set .*\\.(tx_antenna|rx_antenna)=' "$wifi"; then
             echo "::error file=$wifi::wifi-scripts uses txantenna/rxantenna; underscore antenna keys are ignored"
+            exit 1
+          fi
+          # shellcheck disable=SC2016 # Match the literal UCI template.
+          if grep -Fq 'wireless.${radio}.dtim_period' "$wifi"; then
+            echo "::error file=$wifi::dtim_period is a wifi-iface option and is ignored on wifi-device radio sections"
             exit 1
           fi
           for unsafe in \
@@ -210,14 +378,68 @@ jobs:
           # shellcheck disable=SC2016 # Match vlan-add literal UCI templates.
           grep -Fq 'set firewall.$NAME=zone' "$vlan"
           # shellcheck disable=SC2016 # Match vlan-add literal UCI templates.
+          grep -Fq 'set firewall.$NAME.input=REJECT' "$vlan"
+          # shellcheck disable=SC2016 # Match vlan-add literal UCI templates.
           grep -Fq 'set firewall.${NAME}_wan=forwarding' "$vlan"
           # shellcheck disable=SC2016 # Match vlan-add literal UCI templates.
+          grep -Fq 'set firewall.${NAME}_dns=rule' "$vlan"
+          # shellcheck disable=SC2016 # Match vlan-add literal UCI templates.
+          grep -Fq 'set firewall.${NAME}_dhcp=rule' "$vlan"
+          # shellcheck disable=SC2016 # Match vlan-add literal UCI templates.
           grep -Fq 'set dhcp.$NAME=dhcp' "$vlan"
+          # shellcheck disable=SC2016 # Match the literal transaction guard.
+          grep -Fq 'uci -q changes "$package"' "$vlan"
+          grep -Fq 'configuration failed; network, firewall and DHCP files were restored' "$vlan"
+          # shellcheck disable=SC2016 # Reject an unsafe literal UCI template.
+          if grep -Fq 'set firewall.$NAME.input=ACCEPT' "$vlan"; then
+            echo "::error file=$vlan::new untrusted VLANs must not expose router services by default"
+            exit 1
+          fi
           # shellcheck disable=SC2016 # Match vlan-add literal UCI templates.
           if grep -Eq 'set network\.br_\$NAME\.vlan_filtering=' "$vlan"; then
             echo "::error file=$vlan::802.1q helper must not generate bridge VLAN filtering fields"
             exit 1
           fi
+
+      - name: Router maintenance script safety check
+        run: |
+          set -eo pipefail
+          backup="backup-router-config.sh"
+          deploy="deploy-openclash-runtime.sh"
+          test -x "$backup"
+          test -x "$deploy"
+          grep -Fq 'sysupgrade-config-backup.tar.gz' "$backup"
+          grep -Fq 'openclash-runtime.tar.gz' "$backup"
+          grep -Fq 'openclash-runtime.tar.gz' "$deploy"
+          grep -Fq 'OpenClash archive contains paths outside the restore allowlist' "$deploy"
+          grep -Fq 'OpenClash archive contains links or special files' "$deploy"
+          grep -Fq 'rollback_on_error' "$deploy"
+          grep -Fq 'previous OpenClash state restored' "$deploy"
+          grep -Fq 'OpenClash core: disabled by restored configuration' "$deploy"
+          grep -Fq 'The complete sysupgrade archive was not restored automatically.' "$deploy"
+          grep -Fq 'ax6-backup-*/' .gitignore
+          if grep -Eq 'el1si7d_doggygosubs|head -[0-9]+ /etc/openclash/config' "$backup" "$deploy"; then
+            echo "::error::router maintenance scripts must not hard-code a subscription filename or truncate backups"
+            exit 1
+          fi
+          grep -Fq 'blacklist nf_flow_table' AX6-IPQ/files/etc/modprobe.d/nss-no-flow.conf
+
+      - name: Build dependency installation policy check
+        run: |
+          set -eo pipefail
+          for workflow in \
+            .github/workflows/build-AX6-IPQ.yml \
+            .github/workflows/build-AX6-NSS.yml \
+            .github/workflows/build-IMM.yml \
+            .github/workflows/build-LEDE.yml; do
+            grep -Fq -- '--no-install-recommends' "$workflow"
+            grep -Fq 'Acquire::Retries=3' "$workflow"
+            if grep -Eq 'apt-get .*autoremove' "$workflow"; then
+              echo "::error file=$workflow::do not autoremove runner packages after installing build dependencies"
+              exit 1
+            fi
+          done
+          grep -Fq 'large-packages: false' .github/workflows/build-AX6-NSS.yml
 
       - name: IRQ policy ownership check
         run: |

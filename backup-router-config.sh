@@ -1,49 +1,109 @@
 #!/bin/sh
-# AX6 路由器配置备份 — 刷固件前执行
-# 用法: sh backup-router-config.sh [router_ip]
-set -e
+# AX6 router configuration backup. Run before manually flashing firmware.
+# Usage: ./backup-router-config.sh [router_ip] [backup_directory]
+set -eu
+
+umask 077
 
 ROUTER="${1:-192.168.5.1}"
-BACKUP_DIR="./ax6-backup-$(date +%Y%m%d-%H%M%S)"
+BACKUP_DIR="${2:-./ax6-backup-$(date +%Y%m%d-%H%M%S)}"
+TARGET="root@$ROUTER"
+REMOTE_TMP="/tmp/ax6-sysupgrade-backup-$$.tar.gz"
 
-echo "=== AX6 Router Config Backup ==="
-echo "Router: $ROUTER"
-echo "Backup: $BACKUP_DIR"
-echo ""
+say() {
+    printf '%s\n' "$*"
+}
+
+capture() {
+    name="$1"
+    shift
+    if ssh "$TARGET" "$*" > "$BACKUP_DIR/$name" 2> "$BACKUP_DIR/$name.stderr"; then
+        rm -f "$BACKUP_DIR/$name.stderr"
+        say "  [ok] $name"
+    else
+        say "  [warn] $name failed; see $name.stderr"
+    fi
+}
+
+say "=== AX6 Router Configuration Backup ==="
+say "Router: $ROUTER"
+say "Backup: $BACKUP_DIR"
+say ""
 
 mkdir -p "$BACKUP_DIR"
 
-# 1. OpenClash overwrite scripts
-echo "[1/7] OpenClash V25 overwrite..."
-ssh root@"$ROUTER" 'cat /etc/openclash/custom/openclash_custom_overwrite.rb' > "$BACKUP_DIR/openclash_custom_overwrite.rb" 2>/dev/null && echo "  ✅ overwrite.rb" || echo "  ⚠️  not found"
-ssh root@"$ROUTER" 'cat /etc/openclash/custom/openclash_custom_overwrite.sh' > "$BACKUP_DIR/openclash_custom_overwrite.sh" 2>/dev/null && echo "  ✅ overwrite.sh" || echo "  ⚠️  not found"
+say "[1/6] Verify SSH access"
+ssh "$TARGET" 'uname -a; ubus call system board 2>/dev/null || true' \
+    > "$BACKUP_DIR/router-system.txt"
+say "  [ok] SSH connection"
 
-# 2. fix_dot.sh (idempotent)
-echo "[2/7] fix_dot.sh..."
-ssh root@"$ROUTER" 'cat /usr/share/openclash/fix_dot.sh' > "$BACKUP_DIR/fix_dot.sh" 2>/dev/null && echo "  ✅" || echo "  ⚠️  not found"
+say "[2/6] Create complete OpenWrt sysupgrade configuration archive"
+ssh "$TARGET" "sysupgrade -b '$REMOTE_TMP' >/dev/null && cat '$REMOTE_TMP'; rc=\$?; rm -f '$REMOTE_TMP'; exit \$rc" \
+    > "$BACKUP_DIR/sysupgrade-config-backup.tar.gz"
+[ -s "$BACKUP_DIR/sysupgrade-config-backup.tar.gz" ] || {
+    say "  [error] sysupgrade backup is empty"
+    exit 2
+}
+say "  [ok] sysupgrade-config-backup.tar.gz"
 
-# 3. nftables bypass rules
-echo "[3/7] nftables bypass..."
-ssh root@"$ROUTER" 'cat /etc/openclash/custom/openclash_custom_firewall_rules.sh' > "$BACKUP_DIR/openclash_custom_firewall_rules.sh" 2>/dev/null && echo "  ✅" || echo "  ⚠️  not found"
+say "[3/6] Archive OpenClash runtime configuration"
+if ssh "$TARGET" '
+    set --
+    for path in \
+        /etc/config/openclash \
+        /etc/openclash/custom \
+        /etc/openclash/config \
+        /etc/openclash/proxy_provider \
+        /etc/openclash/rule_provider \
+        /usr/share/openclash/fix_dot.sh; do
+        [ -e "$path" ] && set -- "$@" "$path"
+    done
+    [ "$#" -gt 0 ] || exit 3
+    tar -czf - "$@"
+' > "$BACKUP_DIR/openclash-runtime.tar.gz"; then
+    [ -s "$BACKUP_DIR/openclash-runtime.tar.gz" ] || {
+        say "  [error] OpenClash archive is empty"
+        exit 3
+    }
+    say "  [ok] openclash-runtime.tar.gz"
+else
+    rm -f "$BACKUP_DIR/openclash-runtime.tar.gz"
+    say "  [warn] OpenClash is absent or its runtime archive failed"
+fi
 
-# 4. OpenClash active config (subscription YAML)
-echo "[4/7] OpenClash config..."
-ssh root@"$ROUTER" 'head -100 /etc/openclash/config/el1si7d_doggygosubs.yaml' > "$BACKUP_DIR/openclash_config_head.yaml" 2>/dev/null && echo "  ✅ (first 100 lines)" || echo "  ⚠️  not found"
+say "[4/6] Export UCI configuration"
+for config in network wireless firewall dhcp system zerotier upnpd openclash sqm; do
+    capture "uci-$config.txt" "uci export '$config'"
+done
 
-# 5. crontab
-echo "[5/7] crontab..."
-ssh root@"$ROUTER" 'crontab -l' > "$BACKUP_DIR/crontab.txt" 2>/dev/null && echo "  ✅" || echo "  ⚠️  empty"
+say "[5/6] Capture runtime diagnostics"
+capture "crontab.txt" "crontab -l"
+capture "nss-check.txt" "nss-check -v 2>&1"
+capture "ax6-config-audit.txt" "ax6-config-audit -v 2>&1"
+capture "packages.txt" "opkg list-installed"
+capture "mtd.txt" "cat /proc/mtd"
+capture "mounts.txt" "mount"
+capture "network-status.json" "ubus call network status"
 
-# 6. UCI openclash dump
-echo "[6/7] UCI openclash..."
-ssh root@"$ROUTER" 'uci show openclash' > "$BACKUP_DIR/openclash_uci.txt" 2>/dev/null && echo "  ✅" || echo "  ⚠️  not found"
+say "[6/6] Write manifest and checksums"
+{
+    echo "BACKUP_CREATED=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "ROUTER=$ROUTER"
+    echo "CONTENTS=sysupgrade-config-backup.tar.gz openclash-runtime.tar.gz UCI exports diagnostics"
+    echo "RESTORE_POLICY=Do not restore the whole sysupgrade archive automatically after changing firmware branches."
+} > "$BACKUP_DIR/MANIFEST.txt"
 
-# 7. nss-check output
-echo "[7/7] nss-check..."
-ssh root@"$ROUTER" 'nss-check -v 2>&1' > "$BACKUP_DIR/nss-check-output.txt" 2>/dev/null && echo "  ✅" || echo "  ⚠️  nss-check not available"
+rm -f "$BACKUP_DIR/SHA256SUMS.txt"
+if command -v sha256sum >/dev/null 2>&1; then
+    (cd "$BACKUP_DIR" && sha256sum ./* > SHA256SUMS.txt)
+elif command -v shasum >/dev/null 2>&1; then
+    (cd "$BACKUP_DIR" && shasum -a 256 ./* > SHA256SUMS.txt)
+else
+    say "  [warn] no SHA-256 utility found; checksum file not created"
+fi
 
-echo ""
-echo "=== Backup complete: $BACKUP_DIR ==="
-ls -la "$BACKUP_DIR/"
-echo ""
-echo "Next: after flashing new firmware, run deploy-openclash-runtime.sh"
+say ""
+say "=== Backup complete: $BACKUP_DIR ==="
+say "Keep this directory private: it contains WiFi keys, VPN credentials and proxy subscriptions."
+say "After manual firmware installation, restore only OpenClash runtime data with:"
+say "  ./deploy-openclash-runtime.sh '$ROUTER' '$BACKUP_DIR'"
