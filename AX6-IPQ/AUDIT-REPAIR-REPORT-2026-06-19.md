@@ -5,7 +5,8 @@
 > 审计基线：`main@878c97d79bd2e999185cf8066c9c6ea348917228`
 > 修复分支：`codex/full-audit-20260619`
 > 源码仓库：`OrdinaryJoys/immortalwrt-nss`
-> 源码基线：`3e7a3febdd3fba88a8ca248afd3cc946f9853ee9`
+> 原源码基线：`3e7a3febdd3fba88a8ca248afd3cc946f9853ee9`
+> 修复源码：`4b0b74e7da5a04c2a054e6d33363defb0abd77de`
 > 用户提供清单：`FIX_CHECKLIST_2026-06-19.md`
 
 ## 1. 最终结论
@@ -17,7 +18,7 @@
 | 清单中的 CI `#27774751677` | 不是“编译中”，而是超过一天卡在 `Initialize environment` |
 | 清单中的 `SOURCE_COMMIT` | **错误**；写入了 GitHub 上不存在的完整 SHA |
 | NSS init START 修正 | 代码已改为 `S28qca-nss-drv` / `S27qca-nss-pbuf`，仍需新构建验证 |
-| 构建供应链 | 外部 NSS feed 已移除，但源码锁错误导致新构建必然失败 |
+| 构建供应链 | 外部 NSS feed 已移除；源码锁和 ATH11K NSS 依赖已修正，等待新构建验证 |
 | 配置状态 | 存在 9 个当前源码未定义的陈旧 NSS 符号和 1 个无效依赖组合 |
 | 路由器备份脚本 | 原实现不是完整备份，已重构 |
 | OpenClash 恢复脚本 | 原实现未使用备份目录且硬编码订阅名，已重构 |
@@ -68,6 +69,7 @@
 | P1 | CI 可无限挂起 | jobs 未设置超时 | NSS/IPQ/IMM/LEDE 设 180 分钟，lint 20 分钟，sync 15 分钟 |
 | P1 | 环境初始化拉取整套 TeX Live | `asciidoc` 推荐依赖导致数 GB 无关文档工具链安装 | 所有构建统一使用 `--no-install-recommends`、下载重试并移除全局 autoremove |
 | P1 | NSS 磁盘清理后重新安装编译器 | `large-packages: true` 删除显式依赖的 Clang/LLVM，初始化又装回 | 保留 large packages，只清理 Android/.NET/Haskell/Docker 等无关内容 |
+| P0 | `kmod-ath11k` 缺少 NSS 驱动包依赖 | 上游合并解决冲突时丢失 `ath.mk` 的四条条件依赖 | 源码分支恢复依赖，构建仓库锁定修复提交并增加前置检查 |
 | P1 | Actions 仍使用 Node 20 版本 | 之前所谓 Node 24 SHA 未正确验证后被回退 | 使用官方标签验证的 checkout v7、release-action v1.21 完整 SHA |
 | P1 | `.config-*` 含陈旧 NSS 符号 | built-in qca-nss 迁移后保留旧配置项 | 从 stock/expand 同步删除并加入 lint 防回归 |
 | P1 | `TRUSTSEC_RX=y` 但 TRUSTSEC 关闭 | 旧配置未经过当前 Kconfig 依赖清理 | 删除无效项并加入 lint 依赖检查 |
@@ -121,8 +123,9 @@
 
 | 仓库/分支 | HEAD | 状态 |
 |---|---|---|
+| OrdinaryJoys `codex/fix-ath11k-nss-depends` | `4b0b74e7da5a...` | 当前锁定的 ATH11K NSS 依赖修复源码 |
 | OrdinaryJoys `codex/p0-nss-sync` | `3e7a3febdd3f...` | 与 OrdinaryJoys main 一致 |
-| OrdinaryJoys `main` | `3e7a3febdd3f...` | 当前锁定源码 |
+| OrdinaryJoys `main` | `3e7a3febdd3f...` | 原始审计基线，尚未包含 ATH11K 依赖修复 |
 | VIKINGYFY `main` | `38e28da69292...` | 新增 1 个 qca-nss 清理提交并发生 force-update |
 | VIKINGYFY `owrt` | `dfe9c76b658c...` | 非当前 NSS 构建基线 |
 | qosmio/openwrt-ipq `main-nss` | `92a2d104145c...` | 与前次检查一致 |
@@ -182,6 +185,7 @@ packages 的 51 个提交包含 Go 安全更新、strongSwan 修复、Python 包
 | `27774914959` | `878c97d...` | success | 仅 lint 成功，不能替代固件构建 |
 | `27776232029` | `35bc28f...` | cancelled | 复现环境初始化异常；日志确认卡在 TeX Live 推荐依赖解包 |
 | `27777378927` | `9eee531...` | cancelled | 去除推荐依赖后仍慢；交叉确认磁盘清理删除了随后要重装的 Clang/LLVM |
+| `27778615180` | `4a0f6b2...` | failure | 编译到 `kmod-ath11k` 后因缺少 `qca-nss-drv.ko` 包依赖失败 |
 
 截至审计时，最新 Release 仍为：
 

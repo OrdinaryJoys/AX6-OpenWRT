@@ -23,7 +23,7 @@ Redmi AX6 一键编译脚本 — 完整 NSS 加速 + WiFi 6 满血 + 双变体�
 
 > **供应链已恢复（2026-06-18）**：
 > qca-nss 已迁移到源码树内置 (`package/qca-nss/`, 10 包 73 文件)。
-> 锁文件指向 `codex/p0-nss-sync` 的已审计提交 `3e7a3febdd3f...`。
+> 锁文件指向 `codex/fix-ath11k-nss-depends` 的已审计提交 `4b0b74e7da5a...`。
 > 外部 feed `VIKINGYFY/nss-packages-618` 已废弃。
 > VIKINGYFY 后续 `38e28da...` 涉及 qca-nss/mac80211 重构，尚未合并。
 
@@ -115,7 +115,7 @@ ax6-config-audit -v
 
 | 仓库 | 类型 | 我们引用 | 实测 |
 |---|---|---|---|
-| [OrdinaryJoys/immortalwrt-nss](https://github.com/OrdinaryJoys/immortalwrt-nss) | **AX6-NSS workflow 直接构建源** | `codex/p0-nss-sync` 上的完整 SHA | ✓ |
+| [OrdinaryJoys/immortalwrt-nss](https://github.com/OrdinaryJoys/immortalwrt-nss) | **AX6-NSS workflow 直接构建源** | `codex/fix-ath11k-nss-depends` 上的完整 SHA | ✓ |
 | [LiBwrt/openwrt-6.x](https://github.com/LiBwrt/openwrt-6.x) | AX6-IPQ 备用源(原 `LiBwrt-op` 已改名) | branch `main-nss` | ✓ |
 | [immortalwrt/immortalwrt](https://github.com/immortalwrt/immortalwrt) | AX6-IMM 备用源(无 NSS) | branch `openwrt-23.05` | ✓ |
 | [coolsnowwolf/lede](https://github.com/coolsnowwolf/lede) | AX6-LEDE 备用源 | branch `master` | ✓ |
