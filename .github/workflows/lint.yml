@@ -48,7 +48,7 @@ jobs:
           done < <(grep -Rl 'uses: ncipollo/release-action@' .github/workflows)
           workflow=.github/workflows/build-AX6-NSS.yml
           grep -Fq 'uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' "$workflow"
-          test "$(grep -Fc \"if: github.ref == 'refs/heads/main'\" "$workflow")" -eq 2
+          test "$(grep -F 'if: github.ref ==' "$workflow" | grep -Fc 'refs/heads/main')" -eq 2
 
       - name: AX6 NSS build lock check
         run: |
