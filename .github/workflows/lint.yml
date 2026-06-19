@@ -66,18 +66,11 @@ jobs:
         run: |
           set -eo pipefail
           workflow=.github/workflows/build-AX6-NSS.yml
-          stock_config=AX6-IPQ/.config-stock
-
-          grep -Fq "stock_partition_size=\$((0x023c0000))" "$workflow"
+          grep -Fq "stock_partition_size=\$((0x06640000))" "$workflow"
+          grep -Fq "stock_ubi_limit=\$((0x06340000))" "$workflow"
+          grep -Fq 'xiaomi_stock_check_image_size' "$workflow"
           grep -Fq 'artifacts: upload/upgrade/*' "$workflow"
           grep -Fq 'path: upload/recovery/*' "$workflow"
-
-          for package in sing-box xray-core ddns-go vim-fuller; do
-            if grep -Fqx "CONFIG_PACKAGE_${package}=y" "$stock_config"; then
-              echo "::error file=$stock_config::STOCK must not embed oversized optional package: $package"
-              exit 1
-            fi
-          done
 
           if grep -Eq 'nand (erase|write).*rootfs|fastboot flash rootfs' \
             "$workflow" AX6-IPQ/HARDWARE.md; then
@@ -85,8 +78,8 @@ jobs:
             exit 1
           fi
 
-          grep -Fq 'rootfs/rootfs_1 each 35.75 MiB' AX6-IPQ/files/sbin/nss-check
-          grep -Fq '023c0000' AX6-IPQ/HARDWARE.md
+          grep -Fq 'SMEM/custom U-Boot merged rootfs' AX6-IPQ/files/sbin/nss-check
+          grep -Fq '06640000' AX6-IPQ/HARDWARE.md
 
       - name: STOCK and EXPAND config difference allowlist
         run: |
@@ -113,20 +106,6 @@ jobs:
 
 
           allowed = {
-              'CONFIG_PACKAGE_ddns-go',
-              'CONFIG_PACKAGE_luci-app-ddns-go',
-              'CONFIG_PACKAGE_luci-i18n-ddns-go-zh-cn',
-              'CONFIG_PACKAGE_sing-box',
-              'CONFIG_PACKAGE_vim-fuller',
-              'CONFIG_PACKAGE_xray-core',
-              'CONFIG_SING_BOX_BUILD_ACME',
-              'CONFIG_SING_BOX_BUILD_CLASH_API',
-              'CONFIG_SING_BOX_BUILD_ECH',
-              'CONFIG_SING_BOX_BUILD_GVISOR',
-              'CONFIG_SING_BOX_BUILD_QUIC',
-              'CONFIG_SING_BOX_BUILD_REALITY_SERVER',
-              'CONFIG_SING_BOX_BUILD_UTLS',
-              'CONFIG_SING_BOX_BUILD_WIREGUARD',
               'CONFIG_TARGET_PROFILE',
               'CONFIG_TARGET_qualcommax_ipq807x_DEVICE_redmi_ax6',
               'CONFIG_TARGET_qualcommax_ipq807x_DEVICE_redmi_ax6-stock',

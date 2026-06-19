@@ -12,61 +12,48 @@ WiFi:        ath11k Wi-Fi 6, 4×4 MU-MIMO
 NSS:         qca-nss-drv + qca-nss-dp + qca-nss-ecm
 ```
 
-## 2. 两种构建变体
+## 2. 三种不能混用的分区布局
 
-| 变体 | 适用硬件 | rootfs 容量 | 选哪个? | 变砖风险 |
-|---|---|---|---|---|
-| **STOCK** | 标准 1G+128M(出厂) | 双槽,每槽 35.75 MiB | **绝大多数人选这个** | 较低,刷写前仍须备份并核对硬件 |
-| **EXPAND** | 1G+256M(改 NAND 颗粒后) | ~192 MB(DT 写死,留 18MB UBI 坏块 reserve)| 只有亲手换过 NAND 才能选 | **极高**(刷错变砖)|
+| 布局 | `/proc/mtd` 特征 | 本仓构建 | 风险 |
+|---|---|---|---|
+| Xiaomi 原厂双槽 | `rootfs=023c0000`, `rootfs_1=023c0000`, `overlay=01ec0000` | 当前完整镜像不适用 | 镜像过大会在升级前被拒绝 |
+| custom U-Boot/SMEM 合并 | 单 `rootfs=06640000` | **STOCK workflow 的实际目标** | 必须确认只有合并 rootfs |
+| 256MB 扩容固定 DT | 单 `rootfs=0c000000` | EXPAND | 仅限已换 NAND 且布局一致 |
 
 ### 怎么知道我是哪种?
 
 ```bash
 # 已经能进 OpenWrt 的话
 ssh root@192.168.5.1 'cat /proc/mtd | grep -E "\"rootfs(_1)?\"|\"overlay\""'
-# STOCK: rootfs=023c0000, rootfs_1=023c0000, overlay=01ec0000
+# 原厂双槽: rootfs=023c0000, rootfs_1=023c0000, overlay=01ec0000
+# 合并 SMEM: rootfs=06640000,通常没有 rootfs_1/overlay
 # EXPAND: rootfs=0c000000
 ```
 
-如果不能进系统 / 不知道:**默认选 STOCK,不要冒险**。
-
-`06640000` 是第三方合并分区后的 102.25 MiB 单槽布局,不是 Xiaomi 原厂
-STOCK SMEM,不能作为 `redmi_ax6-stock` 的识别依据。
+如果不能确认分区布局，不要依靠固件文件名中的 `stock` 猜测。上游
+`redmi_ax6-stock` DTS 使用 `qcom,smem-part`，会读取当前 MIBIB/SMEM；
+它既可能看到原厂双槽，也可能看到 custom U-Boot 合并布局。
 
 ### EXPAND 前置确认清单
 
 只有同时满足以下全部条件才能选 EXPAND:
 
 - [ ] 你**亲手或店家换过** NAND 芯片(从 128MB 颗粒改到 ≥256MB 颗粒)
-- [ ] 设备能进 ImmortalWrt SSH,`cat /proc/mtd` 看到 mtd12 ≥ 0x0C000000
+- [ ] 设备能进 ImmortalWrt SSH,`/proc/mtd` 中名为 `rootfs` 的分区为 `0x0C000000`
 - [ ] 你有 USB-TTL 串口和 fastboot 救机经验
 - [ ] 你能接受刷错变砖的 1% 概率
 
-任何一项打不上勾 → STOCK。
+任何一项打不上勾都不能使用 EXPAND。
 
-## 3. NAND 分区(stock SMEM 实测)
+## 3. 128MB NAND 的两类 SMEM 布局
 
-```
-mtd0:  0:sbl1         1MB    一级 bootloader
-mtd1:  0:mibib        1MB    mtd 索引
-mtd2:  0:qsee         3MB    TrustZone OS
-mtd3:  0:devcfg       0.5MB  TZ 设备配置
-mtd4:  0:rpm          0.5MB  RPM firmware
-mtd5:  0:cdt          0.5MB  Config data
-mtd6:  0:appsblenv    0.5MB  u-boot env  ★
-mtd7:  0:appsbl       1MB    u-boot      ★
-mtd8:  0:art          0.5MB  WiFi cal (board-2.bin) ★
-mtd9:  bdata          0.5MB  Xiaomi 设备数据
-mtd10: crash          0.5MB
-mtd11: crash_syslog   0.5MB
-mtd12: rootfs         35.75MB ★ 启动槽 0
-mtd13: rootfs_1       35.75MB ★ 启动槽 1
-mtd14: overlay        30.75MB 原厂数据分区
-mtd15: rsvd0          0.5MB
-```
+原厂双槽把 kernel、squashfs 和 `rootfs_data` 放入当前 35.75 MiB UBI
+槽；完整功能镜像通常无法容纳。custom U-Boot 合并布局把后部空间合并为
+`rootfs=0x06640000`，本机快照中的 `/rom=51.3M` 与 `/overlay=34.6M`
+也只可能来自此类较大的 UBI，而不可能来自 35.75 MiB 单槽。
 
-内核与 squashfs 共同装入当前 UBI 槽。构建必须按完整 UBI 镜像校验,
-不能只比较 rootfs 文件大小。
+内核会按 MIBIB 动态生成 MTD，因此不能用固定 `mtd12/mtd13` 作为布局
+判断或恢复依据，必须同时核对分区名称和大小。
 
 ★ 标记的分区**永远不要乱刷**:
 - mtd7 appsbl(u-boot)被破坏 → 必须串口 + USB-Flash 救
@@ -79,11 +66,13 @@ mtd15: rsvd0          0.5MB
 
 ```bash
 ssh root@<router>
-# 必备 4 块
-dd if=/dev/mtd7  of=/tmp/appsbl.bin
-dd if=/dev/mtd6  of=/tmp/appsblenv.bin
-dd if=/dev/mtd8  of=/tmp/art.bin
-dd if=/dev/mtd9  of=/tmp/bdata.bin
+# 按名称查找，禁止假设固定 mtd 编号
+. /lib/functions.sh
+. /lib/functions/system.sh
+dd if="/dev/mtd$(find_mtd_index 0:appsbl)" of=/tmp/appsbl.bin
+dd if="/dev/mtd$(find_mtd_index 0:appsblenv)" of=/tmp/appsblenv.bin
+dd if="/dev/mtd$(find_mtd_index 0:art)" of=/tmp/art.bin
+dd if="/dev/mtd$(find_mtd_index bdata)" of=/tmp/bdata.bin
 
 # 拷出来
 scp root@<router>:/tmp/{appsbl,appsblenv,art,bdata}.bin ~/ax6-backup/
@@ -93,25 +82,29 @@ scp root@<router>:/tmp/{appsbl,appsblenv,art,bdata}.bin ~/ax6-backup/
 
 ## 5. 刷机步骤
 
-### STOCK(标准 SMEM 分区)
+### STOCK workflow(custom U-Boot/SMEM 合并布局)
 
 ```bash
 # 1. 仅从已支持 redmi,ax6-stock 的 OpenWrt/ImmortalWrt 进入
 ssh root@192.168.5.1
 
-# 2. 再次确认是双 0x023c0000 槽
-cat /proc/mtd | grep -E '"rootfs(_1)?"'
+# 2. 必须确认是单 0x06640000 rootfs
+cat /proc/mtd | grep -E '"rootfs(_1)?"|"overlay"'
 
 # 3. 校验 SHA256 后,只上传 Release 中的 sysupgrade 镜像
 scp downloads/openwrt-qualcommax-ipq807x-redmi_ax6-stock-squashfs-sysupgrade.bin root@192.168.5.1:/tmp/
 
-# 4. 使用 sysupgrade 正常升级
+# 4. 先执行只读验证；新版源码会按实际 MTD 几何检查镜像能否容纳
+sysupgrade -T /tmp/openwrt-*.bin
+
+# 5. 测试通过后才进行正常升级
 sysupgrade -v /tmp/openwrt-*.bin
 # 或不保留:sysupgrade -n
 ```
 
-不能从 Xiaomi 原厂 Web 升级页直接刷 `sysupgrade.bin`。`factory.ubi` 与
-initramfs ITB 也不是 LuCI/sysupgrade 的替代文件。
+若看到双 `023c0000` 槽，本仓完整 STOCK 镜像不适用。不能从 Xiaomi
+原厂 Web 升级页直接刷 `sysupgrade.bin`。`factory.ubi` 与 initramfs ITB
+也不是 LuCI/sysupgrade 的替代文件。
 
 ### EXPAND(高风险)
 

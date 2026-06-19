@@ -71,13 +71,13 @@ rootfs1_size=$(awk '$4 == "\"rootfs_1\"" {print $2}' /proc/mtd 2>/dev/null)
 overlay_size=$(awk '$4 == "\"overlay\"" {print $2}' /proc/mtd 2>/dev/null)
 case "${rootfs_size}:${rootfs1_size}:${overlay_size}" in
     023[cC]0000:023[cC]0000:01[eE][cC]0000)
-        ok "NAND layout: stock SMEM (rootfs/rootfs_1 each 35.75 MiB)"
+        warn "NAND layout: Xiaomi original dual-slot (35.75 MiB each); full merged-layout image is not compatible"
         ;;
     0[Cc]000000::)
         ok "NAND layout: expanded 192 MiB rootfs (modded NAND)"
         ;;
     06640000::*)
-        warn "NAND layout: custom merged 102.25 MiB rootfs, not Xiaomi stock SMEM"
+        ok "NAND layout: SMEM/custom U-Boot merged rootfs (102.25 MiB)"
         ;;
     *)
         warn "NAND layout is non-standard: rootfs=0x${rootfs_size:-?}, rootfs_1=0x${rootfs1_size:-none}, overlay=0x${overlay_size:-none}"

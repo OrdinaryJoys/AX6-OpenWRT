@@ -6,13 +6,14 @@
 > 修复分支：`codex/full-audit-20260619`
 > 源码仓库：`OrdinaryJoys/immortalwrt-nss`
 > 原源码基线：`3e7a3febdd3fba88a8ca248afd3cc946f9853ee9`
-> 修复源码：`8273846cf00ee72cfb0c0a992d6af29f9f5ec755`
+> 修复源码：`9b711aebd554e861406eed91ab5ea6c5c9bc3707`
 > 用户提供清单：`FIX_CHECKLIST_2026-06-19.md`
 
-> **P0 安全更正（2026-06-19 晚间复审）：**此前报告把成功编译和 rootfs
-> 内容检查误当成 STOCK 可刷验证。原厂 SMEM 的 `rootfs`/`rootfs_1`
-> 各为 `0x023c0000`(35.75 MiB),而 `main@af83982` 的 `factory.ubi`
-> 为 62,521,344 字节。该产物超过原厂单槽,不得刷写。
+> **P0 二次更正（2026-06-19 严格复审）：**`redmi_ax6-stock` DTS 使用
+> `qcom,smem-part`，同一 compatible 会读取原厂双槽或 custom U-Boot
+> 合并 MIBIB。当前路由快照 `/rom=51.3M`、UBI overlay=34.6M，排除了
+> 35.75 MiB 原厂单槽，指向 `rootfs=0x06640000` 合并布局。此前把共享
+> profile 固定为 `36608k` 是错误修复，现已撤销并改为实机 MTD 容量预检。
 
 ## 1. 最终结论
 
@@ -49,7 +50,7 @@
 | lint 最近多次成功 | 属实 |
 | `main` 最新提交为 `878c97d` | 属实 |
 | `immortalwrt-nss` 本地/远端 main 与 sync 分支一致 | 属实，均为真实 SHA `3e7a3febdd3f...` |
-| STOCK 与 EXPAND 配置软件部分一致 | 旧状态属实；现因原厂槽限制,STOCK 有意移除大包和下载型 OpenClash 资源 |
+| STOCK 与 EXPAND 配置软件部分一致 | 属实；两者仅应存在目标 profile/设备差异 |
 
 ### 2.2 清单中错误或过度结论
 
@@ -129,7 +130,7 @@
 
 | 仓库/分支 | HEAD | 状态 |
 |---|---|---|
-| OrdinaryJoys `codex/fix-ath11k-nss-depends` | `8273846cf00e...` | ATH11K NSS 依赖与 STOCK UBI 容量门禁源码 |
+| OrdinaryJoys `codex/fix-ath11k-nss-depends` | `9b711aebd554...` | ATH11K NSS 依赖与动态 SMEM 升级预检源码 |
 | OrdinaryJoys `codex/p0-nss-sync` | `3e7a3febdd3f...` | 与 OrdinaryJoys main 一致 |
 | OrdinaryJoys `main` | `3e7a3febdd3f...` | 原始审计基线，尚未包含 ATH11K 依赖修复 |
 | VIKINGYFY `main` | `5f520e5c2b...` | 2026-06-19 远端 HEAD；未在本轮直接合并 |
@@ -439,30 +440,31 @@ packages 的 51 个提交包含 Go 安全更新、strongSwan 修复、Python 包
 
 | 问题 | 证据 | 影响 |
 |---|---|---|
-| STOCK 容量模型写错 | 原厂 `/proc/mtd` 为 `rootfs=023c0000`、`rootfs_1=023c0000`、`overlay=01ec0000` | 文档误把第三方合并后的 `06640000` 当成原厂 STOCK |
-| 构建无分区容量门禁 | `redmi_ax6-stock` 清空 `KERNEL_SIZE` 且未设置 `IMAGE_SIZE/NAND_SIZE` | 超大 UBI 仍会显示编译成功 |
-| 最新产物不可装入原厂槽 | run `27813375966` 的 `factory.ubi` 为 62,521,344 字节,槽为 37,486,592 字节 | 超限 25,034,752 字节 |
-| 软件集与设计说明冲突 | rootfs 同时内置 `sing-box`、`xray-core`、`ddns-go`,但 OpenClash 注释声明核心应在线安装 | 无必要地占用 STOCK 固件空间 |
+| 一个 profile 对应多种 MIBIB | stock DTS 使用 `qcom,smem-part`; `DEVICE_ALT0` 仅是显示标题 | 不能在共享源码 profile 写死 35.75 MiB |
+| 实机目标曾被误判 | 快照 `/rom=51.3M` 且 UBI overlay=34.6M | 当前系统不可能位于 35.75 MiB 槽,应按合并布局审查 |
+| 升级脚本不验证目标存在 | 旧逻辑只看 `flag_boot_rootfs` | 合并布局若残留 flag=1 会选择不存在的 `rootfs_1` |
+| 升级前没有容量预检 | UBI 卷删除后才由 `ubimkvol` 发现空间不足 | 原厂双槽误刷完整镜像可能先破坏当前 UBI |
+| 构建名称含义模糊 | workflow 的 STOCK 被描述成 Xiaomi 原厂布局 | 用户可能把合并布局镜像用于原厂双槽 |
 | 发布物用途混杂 | 同一 artifact/release 包含 sysupgrade、factory UBI、initramfs ITB | 用户容易把恢复镜像用于 LuCI 或 raw NAND |
 | 恢复命令不安全 | Release 使用未定义 `stock.bin` 的通用 `nand erase/write rootfs` 示例 | sysupgrade tar 或错误布局镜像可能被直接写入 NAND |
 | 备用工作流直接发布未锁定产物 | IPQ/IMM/LEDE 跟随移动源码/feeds,后两者没有最终镜像验证 | 未验证镜像会被误认为正式 Release |
 
 ### 16.2 已实施修正
 
-- 源码 stock profile 增加 `IMAGE_SIZE := 36608k` 与 `NAND_SIZE := 128m`,
-  触发 `append-ubi` 的坏块预留容量检查。
-- CI 再按原始 `0x023c0000` 检查完整 STOCK `factory.ubi`,而不是只看
-  squashfs；EXPAND 同时按 `0x0c000000` 检查。
-- STOCK 不再内置 `sing-box`、`xray-core`、`ddns-go` 和 `vim-fuller`。
-  OpenClash 保留 LuCI/运行框架,核心按既定设计在设备上另行安装。
-- STOCK 同时剥离 OpenClash 可在线下载的 GeoSite/MMDB、规则数据和两个
-  Dashboard；EXPAND 仍保留完整静态资源。
+- 撤销共享 stock profile 中错误的 `IMAGE_SIZE=36608k`/`NAND_SIZE=128m`。
+- 源码新增 `xiaomi_stock_get_upgrade_part`：双槽沿用 boot flag，单 rootfs
+  合并布局强制使用实际存在的 `rootfs`。
+- 源码新增升级前容量检查：读取实际 MTD size/erase size/write size/
+  bad blocks，按 UBI LEB、layout PEB 和坏块预留计算 kernel+root 是否可容纳。
+- 容量或目标布局失败返回 74，`sysupgrade -F` 也不能绕过该硬故障。
+- CI 明确把 STOCK workflow 定义为 `rootfs=0x06640000` 合并布局，并按
+  `0x06340000` UBI 上限检查 factory 镜像；EXPAND 仍按 `0x0c000000`。
+- 恢复 STOCK 的完整软件集和 OpenClash 静态资源，不再为错误的双槽假设删包。
 - Release 只包含正常升级用 sysupgrade；factory UBI/initramfs ITB 移入
   独立 RECOVERY artifact 并附禁止误用说明。
 - 删除通用 raw NAND 恢复命令和未经验证的 STOCK→EXPAND 转换步骤。
-- `nss-check` 改为按分区名称和完整三分区组合识别 stock,并把
-  `06640000` 明确标为第三方合并布局。
-- lint 新增 STOCK 大包、容量门禁、artifact 隔离和危险刷写命令检查。
+- `nss-check` 分别识别原厂双槽、custom U-Boot 合并和 256M 扩容布局。
+- 文档和 lint 禁止“布局不明默认选 STOCK”，改为不明确就停止刷写。
 - IPQ/IMM/LEDE 备用工作流取消 Release 与仓库写权限,仅保留 7 天、明确标记
   `UNVALIDATED` 的 Actions artifact。
 
@@ -473,17 +475,22 @@ packages 的 51 个提交包含 Go 安全更新、strongSwan 修复、Python 包
 - 更新仍把 `ATH11K_NSS_SUPPORT` 同时绑定 mesh、512M profile 和
   `qca-nss-drv-wifi-meshmgr`,与 AX6 1GB、NSS FW 12.5、禁用 mesh 的配置
   模型冲突,本轮不直接合并。
-- ImmortalWrt 官方当前仍保留 `redmi_ax6-stock` 双槽升级逻辑,但同样没有
-  为该 profile 声明容量；本仓源码修复是必要的本地安全补充。
+- ImmortalWrt 官方与 VIKINGYFY 都保留动态 SMEM profile，且没有固定
+  `IMAGE_SIZE`；这与一个 compatible 对应多种 MIBIB 的框架一致。
+- qosmio `main-nss@92a2d104` 不提供 AX6 stock profile，但其 NSS VLAN
+  文档继续要求使用 802.1q 子接口而非 bridge VLAN filtering。
 
 ### 16.4 当前验证边界
 
-旧 run `27813375966` 只能证明编译流程完成,已经判定为 STOCK 容量不合格。
+旧 run `27813375966` 的 62,521,344 字节 factory UBI 对原厂双槽不合格，
+但对 `0x06640000` 合并布局在容量上可成立；它仍不包含新的运行时预检，
+因此不能直接作为最终可刷产物。
 新的源码提交和编译仓提交完成后,必须至少通过：
 
-1. 源码 `append-ubi` 容量门禁。
-2. CI 完整 UBI 原始槽容量复核。
-3. sysupgrade board/metadata、rootfs 内容和禁止大包复核。
+1. 合并布局与原厂双槽的升级容量 mock 测试。
+2. CI 完整 UBI `0x06340000` 合并布局上限复核。
+3. sysupgrade board/metadata、rootfs 内容与源码预检函数复核。
 4. sysupgrade 与 RECOVERY artifact 分离检查。
 
-在新的云端构建通过这些门禁前,不能发布或刷写新的 STOCK 固件。
+在新的云端构建通过这些门禁前，不能发布或刷写新固件；实机读取和刷写
+仍需用户另行确认。

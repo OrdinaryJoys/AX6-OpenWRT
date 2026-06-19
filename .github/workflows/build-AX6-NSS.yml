@@ -66,7 +66,7 @@ jobs:
           case "$VARIANT_INPUT" in
             stock)
               CFG="AX6-IPQ/.config-stock"; TAG="STOCK"
-              echo "::notice::Building STOCK variant — Xiaomi SMEM dual-slot layout, 35.75 MiB per UBI slot"
+              echo "::notice::Building STOCK profile for the 0x06640000 SMEM/custom U-Boot merged layout"
               ;;
             expand)
               CFG="AX6-IPQ/.config-expand"; TAG="EXPAND"
@@ -210,16 +210,13 @@ jobs:
               exit 1
             }
           done
-          image_mk="openwrt/target/linux/qualcommax/image/ipq807x.mk"
-          stock_profile=$(
-            sed -n '/^define Device\/redmi_ax6-stock$/,/^endef$/p' "$image_mk"
-          )
-          grep -Fq 'IMAGE_SIZE := 36608k' <<<"$stock_profile" || {
-            echo "::error file=$image_mk::redmi_ax6-stock lacks the 35.75 MiB IMAGE_SIZE guard"
+          platform_sh="openwrt/target/linux/qualcommax/ipq807x/base-files/lib/upgrade/platform.sh"
+          grep -Fq 'xiaomi_stock_check_image_size' "$platform_sh" || {
+            echo "::error file=$platform_sh::missing runtime MTD/image capacity preflight"
             exit 1
           }
-          grep -Fq 'NAND_SIZE := 128m' <<<"$stock_profile" || {
-            echo "::error file=$image_mk::redmi_ax6-stock lacks the 128 MiB NAND reserve model"
+          grep -Fq 'xiaomi_stock_get_upgrade_part' "$platform_sh" || {
+            echo "::error file=$platform_sh::missing dynamic rootfs/rootfs_1 selection"
             exit 1
           }
 
@@ -333,25 +330,6 @@ jobs:
 
           sys.exit(main())
           PY
-          if [ "$VARIANT_TAG" = STOCK ]; then
-            for package in sing-box xray-core ddns-go vim-fuller; do
-              if grep -Fqx "CONFIG_PACKAGE_${package}=y" .config; then
-                echo "::error::STOCK defconfig re-enabled oversized optional package: $package"
-                exit 1
-              fi
-            done
-            for asset in \
-              package/luci-app-openclash/root/etc/openclash/GeoSite.dat \
-              package/luci-app-openclash/root/etc/openclash/Country.mmdb \
-              package/luci-app-openclash/root/etc/openclash/rule_provider/oc-cn-domain.mrs \
-              package/luci-app-openclash/root/usr/share/openclash/ui/metacubexd \
-              package/luci-app-openclash/root/usr/share/openclash/ui/zashboard; do
-              if [ -e "$asset" ]; then
-                echo "::error::STOCK still embeds downloadable OpenClash asset: $asset"
-                exit 1
-              fi
-            done
-          fi
           make download -j8
           find dl -size -1024c -exec ls -l {} \;
           find dl -size -1024c -exec rm -f {} \;
@@ -439,14 +417,6 @@ jobs:
             echo "::error::Final rootfs contains unsupported ath11k rx_hash parameter"
             exit 1
           fi
-          if [ "$VARIANT_TAG" = STOCK ] &&
-             grep -Eq \
-               'squashfs-root/(etc/openclash/(GeoSite\.dat|Country\.mmdb|rule_provider/oc-cn-domain\.mrs)|usr/share/openclash/ui/(metacubexd|zashboard))(/| ->|$)' \
-               image-verify/rootfs-files.txt; then
-            echo "::error::STOCK rootfs contains downloadable OpenClash data or dashboards"
-            exit 1
-          fi
-
           if [ "$VARIANT_TAG" = STOCK ]; then
             mapfile -d '' factory_images < <(
               find openwrt/bin/targets -type f \
@@ -456,13 +426,14 @@ jobs:
               echo "::error::Expected exactly one STOCK factory UBI image, found ${#factory_images[@]}"
               exit 1
             fi
-            stock_partition_size=$((0x023c0000))
+            stock_partition_size=$((0x06640000))
+            stock_ubi_limit=$((0x06340000))
             factory_size=$(stat -c %s "${factory_images[0]}")
-            if [ "$factory_size" -gt "$stock_partition_size" ]; then
-              echo "::error::STOCK UBI is ${factory_size} bytes, exceeding the 0x023c0000 (${stock_partition_size} byte) Xiaomi SMEM slot"
+            if [ "$factory_size" -gt "$stock_ubi_limit" ]; then
+              echo "::error::STOCK UBI is ${factory_size} bytes, exceeding the 0x06340000 (${stock_ubi_limit} byte) merged-layout limit with NAND bad-block reserve"
               exit 1
             fi
-            echo "STOCK UBI size: ${factory_size}/${stock_partition_size} bytes"
+            echo "STOCK merged-layout UBI: ${factory_size}/${stock_ubi_limit} bytes (partition ${stock_partition_size})"
           else
             mapfile -d '' factory_images < <(
               find openwrt/bin/targets -type f \
@@ -595,10 +566,10 @@ jobs:
 
             | 变体 | 适用 | 风险 |
             |---|---|---|
-            | STOCK | 1GB RAM + 128MB NAND(标准 Xiaomi 出厂)| 原厂 SMEM 双槽,每槽 35.75 MiB,构建强制校验容量 |
+            | STOCK | 1GB RAM + 128MB NAND,SMEM/custom U-Boot 合并布局 | 必须看到单 `rootfs=06640000`;不适用于原厂双槽 |
             | EXPAND | 1GB RAM + 256MB NAND(已硬件改 NAND)| 高(分区表会写死) |
 
-            **不知道是哪个 → 选 STOCK**。
+            **布局不明确时不要刷写任何变体**。
             Release 仅提供正常升级使用的 `sysupgrade.bin`。`factory.ubi` 和
             initramfs ITB 只在 Actions 的独立 RECOVERY artifact 中提供,不能用于
             LuCI 正常升级,也不能当作 sysupgrade 镜像直接写入 NAND。
