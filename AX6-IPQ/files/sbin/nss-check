@@ -296,16 +296,18 @@ for radio in $(uci -q show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-device$/{
 done
 [ "$coex_bad" -eq 0 ] && ok "2.4G HE40/HE20 coexistence configuration is safe"
 
-# ---- 17. 上游 IRQ/RPS 启动链 ----
+# ---- 17. 上游 NSS/IRQ/RPS 启动链 ----
 for svc in \
-    S93smp_affinity \
-    S28qca-nss-drv \
+    S26qca-nss-ecm \
     S27qca-nss-pbuf \
+    S28qca-nss-drv \
+    S29qca-nss-netlink \
+    S93smp_affinity \
     S99set-irq-affinity; do
     if [ -e "/etc/rc.d/$svc" ]; then
-        ok "Upstream IRQ/RPS service enabled: $svc"
+        ok "Upstream NSS/IRQ/RPS service enabled: $svc"
     else
-        fail "Missing upstream IRQ/RPS startup link: /etc/rc.d/$svc"
+        fail "Missing upstream NSS/IRQ/RPS startup link: /etc/rc.d/$svc"
     fi
 done
 

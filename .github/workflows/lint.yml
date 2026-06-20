@@ -521,6 +521,19 @@ jobs:
       - name: IRQ policy ownership check
         run: |
           set -eo pipefail
+          health=AX6-IPQ/files/sbin/nss-check
+          for required in \
+            S26qca-nss-ecm \
+            S27qca-nss-pbuf \
+            S28qca-nss-drv \
+            S29qca-nss-netlink \
+            S93smp_affinity \
+            S99set-irq-affinity; do
+            grep -Fq "$required" "$health" || {
+              echo "::error file=$health::runtime health check is missing startup link $required"
+              exit 1
+            }
+          done
           if [ -e AX6-IPQ/files/etc/init.d/ax6-irq-affinity ] || \
              grep -R -n -E \
                'S[0-9]+ax6-irq-affinity|ax6-irq-affinity (apply|reload|restart)' \
