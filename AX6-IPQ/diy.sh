@@ -82,8 +82,8 @@ fi
 # (e) 991_set-network.sh: global packet_steering policy is supplied by nss-fork;
 # Boot Guard removes obsolete per-device copies left by older source revisions.
 
-# (f) [removed] 235-003 skip — 使用 VIKINGYFY 6.18 基线 + nss-packages-618
-#     NSS mac80211 patches 已由上游维护,不再需要运行时跳过任何 patch。
+# (f) [removed] 235-003 skip — NSS/mac80211 patches are maintained in the
+#     locked source tree; no external NSS feed or runtime patch skipping is used.
 
 # ----------------------------------------------------
 # AX6 硬件适配(变体感知)

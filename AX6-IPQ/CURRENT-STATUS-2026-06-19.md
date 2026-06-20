@@ -1,6 +1,6 @@
 # AX6 NSS 当前状态与遗留问题
 
-> 更新时间：2026-06-19（Asia/Shanghai）
+> 更新时间：2026-06-20（Asia/Shanghai）
 >
 > 本文件是当前唯一有效的状态清单。历史报告只用于追溯，不应用于判断当前
 > 仓库、构建或路由器状态。
@@ -9,13 +9,15 @@
 
 | 对象 | 当前基线 | 状态 |
 |---|---|---|
-| 编译仓库 | `OrdinaryJoys-AX6-OpenWRT/main@d461ce4fc7be8af3976d4ca39a14e4735150d395` | 审计开始时干净，与 `origin/main` 一致 |
+| 编译仓库 | `OrdinaryJoys-AX6-OpenWRT/main@db235e6` | 与 `origin/main` 一致；所有修正已提交 |
 | 源码仓库 | `immortalwrt-nss/main@9b711aebd554e861406eed91ab5ea6c5c9bc3707` | 审计开始时干净，与 `origin/main` 一致 |
-| 锁定源码 | `9b711aebd554e861406eed91ab5ea6c5c9bc3707` | 包含 ath11k NSS 依赖和 stock SMEM 升级预检 |
-| packages feed | `8ed3556d174d9c04d3f97708d89c1c2ded236033` | 已更新 51 个提交，尚无当前 main 全量构建 |
-| 最近 main 固件构建 | run `27813375966`，提交 `af83982` | 成功，但早于分区预检和 packages feed 更新 |
-| 当前在跑构建 | run `27826082565`，提交 `46cc65b` | 正在编译，不包含 packages feed 更新 |
-| 最新 main lint | run `27828810769`，提交 `d461ce4` | 成功，仅证明静态门禁通过 |
+| 锁定源码候选 | `61c945c14edd340379821d6dbd5965b029cc5bb2` | 修复 ath11k NSS Kconfig 递归依赖，等待云端构建 |
+| packages feed | `8ed3556d174d9c04d3f97708d89c1c2ded236033` | 已由 `d461ce4` 完整 STOCK 构建覆盖 |
+| 最新完整 STOCK 构建 | run `27832307023`，提交 `d461ce4` | 编译、rootfs、制品和 Release 全部成功 |
+| 最新 Release | `AX6_NSS_STOCK_20260620003348` | 指向 `d461ce4`，SHA256 和 BUILD-LOCK 已复核 |
+| 最新 main lint | run `27832487945`，提交 `1fb8d07` | 成功；本轮发现并修正一项无效推荐检查 |
+| 本轮测试分支 lint | run `27853205582`，提交 `04b61f3` | 成功，无旧 NSS 推荐误报 |
+| 本轮 STOCK 构建 | run `27853207046`，提交 `04b61f3` | defconfig 递归依赖门禁已通过，编译中 ⏳ |
 | 实机固件 | `r39801-16b6a4fd78`，内核 `6.18.28` | 早于当前目标源码，不能代表新镜像运行状态 |
 
 工作区另有旧副本 `../AX6-OpenWRT@689267f`。它不是当前有效仓库，后续检查、
@@ -45,20 +47,23 @@
 | 仓库 Shell 语法检查 | PASS |
 | `tests/test-vlan-add.sh` | PASS |
 | `tests/test-openclash-archive.sh` | PASS |
-| 最新 main lint | PASS，run `27828810769` |
-| `af83982` STOCK 编译、rootfs 校验和 Release 流程 | PASS，run `27813375966` |
+| 最新 main lint | PASS，run `27832487945` |
+| `d461ce4` STOCK 编译、rootfs 校验和 Release 流程 | PASS，run `27832307023` |
+| Release SHA256 与 GitHub 资产摘要 | PASS |
+| 197 个内核模块 vermagic | 全部为 `6.18.35 SMP mod_unload aarch64` |
+| NSS/ath11k 模块依赖链 | PASS：ath11k→NSS drv→NSS DP/SSDK |
 
-以上结果不能替代 `d461ce4` 的完整构建，也不能替代新镜像实机运行验证。
+以上结果证明 `d461ce4` 的 STOCK 产物在构建和静态内容层面完整，但不能替代
+新镜像实机运行验证。
 
 ## 4. 当前仍存在的确定问题
 
-### P0：发布与构建闭环
+### P0：实机运行闭环
 
-1. 当前 `main@d461ce4` 没有完成全量固件构建。
-2. 正在运行的 `27826082565` 只到 `46cc65b`，不包含 packages feed
-   `8ed3556d`，即使成功也不能证明当前 main。
-3. packages feed 更新涉及 Go 工具链及多个选中包，必须通过当前 main 的完整
-   编译、rootfs 校验和制品校验后才能发布。
+1. 最新 Release 尚未在目标 AX6 上执行 `sysupgrade -T`。
+2. 新内核 `6.18.35`、ZRAM、完整 S26-S29 NSS 启动链、WiFi/IoT、VLAN 和
+   SQM 尚未由新镜像实机证明。
+3. 未经用户再次确认，不上传镜像、不修改配置、不刷写。
 
 ### P1：EXPAND 安全验证不完整
 
@@ -80,14 +85,18 @@
 - EXPAND `ubi_kernel/rootfs` 分区和容量测试。
 - `nss-check`、`ax6-config-audit`、boot guard、WiFi 迁移和备份脚本测试。
 
-### P1：文档仍有与实现冲突的内容
+### P1：本轮已修正，CI 验证中
 
-- workflow 输入注释仍把 STOCK 写成 “Xiaomi original / standard SMEM”。
-- Release 文本仍要求检查固定 `mtd12`，与按分区名称识别的实现冲突。
-- README 仍把 `.config-stock` 称为“标准 SKU”，容易误解为原厂双槽。
-- HARDWARE 的风险说明仍出现固定 `mtd6/mtd7/mtd8/mtd12` 和无法量化的
-  “1% 变砖概率”。
-- `diy.sh` 仍有已废弃外部 `nss-packages-618` 的历史注释。
+- ✅ 修复 `PACKAGE_kmod-ath11k → ATH11K_NSS_MESH_SUPPORT → ATH11K_NSS_SUPPORT
+  → PACKAGE_kmod-ath11k` 递归依赖 (删 `depends on PACKAGE_kmod-ath11k`, 改 default y→n)。
+- ✅ `make defconfig` 发现递归依赖时现在会直接让构建失败。
+- ✅ 移除 lint 对不存在的 `CONFIG_PACKAGE_MAC80211_NSS_SUPPORT` 的误导检查。
+- ✅ rootfs 门禁补充 NSS DP、SSDK、ECM 和 S26/S29 启动链接。
+- ✅ 将 stock/expand 的 CPU 优化统一为已成功构建实际使用的 `-Os`。
+- ✅ 修正 workflow、README、HARDWARE 和 `diy.sh` 的过期分区/外部 feed 描述。
+- ⏳ run `27853207046` 编译中 (含递归依赖修复的完整 STOCK 构建)。
+- ℹ️ lint.yml 硬编码 `SOURCE_TRACKING_BRANCH=codex/fix-ath11k-kconfig-cycle` 为
+  有意设计，防止意外切换跟踪分支。变更分支时需同步更新 lint.yml。
 
 ### P2：状态文档本身过时
 
@@ -130,17 +139,16 @@
 1. 修正文档和 workflow 中已经确认的错误描述。
 2. 为 STOCK 升级预检补充可重复的 mock 测试。
 3. 为 EXPAND 增加分区布局、kernel/root 分别容量预检；未完成前不发布。
-4. 触发并完成 `main@d461ce4` 的 STOCK 全量构建。
-5. 校验 sysupgrade metadata、kernel/root 大小、rootfs 内容、BUILD-LOCK 和
-   Artifact/Release 对应提交。
-6. 将新镜像上传到当前实机后只执行 `sysupgrade -T`；未经再次确认不刷写。
-7. 新镜像运行后再检查 ZRAM、NSS 启动链、WiFi 丢包、VLAN、SQM、
+4. 等待 run `27853207046` 完成编译、rootfs 和 Artifact 验证。
+5. 经用户确认后，将已验证镜像上传到当前实机并只执行 `sysupgrade -T`。
+6. 再次确认后才允许刷写。
+7. 新镜像运行后检查 ZRAM、NSS 启动链、WiFi 丢包、VLAN、SQM、
    ZeroTier、UPnP 和 OpenClash。
 
 ## 8. 当前禁止结论
 
-- 不能说当前 main 已完整构建验证。
-- 不能把 `46cc65b` 的构建结果当成 `d461ce4` 的结果。
+- 不能把构建成功表述为所有驱动已经完成实机验证。
+- 不能把当前旧固件的运行状态当成 `d461ce4` Release 的运行结果。
 - 不能把当前旧固件的 ZRAM/启动链状态当成最新仓库构建结果。
 - 不能称 EXPAND 已安全适配或已完成实机验证。
 - 不能仅凭 `tx failed` 计数认定 WiFi 驱动故障。

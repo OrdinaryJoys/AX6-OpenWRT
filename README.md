@@ -27,7 +27,8 @@ Xiaomi 原厂双 `0x023c0000` 槽与合并布局共享 `redmi,ax6-stock`
 
 > **供应链已恢复（2026-06-18）**：
 > qca-nss 已迁移到源码树内置 (`package/qca-nss/`, 10 包 73 文件)。
-> 锁文件指向 `codex/fix-ath11k-nss-depends` 的已审计提交 `9b711aebd554...`。
+> 锁文件指向 `codex/fix-ath11k-kconfig-cycle` 的候选提交 `61c945c14edd...`，
+> 用于消除 ath11k NSS Kconfig 递归依赖并进行完整构建验证。
 > 外部 feed `VIKINGYFY/nss-packages-618` 已废弃。
 > VIKINGYFY 后续 `38e28da...`、`5f520e5...` 涉及 qca-nss/mac80211
 > 重构，尚未合并。
@@ -68,7 +69,7 @@ GitHub UI → Actions → `Build OpenWRT for AX6-NSS` → Run workflow → 选 v
 │       ├── build-LEDE.yml         # 基于 coolsnowwolf/lede
 │       └── lint.yml               # 增量检查 (shellcheck/actionlint/yamllint + NSS 冲突)
 ├── AX6-IPQ/                        # 主目录
-│   ├── .config-stock               # 1G+128M 标准 SKU
+│   ├── .config-stock               # 1G+128M custom SMEM 合并布局
 │   ├── .config-expand              # 1G+256M 改装 SKU
 │   ├── nss-extra.config            # NSS / WiFi 增量(workflow 自动追加)
 │   ├── diy.sh                      # 构建时 DIY(变体感知 DT patch)

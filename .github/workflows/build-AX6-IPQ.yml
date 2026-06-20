@@ -169,13 +169,18 @@ jobs:
           }
           unsquashfs -ll "$rootfs" > image-verify/rootfs-files.txt
           for required in \
+            'lib/modules/.*/qca-ssdk\.ko' \
+            'lib/modules/.*/qca-nss-dp\.ko' \
             'lib/modules/.*/qca-nss-drv\.ko' \
             'lib/modules/.*/qca-nss-netlink\.ko' \
             'lib/modules/.*/qca-nss-qdisc\.ko' \
+            'lib/modules/.*/ecm\.ko' \
             'lib/modules/.*/act_nssmirred\.ko' \
             'lib/modules/.*/zram\.ko' \
+            'etc/config/ecm' \
             'etc/config/nss' \
             'etc/config/pbuf' \
+            'etc/init\.d/qca-nss-ecm' \
             'etc/init\.d/qca-nss-drv' \
             'etc/init\.d/qca-nss-netlink' \
             'etc/init\.d/qca-nss-pbuf' \
@@ -205,9 +210,11 @@ jobs:
             'etc/rc\.d/S10ax6-wifi-regdom' \
             'etc/rc\.d/S12ax6-boot-guard' \
             'etc/rc\.d/S15zram' \
-            'etc/rc\.d/S93smp_affinity' \
-            'etc/rc\.d/S28qca-nss-drv' \
+            'etc/rc\.d/S26qca-nss-ecm' \
             'etc/rc\.d/S27qca-nss-pbuf' \
+            'etc/rc\.d/S28qca-nss-drv' \
+            'etc/rc\.d/S29qca-nss-netlink' \
+            'etc/rc\.d/S93smp_affinity' \
             'etc/rc\.d/S99set-irq-affinity'; do
             grep -Eq "squashfs-root/${enabled}( ->|$)" image-verify/rootfs-files.txt || {
               echo "::error::Final rootfs is missing required startup link: $enabled"

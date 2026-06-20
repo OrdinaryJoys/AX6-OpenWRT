@@ -10,7 +10,7 @@ on:
         type: choice
         default: 'stock'
         options:
-          - stock     # 1GB RAM + 128MB NAND (Xiaomi original) — standard SMEM layout
+          - stock     # 1GB RAM + 128MB NAND — custom U-Boot/SMEM merged rootfs=0x06640000
           - expand    # 1GB RAM + 256MB NAND (HW-modded only) — DANGER if NAND <256MB
       ssh:
         description: 'SSH debug connection'
@@ -269,7 +269,11 @@ jobs:
         working-directory: ./openwrt
         run: |
           set -eo pipefail
-          make defconfig
+          make defconfig 2>&1 | tee defconfig.log
+          if grep -q 'recursive dependency detected' defconfig.log; then
+            echo "::error::Kconfig recursive dependency detected"
+            exit 1
+          fi
           # defconfig 会重新启用 CONFIG_KERNEL_WERROR,导致 -Wmissing-prototypes 变成硬错误,
           # 进而导致 NSS 外部内核模块(qca-nss-drv/qca-mcs 等)编译失败。
           # 此处强制禁用以避免连锁问题。
@@ -362,13 +366,18 @@ jobs:
           unsquashfs -ll "$rootfs" > image-verify/rootfs-files.txt
 
           for required in \
+            'lib/modules/.*/qca-ssdk\.ko' \
+            'lib/modules/.*/qca-nss-dp\.ko' \
             'lib/modules/.*/qca-nss-drv\.ko' \
             'lib/modules/.*/qca-nss-netlink\.ko' \
             'lib/modules/.*/qca-nss-qdisc\.ko' \
+            'lib/modules/.*/ecm\.ko' \
             'lib/modules/.*/act_nssmirred\.ko' \
             'lib/modules/.*/zram\.ko' \
+            'etc/config/ecm' \
             'etc/config/nss' \
             'etc/config/pbuf' \
+            'etc/init\.d/qca-nss-ecm' \
             'etc/init\.d/qca-nss-drv' \
             'etc/init\.d/qca-nss-netlink' \
             'etc/init\.d/qca-nss-pbuf' \
@@ -399,9 +408,11 @@ jobs:
             'etc/rc\.d/S10ax6-wifi-regdom' \
             'etc/rc\.d/S12ax6-boot-guard' \
             'etc/rc\.d/S15zram' \
-            'etc/rc\.d/S93smp_affinity' \
-            'etc/rc\.d/S28qca-nss-drv' \
+            'etc/rc\.d/S26qca-nss-ecm' \
             'etc/rc\.d/S27qca-nss-pbuf' \
+            'etc/rc\.d/S28qca-nss-drv' \
+            'etc/rc\.d/S29qca-nss-netlink' \
+            'etc/rc\.d/S93smp_affinity' \
             'etc/rc\.d/S99set-irq-affinity'; do
             grep -Eq "squashfs-root/${enabled}( ->|$)" image-verify/rootfs-files.txt || {
               echo "::error::Final rootfs is missing required startup link: $enabled"
@@ -575,7 +586,7 @@ jobs:
             LuCI 正常升级,也不能当作 sysupgrade 镜像直接写入 NAND。
             刷 EXPAND 前必须确认:
             1. 已用烙铁/热风枪换过 NAND 颗粒
-            2. SSH 进入设备 `cat /proc/mtd` 看 mtd12 size 是否 ≥ 0x0C000000
+            2. SSH 进入设备 `cat /proc/mtd`，确认名为 `rootfs` 的分区大小 ≥ 0x0C000000
 
             ## 默认登录
             - 管理 IP: 192.168.5.1
