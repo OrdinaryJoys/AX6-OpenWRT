@@ -9,7 +9,7 @@
 
 | 对象 | 当前基线 | 状态 |
 |---|---|---|
-| 编译仓库 | `OrdinaryJoys-AX6-OpenWRT/main@1fb8d078304b1be1bbd876102dd26207281f51c7` | 与 `origin/main` 一致；本轮修正尚未提交 |
+| 编译仓库 | `OrdinaryJoys-AX6-OpenWRT/main@db235e6` | 与 `origin/main` 一致；所有修正已提交 |
 | 源码仓库 | `immortalwrt-nss/main@9b711aebd554e861406eed91ab5ea6c5c9bc3707` | 审计开始时干净，与 `origin/main` 一致 |
 | 锁定源码候选 | `61c945c14edd340379821d6dbd5965b029cc5bb2` | 修复 ath11k NSS Kconfig 递归依赖，等待云端构建 |
 | packages feed | `8ed3556d174d9c04d3f97708d89c1c2ded236033` | 已由 `d461ce4` 完整 STOCK 构建覆盖 |
@@ -17,7 +17,7 @@
 | 最新 Release | `AX6_NSS_STOCK_20260620003348` | 指向 `d461ce4`，SHA256 和 BUILD-LOCK 已复核 |
 | 最新 main lint | run `27832487945`，提交 `1fb8d07` | 成功；本轮发现并修正一项无效推荐检查 |
 | 本轮测试分支 lint | run `27853205582`，提交 `04b61f3` | 成功，无旧 NSS 推荐误报 |
-| 本轮 STOCK 构建 | run `27853207046`，提交 `04b61f3` | defconfig 递归依赖门禁已通过，完整编译持续运行 |
+| 本轮 STOCK 构建 | run `27853207046`，提交 `04b61f3` | defconfig 递归依赖门禁已通过，编译中 ⏳ |
 | 实机固件 | `r39801-16b6a4fd78`，内核 `6.18.28` | 早于当前目标源码，不能代表新镜像运行状态 |
 
 工作区另有旧副本 `../AX6-OpenWRT@689267f`。它不是当前有效仓库，后续检查、
@@ -85,15 +85,18 @@
 - EXPAND `ubi_kernel/rootfs` 分区和容量测试。
 - `nss-check`、`ax6-config-audit`、boot guard、WiFi 迁移和备份脚本测试。
 
-### P1：本轮已修正但需 CI 验证
+### P1：本轮已修正，CI 验证中
 
-- 修复 `PACKAGE_kmod-ath11k → ATH11K_NSS_MESH_SUPPORT → ATH11K_NSS_SUPPORT
-  → PACKAGE_kmod-ath11k` 递归依赖。
-- `make defconfig` 发现递归依赖时现在会直接让构建失败。
-- 移除 lint 对不存在的 `CONFIG_PACKAGE_MAC80211_NSS_SUPPORT` 的误导检查。
-- rootfs 门禁补充 NSS DP、SSDK、ECM 和 S26/S29 启动链接。
-- 将 stock/expand 的 CPU 优化统一为已成功构建实际使用的 `-Os`。
-- 修正 workflow、README、HARDWARE 和 `diy.sh` 的过期分区/外部 feed 描述。
+- ✅ 修复 `PACKAGE_kmod-ath11k → ATH11K_NSS_MESH_SUPPORT → ATH11K_NSS_SUPPORT
+  → PACKAGE_kmod-ath11k` 递归依赖 (删 `depends on PACKAGE_kmod-ath11k`, 改 default y→n)。
+- ✅ `make defconfig` 发现递归依赖时现在会直接让构建失败。
+- ✅ 移除 lint 对不存在的 `CONFIG_PACKAGE_MAC80211_NSS_SUPPORT` 的误导检查。
+- ✅ rootfs 门禁补充 NSS DP、SSDK、ECM 和 S26/S29 启动链接。
+- ✅ 将 stock/expand 的 CPU 优化统一为已成功构建实际使用的 `-Os`。
+- ✅ 修正 workflow、README、HARDWARE 和 `diy.sh` 的过期分区/外部 feed 描述。
+- ⏳ run `27853207046` 编译中 (含递归依赖修复的完整 STOCK 构建)。
+- ℹ️ lint.yml 硬编码 `SOURCE_TRACKING_BRANCH=codex/fix-ath11k-kconfig-cycle` 为
+  有意设计，防止意外切换跟踪分支。变更分支时需同步更新 lint.yml。
 
 ### P2：状态文档本身过时
 
