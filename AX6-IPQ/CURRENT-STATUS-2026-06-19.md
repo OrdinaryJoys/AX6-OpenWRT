@@ -11,7 +11,7 @@
 |---|---|---|
 | 编译仓库 | `OrdinaryJoys-AX6-OpenWRT/main@db235e6` | 与 `origin/main` 一致；所有修正已提交 |
 | 源码仓库 | `immortalwrt-nss/main@9b711aebd554e861406eed91ab5ea6c5c9bc3707` | 审计开始时干净，与 `origin/main` 一致 |
-| 锁定源码候选 | `61c945c14edd340379821d6dbd5965b029cc5bb2` | 修复 ath11k NSS Kconfig 递归依赖，等待云端构建 |
+| 锁定源码候选 | `d7180f353c9ef8c3acdd845df600568b176da65d` | Kconfig 修复并增加 stock 升级容量回归测试 |
 | packages feed | `8ed3556d174d9c04d3f97708d89c1c2ded236033` | 已由 `d461ce4` 完整 STOCK 构建覆盖 |
 | 最新完整 STOCK 构建 | run `27832307023`，提交 `d461ce4` | 编译、rootfs、制品和 Release 全部成功 |
 | 最新 Release | `AX6_NSS_STOCK_20260620003348` | 指向 `d461ce4`，SHA256 和 BUILD-LOCK 已复核 |

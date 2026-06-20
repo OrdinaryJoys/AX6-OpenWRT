@@ -219,6 +219,12 @@ jobs:
             echo "::error file=$platform_sh::missing dynamic rootfs/rootfs_1 selection"
             exit 1
           }
+          upgrade_test="openwrt/tests/qualcommax-xiaomi-stock-upgrade.sh"
+          [ -x "$upgrade_test" ] || {
+            echo "::error file=$upgrade_test::missing executable Xiaomi stock upgrade regression test"
+            exit 1
+          }
+          "$upgrade_test"
 
       - name: Add NSS feed and prepare feeds
         run: |
