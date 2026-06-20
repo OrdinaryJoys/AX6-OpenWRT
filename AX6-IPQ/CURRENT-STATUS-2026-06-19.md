@@ -9,15 +9,16 @@
 
 | 对象 | 当前基线 | 状态 |
 |---|---|---|
-| 编译仓库 | `OrdinaryJoys-AX6-OpenWRT/main@db235e6` | 与 `origin/main` 一致；所有修正已提交 |
+| 编译仓库 | `OrdinaryJoys-AX6-OpenWRT/main@f7d7c44` | 领先 `origin/main` 1 commit；lint.yml + nss-check 修正待提交 |
 | 源码仓库 | `immortalwrt-nss/main@9b711aebd554e861406eed91ab5ea6c5c9bc3707` | 审计开始时干净，与 `origin/main` 一致 |
-| 锁定源码候选 | `d7180f353c9ef8c3acdd845df600568b176da65d` | Kconfig 修复并增加 stock 升级容量回归测试 |
+| 锁定源码 | `d7180f353c9ef8c3acdd845df600568b176da65d` | Kconfig 修复 + stock 升级容量回归测试 + 启动链防回归 |
 | packages feed | `8ed3556d174d9c04d3f97708d89c1c2ded236033` | 已由 `d461ce4` 完整 STOCK 构建覆盖 |
 | 最新完整 STOCK 构建 | run `27832307023`，提交 `d461ce4` | 编译、rootfs、制品和 Release 全部成功 |
 | 最新 Release | `AX6_NSS_STOCK_20260620003348` | 指向 `d461ce4`，SHA256 和 BUILD-LOCK 已复核 |
-| 最新 main lint | run `27832487945`，提交 `1fb8d07` | 成功；本轮发现并修正一项无效推荐检查 |
-| 本轮测试分支 lint | run `27853205582`，提交 `04b61f3` | 成功，无旧 NSS 推荐误报 |
-| 本轮 STOCK 构建 | run `27853207046`，提交 `04b61f3` | defconfig 递归依赖门禁已通过，编译中 ⏳ |
+| 最新 main lint | run `27832487945`，提交 `1fb8d07` | 成功 |
+| 本轮 lint | run `27853205582`，提交 `04b61f3` | 成功 |
+| 本轮 STOCK 构建 | run `27854823653`，提交 `f7d7c44` | 编译中 ⏳；前次 `27853207046` 已取消 |
+| sync-check | run `27854822125` | 成功 ✅ |
 | 实机固件 | `r39801-16b6a4fd78`，内核 `6.18.28` | 早于当前目标源码，不能代表新镜像运行状态 |
 
 工作区另有旧副本 `../AX6-OpenWRT@689267f`。它不是当前有效仓库，后续检查、
@@ -94,15 +95,16 @@
 - ✅ rootfs 门禁补充 NSS DP、SSDK、ECM 和 S26/S29 启动链接。
 - ✅ 将 stock/expand 的 CPU 优化统一为已成功构建实际使用的 `-Os`。
 - ✅ 修正 workflow、README、HARDWARE 和 `diy.sh` 的过期分区/外部 feed 描述。
-- ⏳ run `27853207046` 编译中 (含递归依赖修复的完整 STOCK 构建)。
+- ⏳ run `27854823653` 编译中 (含递归依赖修复 + 升级回归测试的完整 STOCK 构建)。
+- ⏳ `lint.yml` + `nss-check` 已修改待提交 (补充 S26/S29 启动链防回归检查)。
 - ℹ️ lint.yml 硬编码 `SOURCE_TRACKING_BRANCH=codex/fix-ath11k-kconfig-cycle` 为
   有意设计，防止意外切换跟踪分支。变更分支时需同步更新 lint.yml。
 
-### P2：状态文档本身过时
+### P2：状态文档维护
 
-`FIX_CHECKLIST_2026-06-19.md` 仍以 `878c97d/3e7a3feb` 为基线，并将 lint、
-构建、rootfs 和实机验证混为一类。旧 `AUDIT-REPAIR-REPORT-2026-06-19.md`
-也是追加式历史报告，前后存在已经被后续提交推翻的结论。
+`FIX_CHECKLIST_2026-06-19.md` 已更新到 `1fb8d07/9b711aebd/61c945c` 基线 (Jun 20)。
+`AUDIT-REPAIR-REPORT-2026-06-19.md` 已加入历史报告提示，指向 CURRENT-STATUS。
+两文件均需在每次重大变更后同步。
 
 ## 5. 当前实机状态
 
@@ -136,13 +138,14 @@
 
 ## 7. 正确执行顺序
 
-1. 修正文档和 workflow 中已经确认的错误描述。
-2. 为 STOCK 升级预检补充可重复的 mock 测试。
-3. 为 EXPAND 增加分区布局、kernel/root 分别容量预检；未完成前不发布。
-4. 等待 run `27853207046` 完成编译、rootfs 和 Artifact 验证。
-5. 经用户确认后，将已验证镜像上传到当前实机并只执行 `sysupgrade -T`。
-6. 再次确认后才允许刷写。
-7. 新镜像运行后检查 ZRAM、NSS 启动链、WiFi 丢包、VLAN、SQM、
+1. ✅ 修正文档和 workflow 中已经确认的错误描述。
+2. ✅ 为 STOCK 升级预检补充可重复的 mock 测试 (`f7d7c44`)。
+3. 提交 `lint.yml` + `nss-check` 启动链防回归修正。
+4. 为 EXPAND 增加分区布局、kernel/root 分别容量预检；未完成前不发布。
+5. 等待 run `27854823653` 完成编译、rootfs 和 Artifact 验证。
+6. 经用户确认后，将已验证镜像上传到当前实机并只执行 `sysupgrade -T`。
+7. 再次确认后才允许刷写。
+8. 新镜像运行后检查 ZRAM、NSS 启动链、WiFi 丢包、VLAN、SQM、
    ZeroTier、UPnP 和 OpenClash。
 
 ## 8. 当前禁止结论
