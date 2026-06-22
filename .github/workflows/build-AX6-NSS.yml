@@ -573,6 +573,8 @@ jobs:
           commit: ${{ github.sha }}
           artifacts: upload/upgrade/*
           allowUpdates: false
+          prerelease: true
+          makeLatest: false
           token: ${{ secrets.GITHUB_TOKEN }}
           body: |
             基于 OrdinaryJoys/immortalwrt-nss(VIKINGYFY 上游 + 本仓修复)构建,带满血 NSS。
@@ -612,7 +614,7 @@ jobs:
             - 详见 AX6-IPQ/HARDWARE.md,未确认分区表前不要执行擦写
 
       - name: Delete old releases
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && env.VARIANT_TAG == 'STOCK'
         uses: dev-drprasad/delete-older-releases@dfbe6be2a006e9475dfcbe5b8d201f1824c2a9fe  # v0.3.4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
