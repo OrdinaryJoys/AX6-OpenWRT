@@ -353,10 +353,14 @@ jobs:
       - name: Package repository ownership check
         run: |
           set -eo pipefail
-          test ! -e AX6-IPQ/files/etc/opkg/distfeeds.conf
-          grep -Fq '由当前锁定源码在构建时生成' 备用源.md
-          if grep -Rq 'downloads\.immortalwrt\.org/releases/24\.10-SNAPSHOT' AX6-IPQ/files; then
-            echo "::error::image overlay must not replace build-generated package repositories"
+          if [ -e AX6-IPQ/files/etc/opkg/distfeeds.conf ]; then
+            if grep -Eq '^src/gz[[:space:]]' AX6-IPQ/files/etc/opkg/distfeeds.conf; then
+              echo "::error::overlay distfeeds.conf must not contain remote feed URLs"
+              exit 1
+            fi
+          fi
+          if grep -Rq 'downloads\.immortalwrt\.org/releases/24\.10-SNAPSHOT' AX6-IPQ/files 2>/dev/null; then
+            echo "::error::image overlay must not reference incompatible package repositories"
             exit 1
           fi
 
