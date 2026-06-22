@@ -205,6 +205,31 @@ if [ -r "$fm_path" ]; then
         0) fail "ath11k frame_mode=0 (raw); expected ethernet mode 2 for NSS offload" ;;
         *) warn "ath11k frame_mode=$fm 未知" ;;
     esac
+else
+    # 无线启用但参数文件缺失 → 可能是驱动未加载或异常
+    if lsmod | grep -q ath11k; then
+        fail "ath11k loaded but $fm_path missing — driver parameter node absent"
+    fi
+fi
+
+# ---- 13b. NSS offload 参数检查 ----
+no_path="/sys/module/ath11k/parameters/nss_offload"
+if [ -r "$no_path" ]; then
+    no_val=$(cat "$no_path")
+    [ "$no_val" = "1" ] && ok "ath11k nss_offload=1 (NSS WiFi offload enabled)" \
+        || fail "ath11k nss_offload=$no_val; expected 1 for NSS offload"
+else
+    lsmod | grep -q ath11k && fail "ath11k loaded but nss_offload parameter absent"
+fi
+
+# ---- 13c. crypto_mode 参数检查 ----
+cm_path="/sys/module/ath11k/parameters/crypto_mode"
+if [ -r "$cm_path" ]; then
+    cm_val=$(cat "$cm_path")
+    [ "$cm_val" = "0" ] && ok "ath11k crypto_mode=0 (hardware crypto)" \
+        || fail "ath11k crypto_mode=$cm_val; expected 0 for hardware crypto path"
+else
+    lsmod | grep -q ath11k && fail "ath11k loaded but crypto_mode parameter absent"
 fi
 
 # ---- 14. VLAN 配置与 NSS WiFi offload ----
@@ -333,6 +358,18 @@ if find /etc/rc.d -maxdepth 1 -name 'S*ax6-irq-affinity' 2>/dev/null | grep -q .
     fail "ax6-irq-affinity 被自动启用,会覆盖上游 qualcommax IRQ/RPS 策略"
 else
     ok "IRQ/RPS 自动策略由上游 qualcommax 管理"
+fi
+
+# ---- 19. Overlay 空间检查 ----
+overlay_use=$(df /overlay 2>/dev/null | awk 'NR==2 {gsub(/%/,""); print $5}')
+if [ -n "$overlay_use" ] 2>/dev/null; then
+    if [ "$overlay_use" -ge 90 ] 2>/dev/null; then
+        fail "overlay usage ${overlay_use}% — 空间不足可能导致配置保存或软件安装失败"
+    elif [ "$overlay_use" -ge 80 ] 2>/dev/null; then
+        warn "overlay usage ${overlay_use}% — 建议清理"
+    else
+        ok "overlay usage ${overlay_use}%"
+    fi
 fi
 
 if [ "$QUIET" -eq 0 ]; then
