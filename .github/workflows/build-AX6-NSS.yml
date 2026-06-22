@@ -544,8 +544,27 @@ jobs:
             >RECOVERY-README.txt
           ls -lh
 
+      - name: Package kmod for offline install
+        run: |
+          set -eo pipefail
+          mkdir -p upload/kmod
+          if [ -d openwrt/bin/targets/qualcommax/ipq807x/packages ]; then
+            tar -czf upload/kmod/kmod-packages.tar.gz -C openwrt/bin/targets/qualcommax/ipq807x packages
+            ls -lh upload/kmod/
+          else
+            echo "::warning::kmod packages directory not found"
+          fi
+
       - name: Get current date
         run: echo "CURRENT_DATE=$(date '+%Y%m%d%H%M%S')" >> "$GITHUB_ENV"
+
+      - name: Upload kmod packages
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: AX6_NSS_${{ env.VARIANT_TAG }}_KMOD_${{ github.sha }}
+          path: upload/kmod/*
+          if-no-files-found: warn
+          retention-days: 90
 
       - name: Upload validated sysupgrade artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
@@ -571,7 +590,9 @@ jobs:
         with:
           tag: AX6_NSS_${{ env.VARIANT_TAG }}_${{ env.CURRENT_DATE }}
           commit: ${{ github.sha }}
-          artifacts: upload/upgrade/*
+          artifacts: |
+            upload/upgrade/*
+            upload/kmod/*
           allowUpdates: false
           prerelease: true
           makeLatest: false
