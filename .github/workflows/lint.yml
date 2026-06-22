@@ -167,7 +167,7 @@ jobs:
               exit 1
             }
           done
-          [ "$SOURCE_TRACKING_BRANCH" = codex/fix-ath11k-kconfig-cycle ] || {
+          [ "$SOURCE_TRACKING_BRANCH" = main ] || {
             echo "::error::unexpected source tracking branch: $SOURCE_TRACKING_BRANCH"
             exit 1
           }

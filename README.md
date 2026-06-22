@@ -27,8 +27,7 @@ Xiaomi 原厂双 `0x023c0000` 槽与合并布局共享 `redmi,ax6-stock`
 
 > **供应链已恢复（2026-06-18）**：
 > qca-nss 已迁移到源码树内置 (`package/qca-nss/`, 10 包 73 文件)。
-> 锁文件指向 `codex/fix-ath11k-kconfig-cycle` 的候选提交 `d7180f353c...`，
-> 包含 ath11k NSS Kconfig 修复和 Xiaomi stock 升级容量回归测试。
+> 锁文件指向 `main` 分支，包含 ath11k NSS Kconfig 修复、ECM 风格统一和 stock 升级容量回归测试。
 > 外部 feed `VIKINGYFY/nss-packages-618` 已废弃。
 > VIKINGYFY 后续 `38e28da...`、`5f520e5...` 涉及 qca-nss/mac80211
 > 重构，尚未合并。
@@ -126,7 +125,7 @@ ax6-config-audit -v
 
 | 仓库 | 类型 | 我们引用 | 实测 |
 |---|---|---|---|
-| [OrdinaryJoys/immortalwrt-nss](https://github.com/OrdinaryJoys/immortalwrt-nss) | **AX6-NSS workflow 直接构建源** | `codex/fix-ath11k-nss-depends` 上的完整 SHA | ✓ |
+| [OrdinaryJoys/immortalwrt-nss](https://github.com/OrdinaryJoys/immortalwrt-nss) | **AX6-NSS workflow 直接构建源** | `main` 上的完整 SHA | ✓ |
 | [LiBwrt/openwrt-6.x](https://github.com/LiBwrt/openwrt-6.x) | AX6-IPQ 备用源(原 `LiBwrt-op` 已改名) | branch `main-nss` | ✓ |
 | [immortalwrt/immortalwrt](https://github.com/immortalwrt/immortalwrt) | AX6-IMM 备用源(无 NSS) | branch `openwrt-23.05` | ✓ |
 | [coolsnowwolf/lede](https://github.com/coolsnowwolf/lede) | AX6-LEDE 备用源 | branch `master` | ✓ |
