@@ -36,7 +36,6 @@ for radio in $RADIOS; do
     uci -q set "wireless.${radio}.he_mu_beamformer=1"
     uci -q set "wireless.${radio}.mu_beamformer=1"
     uci -q set "wireless.${radio}.he_twt_required=0"
-    uci -q delete "wireless.${radio}.he_mu_edca"
     uci -q delete "wireless.${radio}.he_bss_color"
     uci -q delete "wireless.${radio}.he_spr_sr_control"
     uci -q delete "wireless.${radio}.he_spr_non_srg_obss_pd_max_offset"
