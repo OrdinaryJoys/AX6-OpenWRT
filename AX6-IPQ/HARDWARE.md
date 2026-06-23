@@ -172,8 +172,9 @@ sysctl dev.nss.clock.auto_scale               # 期望 0
 # NSS 实际跑流量中(开 iperf 或下载时观察)
 watch -n1 'cat /sys/kernel/debug/qca-nss-drv/stats/cpu_load_ubi'
 
-# ECM 接管的连接数(NSS 卸载工作中)
+# ECM 数据库连接总数 (非 accelerated count, 用于粗略监控)
 cat /sys/kernel/debug/ecm/ecm_db/connection_count_simple
+# 主动验证 NSS 加速: nss-check -v 检查模块/参数, 然后生成流量对比计数
 
 # WiFi HE80
 iw dev | grep -E "channel|center|width"       # 期望 80 MHz
@@ -305,9 +306,9 @@ vlan-add 50 office 192.168.50.1/24
 lsmod | grep qca_nss_vlan
 # 期望:qca_nss_vlan 32768 0
 
-# 2. NSS 连接表带 VLAN 信息(跑流量后)
+# 2. ECM 连接总数 (跑流量后应增长, 但不等于 accelerated)
 cat /sys/kernel/debug/ecm/ecm_db/connection_count_simple
-# 期望 > 0
+# 主动验证: 生成受控流量, 比较前后 NSS frontend accelerated 计数
 
 # 3. NSS VLAN debugfs(若内核暴露)
 ls /sys/kernel/debug/qca-nss-drv/vlan/  2>/dev/null

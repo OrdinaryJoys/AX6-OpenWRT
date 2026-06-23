@@ -112,6 +112,12 @@ if [ -f "$AX6_DTS" ]; then
   if [ -f .config ] && grep -q '^CONFIG_TARGET_PROFILE="DEVICE_redmi_ax6"$' .config; then
     echo "[diy.sh] Expanded variant detected (256MB NAND assumed) — patching rootfs reg"
     sed -i 's|reg[ \t]*=[ \t]*<0x0*2dc0000 0x0*5220000>;|reg = <0x02dc0000 0x0C000000>;  /* AX6-build: expanded 256MiB NAND, rootfs 192 MiB, 18 MiB UBI reserve */|' "$AX6_DTS"
+    if grep -q '<0x0*2dc0000 0x0*5220000>' "$AX6_DTS"; then
+      echo "[diy.sh] ERROR: DTS still contains old rootfs reg" >&2; exit 1
+    fi
+    if ! grep -q '<0x02dc0000 0x0C000000>' "$AX6_DTS"; then
+      echo "[diy.sh] ERROR: DTS missing new EXPAND rootfs reg" >&2; exit 1
+    fi
   else
     echo "[diy.sh] Stock variant — DT partition layout untouched (Xiaomi SMEM)"
   fi
