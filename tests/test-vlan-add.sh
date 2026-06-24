@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-ROOT=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
+ROOT=$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)
 SCRIPT="$ROOT/AX6-IPQ/files/sbin/vlan-add"
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/vlan-add-test.XXXXXX")
 trap 'rm -rf "$TMP"' EXIT HUP INT TERM
@@ -23,9 +23,11 @@ prepare_config() {
 run_case() (
     case_dir="$1"
     fail_firewall="$2"
+    scenario="${3:-}"
     export VLAN_ADD_CONFIG_DIR="$case_dir/config"
     export MOCK_UCI_LOG="$case_dir/uci.log"
     export MOCK_FAIL_FIREWALL="$fail_firewall"
+    export MOCK_SCENARIO="$scenario"
 
     uci() {
         [ "${1:-}" = "-q" ] && shift
@@ -33,9 +35,42 @@ run_case() (
         shift || true
         case "$command" in
             show|changes)
+                if [ "$command" = "show" ] && [ "${1:-}" = "network" ]; then
+                    case "$MOCK_SCENARIO" in
+                        overlap)
+                            printf '%s\n' \
+                                'network.lan=interface'
+                            ;;
+                        vlan_ref)
+                            printf '%s\n' \
+                                'network.old=device' \
+                                "network.old.ports='lan1.40'"
+                            ;;
+                    esac
+                fi
                 return 0
                 ;;
             get)
+                case "${1:-}" in
+                    network.lan.proto)
+                        [ "$MOCK_SCENARIO" = "overlap" ] && {
+                            printf 'static\n'
+                            return 0
+                        }
+                        ;;
+                    network.lan.ipaddr)
+                        [ "$MOCK_SCENARIO" = "overlap" ] && {
+                            printf '192.168.40.1\n'
+                            return 0
+                        }
+                        ;;
+                    network.lan.netmask)
+                        [ "$MOCK_SCENARIO" = "overlap" ] && {
+                            printf '255.255.255.0\n'
+                            return 0
+                        }
+                        ;;
+                esac
                 return 1
                 ;;
             batch)
@@ -71,6 +106,7 @@ run_case() (
     }
 
     set -- 40 iot 192.168.40.1/24 lan1 lan2
+    # shellcheck source=../AX6-IPQ/files/sbin/vlan-add
     . "$SCRIPT"
 )
 
@@ -102,5 +138,21 @@ grep -qx 'original-dhcp' "$rollback_dir/config/dhcp" ||
     fail "DHCP config was not restored after commit failure"
 grep -q 'configuration failed; network, firewall and DHCP files were restored' "$rollback_dir/output" ||
     fail "rollback was not reported"
+
+overlap_dir="$TMP/overlap"
+prepare_config "$overlap_dir"
+if run_case "$overlap_dir" 0 overlap > "$overlap_dir/output" 2>&1; then
+    fail "overlapping subnet unexpectedly succeeded"
+fi
+grep -q 'overlaps existing network.lan' "$overlap_dir/output" ||
+    fail "overlapping subnet was not reported"
+
+vlan_ref_dir="$TMP/vlan-ref"
+prepare_config "$vlan_ref_dir"
+if run_case "$vlan_ref_dir" 0 vlan_ref > "$vlan_ref_dir/output" 2>&1; then
+    fail "preconfigured VLAN port unexpectedly succeeded"
+fi
+grep -q "VLAN device 'lan1.40' is already referenced" "$vlan_ref_dir/output" ||
+    fail "preconfigured VLAN port reference was not reported"
 
 echo "test-vlan-add: PASS"

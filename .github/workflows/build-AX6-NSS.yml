@@ -35,10 +35,12 @@ env:
     kmod-shortcut-fe-cm
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
+    permissions:
+      contents: write
     runs-on: ubuntu-22.04
     timeout-minutes: 180
     steps:
@@ -549,7 +551,17 @@ jobs:
           set -eo pipefail
           mkdir -p upload/kmod
           if [ -d openwrt/bin/targets/qualcommax/ipq807x/packages ]; then
-            tar -czf upload/kmod/kmod-packages.tar.gz -C openwrt/bin/targets/qualcommax/ipq807x packages
+            mkdir -p upload/kmod/packages
+            find openwrt/bin/targets/qualcommax/ipq807x/packages \
+              -maxdepth 1 -type f \
+              \( -name 'kmod-*.ipk' -o -name 'Packages*' \) \
+              -exec cp -f {} upload/kmod/packages/ \;
+            if ! find upload/kmod/packages -type f -name 'kmod-*.ipk' | grep -q .; then
+              echo "::warning::no kmod ipk files found"
+            fi
+            find upload/kmod/packages -type f -exec sha256sum {} + |
+              sed 's#upload/kmod/##' >upload/kmod/KMOD-SHA256SUMS.txt
+            tar -czf upload/kmod/kmod-packages.tar.gz -C upload/kmod packages KMOD-SHA256SUMS.txt
             ls -lh upload/kmod/
           else
             echo "::warning::kmod packages directory not found"
@@ -636,9 +648,15 @@ jobs:
 
       - name: Delete old releases
         if: github.ref == 'refs/heads/main' && env.VARIANT_TAG == 'STOCK'
-        uses: dev-drprasad/delete-older-releases@dfbe6be2a006e9475dfcbe5b8d201f1824c2a9fe  # v0.3.4
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          keep_latest: 10
-          delete_tags: true
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eo pipefail
+          gh release list --limit 100 --json tagName --jq \
+            '.[] | select(.tagName | startswith("AX6_NSS_STOCK_")) | .tagName' |
+          tail -n +11 |
+          while IFS= read -r tag; do
+            [ -n "$tag" ] || continue
+            echo "Deleting old release and tag: $tag"
+            gh release delete "$tag" --yes --cleanup-tag
+          done
