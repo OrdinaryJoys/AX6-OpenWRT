@@ -212,6 +212,21 @@ jobs:
               exit 1
             }
           done
+          # shellcheck disable=SC2016 # Match literal Makefile config expression.
+          grep -Fq 'config-$(CONFIG_ATH11K_NSS_MESH_SUPPORT) += ATH11K_NSS_MESH_SUPPORT' "$ath_mk" || {
+            echo "::error file=$ath_mk::ATH11K_NSS_MESH_SUPPORT must be controlled by CONFIG_ATH11K_NSS_MESH_SUPPORT"
+            exit 1
+          }
+          # shellcheck disable=SC2016 # Match literal Makefile config expression.
+          grep -Fq 'config-$(CONFIG_ATH11K_NSS_SUPPORT) += ATH11K_NSS_SUPPORT' "$ath_mk" || {
+            echo "::error file=$ath_mk::ATH11K_NSS_SUPPORT must not also enable mesh support"
+            exit 1
+          }
+          # shellcheck disable=SC2016 # Match literal Makefile config expression.
+          if grep -Eq 'config-\$\(CONFIG_ATH11K_NSS_SUPPORT\).*ATH11K_NSS_MESH_SUPPORT' "$ath_mk"; then
+            echo "::error file=$ath_mk::ATH11K_NSS_SUPPORT must not force ATH11K_NSS_MESH_SUPPORT"
+            exit 1
+          fi
           platform_sh="openwrt/target/linux/qualcommax/ipq807x/base-files/lib/upgrade/platform.sh"
           grep -Fq 'xiaomi_stock_check_image_size' "$platform_sh" || {
             echo "::error file=$platform_sh::missing runtime MTD/image capacity preflight"

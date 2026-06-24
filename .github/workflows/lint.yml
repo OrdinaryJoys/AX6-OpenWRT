@@ -171,6 +171,10 @@ jobs:
             echo "::error::unexpected source tracking branch: $SOURCE_TRACKING_BRANCH"
             exit 1
           }
+          workflow=.github/workflows/build-AX6-NSS.yml
+          grep -Fq 'CONFIG_ATH11K_NSS_MESH_SUPPORT) += ATH11K_NSS_MESH_SUPPORT' "$workflow"
+          grep -Fq 'CONFIG_ATH11K_NSS_SUPPORT) += ATH11K_NSS_SUPPORT' "$workflow"
+          grep -Fq 'ATH11K_NSS_SUPPORT must not force ATH11K_NSS_MESH_SUPPORT' "$workflow"
 
       - name: Obsolete NSS config symbol check
         run: |
