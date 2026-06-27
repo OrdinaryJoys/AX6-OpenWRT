@@ -1,0 +1,19 @@
+#!/bin/sh
+# Keep the local bridge aligned with qca-nss-ecm's offload policy.
+#
+# qca-nss-ecm's bundled hotplug script intentionally handles physical devices.
+# br-lan is a virtual bridge, but LuCI/SSH/DNS local-termination traffic crosses
+# it, so apply the same official helper to br-lan only.
+
+[ "$ACTION" = "add" ] || exit 0
+[ "$INTERFACE" = "br-lan" ] || exit 0
+
+INC="/lib/netifd/offload/disable_offloads.sh"
+. "$INC" 2>/dev/null || {
+	logger -t "100-disable_offloads_br_lan" -p user.error "missing include script $INC"
+	exit 1
+}
+
+disable_offload "$INTERFACE"
+
+exit 0
