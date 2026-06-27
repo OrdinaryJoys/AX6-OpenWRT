@@ -268,7 +268,50 @@ if lsmod | grep -q "^qca_nss_vlan "; then
     ok "NSS VLAN 卸载就绪 (qca_nss_vlan)"
 fi
 
-# ---- 15. ZRAM swap 实际启用 ----
+# ---- 15. ECM netdev offload policy ----
+# IPQ807x 的本机终结流量需要关闭 Linux netdev checksum/GRO/GSO/TSO 类 offload;
+# NSS/ECM 转发加速仍由 qca-nss-ecm 管理,不应关闭 ECM/NSS 本身。
+ecm_disable_offloads=$(uci -q get ecm.general.disable_offloads)
+ecm_disable_gro_list=$(uci -q get ecm.general.disable_gro_list)
+[ "$ecm_disable_offloads" = "1" ] && ok "ECM disable_offloads=1" \
+    || fail "ECM disable_offloads=${ecm_disable_offloads:-unset}; expected 1"
+[ "$ecm_disable_gro_list" = "1" ] && ok "ECM disable_gro_list=1" \
+    || fail "ECM disable_gro_list=${ecm_disable_gro_list:-unset}; expected 1"
+
+check_offload_disabled() {
+    _dev="$1"
+    [ -d "/sys/class/net/$_dev" ] || return 0
+    if ! ethtool -k "$_dev" >/tmp/nss-check-ethtool.$$ 2>/dev/null; then
+        warn "Cannot inspect ethtool offloads on $_dev"
+        return 0
+    fi
+    _bad=""
+    for _feature in \
+        rx-checksumming \
+        tx-checksumming \
+        scatter-gather \
+        tcp-segmentation-offload \
+        generic-segmentation-offload \
+        generic-receive-offload \
+        rx-gro-list; do
+        if awk -v f="^${_feature}:" '$0 ~ f && $2 == "on" {found=1} END{exit !found}' \
+            /tmp/nss-check-ethtool.$$; then
+            _bad="${_bad}${_bad:+,}${_feature}"
+        fi
+    done
+    rm -f /tmp/nss-check-ethtool.$$
+    if [ -n "$_bad" ]; then
+        fail "$_dev offloads still enabled: $_bad"
+    else
+        ok "$_dev checksum/GRO/GSO/TSO offloads disabled"
+    fi
+}
+
+for _offload_dev in wan lan1 lan2 lan3 br-lan; do
+    check_offload_disabled "$_offload_dev"
+done
+
+# ---- 16. ZRAM swap 实际启用 ----
 if [ ! -r /proc/swaps ]; then
     fail "/proc/swaps 不存在 — 内核未启用 CONFIG_SWAP"
 elif grep -q '/dev/zram' /proc/swaps; then
@@ -305,7 +348,7 @@ else
     fail "ZRAM 设备未加入 /proc/swaps — 检查 /etc/init.d/zram"
 fi
 
-# ---- 16. WiFi 2.4G HE40/HE20 coexistence ----
+# ---- 17. WiFi 2.4G HE40/HE20 coexistence ----
 coex_bad=0
 for radio in $(uci -q show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-device$/{print $2}'); do
     [ "$(uci -q get "wireless.${radio}.band")" = "2g" ] || continue
@@ -321,7 +364,7 @@ for radio in $(uci -q show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-device$/{
 done
 [ "$coex_bad" -eq 0 ] && ok "2.4G HE40/HE20 coexistence configuration is safe"
 
-# ---- 17. 上游 NSS/IRQ/RPS 启动链 ----
+# ---- 18. 上游 NSS/IRQ/RPS 启动链 ----
 for svc in \
     S26qca-nss-ecm \
     S27qca-nss-pbuf \
@@ -353,14 +396,14 @@ case "$nss_hash_bitmap" in
         ;;
 esac
 
-# ---- 18. IRQ 策略所有权 ----
+# ---- 19. IRQ 策略所有权 ----
 if find /etc/rc.d -maxdepth 1 -name 'S*ax6-irq-affinity' 2>/dev/null | grep -q .; then
     fail "ax6-irq-affinity 被自动启用,会覆盖上游 qualcommax IRQ/RPS 策略"
 else
     ok "IRQ/RPS 自动策略由上游 qualcommax 管理"
 fi
 
-# ---- 19. Overlay 空间检查 ----
+# ---- 20. Overlay 空间检查 ----
 overlay_use=$(df /overlay 2>/dev/null | awk 'NR==2 {gsub(/%/,""); print $5}')
 if [ -n "$overlay_use" ] 2>/dev/null; then
     if [ "$overlay_use" -ge 90 ] 2>/dev/null; then

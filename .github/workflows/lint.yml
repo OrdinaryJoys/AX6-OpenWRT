@@ -29,7 +29,7 @@ jobs:
       - name: Shellcheck (errors only block)
         run: |
           set -eo pipefail
-          find . -type f \( -name "*.sh" -o -path "*/uci-defaults/*" \) ! -path "./.git/*" -print0 | \
+          find . -type f \( -name "*.sh" -o -path "*/uci-defaults/*" -o -path "*/hotplug.d/*" -o -path "*/sbin/*" -o -path "*/usr/sbin/*" -o -path "*/usr/bin/*" \) ! -path "./.git/*" -print0 | \
             xargs -0 -P4 shellcheck -S error -f gcc
           sh tests/test-vlan-add.sh
           sh tests/test-openclash-archive.sh
@@ -319,6 +319,40 @@ jobs:
           grep -Fq 'system.@system[0].zram_size_mb' AX6-IPQ/files/sbin/nss-check
           grep -Fq 'system.@system[0].zram_comp_algo' AX6-IPQ/files/sbin/nss-check
 
+      - name: ECM offload policy check
+        run: |
+          set -eo pipefail
+          tune=AX6-IPQ/files/etc/uci-defaults/98-nss-tune
+          health=AX6-IPQ/files/sbin/nss-check
+          br_hotplug=AX6-IPQ/files/etc/hotplug.d/net/100-disable_offloads_br_lan
+          test -x "$tune"
+          test -x "$health"
+          test -x "$br_hotplug"
+          grep -Fq "ecm.general.disable_offloads='1'" "$tune"
+          grep -Fq "ecm.general.disable_gro_list='1'" "$tune"
+          grep -Fq 'ECM disable_offloads=1' "$health"
+          grep -Fq 'ECM disable_gro_list=1' "$health"
+          grep -Fq 'generic-receive-offload' "$health"
+          grep -Fq 'generic-segmentation-offload' "$health"
+          grep -Fq 'tcp-segmentation-offload' "$health"
+          grep -Fq 'rx-gro-list' "$health"
+          grep -Fq 'br-lan' "$health"
+          grep -Fq 'disable_offloads.sh' "$br_hotplug"
+          grep -Fq "disable_offload \"\$INTERFACE\"" "$br_hotplug"
+          grep -Fq "[ \"\$INTERFACE\" = \"br-lan\" ]" "$br_hotplug"
+          for workflow in .github/workflows/build-AX6-NSS.yml .github/workflows/build-AX6-IPQ.yml; do
+            for required in \
+              'etc/uci-defaults/98-nss-tune' \
+              'etc/hotplug\.d/net/99-disable_offloads' \
+              'etc/hotplug\.d/net/100-disable_offloads_br_lan' \
+              'lib/netifd/offload/disable_offloads\.sh'; do
+              grep -Fq "$required" "$workflow" || {
+                echo "::error file=$workflow::final rootfs validation is missing $required"
+                exit 1
+              }
+            done
+          done
+
       - name: Kconfig assignment consistency check
         run: |
           set -eo pipefail
@@ -425,8 +459,10 @@ jobs:
           set -eo pipefail
           audit=AX6-IPQ/files/sbin/ax6-config-audit
           vlan=AX6-IPQ/files/sbin/vlan-add
+          zt_fw4=AX6-IPQ/files/usr/bin/zerotier-fw4
           test -x "$audit"
           test -x "$vlan"
+          test -x "$zt_fw4"
           if grep -Eq 'uci[[:space:]].*(set|delete|del|commit)|/etc/init\.d/.*(restart|reload)' "$audit"; then
             echo "::error file=$audit::scenario audit must remain read-only"
             exit 1
@@ -437,6 +473,7 @@ jobs:
             '/var/run/zerotier-one/_fw4/forward.nft' \
             '/var/run/zerotier-one/_fw4/srcnat.nft' \
             'firewall.${_zt_section}.position' \
+            'zerotier_input_ports_match' \
             'vlan_filtering=1 conflicts with qosmio NSS WiFi offload guidance' \
             'config bridge-vlan is present' \
             'openclash_dns_redirect' \
@@ -453,6 +490,13 @@ jobs:
             exit 1
           fi
           grep -Fq "grep -q '=bridge-vlan'" "$vlan"
+          grep -Fq '@.config.settings.tertiaryPort' "$zt_fw4"
+          grep -Fq '@.config.settings.listeningOn[*]' "$zt_fw4"
+          grep -Fq 'drop_stale_port_rules' "$zt_fw4"
+          grep -Fq 'fw4 reload' "$zt_fw4"
+          for workflow in .github/workflows/build-AX6-NSS.yml .github/workflows/build-AX6-IPQ.yml; do
+            grep -Fq "'usr/bin/zerotier-fw4'" "$workflow"
+          done
           # shellcheck disable=SC2016 # Match vlan-add literal awk field reference.
           grep -Fq '/=zone$/{print $2}' "$vlan"
           grep -Fq "firewall zone named" "$vlan"

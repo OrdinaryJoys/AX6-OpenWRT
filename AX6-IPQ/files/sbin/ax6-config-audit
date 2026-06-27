@@ -55,6 +55,68 @@ zerotier_include_ok() {
         [ "$(uci -q get "firewall.${_zt_section}.chain")" = "$_zt_expected_chain" ]
 }
 
+zerotier_current_ports() {
+    zerotier-cli -j info 2>/dev/null |
+        jsonfilter \
+            -e "@.config.settings.primaryPort" \
+            -e "@.config.settings.secondaryPort" \
+            -e "@.config.settings.tertiaryPort" \
+            -e "@.config.settings.listeningOn[*]" 2>/dev/null |
+        awk '
+            /^[0-9]+$/ { print; next }
+            /\/[0-9]+$/ {
+                sub(/^.*\//, "")
+                print
+            }
+        ' |
+        awk '/^[0-9]+$/ && !seen[$0]++ { print }'
+}
+
+zerotier_input_ports() {
+    [ -r /var/run/zerotier-one/_fw4/input.nft ] || return 0
+    awk '
+        /ZeroTier input/ && /th dport/ {
+            for (i = 1; i <= NF; i++) {
+                if ($i == "dport") {
+                    print $(i + 1)
+                }
+            }
+        }
+    ' /var/run/zerotier-one/_fw4/input.nft |
+        awk '/^[0-9]+$/ && !seen[$0]++ { print }'
+}
+
+zerotier_input_ports_match() {
+    _zt_current_ports="$(zerotier_current_ports)"
+    _zt_input_ports="$(zerotier_input_ports)"
+    [ -n "$_zt_current_ports" ] || {
+        warn "ZeroTier: cannot read current listening ports"
+        return 0
+    }
+    _zt_bad=0
+    for _zt_port in $_zt_current_ports; do
+        _zt_found=0
+        for _zt_input_port in $_zt_input_ports; do
+            [ "$_zt_port" = "$_zt_input_port" ] && _zt_found=1
+        done
+        if [ "$_zt_found" -ne 1 ]; then
+            fail "ZeroTier: nft input include is missing current listening port $_zt_port"
+            _zt_bad=1
+        fi
+    done
+    for _zt_input_port in $_zt_input_ports; do
+        _zt_found=0
+        for _zt_port in $_zt_current_ports; do
+            [ "$_zt_port" = "$_zt_input_port" ] && _zt_found=1
+        done
+        if [ "$_zt_found" -ne 1 ]; then
+            fail "ZeroTier: nft input include contains stale listening port $_zt_input_port"
+            _zt_bad=1
+        fi
+    done
+    [ "$_zt_bad" -eq 0 ] && ok "ZeroTier: nft input ports match current listeners"
+}
+
 if [ "$QUIET" -eq 0 ]; then
     echo "=== AX6 scenario configuration audit (read-only) ==="
 fi
@@ -180,6 +242,7 @@ if uci -q get zerotier.global >/dev/null 2>&1; then
         if [ "$zt_need_input" = "1" ]; then
             if zerotier_include_ok zerotier_input /var/run/zerotier-one/_fw4/input.nft input; then
                 ok "ZeroTier: dynamic nftables input include installed"
+                zerotier_input_ports_match
             else
                 fail "ZeroTier: input permission enabled but dynamic nftables include is missing or malformed"
             fi

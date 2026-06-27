@@ -21,12 +21,15 @@ uci commit firewall
 
 # ===================================================================
 # Layer 3: ECM offload — IPQ807x CPU 无硬件校验和。ECM 默认开 offload(GRO/GSO/
-#          checksum) 会损坏"路由器本机终结流量"(LuCI Web/SSH)的包 → 丢包 → TCP
-#          重传 → Web UI 严重卡顿(2.4MB 页面 28s)。实测 disable_offloads=1:
-#          慢请求率 35~87% → ~0.3%, 吞吐 ~8 倍, 且 ECM 仍加载、NSS 转发加速完整保留。
+#          checksum) 会损坏"路由器本机终结流量"(LuCI Web/SSH)的包 -> 丢包 -> TCP
+#          重传 -> Web UI 严重卡顿(2.4MB 页面 28s)。实测 disable_offloads=1:
+#          慢请求率 35~87% -> ~0.3%, 吞吐 ~8 倍, 且 ECM 仍加载、NSS 转发加速完整保留。
+#          disable_gro_list=1 是 qca-nss-ecm 上游默认安全项,避免 GRO Fraglist 破坏
+#          UDP 相关流量(DNS/DHCP 等)。br-lan 由 hotplug 脚本显式套用同一官方 helper。
 #          详见 Review/NSS_LOCAL_TRAFFIC_DIAGNOSIS.md
 # ===================================================================
 uci -q set ecm.general.disable_offloads='1'
+uci -q set ecm.general.disable_gro_list='1'
 uci commit ecm
 
 exit 0

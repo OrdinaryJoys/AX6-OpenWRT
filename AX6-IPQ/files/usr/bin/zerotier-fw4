@@ -1,0 +1,129 @@
+#!/bin/sh
+
+FW_PATH="/var/run/zerotier-one/_fw4"
+[ -d "$FW_PATH" ] || mkdir -p "$FW_PATH"
+
+append_input_rule_once() {
+	file="$1"
+	rule="$2"
+	grep -Fqx "$rule" "$file" 2>/dev/null && return 0
+	echo "$rule" >> "$file"
+	nft insert rule inet fw4 "input $rule" 2>/dev/null || true
+}
+
+drop_stale_port_rules() {
+	file="$1"
+	tmp="${file}.$$"
+	grep -Fv "th dport" "$file" 2>/dev/null > "$tmp" || true
+	mv "$tmp" "$file"
+}
+
+zt_current_ports() {
+	zerotier-cli -j info 2>/dev/null |
+		jsonfilter \
+			-e "@.config.settings.primaryPort" \
+			-e "@.config.settings.secondaryPort" \
+			-e "@.config.settings.tertiaryPort" \
+			-e "@.config.settings.listeningOn[*]" 2>/dev/null |
+		awk '
+			/^[0-9]+$/ { print; next }
+			/\/[0-9]+$/ {
+				sub(/^.*\//, "")
+				print
+			}
+		' |
+		awk '/^[0-9]+$/ && !seen[$0]++ { print }'
+}
+
+while getopts "i:s" arg; do
+	case "$arg" in
+	i)
+		iface="$OPTARG"
+		[ -n "$iface" ] || continue
+
+		network_id="$(zerotier-cli -j listnetworks | jsonfilter -qe "@[@.portDeviceName=\"$iface\"].nwid")"
+		[ -n "$network_id" ] || continue
+
+		network_cfg="$(uci show "zerotier" | awk "/$network_id/ && !found {split(\$0, conf, /[.=]/); print conf[2]; found=1}")"
+		[ -n "$network_cfg" ] || continue
+
+		if [ "$(uci -q get zerotier."$network_cfg".fw_allow_input)" = "1" ]; then
+			grep -q "$iface" "$FW_PATH/input.nft" 2>"/dev/null" && continue
+			rule="iifname $iface counter accept comment \"!fw4: Accept ZeroTier input $iface\""
+			echo "$rule" >> "$FW_PATH/input.nft"
+			nft insert rule inet fw4 input "$rule"
+		fi
+
+		if [ "$(uci -q get zerotier."$network_cfg".fw_allow_forward)" = "1" ]; then
+			grep -q "$iface" "$FW_PATH/forward.nft" 2>"/dev/null" && continue
+			fwd_ifaces="$(uci -q get zerotier."$network_cfg".fw_forward_ifaces)"
+			rule="iifname $iface counter accept comment \"!fw4: Accept ZeroTier input forward $iface\""
+			[ -n "$fwd_ifaces" ] && rule="oifname { ${fwd_ifaces// /, } } $rule"
+			echo "$rule" >> "$FW_PATH/forward.nft"
+			nft insert rule inet fw4 forward "$rule"
+
+			rule="oifname $iface counter accept comment \"!fw4: Accept ZeroTier output forward $iface\""
+			[ -n "$fwd_ifaces" ] && rule="iifname { ${fwd_ifaces// /, } } $rule"
+			echo "$rule" >> "$FW_PATH/forward.nft"
+			nft insert rule inet fw4 forward "$rule"
+		fi
+
+		if [ "$(uci -q get zerotier."$network_cfg".fw_allow_masq)" = "1" ]; then
+			grep -q "$iface" "$FW_PATH/srcnat.nft" 2>"/dev/null" && continue
+			masq_ifaces="$(uci -q get zerotier."$network_cfg".fw_masq_ifaces)"
+			rule="oifname $iface counter masquerade comment \"!fw4: Masquerade ZeroTier traffic $iface\""
+			[ -n "$masq_ifaces" ] && rule="iifname { ${masq_ifaces// /, } } $rule"
+			echo "$rule" >> "$FW_PATH/srcnat.nft"
+			nft insert rule inet fw4 srcnat "$rule"
+		fi
+		;;
+	s)
+		[ "$(uci -q get zerotier.global.fw_allow_input)" = "1" ] || continue
+
+		wait=0
+		ports=""
+		last_ports=""
+		stable_count=0
+		until [ "$wait" -ge "30" ]; do
+			current_ports="$(zt_current_ports)"
+			if [ -n "$current_ports" ] && [ "$current_ports" = "$last_ports" ]; then
+				stable_count="$(( stable_count + 1 ))"
+			else
+				stable_count=0
+				last_ports="$current_ports"
+			fi
+			if [ "$stable_count" -ge 2 ]; then
+				ports="$current_ports"
+				break
+			fi
+			sleep 2s
+			wait="$(( wait + 2 ))"
+		done
+		[ -n "$ports" ] || ports="$last_ports"
+		[ -n "$ports" ] || continue
+		primary_port="$(zerotier-cli -j info | jsonfilter -qe "@.config.settings.primaryPort" 2>/dev/null)"
+
+		drop_stale_port_rules "$FW_PATH/input.nft"
+		while IFS= read -r pport; do
+			[ -n "$pport" ] || continue
+			network="udp"
+			label="port"
+			if [ "$pport" = "$primary_port" ]; then
+				network="udp, tcp"
+				label="primaryPort"
+			fi
+			rule="meta l4proto { $network } th dport $pport counter accept comment \"!fw4: Accept ZeroTier input $pport ($label)\""
+			append_input_rule_once "$FW_PATH/input.nft" "$rule"
+		done <<EOF
+$ports
+EOF
+		fw4 reload >/dev/null 2>&1 || true
+		;;
+	*)
+		echo "Usage: $0 -i <interface> | -s"
+		echo "  -i <interface> : Generate rules for the specified interface"
+		echo "  -s             : Generate rules for the zerotier service"
+		exit 1
+		;;
+	esac
+done
