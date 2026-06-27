@@ -278,8 +278,18 @@ ecm_disable_gro_list=$(uci -q get ecm.general.disable_gro_list)
 [ "$ecm_disable_gro_list" = "1" ] && ok "ECM disable_gro_list=1" \
     || fail "ECM disable_gro_list=${ecm_disable_gro_list:-unset}; expected 1"
 
+# br-lan = host-terminated traffic ingress -> offloads MUST be off: the bridge's
+# checksum-offload advertisement corrupts router-locally-terminated traffic on
+# IPQ807x (EDMA v1 has no HW checksum). wan/lan1-3 = physical ports -> report-only
+# (WARN): netifd re-enables their offloads and that is the expected, harmless
+# steady state (forwarded traffic is handled by NSS/PPE hardware; disabling them
+# would only slow the Linux-path fallback). Confirmed by QSDK source + community +
+# on-device WAN test (TLS 25/25, 20MB x2 intact, DNS ok).
+# See Review/NSS_OFFLOAD_OFFICIAL_REFERENCES.md
+# severity arg: $2 = "fail" (default) or "warn"
 check_offload_disabled() {
     _dev="$1"
+    _sev="${2:-fail}"
     [ -d "/sys/class/net/$_dev" ] || return 0
     if ! ethtool -k "$_dev" >/tmp/nss-check-ethtool.$$ 2>/dev/null; then
         warn "Cannot inspect ethtool offloads on $_dev"
@@ -301,14 +311,20 @@ check_offload_disabled() {
     done
     rm -f /tmp/nss-check-ethtool.$$
     if [ -n "$_bad" ]; then
-        fail "$_dev offloads still enabled: $_bad"
+        if [ "$_sev" = "warn" ]; then
+            warn "$_dev offloads on: $_bad (physical port — expected; only br-lan must be off)"
+        else
+            fail "$_dev offloads still enabled: $_bad"
+        fi
     else
         ok "$_dev checksum/GRO/GSO/TSO offloads disabled"
     fi
 }
 
-for _offload_dev in wan lan1 lan2 lan3 br-lan; do
-    check_offload_disabled "$_offload_dev"
+# br-lan must be off (host-traffic ingress); physical ports are report-only.
+check_offload_disabled br-lan fail
+for _offload_dev in wan lan1 lan2 lan3; do
+    check_offload_disabled "$_offload_dev" warn
 done
 
 # ---- 16. ZRAM swap 实际启用 ----
