@@ -477,7 +477,11 @@ jobs:
             'vlan_filtering=1 conflicts with qosmio NSS WiFi offload guidance' \
             'config bridge-vlan is present' \
             'openclash_dns_redirect' \
-            'OpenClash DNS Hijack'; do
+            'OpenClash DNS Hijack' \
+            'fake-ip cache persistence enabled' \
+            'custom DNS nameserver group is configured' \
+            'default DNS is IPv4-only with disable_ipv6=1' \
+            'subscription DNS owns nameserver/default-nameserver'; do
             grep -Fq "$required" "$audit" || {
               echo "::error file=$audit::scenario audit is missing runtime check: $required"
               exit 1

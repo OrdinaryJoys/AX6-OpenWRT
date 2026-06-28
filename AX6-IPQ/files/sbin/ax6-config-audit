@@ -117,6 +117,44 @@ zerotier_input_ports_match() {
     [ "$_zt_bad" -eq 0 ] && ok "ZeroTier: nft input ports match current listeners"
 }
 
+openclash_dns_servers() {
+    uci -q show openclash 2>/dev/null |
+        awk -F'[.=]' '/=dns_servers$/ { print $2 }'
+}
+
+openclash_dns_group_count() {
+    _oc_group="$1"
+    _oc_count=0
+    for _oc_section in $(openclash_dns_servers); do
+        [ "$(uci -q get "openclash.${_oc_section}.enabled")" = "0" ] && continue
+        [ "$(uci -q get "openclash.${_oc_section}.group")" = "$_oc_group" ] || continue
+        _oc_count=$((_oc_count + 1))
+    done
+    echo "$_oc_count"
+}
+
+openclash_default_dns_ipv6_conflict() {
+    _oc_bad=0
+    _oc_warn=0
+    for _oc_section in $(openclash_dns_servers); do
+        [ "$(uci -q get "openclash.${_oc_section}.enabled")" = "0" ] && continue
+        [ "$(uci -q get "openclash.${_oc_section}.group")" = "default" ] || continue
+        _oc_ip=$(uci -q get "openclash.${_oc_section}.ip")
+        _oc_disable_ipv6=$(uci -q get "openclash.${_oc_section}.disable_ipv6")
+        case "$_oc_ip" in
+            *:*)
+                fail "OpenClash: default DNS $_oc_ip conflicts with ipv6_dns=0"
+                _oc_bad=1
+                ;;
+        esac
+        if [ "$_oc_disable_ipv6" != "1" ]; then
+            warn "OpenClash: default DNS ${_oc_ip:-unknown} should set disable_ipv6=1 when IPv6 DNS is disabled"
+            _oc_warn=1
+        fi
+    done
+    [ "$_oc_bad$_oc_warn" = "00" ] && ok "OpenClash: default DNS is IPv4-only with disable_ipv6=1"
+}
+
 if [ "$QUIET" -eq 0 ]; then
     echo "=== AX6 scenario configuration audit (read-only) ==="
 fi
@@ -314,6 +352,8 @@ if uci -q get openclash.config >/dev/null 2>&1; then
     dns_server=$(uci -q get dhcp.@dnsmasq[0].server)
     redirect_mode=$(uci -q get openclash.config.enable_redirect_dns)
     [ -n "$redirect_mode" ] || redirect_mode=1
+    openclash_mode=$(uci -q get openclash.config.operation_mode)
+    [ -n "$openclash_mode" ] || openclash_mode=$(uci -q get openclash.config.en_mode)
     if [ "$(uci -q get openclash.config.enable)" = "1" ]; then
         if pidof clash >/dev/null 2>&1; then
             ok "OpenClash: core process running"
@@ -348,6 +388,32 @@ if uci -q get openclash.config >/dev/null 2>&1; then
                 ;;
             *)
                 warn "OpenClash: unknown DNS redirect mode ${redirect_mode}; verify DNS ownership"
+                ;;
+        esac
+        case "$openclash_mode" in
+            fake-ip*)
+                if [ "$(uci -q get openclash.config.store_fakeip)" = "1" ]; then
+                    ok "OpenClash: fake-ip cache persistence enabled"
+                else
+                    warn "OpenClash: fake-ip mode should enable store_fakeip=1 to survive core restarts"
+                fi
+                if [ "$(uci -q get openclash.config.enable_custom_dns)" = "1" ]; then
+                    if [ "$(openclash_dns_group_count nameserver)" -gt 0 ]; then
+                        ok "OpenClash: custom DNS nameserver group is configured"
+                    else
+                        fail "OpenClash: enable_custom_dns=1 but no nameserver DNS servers are configured"
+                    fi
+                    if [ "$(uci -q get openclash.config.ipv6_enable)" != "1" ] &&
+                       [ "$(uci -q get openclash.config.ipv6_dns)" != "1" ]; then
+                        if [ "$(openclash_dns_group_count default)" -gt 0 ]; then
+                            openclash_default_dns_ipv6_conflict
+                        else
+                            warn "OpenClash: IPv6 DNS is disabled but no default DNS group is configured; subscription default-nameserver may keep IPv6 entries"
+                        fi
+                    fi
+                else
+                    warn "OpenClash: custom DNS disabled; subscription DNS owns nameserver/default-nameserver"
+                fi
                 ;;
         esac
     else

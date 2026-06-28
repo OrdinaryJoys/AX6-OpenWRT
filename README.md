@@ -110,6 +110,10 @@ ax6-config-audit -v
 
 该工具只读检查 WiFi、NSS SQM、ZeroTier、UPnP 和 OpenClash。访客隔离、ZeroTier
 转发/NAT、双 NAT 下 UPnP 等场景配置只会给出说明或告警，不会被启动脚本自动修改。
+OpenClash fake-ip 场景会额外审计官方 UCI DNS 生成路径:建议使用
+`store_fakeip=1`、`enable_custom_dns=1`、显式 `nameserver`/`default`
+DNS 组和 `disable_ipv6=1` 的 IPv4 default DNS。不要把订阅 YAML 或自定义覆写脚本
+当作默认修复位置,订阅更新和插件生成流程可能覆盖或叠加这些文件。
 
 ## 配置所有权
 

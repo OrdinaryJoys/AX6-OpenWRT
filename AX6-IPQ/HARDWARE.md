@@ -256,6 +256,17 @@ iw reg get | head -3                          # US (FCC)
 发现 `vlan_filtering=1` 或 `config bridge-vlan` 时会报告确定性故障，
 由管理员手动迁移到 802.1q 子接口拓扑。
 
+OpenClash DNS 也遵循同样的所有权边界。固件不内置订阅配置,也不通过启动脚本改写
+订阅 YAML 或 `/etc/openclash/custom/openclash_custom_overwrite.rb`。fake-ip 模式下建议
+使用 OpenClash 官方 UCI 生成路径:
+
+- `store_fakeip=1`,避免 core 重启后丢失 fake-ip 映射。
+- `enable_custom_dns=1`,通过 `dns_servers` 配置 `nameserver` 与 `default` 组。
+- IPv6 未启用时,`default` 组应使用 IPv4 DNS 并设置 `disable_ipv6=1`。
+- 不建议把公共 DNS 直接加到 dnsmasq 并列上游,否则可能绕过 fake-ip/rule。
+
+`ax6-config-audit -v` 会只读检查这些边界,但不会自动修复 OpenClash 运行策略。
+
 ### 🛠️ 命令行助手 `vlan-add`
 
 ```bash
