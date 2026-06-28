@@ -456,6 +456,19 @@ jobs:
             echo "::error::Final rootfs contains unsupported ath11k rx_hash parameter"
             exit 1
           fi
+          unsquashfs -cat "$rootfs" etc/init.d/qca-nss-pbuf \
+            > image-verify/qca-nss-pbuf.init
+          grep -Fqx 'START=27' image-verify/qca-nss-pbuf.init
+          for required in \
+            ath11k_sysfs_device_available \
+            wait_for_ath11k_nss_offload \
+            wait_for_nss_sysctls \
+            'confirming dev.nss.n2hcfg.n2h_high_water_core0'; do
+            grep -Fq "$required" image-verify/qca-nss-pbuf.init || {
+              echo "::error::Final rootfs qca-nss-pbuf is missing source fix: $required"
+              exit 1
+            }
+          done
           if [ "$VARIANT_TAG" = STOCK ]; then
             mapfile -d '' factory_images < <(
               find openwrt/bin/targets -type f \

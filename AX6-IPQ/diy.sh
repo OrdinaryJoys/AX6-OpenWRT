@@ -82,7 +82,10 @@ fi
 # (e) 991_set-network.sh: global packet_steering policy is supplied by nss-fork;
 # Boot Guard removes obsolete per-device copies left by older source revisions.
 
-# (f) [removed] 235-003 skip — NSS/mac80211 patches are maintained in the
+# (f) qca-nss-pbuf fix now lives in the locked source commit; no build-time
+#     patch is needed here.
+
+# (g) [removed] 235-003 skip — NSS/mac80211 patches are maintained in the
 #     locked source tree; no external NSS feed or runtime patch skipping is used.
 
 # ----------------------------------------------------
