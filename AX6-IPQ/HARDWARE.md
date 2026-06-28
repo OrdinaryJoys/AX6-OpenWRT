@@ -213,7 +213,7 @@ iw reg get | head -3                          # US (FCC)
 
 **IRQ/RPS 分层特别注意**:
 - `packet_steering=0` 只关闭 OpenWrt netifd 的通用 packet steering。
-- 本构建仍应保留上游 qualcommax/NSS 启动链: `S93smp_affinity`、`S28qca-nss-drv`、`S27qca-nss-pbuf`、`S99set-irq-affinity`。
+- 本构建仍应保留上游 qualcommax/NSS 启动链: `S93smp_affinity`、`S28qca-nss-drv`、`S99set-irq-affinity`。当前锁定 `immortalwrt-nss` 源使用早启动 `S19qca-nss-pbuf`，旧上游/备用源可能仍是 `S27qca-nss-pbuf`；最终以 `nss-check` 的 pbuf/N2H profile 实际应用结果为准。
 - 这些脚本分别管理 EDMA IRQ、NSS IRQ/internal RPS、NSS pbuf/hash bitmap、Linux RPS/XPS；不要用自定义 `ax6-irq-affinity` 开机覆盖，除非是在单次基准测试中手动执行并记录结果。
 - `nss-check -v` 会检查上述启动链是否存在，并提示 NSS internal RPS 状态。
 

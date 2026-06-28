@@ -572,7 +572,7 @@ jobs:
           health=AX6-IPQ/files/sbin/nss-check
           for required in \
             S26qca-nss-ecm \
-            S27qca-nss-pbuf \
+            S19qca-nss-pbuf \
             S28qca-nss-drv \
             S29qca-nss-netlink \
             S93smp_affinity \

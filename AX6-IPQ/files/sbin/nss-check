@@ -383,7 +383,6 @@ done
 # ---- 18. 上游 NSS/IRQ/RPS 启动链 ----
 for svc in \
     S26qca-nss-ecm \
-    S27qca-nss-pbuf \
     S28qca-nss-drv \
     S29qca-nss-netlink \
     S93smp_affinity \
@@ -394,6 +393,13 @@ for svc in \
         fail "Missing upstream NSS/IRQ/RPS startup link: /etc/rc.d/$svc"
     fi
 done
+if [ -e "/etc/rc.d/S19qca-nss-pbuf" ]; then
+    ok "Upstream NSS pbuf service enabled early: S19qca-nss-pbuf"
+elif [ -e "/etc/rc.d/S27qca-nss-pbuf" ]; then
+    warn "NSS pbuf service uses legacy order: S27qca-nss-pbuf; verify N2H profile below"
+else
+    fail "Missing upstream NSS pbuf startup link: /etc/rc.d/S19qca-nss-pbuf or S27qca-nss-pbuf"
+fi
 
 nss_rps_enable=$(sysctl -n dev.nss.rps.enable 2>/dev/null)
 if [ "$nss_rps_enable" = "1" ]; then
