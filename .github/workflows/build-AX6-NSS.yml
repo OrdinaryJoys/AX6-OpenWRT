@@ -169,7 +169,7 @@ jobs:
             VIDEO_FEED_URL VIDEO_FEED_COMMIT \
             ARGON_THEME_URL ARGON_THEME_COMMIT \
             ARGON_CONFIG_URL ARGON_CONFIG_COMMIT \
-            OPENCLASH_URL OPENCLASH_COMMIT OPENCLASH_VERSION; do
+            OPENCLASH_URL OPENCLASH_REF; do
             value="${!name:-}"
             if [ -z "$value" ]; then
               echo "::error::$name is missing from $BUILD_LOCK"
@@ -180,8 +180,7 @@ jobs:
           for name in \
             SOURCE_COMMIT SQM_SCRIPTS_NSS_COMMIT LUCI_FEED_COMMIT \
             PACKAGES_FEED_COMMIT ROUTING_FEED_COMMIT TELEPHONY_FEED_COMMIT \
-            VIDEO_FEED_COMMIT ARGON_THEME_COMMIT ARGON_CONFIG_COMMIT \
-            OPENCLASH_COMMIT; do
+            VIDEO_FEED_COMMIT ARGON_THEME_COMMIT ARGON_CONFIG_COMMIT; do
             value="${!name}"
             if ! [[ "$value" =~ ^[0-9a-f]{40}$ ]]; then
               echo "::error::$name must be a full 40-character lowercase commit SHA"
@@ -557,8 +556,7 @@ jobs:
             echo "ARGON_CONFIG_URL=$ARGON_CONFIG_URL"
             echo "ARGON_CONFIG_COMMIT=$ARGON_CONFIG_COMMIT"
             echo "OPENCLASH_URL=$OPENCLASH_URL"
-            echo "OPENCLASH_COMMIT=$OPENCLASH_COMMIT"
-            echo "OPENCLASH_VERSION=$OPENCLASH_VERSION"
+            echo "OPENCLASH_REF=$OPENCLASH_REF"
           } > BUILD-LOCK-AX6.txt
           cp ../../AX6-IPQ/files/sbin/nss-check ./nss-check.sh
           cp ../../AX6-IPQ/files/sbin/ax6-config-audit ./ax6-config-audit.sh

@@ -10,6 +10,17 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/),
 版本号采用 release tag(`AX6_NSS_<VARIANT>_<TIMESTAMP>`)。
 
+## Unreleased
+
+### 变更
+
+- OpenClash 插件改为跟随官方 `master` 最新版, 不再把插件提交或版本写入
+  `.github/ax6-nss-lock.env`。核心源码、feeds 与 Argon 仍使用完整 SHA 锁定。
+- `sync-check` 对 OpenClash 改为只报告当前 HEAD, 不因插件版本正常更新而阻断;
+  NSS/ath11k/qca 等核心驱动上游更新仍需人工审查后选择性合并。
+- `build-AX6-IPQ` 最终 rootfs 验证收紧到 `S19qca-nss-pbuf`, 并检查 pbuf
+  脚本必须包含早启动 NSS/WiFi 检测逻辑, 防止旧 `S27` 时序重新混入产物。
+
 ## [AX6_NSS_STOCK_20260426145026] — 2026-04-26 (✅ 首个 e2e success)
 
 ### 重大变更

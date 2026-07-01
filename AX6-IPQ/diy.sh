@@ -21,20 +21,38 @@ clone_locked() {
   }
 }
 
+clone_tracking() {
+  url="$1"
+  ref="$2"
+  destination="$3"
+  [ -n "$url" ] && [ -n "$ref" ] || {
+    echo "[diy.sh] missing tracked source for $destination" >&2
+    exit 2
+  }
+  rm -rf "$destination"
+  git init -q "$destination"
+  git -C "$destination" remote add origin "$url"
+  git -C "$destination" fetch -q --depth 1 origin "$ref"
+  git -C "$destination" checkout -q --detach FETCH_HEAD
+}
+
 clone_locked "$ARGON_THEME_URL" "$ARGON_THEME_COMMIT" package/luci-theme-argon
 clone_locked "$ARGON_CONFIG_URL" "$ARGON_CONFIG_COMMIT" package/luci-app-argon-config
 
-# The locked LuCI feed contains an older OpenClash. Use the independently
-# locked upstream package so factory reset and rebuilds install the audited
-# 0.47.097 implementation.
+# The locked LuCI feed may lag OpenClash. Track the official upstream package
+# ref so rebuilds receive the latest plugin while driver/kernel inputs remain
+# fixed and reviewable.
 rm -rf package/feeds/luci/luci-app-openclash
-clone_locked "$OPENCLASH_URL" "$OPENCLASH_COMMIT" package/luci-app-openclash-source
+clone_tracking "$OPENCLASH_URL" "${OPENCLASH_REF:-master}" package/luci-app-openclash-source
 mv package/luci-app-openclash-source/luci-app-openclash package/luci-app-openclash
 rm -rf package/luci-app-openclash-source
-grep -qx "PKG_VERSION:=${OPENCLASH_VERSION}" package/luci-app-openclash/Makefile || {
-  echo "[diy.sh] OpenClash version does not match build lock" >&2
+OPENCLASH_ACTUAL_VERSION=$(sed -n 's/^PKG_VERSION:=//p' package/luci-app-openclash/Makefile | head -1)
+OPENCLASH_ACTUAL_COMMIT=$(git -C package/luci-app-openclash rev-parse HEAD)
+printf '%s\n' "$OPENCLASH_ACTUAL_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || {
+  echo "[diy.sh] OpenClash PKG_VERSION is missing or non-numeric" >&2
   exit 2
 }
+echo "[diy.sh] OpenClash ${OPENCLASH_ACTUAL_VERSION} from ${OPENCLASH_ACTUAL_COMMIT}"
 
 # ----------------------------------------------------
 # 切断 firewall4→kmod-nft-offload→kmod-nf-flow 依赖链

@@ -145,22 +145,17 @@ jobs:
             VIDEO_FEED_URL VIDEO_FEED_COMMIT \
             ARGON_THEME_URL ARGON_THEME_COMMIT \
             ARGON_CONFIG_URL ARGON_CONFIG_COMMIT \
-            OPENCLASH_URL OPENCLASH_COMMIT OPENCLASH_VERSION; do
+            OPENCLASH_URL OPENCLASH_REF; do
             value="${!name:-}"
             [ -n "$value" ] || {
               echo "::error::$name is missing from .github/ax6-nss-lock.env"
               exit 1
             }
           done
-          [[ "$OPENCLASH_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
-            echo "::error::OPENCLASH_VERSION must be a numeric release version"
-            exit 1
-          }
           for name in \
             SOURCE_COMMIT SQM_SCRIPTS_NSS_COMMIT LUCI_FEED_COMMIT \
             PACKAGES_FEED_COMMIT ROUTING_FEED_COMMIT TELEPHONY_FEED_COMMIT \
-            VIDEO_FEED_COMMIT ARGON_THEME_COMMIT ARGON_CONFIG_COMMIT \
-            OPENCLASH_COMMIT; do
+            VIDEO_FEED_COMMIT ARGON_THEME_COMMIT ARGON_CONFIG_COMMIT; do
             value="${!name}"
             [[ "$value" =~ ^[0-9a-f]{40}$ ]] || {
               echo "::error::$name must be a full 40-character lowercase commit SHA"
@@ -175,6 +170,12 @@ jobs:
           grep -Fq 'CONFIG_ATH11K_NSS_MESH_SUPPORT) += ATH11K_NSS_MESH_SUPPORT' "$workflow"
           grep -Fq 'CONFIG_ATH11K_NSS_SUPPORT) += ATH11K_NSS_SUPPORT' "$workflow"
           grep -Fq 'ATH11K_NSS_SUPPORT must not force ATH11K_NSS_MESH_SUPPORT' "$workflow"
+          # shellcheck disable=SC2016 # Match the literal tracking-source expression in diy.sh.
+          grep -Fq 'clone_tracking "$OPENCLASH_URL" "${OPENCLASH_REF:-master}"' AX6-IPQ/diy.sh
+          if grep -Eq 'OPENCLASH_(COMMIT|VERSION)' .github/ax6-nss-lock.env AX6-IPQ/diy.sh; then
+            echo "::error::OpenClash plugin must track upstream ref, not a pinned plugin version"
+            exit 1
+          fi
 
       - name: Obsolete NSS config symbol check
         run: |
@@ -478,6 +479,9 @@ jobs:
             'config bridge-vlan is present' \
             'openclash_dns_redirect' \
             'OpenClash DNS Hijack' \
+            'GeoIP/GeoSite/ASN use' \
+            'enabled on ${oc_overlay_total} KiB overlay can refill flash' \
+            'dashboard UI files occupy' \
             'fake-ip cache persistence enabled' \
             'custom DNS nameserver group is configured' \
             'default DNS is IPv4-only with disable_ipv6=1' \

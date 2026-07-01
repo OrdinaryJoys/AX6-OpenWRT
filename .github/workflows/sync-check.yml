@@ -80,7 +80,7 @@ jobs:
           check_locked "openwrt/video HEAD" "$VIDEO_FEED_URL" HEAD "$VIDEO_FEED_COMMIT"
           check_locked "jerrykuku/luci-theme-argon HEAD" "$ARGON_THEME_URL" HEAD "$ARGON_THEME_COMMIT"
           check_locked "jerrykuku/luci-app-argon-config HEAD" "$ARGON_CONFIG_URL" HEAD "$ARGON_CONFIG_COMMIT"
-          check_locked "vernesong/OpenClash master" "$OPENCLASH_URL" refs/heads/master "$OPENCLASH_COMMIT"
+          probe_reference "vernesong/OpenClash ${OPENCLASH_REF:-master}" "$OPENCLASH_URL" "refs/heads/${OPENCLASH_REF:-master}"
 
           probe_reference "OrdinaryJoys/immortalwrt-nss main" https://github.com/OrdinaryJoys/immortalwrt-nss.git refs/heads/main
           probe_reference "LiBwrt/openwrt-6.x main-nss" https://github.com/LiBwrt/openwrt-6.x.git refs/heads/main-nss

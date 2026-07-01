@@ -120,7 +120,8 @@ DNS 组和 `disable_ipv6=1` 的 IPv4 default DNS。不要把订阅 YAML 或自�
 - Boot Guard 只纠正会直接冲突 NSS 数据路径的 packet steering/flow offload。
 - WiFi 首次启动脚本只设置 radio 级默认值，不覆盖 SSID 隔离、PMF、漫游或 IoT 策略。
 - VLAN、ZeroTier、UPnP 和 OpenClash 由管理员按网络拓扑配置，仓库工具只读审计。
-- 主构建的源码、全部 feeds、Argon 和 OpenClash 都固定到完整提交 SHA。
+- 主构建的源码、全部 feeds 和 Argon 固定到完整提交 SHA；OpenClash 插件跟随
+  官方 `master` 最新版，构建时记录实际来源并做基础结构校验。
 - AX6-IPQ/IMM/LEDE 备用构建跟随移动分支或 feeds,只上传 7 天
   `UNVALIDATED` Actions artifact,不创建 Release。它们没有主构建级别的锁定、
   容量和最终产物验证,不得当作已验证固件发布。
@@ -144,7 +145,7 @@ DNS 组和 `disable_ipv6=1` 的 IPv4 default DNS。不要把订阅 YAML 或自�
 | [Openwrt-Passwall/openwrt-passwall-packages](https://github.com/Openwrt-Passwall/openwrt-passwall-packages) | LEDE 科学上网依赖 | tip | ✓ |
 | [jerrykuku/luci-theme-argon](https://github.com/jerrykuku/luci-theme-argon) | LuCI 主题 | 完整 SHA 锁定 | ✓ |
 | [jerrykuku/luci-app-argon-config](https://github.com/jerrykuku/luci-app-argon-config) | Argon 主题配置 | 完整 SHA 锁定 | ✓ |
-| [vernesong/OpenClash](https://github.com/vernesong/OpenClash) | OpenClash 独立锁定覆盖源 | `0.47.097` + 完整 SHA | ✓ |
+| [vernesong/OpenClash](https://github.com/vernesong/OpenClash) | OpenClash 独立覆盖源 | `master` 最新版(不锁插件版本) | ✓ |
 
 ### 已 release 版本与上游 commit 的对应
 
@@ -153,9 +154,10 @@ DNS 组和 `disable_ipv6=1` 的 IPv4 default DNS。不要把订阅 YAML 或自�
 | `AX6_NSS_STOCK_20260426145026` | `3138df48` | `NSS-12.5-K6.x` HEAD | 历史首次 success build |
 | `AX6_NSS_*` 之前 (2026-04-19~25) | (legacy,直接拉 VIKINGYFY) | 同上 | 已被新 release 覆盖 |
 
-> sync-check workflow 每周一 09:00 (CST) 比较主构建的 11 个锁定输入与当前远端，
-> 并额外探测 6 个备用/间接上游。锁定分支发生漂移或仓库不可达时 workflow 会失败并在
-> Actions Summary 标出原因；更新锁定值前仍需审查差异并完成构建验证。
+> sync-check workflow 每周一 09:00 (CST) 比较主构建的锁定输入与当前远端，
+> 并额外探测 OpenClash、备用/间接上游。锁定分支发生漂移或仓库不可达时 workflow 会
+> 失败并在 Actions Summary 标出原因；OpenClash 只报告当前 `master` HEAD，不把插件
+> 版本漂移视为失败。更新核心驱动/feeds 锁定值前仍需审查差异并完成构建验证。
 
 ### 同行项目对比
 

@@ -155,6 +155,41 @@ openclash_default_dns_ipv6_conflict() {
     [ "$_oc_bad$_oc_warn" = "00" ] && ok "OpenClash: default DNS is IPv4-only with disable_ipv6=1"
 }
 
+openclash_path_kb() {
+    [ -e "$1" ] || {
+        echo 0
+        return 0
+    }
+    du -sk "$1" 2>/dev/null | awk 'NR == 1 { print $1 + 0 }'
+}
+
+openclash_geodata_kb() {
+    _oc_total=0
+    for _oc_path in \
+        /etc/openclash/GeoIP.dat \
+        /etc/openclash/GeoSite.dat \
+        /etc/openclash/ASN.mmdb \
+        /etc/openclash/Country.mmdb; do
+        _oc_size=$(openclash_path_kb "$_oc_path")
+        _oc_total=$((_oc_total + _oc_size))
+    done
+    echo "$_oc_total"
+}
+
+openclash_overlay_free_kb() {
+    df -k /overlay 2>/dev/null | awk 'NR == 2 { print $4 + 0 }'
+}
+
+openclash_overlay_total_kb() {
+    df -k /overlay 2>/dev/null | awk 'NR == 2 { print $2 + 0 }'
+}
+
+openclash_auto_geodata_enabled() {
+    for _oc_option in geoip_auto_update geosite_auto_update geoasn_auto_update; do
+        [ "$(uci -q get "openclash.config.${_oc_option}")" = "1" ] && echo "$_oc_option"
+    done
+}
+
 if [ "$QUIET" -eq 0 ]; then
     echo "=== AX6 scenario configuration audit (read-only) ==="
 fi
@@ -347,6 +382,28 @@ fi
 
 # OpenClash owns dnsmasq redirection while enabled and must revert it when stopped.
 if uci -q get openclash.config >/dev/null 2>&1; then
+    oc_overlay_free=$(openclash_overlay_free_kb)
+    oc_overlay_total=$(openclash_overlay_total_kb)
+    oc_geodata_kb=$(openclash_geodata_kb)
+    oc_auto_geodata=$(openclash_auto_geodata_enabled)
+    oc_ui_overlay_kb=$(openclash_path_kb /overlay/upper/usr/share/openclash/ui)
+    if [ "$oc_geodata_kb" -gt 0 ]; then
+        if [ "$oc_overlay_free" -lt 4096 ]; then
+            fail "OpenClash: GeoIP/GeoSite/ASN use ${oc_geodata_kb} KiB and overlay free is only ${oc_overlay_free} KiB"
+        else
+            warn "OpenClash: GeoIP/GeoSite/ASN use ${oc_geodata_kb} KiB on overlay; monitor free space before updates"
+        fi
+    fi
+    if [ -n "$oc_auto_geodata" ]; then
+        if [ "$oc_overlay_total" -gt 0 ] && [ "$oc_overlay_total" -lt 65536 ]; then
+            fail "OpenClash: ${oc_auto_geodata} enabled on ${oc_overlay_total} KiB overlay can refill flash"
+        else
+            warn "OpenClash: ${oc_auto_geodata} enabled; ensure overlay has enough free space"
+        fi
+    fi
+    if [ "$oc_ui_overlay_kb" -gt 0 ]; then
+        warn "OpenClash: dashboard UI files occupy ${oc_ui_overlay_kb} KiB in overlay; prefer baking plugin into firmware"
+    fi
     dns_port=$(uci -q get openclash.config.dns_port)
     [ -n "$dns_port" ] || dns_port=7874
     dns_server=$(uci -q get dhcp.@dnsmasq[0].server)

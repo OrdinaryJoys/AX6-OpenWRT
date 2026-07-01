@@ -63,7 +63,7 @@ jobs:
           for name in \
             ARGON_THEME_URL ARGON_THEME_COMMIT \
             ARGON_CONFIG_URL ARGON_CONFIG_COMMIT \
-            OPENCLASH_URL OPENCLASH_COMMIT OPENCLASH_VERSION; do
+            OPENCLASH_URL OPENCLASH_REF; do
             value="${!name:-}"
             [ -n "$value" ] || {
               echo "::error::$name is missing from .github/ax6-nss-lock.env"
@@ -71,14 +71,13 @@ jobs:
             }
             echo "$name=$value" >> "$GITHUB_ENV"
           done
-          for name in ARGON_THEME_COMMIT ARGON_CONFIG_COMMIT OPENCLASH_COMMIT; do
+          for name in ARGON_THEME_COMMIT ARGON_CONFIG_COMMIT; do
             value="${!name}"
             [[ "$value" =~ ^[0-9a-f]{40}$ ]] || {
               echo "::error::$name must be a full 40-character lowercase commit SHA"
               exit 1
             }
           done
-          [[ "$OPENCLASH_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
 
       - name: Update & install feeds
         working-directory: ./openwrt
@@ -216,7 +215,7 @@ jobs:
             'etc/rc\.d/S12ax6-boot-guard' \
             'etc/rc\.d/S15zram' \
             'etc/rc\.d/S26qca-nss-ecm' \
-            'etc/rc\.d/S(19|27)qca-nss-pbuf' \
+            'etc/rc\.d/S19qca-nss-pbuf' \
             'etc/rc\.d/S28qca-nss-drv' \
             'etc/rc\.d/S29qca-nss-netlink' \
             'etc/rc\.d/S93smp_affinity' \
@@ -235,6 +234,19 @@ jobs:
             echo "::error::Final rootfs contains unsupported ath11k rx_hash parameter"
             exit 1
           fi
+          unsquashfs -cat "$rootfs" etc/init.d/qca-nss-pbuf \
+            > image-verify/qca-nss-pbuf.init
+          grep -Fqx 'START=19' image-verify/qca-nss-pbuf.init
+          for required in \
+            ath11k_sysfs_device_available \
+            wait_for_ath11k_nss_offload \
+            wait_for_nss_sysctls \
+            'confirming dev.nss.n2hcfg.n2h_high_water_core0'; do
+            grep -Fq "$required" image-verify/qca-nss-pbuf.init || {
+              echo "::error::Final rootfs qca-nss-pbuf is missing source fix: $required"
+              exit 1
+            }
+          done
           echo "Final rootfs validation: PASS"
 
       - name: Stage release artifacts
@@ -255,8 +267,7 @@ jobs:
             echo "ARGON_CONFIG_URL=$ARGON_CONFIG_URL"
             echo "ARGON_CONFIG_COMMIT=$ARGON_CONFIG_COMMIT"
             echo "OPENCLASH_URL=$OPENCLASH_URL"
-            echo "OPENCLASH_COMMIT=$OPENCLASH_COMMIT"
-            echo "OPENCLASH_VERSION=$OPENCLASH_VERSION"
+            echo "OPENCLASH_REF=$OPENCLASH_REF"
           } > upload/BUILD-PROVENANCE-AX6-IPQ.txt
           ( cd upload && sha256sum -- * 2>/dev/null > SHA256SUMS ) || true
           ls -lh upload/
