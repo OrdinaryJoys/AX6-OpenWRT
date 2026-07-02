@@ -217,6 +217,14 @@ P2 合并原则:
 |---:|---|---|---|
 | `28581157917` | `codex/ax6-p2a-ath11k-999923-build-validation` | `codex/ax6-ath11k-999923-candidate` / `96a0f90fdeb4cf7575228424f948ff8f0f6f10f4` | 单独验证 ath11k `999-923` 是否通过 stock 构建和最终 rootfs 检查 |
 
+已准备但未触发构建的 P2 验证分支:
+
+| 验证分支 | AX6 提交 | 源码候选 |
+|---|---:|---|
+| `codex/ax6-p2b-ath11k-999922-build-validation` | `c8aee21` | `codex/ax6-ath11k-999922-candidate` / `b52d08da5a7ab47dcaaf397ec126b14cfd70a70f` |
+| `codex/ax6-p2c-qca-mcs-007-build-validation` | `fe74333` | `codex/ax6-qca-mcs-007-candidate` / `35f03b6aed73779d5808031a0bff181c5830759d` |
+| `codex/ax6-p2f-stock-nvmem-build-validation` | `47cbd51` | `codex/ax6-stock-nvmem-candidate` / `aa5ee57c3b11d4321c6617683617cf9443d78518` |
+
 ## 当前仍需注意的问题
 
 | 问题 | 状态 | 建议 |
