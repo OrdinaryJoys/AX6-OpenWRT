@@ -177,7 +177,7 @@
 |---:|---|---|
 | `28565743423` | 失败在 `Clone locked source code` | `git fetch origin <裸 SHA>` 无法抓取非默认分支提交,不是补丁失败 |
 | `28565849017` | 失败在 `Clone locked source code` | 锁文件使用了错误的 40 位 SHA,真实 P1 HEAD 是 `8a22411dc1d0e50ba52bc015ba5ef193ee3bd7b4` |
-| `28565953957` | 进行中 | 已通过 clone、feeds 和 DIY,正在进入包下载/编译 |
+| `28565953957` | 成功 | clone、feeds、DIY、package download、`Compile firmware`、`Validate final rootfs contents`、artifact/kmod 上传均通过 |
 
 ## P2 单独静态审查进度
 
@@ -256,7 +256,7 @@ P2 合并原则:
 | 现象 | 正确判断 | 不能做的事 |
 |---|---|---|
 | P1 前两次云端失败 | 是验证分支 clone/锁定 SHA 问题,不是 qca-nss 补丁编译失败 | 不能因此回退 P1 补丁或判断补丁不可用 |
-| P1 第三次进入 `Compile firmware` | 说明 clone、feeds、DIY 已通过,但还没有 rootfs 结果 | 不能提前合入主线 |
+| P1 第三次构建 `28565953957` | 已通过编译与最终 rootfs 校验 | 可作为 P1 合入依据,但仍需后续新主锁构建验证 |
 | 官方 `a949f0445e` 和 AX6 stock 有关 | 这是值得单独审查的 stock layout/nvmem 候选 | 不能整提交合并,也不能删除本仓 ath10k caldata 脚本影响其他设备 |
 | ath11k `999-923` 静态通过 | 只证明单 patch 范围干净 | 不能和 P1 或 SSDK/DP 混合提交 |
 | OpenClash `master` 与 `v0.47.110` 当前同指向 | 当前官方版本相同 | 不能把仓库重新改成固定 tag/ipk/raw core |
@@ -266,7 +266,7 @@ P2 合并原则:
 | 等级 | 范围 | 当前动作 | 当前状态 | 下一步 |
 |---|---|---|---|---|
 | P0 | 稳定主线防回归: NSS/ECM offload、pbuf S19、WiFi NSS 参数、VLAN 禁止项、OpenClash tracking、ZeroTier/UPnP/OpenClash 只读审计 | 主仓 `main` 扫描危险项、本地测试、云端 Lint | 本地 `test-vlan-add`/`test-openclash-archive`/`git diff --check` 通过;最新 Lint `28566358880` 通过 | 不合入会改变 P0 边界的上游脚本;继续等待 P1 构建完成 |
-| P1 | 4 个 qca-nss-drv/qca-nss-ecm 低风险补丁 | 源码候选分支 `codex/ax6-p1-nss-candidates`;构建验证分支 `codex/ax6-p1-nss-build-validation` | `28565953957` 已通过 clone、feeds、DIY、package download,正在 `Compile firmware` | 编译和 rootfs 校验通过后,再决定是否合入 `immortalwrt-nss/main` 并更新 AX6 主锁 |
+| P1 | 4 个 qca-nss-drv/qca-nss-ecm 低风险补丁 | 源码候选分支 `codex/ax6-p1-nss-candidates`;构建验证分支 `codex/ax6-p1-nss-build-validation` | `28565953957` 完整通过,包含 `Compile firmware` 和 `Validate final rootfs contents` | 可进入 `immortalwrt-nss/main` 合入和 AX6 主锁更新流程 |
 | P2a | ath11k 低风险单补丁 `999-923` | 本地隔离候选 `/private/tmp/ax6-ath11k-999923-candidate` | 只新增 1 个 patch 文件,静态检查通过,未推送 | P1 通过后单独推送/构建,不能与 P1 混合 |
 | P2b | ath11k `999-922` rate reporting | 本地隔离候选 `/private/tmp/ax6-ath11k-999922-candidate` | 只新增 1 个 patch 文件,静态检查通过,未推送 | 在 `999-923` 后单独构建;需 WiFi 客户端验证 |
 | P2c | qca-mcs no-nl80211 日志降噪 | 本地隔离候选 `/private/tmp/ax6-qca-mcs-007-candidate` | 只新增 1 个 patch 文件,静态检查通过,未推送 | 可排在 ath11k 后单独验证 |
