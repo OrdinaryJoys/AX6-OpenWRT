@@ -219,7 +219,7 @@ P2 合并原则:
 | `28581157917` | `codex/ax6-p2a-ath11k-999923-build-validation` | `codex/ax6-ath11k-999923-candidate` / `96a0f90fdeb4cf7575228424f948ff8f0f6f10f4` | 成功: ath11k `999-923` 单独 stock 构建和最终 rootfs 检查均通过 |
 | `28588902638` | `codex/ax6-p2b-ath11k-999922-build-validation` | `codex/ax6-ath11k-999922-candidate` / `b52d08da5a7ab47dcaaf397ec126b14cfd70a70f` | 成功: ath11k `999-922` 单独 stock 构建和最终 rootfs 检查均通过 |
 | `28598719084` | `codex/ax6-p2c-qca-mcs-007-build-validation` | `codex/ax6-qca-mcs-007-candidate` / `35f03b6aed73779d5808031a0bff181c5830759d` | 成功: qca-mcs `007` 单独 stock 构建和最终 rootfs 检查均通过 |
-| `28625314496` | `codex/ax6-p2f-stock-nvmem-build-validation` | `codex/ax6-stock-nvmem-candidate` / `aa5ee57c3b11d4321c6617683617cf9443d78518` | 进行中: clone 已通过,当前在 feeds;仍需确认 DIY、编译和最终 rootfs 检查 |
+| `28625314496` | `codex/ax6-p2f-stock-nvmem-build-validation` | `codex/ax6-stock-nvmem-candidate` / `aa5ee57c3b11d4321c6617683617cf9443d78518` | 进行中: clone、feeds、DIY 已通过,当前在 package download;仍需确认编译和最终 rootfs 检查 |
 
 已准备但未触发构建的 P2 验证分支:
 
@@ -289,7 +289,7 @@ P2 合并原则:
 | P2c | qca-mcs no-nl80211 日志降噪 | 源码候选 `codex/ax6-qca-mcs-007-candidate`;AX6 验证分支 `codex/ax6-p2c-qca-mcs-007-build-validation` | 单独 stock 构建 `28598719084` 完整通过 | 可排入低风险候选,但仍不与其他 P2 混合合入 |
 | P2d | qca-nss-dp/SSDK/switchdev/link polling/MAC sync | 只做静态拆解,不进入 P1 | 高风险,直接碰 LAN link/FDB/STP/SMB 路径 | 必须单独分支、单独构建、实机端口/FDB/SMB 测试后才允许合入 |
 | P2e | wifi-scripts 用户态生成逻辑 | 只做静态拆解 | 中风险,影响 hostapd/wpa_supplicant/iwinfo/disabled vif | 需要 2.4G/5G、IoT、扫描、重启 WiFi 场景验证 |
-| P2f | 官方 AX6 stock nvmem 子集 | 源码候选 `codex/ax6-stock-nvmem-candidate`;AX6 验证分支 `codex/ax6-p2f-stock-nvmem-build-validation` | 已验证整提交 cherry-pick 冲突;构建 `28625314496` 已通过 clone,正在 feeds | 等 Actions 确认 DIY/构建/rootfs;通过后仍需确认 stock layout/nvmem/calddata 运行影响 |
+| P2f | 官方 AX6 stock nvmem 子集 | 源码候选 `codex/ax6-stock-nvmem-candidate`;AX6 验证分支 `codex/ax6-p2f-stock-nvmem-build-validation` | 已验证整提交 cherry-pick 冲突;构建 `28625314496` 已通过 clone、feeds、DIY,正在 package download | 等 Actions 确认编译/rootfs;通过后仍需确认 stock layout/nvmem/calddata 运行影响 |
 
 P0-P2 的推进规则:
 
