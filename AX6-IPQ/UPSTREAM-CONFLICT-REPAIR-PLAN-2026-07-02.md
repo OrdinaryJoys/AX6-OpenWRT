@@ -280,3 +280,15 @@ P0-P2 的推进规则:
 2. P1 只允许 qca-nss patch 进入,不允许混入 ath11k/SSDK/DP/WiFi 脚本。
 3. P2 必须按子类单独分支,每个分支只验证一个影响面。
 4. 需要实机验证的 P2 项只做只读/临时验证,不擅自刷写。
+
+## P2 高风险拆解补充
+
+| 子项 | 上游变化 | 风险点 | 当前结论 |
+|---|---|---|---|
+| P2d DP/SSDK 整组 | `qca-nss-dp`/`qca-ssdk` 共 17 个文件差异,包含重命名、删除旧 patch、新增 link/FDB/MAC sync 补丁 | 不是单点 bugfix,会影响 EDMA/NSS DP、DSA link polling、FDB 删除、STP forwarding、PHY 状态读取 | 不能整组合并;必须拆成 `008` 小修复、DP FDB/STP、SSDK link polling、MAC sync、PHY status 五类 |
+| P2d `qca-nss-dp/005` | 注册 netdevice notifier,端口离开 bridge 时恢复 STP forwarding,并递归删除 lower device FDB | 直接影响 bridge/FDB/STP 和 LAN roaming/SMB | 高风险,必须实机端口/FDB/SMB 测试 |
+| P2d `qca-ssdk/005` | 从 DSA blocking notifier 改成 NETDEV_CHANGE 触发 link polling | 改变链路事件触发源,可能影响 LAN2/lan* link flap 判断 | 高风险,必须端口上下线和速率协商测试 |
+| P2d `qca-ssdk/008` | 修复 `mac_sw_sync_lock` 持锁 return 路径 | 纯锁释放修复,但在 SSDK 任务路径 | 可作为 P2d 中最低风险单独候选 |
+| P2d `qca-ssdk/009` | 对 `qcom,nss-dp` netdev 增加 MAC SW sync refresh | 直接影响 NSS DP netdev 和 MAC sync | 高风险,必须和 005 联动验证 |
+| P2d `qca-ssdk/010` | 删除手动 `phy_read_status()`,使用 phydev 缓存状态 | 可能影响实时链路状态读取 | 中高风险,必须用实际链路状态交叉验证 |
+| P2e wifi-scripts | 修改 4 个文件,涉及 iwinfo VHT/HE/EHT 字段条件输出、assoclist `connected_time`、EAP `eap/phase2` 生成、disabled vif key 修复 | 用户态生成逻辑变化,可能影响 STA/EAP、扫描显示、禁用/启用 VIF | 不碰驱动参数,但仍需单独分支和 WiFi 场景验证 |
