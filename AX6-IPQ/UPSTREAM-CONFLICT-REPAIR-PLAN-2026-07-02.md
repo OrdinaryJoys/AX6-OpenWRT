@@ -178,6 +178,7 @@
 | `28565743423` | 失败在 `Clone locked source code` | `git fetch origin <裸 SHA>` 无法抓取非默认分支提交,不是补丁失败 |
 | `28565849017` | 失败在 `Clone locked source code` | 锁文件使用了错误的 40 位 SHA,真实 P1 HEAD 是 `8a22411dc1d0e50ba52bc015ba5ef193ee3bd7b4` |
 | `28565953957` | 成功 | clone、feeds、DIY、package download、`Compile firmware`、`Validate final rootfs contents`、artifact/kmod 上传均通过 |
+| `28580586309` | 成功 | P1 合入 `immortalwrt-nss/main` 后的 AX6 主锁 stock 构建完整通过,包含 `Compile firmware`、`Validate final rootfs contents`、artifact/kmod 上传和 Release 上传 |
 
 ## P2 单独静态审查进度
 
@@ -215,13 +216,13 @@ P2 合并原则:
 
 | Run | 验证分支 | 源码候选 | 当前目的 |
 |---:|---|---|---|
-| `28581157917` | `codex/ax6-p2a-ath11k-999923-build-validation` | `codex/ax6-ath11k-999923-candidate` / `96a0f90fdeb4cf7575228424f948ff8f0f6f10f4` | 单独验证 ath11k `999-923` 是否通过 stock 构建和最终 rootfs 检查 |
+| `28581157917` | `codex/ax6-p2a-ath11k-999923-build-validation` | `codex/ax6-ath11k-999923-candidate` / `96a0f90fdeb4cf7575228424f948ff8f0f6f10f4` | 成功: ath11k `999-923` 单独 stock 构建和最终 rootfs 检查均通过 |
+| `28588902638` | `codex/ax6-p2b-ath11k-999922-build-validation` | `codex/ax6-ath11k-999922-candidate` / `b52d08da5a7ab47dcaaf397ec126b14cfd70a70f` | 已触发: 等待 GitHub Actions 状态查询恢复后确认 clone、编译和最终 rootfs 检查 |
 
 已准备但未触发构建的 P2 验证分支:
 
 | 验证分支 | AX6 提交 | 源码候选 |
 |---|---:|---|
-| `codex/ax6-p2b-ath11k-999922-build-validation` | `c8aee21` | `codex/ax6-ath11k-999922-candidate` / `b52d08da5a7ab47dcaaf397ec126b14cfd70a70f` |
 | `codex/ax6-p2c-qca-mcs-007-build-validation` | `fe74333` | `codex/ax6-qca-mcs-007-candidate` / `35f03b6aed73779d5808031a0bff181c5830759d` |
 | `codex/ax6-p2f-stock-nvmem-build-validation` | `47cbd51` | `codex/ax6-stock-nvmem-candidate` / `aa5ee57c3b11d4321c6617683617cf9443d78518` |
 
@@ -280,10 +281,10 @@ P2 合并原则:
 
 | 等级 | 范围 | 当前动作 | 当前状态 | 下一步 |
 |---|---|---|---|---|
-| P0 | 稳定主线防回归: NSS/ECM offload、pbuf S19、WiFi NSS 参数、VLAN 禁止项、OpenClash tracking、ZeroTier/UPnP/OpenClash 只读审计 | 主仓 `main` 扫描危险项、本地测试、云端 Lint | 本地 `test-vlan-add`/`test-openclash-archive`/`git diff --check` 通过;最新 Lint `28566358880` 通过 | 不合入会改变 P0 边界的上游脚本;继续等待 P1 构建完成 |
-| P1 | 4 个 qca-nss-drv/qca-nss-ecm 低风险补丁 | 源码候选分支 `codex/ax6-p1-nss-candidates`;构建验证分支 `codex/ax6-p1-nss-build-validation` | `28565953957` 完整通过;P1 已 fast-forward 合入 `immortalwrt-nss/main`,AX6 主锁已指向 `8a22411dc1d0e50ba52bc015ba5ef193ee3bd7b4` | 推送 AX6 主线后触发 stock 构建,验证新主锁 rootfs |
-| P2a | ath11k 低风险单补丁 `999-923` | 本地隔离候选 `/private/tmp/ax6-ath11k-999923-candidate` | 只新增 1 个 patch 文件,静态检查通过,未推送 | P1 通过后单独推送/构建,不能与 P1 混合 |
-| P2b | ath11k `999-922` rate reporting | 本地隔离候选 `/private/tmp/ax6-ath11k-999922-candidate` | 只新增 1 个 patch 文件,静态检查通过,未推送 | 在 `999-923` 后单独构建;需 WiFi 客户端验证 |
+| P0 | 稳定主线防回归: NSS/ECM offload、pbuf S19、WiFi NSS 参数、VLAN 禁止项、OpenClash tracking、ZeroTier/UPnP/OpenClash 只读审计 | 主仓 `main` 扫描危险项、本地测试、云端 Lint | 本地 `test-vlan-add`/`test-openclash-archive`/`git diff --check` 通过;最新 Lint `28581536239` 通过 | 不合入会改变 P0 边界的上游脚本;继续按 P2 单项隔离验证 |
+| P1 | 4 个 qca-nss-drv/qca-nss-ecm 低风险补丁 | 已合入 `immortalwrt-nss/main`;AX6 主锁指向 `8a22411dc1d0e50ba52bc015ba5ef193ee3bd7b4` | P1 候选构建 `28565953957` 和主锁 stock 构建 `28580586309` 均完整通过 | 等用户确认后才能进入实机升级/只读验证;仓库层面进入 P2 单项验证 |
+| P2a | ath11k 低风险单补丁 `999-923` | 源码候选 `codex/ax6-ath11k-999923-candidate`;AX6 验证分支 `codex/ax6-p2a-ath11k-999923-build-validation` | 单独 stock 构建 `28581157917` 完整通过 | 仍需实机 WiFi 稳定性观察后才考虑合入主线 |
+| P2b | ath11k `999-922` rate reporting | 源码候选 `codex/ax6-ath11k-999922-candidate`;AX6 验证分支 `codex/ax6-p2b-ath11k-999922-build-validation` | 本地静态检查通过,验证分支已推送;构建 `28588902638` 已触发 | 等 Actions 状态可查后确认构建/rootfs;通过后还需 WiFi 客户端 assoclist/速率显示验证 |
 | P2c | qca-mcs no-nl80211 日志降噪 | 本地隔离候选 `/private/tmp/ax6-qca-mcs-007-candidate` | 只新增 1 个 patch 文件,静态检查通过,未推送 | 可排在 ath11k 后单独验证 |
 | P2d | qca-nss-dp/SSDK/switchdev/link polling/MAC sync | 只做静态拆解,不进入 P1 | 高风险,直接碰 LAN link/FDB/STP/SMB 路径 | 必须单独分支、单独构建、实机端口/FDB/SMB 测试后才允许合入 |
 | P2e | wifi-scripts 用户态生成逻辑 | 只做静态拆解 | 中风险,影响 hostapd/wpa_supplicant/iwinfo/disabled vif | 需要 2.4G/5G、IoT、扫描、重启 WiFi 场景验证 |
