@@ -226,3 +226,35 @@ P2 合并原则:
 3. P2 的 SSDK/DP/switchdev/WiFi 脚本类补丁必须实机专项验证,不能只靠编译成功。
 4. 新固件手动升级后,实机验证顺序为: `nss-check`、`ax6-config-audit`、LuCI 大页面加载、OpenClash XHR、ping 丢包、LAN SMB 单文件/多文件、WiFi 2.4G/5G 稳定性。
 5. 如果后续仍有 Web 卡顿或断流,优先采集 `ethtool -k br-lan/lan*/wan`、ECM sysctl、NSS stats、IRQ/RPS、`logread` 与 TCP 重传,再判断是否进入 SSDK/DP 候选补丁。
+
+## 交叉验证方法
+
+本仓后续修复必须按下面证据链验证,避免因为上游标题相似或单次构建通过而误合并:
+
+| 修改类型 | 必须交叉检查 | 通过标准 | 禁止合并条件 |
+|---|---|---|---|
+| qca-nss-drv/qca-nss-ecm 补丁 | VIKING 原补丁、本仓 patch stack、危险关键词、云端 stock 构建、最终 rootfs | 只新增或最小修改 qca-nss patch;不触碰 pbuf/ECM offload/IRQ/VLAN 策略;`Compile firmware` 与 `Validate final rootfs contents` 通过 | 引入 `disable_offloads`、`qca-nss-pbuf`、`START=27`、`packet_steering`、`flow_offloading`、`vlan_filtering` 等策略变化 |
+| pbuf/N2H | 本仓 `S19qca-nss-pbuf`、VIKING `qca-nss-pbuf.init`、最终 rootfs 解包 | rootfs 中只有早启动 `S19qca-nss-pbuf`,脚本 `START=19`,并保留 pbuf profile 与 ath11k sysfs/OF/PCI 检测 | 上游把 `START` 改回 27、运行后重启 WiFi、或删除早期检测逻辑 |
+| ECM 本机终结流量 offload | 实机根因记录、`disable_offloads.sh`、`ecm.general.disable_offloads`、br-lan hotplug、nss-check | `disable_offloads=1`, `disable_gro_list=1`, br-lan hotplug 调用官方 helper,OpenWrt flow offload 关闭 | 只关闭 `rx-gro-list`、重新启用 software/hardware flow offload、或绕开 br-lan hotplug |
+| WiFi/ath11k 补丁 | VIKING 补丁本体、mac80211 patch 应用顺序、WiFi NSS 参数、2.4G/5G 实机稳定性 | 不改国家码默认 US、不改 `frame_mode=2/nss_offload=1`,不改 UCI 默认兼容边界;编译和 WiFi 运行观察通过 | 混入 pbuf/ECM/VLAN/IRQ 策略,或导致 2.4G/5G 断流、assoclist 异常、速率/吞吐明显退化 |
+| SSDK/DP/switchdev 补丁 | VIKING/qosmio 补丁语义、bridge/FDB/STP/link polling、SMB 单/多文件、端口 link flap | 必须单独分支、单独构建、实机端口上下线/FDB/吞吐/丢包观察通过 | 与 P1 混合合并,或无法解释 LAN 多文件掉速/link 状态变化 |
+| VLAN 配置 | qosmio NSS support matrix、本仓 UCI 默认、`ax6-config-audit`、rootfs | 使用 802.1q 子接口方案,不启用 DSA bridge VLAN filtering | 出现 `option vlan_filtering 1`、`config bridge-vlan`、`lan1:u*` 等 bridge VLAN filtering |
+| OpenClash | vernesong/OpenClash `master`/tag 引用、`diy.sh`、lint、运行审计 | 构建跟踪 `OPENCLASH_REF=master`,不固定 `OPENCLASH_COMMIT/OPENCLASH_VERSION`,不改订阅/覆写 | 写入订阅 YAML、修改 `openclash_custom_overwrite.rb` 作为默认修复、或锁死插件版本 |
+| stock layout/nvmem | immortalwrt 官方提交、当前 DTS 父子关系、分区/ART/nvmem cell、ath10k/ath11k caldata | 只能按设备子集移植;AX6 stock 需验证 MAC cell、aliases、`0:art`、ath11k caldata 不被破坏 | 整提交 cherry-pick 导致 AX3600/AX9000 caldata 删除冲突,或未解释 stock layout 分区变化 |
+
+每个候选必须保留四个结论:
+
+1. 来源: 上游仓库、提交号、文件路径。
+2. 影响面: 只列实际 touched path,不能用标题推断。
+3. 冲突面: 与 NSS/ECM/WiFi/VLAN/IRQ/OpenClash/stock layout 哪些边界相交。
+4. 验证面: 本地静态、云端构建、rootfs、实机只读/临时验证分别完成到哪一步。
+
+## 当前不能误判的点
+
+| 现象 | 正确判断 | 不能做的事 |
+|---|---|---|
+| P1 前两次云端失败 | 是验证分支 clone/锁定 SHA 问题,不是 qca-nss 补丁编译失败 | 不能因此回退 P1 补丁或判断补丁不可用 |
+| P1 第三次进入 `Compile firmware` | 说明 clone、feeds、DIY 已通过,但还没有 rootfs 结果 | 不能提前合入主线 |
+| 官方 `a949f0445e` 和 AX6 stock 有关 | 这是值得单独审查的 stock layout/nvmem 候选 | 不能整提交合并,也不能删除本仓 ath10k caldata 脚本影响其他设备 |
+| ath11k `999-923` 静态通过 | 只证明单 patch 范围干净 | 不能和 P1 或 SSDK/DP 混合提交 |
+| OpenClash `master` 与 `v0.47.110` 当前同指向 | 当前官方版本相同 | 不能把仓库重新改成固定 tag/ipk/raw core |
