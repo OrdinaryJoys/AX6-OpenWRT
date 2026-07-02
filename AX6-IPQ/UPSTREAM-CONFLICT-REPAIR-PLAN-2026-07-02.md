@@ -22,7 +22,8 @@
 | OrdinaryJoys/immortalwrt-nss | `0aea4a034fc7123003288a51bfec75f063a6777e` | 当前源码锁定提交,包含 S19 pbuf 与 qca-nss 稳定补丁 |
 | VIKINGYFY/immortalwrt | `baee485f7f` | 相对本仓仍有大量差异,最新大块主要是 `qualcommbe` |
 | qosmio/openwrt-ipq | `92a2d10414` | 相对本仓为另一套组织和 rebase 路径,不能直接合并 |
-| vernesong/OpenClash | `master` | 构建跟踪分支,不再固定 `OPENCLASH_COMMIT` |
+| immortalwrt/immortalwrt | `master=41c75c5a90`, `openwrt-24.10=253a70f1f8` | 官方主线有 AX6 stock nvmem 更新,需单独移植审查 |
+| vernesong/OpenClash | `master=23896d2662`, `v0.47.110=23896d2662` | 构建跟踪 `master`,不再固定 `OPENCLASH_COMMIT` |
 
 差异规模:
 
@@ -30,6 +31,7 @@
 |---|---:|---:|---|
 | `origin/main...viking/main` | `77 / 244` | 709 文件, `+20237/-40306` | 必须按目录/功能筛选 |
 | `origin/main...qosmio/main-nss` | `5627 / 168` | 2082 文件, `+117336/-143973` | 不能整合,只能参考具体修复语义 |
+| `origin/main...immortal/master` | 未作为 merge 基准 | 514 个 qualcommax/mac80211/wifi-scripts/hostapd 相关文件差异 | 官方非 NSS 主线,只能摘取与 AX6 stock layout 明确相关的修复 |
 
 ## 已通过验证
 
@@ -101,6 +103,15 @@
 | `70e395a3e0` backports 6.18.26 rebase | 整套 backports/mac80211 NSS patch rebase | 高风险,只在需要整体 rebase 时做新分支 |
 | `92a2d10414` kernel 6.12.92 rebase | 6.12 路径 rebase | 当前主线是 6.18,不适用 |
 
+### immortalwrt/immortalwrt
+
+| 区域 | 变化 | 合并判断 |
+|---|---|---|
+| `a949f0445e qualcommax: add nvmem support for xiaomi ax6/ax3600/ax9000 stock layout` | AX6/AX3600/AX9000 stock DTS 从删除 inherited `nvmem-cells` 改为在 `0:art` smem 分区下声明 fixed-layout MAC cells,并删除 ath10k caldata hotplug | 不能整提交 cherry-pick; 本仓 stock DTS/ath10k hotplug 有冲突。AX6 部分可作为单独候选,需保留/评估本仓 aliases 与多机型 caldata 脚本 |
+| `da28c7a67e wifi-scripts: add EHT beamforming options to hostapd config` | hostapd 生成 EHT beamforming 选项 | AX6 是 WiFi 6/ath11k,不是 EHT/ath12k 主目标,暂不合并 |
+| `92143f94b6 mac80211: notify driver on airtime weight changes` | mac80211 通知 driver airtime weight 变化 | 非当前故障根因,需等 NSS/WiFi 补丁栈同步窗口再评估 |
+| `9c48477cf7 hostapd: fix misplaced radar-detected ubus notification` | DFS/radar ubus 通知修复 | 与当前 AX6 US 默认国家码和稳定性目标弱相关,暂不合并 |
+
 ## 剩余候选补丁分级
 
 | 优先级 | 候选 | 状态 | 需要验证 |
@@ -113,6 +124,7 @@
 | P2 | VIKING `qca-nss-dp/005-fix-switchdev-stp-fdb-roaming.patch` | 高风险候选 | bridge/FDB/STP/roaming/LAN SMB |
 | P2 | VIKING `qca-ssdk/005/008/009/010` | 高风险候选 | switch link、MAC sync、LAN 断流 |
 | P2 | VIKING ath11k `999-922/999-923` | 中风险候选 | WiFi NSS、速率显示、断流、2.4G/5G |
+| P2 | 官方 `a949f0445e` 的 AX6 stock nvmem 子集 | 官方提交可解决 stock layout MAC/nvmem 描述缺口,但整提交冲突 | 单独 DTS 移植、dtc/编译、MAC/分区/校准交叉验证 |
 | Hold | VIKING pbuf `START=27` | 拒绝 | 与当前修复方向冲突 |
 | Hold | VIKING `disable_offloads.sh` 简化 | 拒绝 | 与实机根因修复冲突 |
 | Hold | VIKING `991_set-network.sh` 简化 | 拒绝 | 与 NSS offload 防漏配置冲突 |
@@ -153,11 +165,19 @@
 4. 如果组合构建失败,按 4 个独立提交回退定位;如果通过,再决定是否进入主线。
 5. 实机验证仍需用户确认后进行,不自动刷写。
 
-当前已完成第 1 步。第 2 步已在本地验证工作区完成并提交:
+当前已完成第 1 步。第 2 步已在本地验证工作区完成并提交,随后修正了两个验证通道问题:
 
 | 仓库 | 本地分支 | 本地提交 | 状态 |
 |---|---|---:|---|
-| AX6-OpenWRT | `codex/ax6-p1-nss-build-validation` | `f4b33f9` | 只改 `SOURCE_COMMIT=8a22411dc1...`; 推送被当前外部用量限制拦截,尚未触发云端构建 |
+| AX6-OpenWRT | `codex/ax6-p1-nss-build-validation` | `8ca8fd6` | 已推送并触发云端 stock 构建 |
+
+云端验证状态:
+
+| Run | 结果 | 根因/状态 |
+|---:|---|---|
+| `28565743423` | 失败在 `Clone locked source code` | `git fetch origin <裸 SHA>` 无法抓取非默认分支提交,不是补丁失败 |
+| `28565849017` | 失败在 `Clone locked source code` | 锁文件使用了错误的 40 位 SHA,真实 P1 HEAD 是 `8a22411dc1d0e50ba52bc015ba5ef193ee3bd7b4` |
+| `28565953957` | 已触发 | 用正确源码分支和正确 SHA 重新验证 |
 
 ## P2 单独静态审查进度
 
