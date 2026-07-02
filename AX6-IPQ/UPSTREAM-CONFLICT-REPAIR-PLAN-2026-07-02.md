@@ -206,9 +206,9 @@ P2 合并原则:
 
 | 临时分支 | 提交 | 内容 | 当前验证 |
 |---|---:|---|---|
-| `/private/tmp/ax6-ath11k-999923-candidate` `codex/ax6-ath11k-999923-candidate` | `94c9704362` | 仅新增 VIKING `999-923-ath11k-fix-uninitialized-tx-status-flags.patch` | `git diff --cached --check` 已通过,危险配置关键词无命中;等待 P1 通过后再考虑云端构建 |
-| `/private/tmp/ax6-ath11k-999922-candidate` `codex/ax6-ath11k-999922-candidate` | `be1a0524d0` | 仅新增 VIKING `999-922-ath11k-nss-fix-station-rate-reporting.patch` | `git diff --cached --check` 已通过,危险配置关键词无命中;需 WiFi assoclist/速率显示实机验证 |
-| `/private/tmp/ax6-qca-mcs-007-candidate` `codex/ax6-qca-mcs-007-candidate` | `3f03a0566f` | 仅新增 VIKING `qca-mcs/007-fix-wifi-events-quiet-without-nl80211.patch` | `git diff --cached --check` 已通过,危险配置关键词无命中;等待 P1 通过后再考虑云端构建 |
+| `/private/tmp/ax6-ath11k-999923-candidate` `codex/ax6-ath11k-999923-candidate` | `96a0f90fde` | 仅新增 VIKING `999-923-ath11k-fix-uninitialized-tx-status-flags.patch` | 已重放到 P1 基线;`git diff --check` 已通过,危险配置关键词无命中;等待 P1 主锁构建完成后再考虑云端构建 |
+| `/private/tmp/ax6-ath11k-999922-candidate` `codex/ax6-ath11k-999922-candidate` | `b52d08da5a` | 仅新增 VIKING `999-922-ath11k-nss-fix-station-rate-reporting.patch` | 已重放到 P1 基线;`git diff --check` 已通过,危险配置关键词无命中;需 WiFi assoclist/速率显示实机验证 |
+| `/private/tmp/ax6-qca-mcs-007-candidate` `codex/ax6-qca-mcs-007-candidate` | `35f03b6aed` | 仅新增 VIKING `qca-mcs/007-fix-wifi-events-quiet-without-nl80211.patch` | 已重放到 P1 基线;`git diff --check` 已通过,危险配置关键词无命中;等待 P1 主锁构建完成后再考虑云端构建 |
 | `/private/tmp/ax6-stock-nvmem-candidate` `codex/ax6-stock-nvmem-candidate` | `aa5ee57c3b` | 仅移植官方 AX6 stock nvmem 子集到 `ipq8071-ax6-stock.dts`,保留本仓 aliases 和 `11-ath10k-caldata` | `git diff --check` 已通过;确认父层 `ipq8071-xiaomi.dtsi` 已引用 `macaddr_dp2..dp5`;仍需单独 stock 构建验证 |
 
 ## 当前仍需注意的问题
