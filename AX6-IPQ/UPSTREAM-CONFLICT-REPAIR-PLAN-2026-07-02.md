@@ -177,7 +177,7 @@
 |---:|---|---|
 | `28565743423` | 失败在 `Clone locked source code` | `git fetch origin <裸 SHA>` 无法抓取非默认分支提交,不是补丁失败 |
 | `28565849017` | 失败在 `Clone locked source code` | 锁文件使用了错误的 40 位 SHA,真实 P1 HEAD 是 `8a22411dc1d0e50ba52bc015ba5ef193ee3bd7b4` |
-| `28565953957` | 已触发 | 用正确源码分支和正确 SHA 重新验证 |
+| `28565953957` | 进行中 | 已通过 clone、feeds 和 DIY,正在进入包下载/编译 |
 
 ## P2 单独静态审查进度
 
@@ -201,6 +201,12 @@ P2 合并原则:
 2. SSDK/DP 相关补丁必须建立单独分支,并先构建再实机测端口/FDB/link/SMB。
 3. ath11k `999-923` 可作为下一个低风险候选;`999-922` 和 wifi-scripts 需 WiFi 观测验证。
 4. 任何导致 link flap、FDB 异常、SMB 多文件掉速变差、WiFi 断流的新补丁必须立即回退。
+
+已准备但未推送/未构建的隔离候选:
+
+| 临时分支 | 提交 | 内容 | 当前验证 |
+|---|---:|---|---|
+| `/private/tmp/ax6-ath11k-999923-candidate` `codex/ax6-ath11k-999923-candidate` | `94c9704362` | 仅新增 VIKING `999-923-ath11k-fix-uninitialized-tx-status-flags.patch` | `git diff --cached --check` 已通过,危险配置关键词无命中;等待 P1 通过后再考虑云端构建 |
 
 ## 当前仍需注意的问题
 
