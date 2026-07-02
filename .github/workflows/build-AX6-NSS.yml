@@ -193,8 +193,8 @@ jobs:
           set -eo pipefail
           git init openwrt
           git -C openwrt remote add origin "$SOURCE_REPO"
-          git -C openwrt fetch --depth 1 origin "$SOURCE_COMMIT"
-          git -C openwrt checkout --detach FETCH_HEAD
+          git -C openwrt fetch --depth 1 origin "$SOURCE_TRACKING_BRANCH"
+          git -C openwrt checkout --detach "$SOURCE_COMMIT"
           actual=$(git -C openwrt rev-parse HEAD)
           [ "$actual" = "$SOURCE_COMMIT" ] || {
             echo "::error::Source lock mismatch: expected $SOURCE_COMMIT, got $actual"
