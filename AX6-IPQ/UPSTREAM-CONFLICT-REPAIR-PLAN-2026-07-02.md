@@ -218,7 +218,7 @@ P2 合并原则:
 |---:|---|---|---|
 | `28581157917` | `codex/ax6-p2a-ath11k-999923-build-validation` | `codex/ax6-ath11k-999923-candidate` / `96a0f90fdeb4cf7575228424f948ff8f0f6f10f4` | 成功: ath11k `999-923` 单独 stock 构建和最终 rootfs 检查均通过 |
 | `28588902638` | `codex/ax6-p2b-ath11k-999922-build-validation` | `codex/ax6-ath11k-999922-candidate` / `b52d08da5a7ab47dcaaf397ec126b14cfd70a70f` | 成功: ath11k `999-922` 单独 stock 构建和最终 rootfs 检查均通过 |
-| `28598719084` | `codex/ax6-p2c-qca-mcs-007-build-validation` | `codex/ax6-qca-mcs-007-candidate` / `35f03b6aed73779d5808031a0bff181c5830759d` | 进行中: clone、feeds、DIY 已通过,当前在 package download;仍需确认编译和最终 rootfs 检查 |
+| `28598719084` | `codex/ax6-p2c-qca-mcs-007-build-validation` | `codex/ax6-qca-mcs-007-candidate` / `35f03b6aed73779d5808031a0bff181c5830759d` | 进行中: clone、feeds、DIY、package download 已通过,当前在 `Compile firmware`;仍需确认最终 rootfs 检查 |
 
 已准备但未触发构建的 P2 验证分支:
 
@@ -285,7 +285,7 @@ P2 合并原则:
 | P1 | 4 个 qca-nss-drv/qca-nss-ecm 低风险补丁 | 已合入 `immortalwrt-nss/main`;AX6 主锁指向 `8a22411dc1d0e50ba52bc015ba5ef193ee3bd7b4` | P1 候选构建 `28565953957` 和主锁 stock 构建 `28580586309` 均完整通过 | 等用户确认后才能进入实机升级/只读验证;仓库层面进入 P2 单项验证 |
 | P2a | ath11k 低风险单补丁 `999-923` | 源码候选 `codex/ax6-ath11k-999923-candidate`;AX6 验证分支 `codex/ax6-p2a-ath11k-999923-build-validation` | 单独 stock 构建 `28581157917` 完整通过 | 仍需实机 WiFi 稳定性观察后才考虑合入主线 |
 | P2b | ath11k `999-922` rate reporting | 源码候选 `codex/ax6-ath11k-999922-candidate`;AX6 验证分支 `codex/ax6-p2b-ath11k-999922-build-validation` | 单独 stock 构建 `28588902638` 完整通过 | 仍需 WiFi 客户端 assoclist/速率显示实机验证后才考虑合入主线 |
-| P2c | qca-mcs no-nl80211 日志降噪 | 源码候选 `codex/ax6-qca-mcs-007-candidate`;AX6 验证分支 `codex/ax6-p2c-qca-mcs-007-build-validation` | 本地静态检查通过;构建 `28598719084` 已通过 clone、feeds、DIY,正在 package download | 等 Actions 确认编译/rootfs;通过后可排入低风险候选 |
+| P2c | qca-mcs no-nl80211 日志降噪 | 源码候选 `codex/ax6-qca-mcs-007-candidate`;AX6 验证分支 `codex/ax6-p2c-qca-mcs-007-build-validation` | 本地静态检查通过;构建 `28598719084` 已通过 clone、feeds、DIY、package download,正在编译 | 等 Actions 确认编译/rootfs;通过后可排入低风险候选 |
 | P2d | qca-nss-dp/SSDK/switchdev/link polling/MAC sync | 只做静态拆解,不进入 P1 | 高风险,直接碰 LAN link/FDB/STP/SMB 路径 | 必须单独分支、单独构建、实机端口/FDB/SMB 测试后才允许合入 |
 | P2e | wifi-scripts 用户态生成逻辑 | 只做静态拆解 | 中风险,影响 hostapd/wpa_supplicant/iwinfo/disabled vif | 需要 2.4G/5G、IoT、扫描、重启 WiFi 场景验证 |
 | P2f | 官方 AX6 stock nvmem 子集 | 已验证整提交 cherry-pick 冲突;隔离候选 `aa5ee57c3b` 已准备 | 不能整提交合并;AX6 子集保留 aliases 和 `11-ath10k-caldata`,只修改 `ipq8071-ax6-stock.dts` | 等 P1 主锁构建完成后,单独推送候选并做 stock 构建验证 |
