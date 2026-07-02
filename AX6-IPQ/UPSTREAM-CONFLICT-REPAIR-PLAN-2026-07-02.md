@@ -211,6 +211,12 @@ P2 合并原则:
 | `/private/tmp/ax6-qca-mcs-007-candidate` `codex/ax6-qca-mcs-007-candidate` | `35f03b6aed` | 仅新增 VIKING `qca-mcs/007-fix-wifi-events-quiet-without-nl80211.patch` | 已重放到 P1 基线;`git diff --check` 已通过,危险配置关键词无命中;等待 P1 主锁构建完成后再考虑云端构建 |
 | `/private/tmp/ax6-stock-nvmem-candidate` `codex/ax6-stock-nvmem-candidate` | `aa5ee57c3b` | 仅移植官方 AX6 stock nvmem 子集到 `ipq8071-ax6-stock.dts`,保留本仓 aliases 和 `11-ath10k-caldata` | `git diff --check` 已通过;确认父层 `ipq8071-xiaomi.dtsi` 已引用 `macaddr_dp2..dp5`;仍需单独 stock 构建验证 |
 
+已启动的 P2 构建验证:
+
+| Run | 验证分支 | 源码候选 | 当前目的 |
+|---:|---|---|---|
+| `28581157917` | `codex/ax6-p2a-ath11k-999923-build-validation` | `codex/ax6-ath11k-999923-candidate` / `96a0f90fdeb4cf7575228424f948ff8f0f6f10f4` | 单独验证 ath11k `999-923` 是否通过 stock 构建和最终 rootfs 检查 |
+
 ## 当前仍需注意的问题
 
 | 问题 | 状态 | 建议 |
