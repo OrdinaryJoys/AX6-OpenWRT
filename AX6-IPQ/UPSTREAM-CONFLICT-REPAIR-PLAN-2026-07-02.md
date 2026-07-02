@@ -207,6 +207,7 @@ P2 合并原则:
 | 临时分支 | 提交 | 内容 | 当前验证 |
 |---|---:|---|---|
 | `/private/tmp/ax6-ath11k-999923-candidate` `codex/ax6-ath11k-999923-candidate` | `94c9704362` | 仅新增 VIKING `999-923-ath11k-fix-uninitialized-tx-status-flags.patch` | `git diff --cached --check` 已通过,危险配置关键词无命中;等待 P1 通过后再考虑云端构建 |
+| `/private/tmp/ax6-qca-mcs-007-candidate` `codex/ax6-qca-mcs-007-candidate` | `3f03a0566f` | 仅新增 VIKING `qca-mcs/007-fix-wifi-events-quiet-without-nl80211.patch` | `git diff --cached --check` 已通过,危险配置关键词无命中;等待 P1 通过后再考虑云端构建 |
 
 ## 当前仍需注意的问题
 
@@ -267,7 +268,7 @@ P2 合并原则:
 | P1 | 4 个 qca-nss-drv/qca-nss-ecm 低风险补丁 | 源码候选分支 `codex/ax6-p1-nss-candidates`;构建验证分支 `codex/ax6-p1-nss-build-validation` | `28565953957` 已通过 clone、feeds、DIY、package download,正在 `Compile firmware` | 编译和 rootfs 校验通过后,再决定是否合入 `immortalwrt-nss/main` 并更新 AX6 主锁 |
 | P2a | ath11k 低风险单补丁 `999-923` | 本地隔离候选 `/private/tmp/ax6-ath11k-999923-candidate` | 只新增 1 个 patch 文件,静态检查通过,未推送 | P1 通过后单独推送/构建,不能与 P1 混合 |
 | P2b | ath11k `999-922` rate reporting | 只完成补丁本体审查 | 涉及 station dump/rxrate 统计路径,需 WiFi 客户端验证 | 在 `999-923` 后单独分支验证 |
-| P2c | qca-mcs no-nl80211 日志降噪 | 静态审查完成 | 低风险但 AX6 有 WiFi,收益较小 | 可排在 ath11k 后单独验证 |
+| P2c | qca-mcs no-nl80211 日志降噪 | 本地隔离候选 `/private/tmp/ax6-qca-mcs-007-candidate` | 只新增 1 个 patch 文件,静态检查通过,未推送 | 可排在 ath11k 后单独验证 |
 | P2d | qca-nss-dp/SSDK/switchdev/link polling/MAC sync | 只做静态拆解,不进入 P1 | 高风险,直接碰 LAN link/FDB/STP/SMB 路径 | 必须单独分支、单独构建、实机端口/FDB/SMB 测试后才允许合入 |
 | P2e | wifi-scripts 用户态生成逻辑 | 只做静态拆解 | 中风险,影响 hostapd/wpa_supplicant/iwinfo/disabled vif | 需要 2.4G/5G、IoT、扫描、重启 WiFi 场景验证 |
 | P2f | 官方 AX6 stock nvmem 子集 | 已验证整提交 cherry-pick 冲突 | 不能整提交合并;AX6 子集需保留 aliases 并验证 `0:art` MAC/nvmem/calddata | 单独 DTS 分支,只移植 AX6 stock 子集并构建验证 |
