@@ -258,3 +258,23 @@ P2 合并原则:
 | 官方 `a949f0445e` 和 AX6 stock 有关 | 这是值得单独审查的 stock layout/nvmem 候选 | 不能整提交合并,也不能删除本仓 ath10k caldata 脚本影响其他设备 |
 | ath11k `999-923` 静态通过 | 只证明单 patch 范围干净 | 不能和 P1 或 SSDK/DP 混合提交 |
 | OpenClash `master` 与 `v0.47.110` 当前同指向 | 当前官方版本相同 | 不能把仓库重新改成固定 tag/ipk/raw core |
+
+## P0-P2 执行队列
+
+| 等级 | 范围 | 当前动作 | 当前状态 | 下一步 |
+|---|---|---|---|---|
+| P0 | 稳定主线防回归: NSS/ECM offload、pbuf S19、WiFi NSS 参数、VLAN 禁止项、OpenClash tracking、ZeroTier/UPnP/OpenClash 只读审计 | 主仓 `main` 扫描危险项、本地测试、云端 Lint | 本地 `test-vlan-add`/`test-openclash-archive`/`git diff --check` 通过;最新 Lint `28566358880` 通过 | 不合入会改变 P0 边界的上游脚本;继续等待 P1 构建完成 |
+| P1 | 4 个 qca-nss-drv/qca-nss-ecm 低风险补丁 | 源码候选分支 `codex/ax6-p1-nss-candidates`;构建验证分支 `codex/ax6-p1-nss-build-validation` | `28565953957` 已通过 clone、feeds、DIY、package download,正在 `Compile firmware` | 编译和 rootfs 校验通过后,再决定是否合入 `immortalwrt-nss/main` 并更新 AX6 主锁 |
+| P2a | ath11k 低风险单补丁 `999-923` | 本地隔离候选 `/private/tmp/ax6-ath11k-999923-candidate` | 只新增 1 个 patch 文件,静态检查通过,未推送 | P1 通过后单独推送/构建,不能与 P1 混合 |
+| P2b | ath11k `999-922` rate reporting | 只完成补丁本体审查 | 涉及 station dump/rxrate 统计路径,需 WiFi 客户端验证 | 在 `999-923` 后单独分支验证 |
+| P2c | qca-mcs no-nl80211 日志降噪 | 静态审查完成 | 低风险但 AX6 有 WiFi,收益较小 | 可排在 ath11k 后单独验证 |
+| P2d | qca-nss-dp/SSDK/switchdev/link polling/MAC sync | 只做静态拆解,不进入 P1 | 高风险,直接碰 LAN link/FDB/STP/SMB 路径 | 必须单独分支、单独构建、实机端口/FDB/SMB 测试后才允许合入 |
+| P2e | wifi-scripts 用户态生成逻辑 | 只做静态拆解 | 中风险,影响 hostapd/wpa_supplicant/iwinfo/disabled vif | 需要 2.4G/5G、IoT、扫描、重启 WiFi 场景验证 |
+| P2f | 官方 AX6 stock nvmem 子集 | 已验证整提交 cherry-pick 冲突 | 不能整提交合并;AX6 子集需保留 aliases 并验证 `0:art` MAC/nvmem/calddata | 单独 DTS 分支,只移植 AX6 stock 子集并构建验证 |
+
+P0-P2 的推进规则:
+
+1. P0 永远优先,任何 P1/P2 候选触碰 P0 边界即回退。
+2. P1 只允许 qca-nss patch 进入,不允许混入 ath11k/SSDK/DP/WiFi 脚本。
+3. P2 必须按子类单独分支,每个分支只验证一个影响面。
+4. 需要实机验证的 P2 项只做只读/临时验证,不擅自刷写。
