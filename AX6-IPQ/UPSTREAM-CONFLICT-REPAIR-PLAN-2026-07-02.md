@@ -209,6 +209,7 @@ P2 合并原则:
 | `/private/tmp/ax6-ath11k-999923-candidate` `codex/ax6-ath11k-999923-candidate` | `94c9704362` | 仅新增 VIKING `999-923-ath11k-fix-uninitialized-tx-status-flags.patch` | `git diff --cached --check` 已通过,危险配置关键词无命中;等待 P1 通过后再考虑云端构建 |
 | `/private/tmp/ax6-ath11k-999922-candidate` `codex/ax6-ath11k-999922-candidate` | `be1a0524d0` | 仅新增 VIKING `999-922-ath11k-nss-fix-station-rate-reporting.patch` | `git diff --cached --check` 已通过,危险配置关键词无命中;需 WiFi assoclist/速率显示实机验证 |
 | `/private/tmp/ax6-qca-mcs-007-candidate` `codex/ax6-qca-mcs-007-candidate` | `3f03a0566f` | 仅新增 VIKING `qca-mcs/007-fix-wifi-events-quiet-without-nl80211.patch` | `git diff --cached --check` 已通过,危险配置关键词无命中;等待 P1 通过后再考虑云端构建 |
+| `/private/tmp/ax6-stock-nvmem-candidate` `codex/ax6-stock-nvmem-candidate` | `aa5ee57c3b` | 仅移植官方 AX6 stock nvmem 子集到 `ipq8071-ax6-stock.dts`,保留本仓 aliases 和 `11-ath10k-caldata` | `git diff --check` 已通过;确认父层 `ipq8071-xiaomi.dtsi` 已引用 `macaddr_dp2..dp5`;仍需单独 stock 构建验证 |
 
 ## 当前仍需注意的问题
 
@@ -272,7 +273,7 @@ P2 合并原则:
 | P2c | qca-mcs no-nl80211 日志降噪 | 本地隔离候选 `/private/tmp/ax6-qca-mcs-007-candidate` | 只新增 1 个 patch 文件,静态检查通过,未推送 | 可排在 ath11k 后单独验证 |
 | P2d | qca-nss-dp/SSDK/switchdev/link polling/MAC sync | 只做静态拆解,不进入 P1 | 高风险,直接碰 LAN link/FDB/STP/SMB 路径 | 必须单独分支、单独构建、实机端口/FDB/SMB 测试后才允许合入 |
 | P2e | wifi-scripts 用户态生成逻辑 | 只做静态拆解 | 中风险,影响 hostapd/wpa_supplicant/iwinfo/disabled vif | 需要 2.4G/5G、IoT、扫描、重启 WiFi 场景验证 |
-| P2f | 官方 AX6 stock nvmem 子集 | 已验证整提交 cherry-pick 冲突 | 不能整提交合并;AX6 子集需保留 aliases 并验证 `0:art` MAC/nvmem/calddata | 单独 DTS 分支,只移植 AX6 stock 子集并构建验证 |
+| P2f | 官方 AX6 stock nvmem 子集 | 已验证整提交 cherry-pick 冲突;隔离候选 `aa5ee57c3b` 已准备 | 不能整提交合并;AX6 子集保留 aliases 和 `11-ath10k-caldata`,只修改 `ipq8071-ax6-stock.dts` | 等 P1 主锁构建完成后,单独推送候选并做 stock 构建验证 |
 
 P0-P2 的推进规则:
 
