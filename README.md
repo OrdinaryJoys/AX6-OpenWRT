@@ -45,7 +45,7 @@ GitHub UI → Actions → `Build OpenWRT for AX6-NSS` → Run workflow → 选 v
 - **WPA3 + IPv6 + 漫游支持**(11k/v + bss_transition)
 - **分层检查**:`nss-check` 检查硬件/NSS 确定性故障,`ax6-config-audit` 只读审计场景配置
 - **双重容量门禁**:CI 按合并分区和坏块预留校验；sysupgrade 按实机 MTD 几何再次拒绝超限镜像
-- **完整软件集**:合并布局保留 OpenClash、sing-box、xray-core 与 DDNS 组件
+- **完整软件集**:合并布局保留 OpenClash 与 DDNS 组件;不内置非必需的 sing-box/xray-core 额外代理核心
 
 ## 默认登录
 
