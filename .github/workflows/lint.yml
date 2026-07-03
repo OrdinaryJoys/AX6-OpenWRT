@@ -289,6 +289,29 @@ jobs:
             grep -qx 'CONFIG_PACKAGE_kmod-sched-cake=y' AX6-IPQ/nss-extra.config
           done
 
+      - name: AX6 unwanted package guard
+        run: |
+          set -eo pipefail
+          unwanted=(
+            haproxy
+            chinadns-ng
+            dns2socks
+            dns2tcp
+            ipt2socks
+            microsocks
+            kmod-wireguard
+            wireguard-tools
+            luci-proto-wireguard
+          )
+          for cfg in AX6-IPQ/.config-stock AX6-IPQ/.config-expand AX6-IPQ/nss-extra.config; do
+            for pkg in "${unwanted[@]}"; do
+              if grep -qx "CONFIG_PACKAGE_${pkg}=y" "$cfg"; then
+                echo "::error file=$cfg::unwanted or incomplete package selected: $pkg"
+                exit 1
+              fi
+            done
+          done
+
       - name: ZRAM config dependency check
         run: |
           set -eo pipefail

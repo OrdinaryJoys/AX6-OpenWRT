@@ -425,6 +425,30 @@ jobs:
             }
           done
 
+          for forbidden in \
+            'etc/init\.d/haproxy' \
+            'etc/rc\.d/[SK][0-9]+haproxy' \
+            'etc/haproxy\.cfg' \
+            'usr/sbin/haproxy' \
+            'usr/bin/chinadns-ng' \
+            'usr/bin/dns2socks' \
+            'usr/bin/dns2tcp' \
+            'usr/bin/ipt2socks' \
+            'etc/init\.d/microsocks' \
+            'etc/rc\.d/[SK][0-9]+microsocks' \
+            'etc/config/microsocks' \
+            'usr/bin/microsocks' \
+            'etc/modules\.d/wireguard' \
+            'lib/modules/.*/wireguard\.ko' \
+            'usr/bin/wg' \
+            'lib/netifd/proto/wireguard\.uc' \
+            'usr/bin/wireguard_watchdog'; do
+            if grep -Eq "squashfs-root/${forbidden}( ->|$)" image-verify/rootfs-files.txt; then
+              echo "::error::Final rootfs contains unwanted or incomplete component: $forbidden"
+              exit 1
+            fi
+          done
+
           if grep -Eq \
             'squashfs-root/etc/(init\.d/ax6-irq-affinity|rc\.d/[SK][0-9]+ax6-irq-affinity)( ->|$)' \
             image-verify/rootfs-files.txt; then
