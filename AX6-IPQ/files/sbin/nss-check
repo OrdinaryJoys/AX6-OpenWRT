@@ -273,10 +273,19 @@ fi
 # NSS/ECM 转发加速仍由 qca-nss-ecm 管理,不应关闭 ECM/NSS 本身。
 ecm_disable_offloads=$(uci -q get ecm.general.disable_offloads)
 ecm_disable_gro_list=$(uci -q get ecm.general.disable_gro_list)
+ecm_disable_flow_control=$(uci -q get ecm.general.disable_flow_control)
 [ "$ecm_disable_offloads" = "1" ] && ok "ECM disable_offloads=1" \
     || fail "ECM disable_offloads=${ecm_disable_offloads:-unset}; expected 1"
 [ "$ecm_disable_gro_list" = "1" ] && ok "ECM disable_gro_list=1" \
     || fail "ECM disable_gro_list=${ecm_disable_gro_list:-unset}; expected 1"
+case "$ecm_disable_flow_control" in
+    "" | 0)
+        ok "ECM disable_flow_control=${ecm_disable_flow_control:-unset} (no forced PAUSE/autoneg change)"
+        ;;
+    *)
+        warn "ECM disable_flow_control=$ecm_disable_flow_control changes Ethernet PAUSE/autoneg; keep disabled unless a link-specific test proves it helps"
+        ;;
+esac
 
 # br-lan = host-terminated traffic ingress -> offloads MUST be off: the bridge's
 # checksum-offload advertisement corrupts router-locally-terminated traffic on

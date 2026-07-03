@@ -331,8 +331,13 @@ jobs:
           test -x "$br_hotplug"
           grep -Fq "ecm.general.disable_offloads='1'" "$tune"
           grep -Fq "ecm.general.disable_gro_list='1'" "$tune"
+          if grep -Eq "ecm\.general\.disable_flow_control='1'|disable_flow_control[[:space:]]*'1'" "$tune" AX6-IPQ/files/etc/uci-defaults/* 2>/dev/null; then
+            echo "::error::Do not force Ethernet flow-control changes in defaults; validate per-link before enabling"
+            exit 1
+          fi
           grep -Fq 'ECM disable_offloads=1' "$health"
           grep -Fq 'ECM disable_gro_list=1' "$health"
+          grep -Fq 'ECM disable_flow_control=' "$health"
           grep -Fq 'generic-receive-offload' "$health"
           grep -Fq 'generic-segmentation-offload' "$health"
           grep -Fq 'tcp-segmentation-offload' "$health"

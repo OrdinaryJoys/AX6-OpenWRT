@@ -210,12 +210,14 @@ iw reg get | head -3                          # US (FCC)
 | Modprobe blacklist | /etc/modprobe.d/ | `cat /etc/modprobe.d/nss-no-flow.conf` | **存在** |
 | Packet steering | 网络 → 接口 → 常规设置 | `uci get network.globals.packet_steering` | **=0**(本 NSS 专用构建固定关闭) |
 | Bridge VLAN filtering(DSA 语法) | LuCI Network → Devices → bridge → bridge VLAN tab | `uci show network \| grep bridge-vlan` | **不要使用**；qosmio 说明不兼容 NSS WiFi offload |
+| ECM flow-control helper | 命令行 | `uci get ecm.general.disable_flow_control` | **=0 或 unset**；不要默认强制修改 Ethernet PAUSE/autoneg |
 
 **IRQ/RPS 分层特别注意**:
 - `packet_steering=0` 只关闭 OpenWrt netifd 的通用 packet steering。
 - 本构建仍应保留上游 qualcommax/NSS 启动链: `S93smp_affinity`、`S28qca-nss-drv`、`S99set-irq-affinity`。最终镜像必须使用早启动 `S19qca-nss-pbuf`，确保 pbuf/N2H 在 WiFi AP 接口创建前应用；CI 会检查启动链接和脚本内容。
 - 这些脚本分别管理 EDMA IRQ、NSS IRQ/internal RPS、NSS pbuf/hash bitmap、Linux RPS/XPS；不要用自定义 `ax6-irq-affinity` 开机覆盖，除非是在单次基准测试中手动执行并记录结果。
 - `nss-check -v` 会检查上述启动链是否存在，并提示 NSS internal RPS 状态。
+- `qca-nss-ecm` 的 `disable_flow_control` 会通过 ethtool 修改接口 PAUSE/autoneg。它不是本机终结流量卡顿的根因修复项，默认保持关闭；只有在单端口链路专项测试证明有收益时才临时开启验证。
 
 **Bridge VLAN filtering** 特别注意:
 - 以 qosmio 当前上游说明为准: `option vlan_filtering 1`、`config bridge-vlan` 和 `list ports 'lan1:u*'` 这类 DSA bridge VLAN filtering 写法不兼容 NSS WiFi offload。

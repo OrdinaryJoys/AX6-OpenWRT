@@ -14,6 +14,17 @@
 
 尚未做的事: 没有刷写实机,也没有把所有候选上游补丁继续合并。当前目标是稳定 AX6 固件,不是追平上游所有平台改动。
 
+### 2026-07-03 插件与核心边界更新
+
+| 项目 | 更新结果 | 兼容性判断 |
+|---|---|---|
+| packages feed | 更新到 `89faad9b7f9c264a34d5875903b33dc46b824158` | 带入 ZeroTier `1.16.2-1`;未发现 miniupnpd/OpenClash core 相关变更 |
+| routing feed | 更新到 `8c2385009d29a6d4e3ecc8cc38e8c5c0d71c691f` | 主要为 batman/bird/alfred 更新,当前 AX6 选包不在关键路径 |
+| OpenClash | 官方 `master` 仍等于 `v0.47.110` / `23896d2662` | 构建继续跟踪 `master`,不锁 `OPENCLASH_COMMIT` 或 raw ipk/core URL |
+| ZeroTier | packages feed 从 `1.16.0-2` 前进到 `1.16.2-1` | 只更新包版本和 hash;本仓 `zerotier-fw4` 与 `ax6-config-audit` 的运行策略不变 |
+| UPnP | `miniupnpd-nftables` 路径无 feed 变更 | 继续由 `ax6-config-audit` 检查 `secure_mode`、最终 deny 规则和 WAN/internal iface |
+| ECM flow-control | 新增 `nss-check` 与 lint 边界 | `disable_flow_control` 默认必须保持 `0/unset`;不得作为 NSS 性能默认项强制打开 |
+
 ## 仓库与远端状态
 
 | 仓库 | 最新检查点 | 当前判断 |
@@ -56,6 +67,7 @@
 |---|---|---|
 | NSS/ECM | `packet_steering=0`, `flow_offloading=0`, `flow_offloading_hw=0` | NSS ECM 接管加速路径,避免 OpenWrt 通用 offload 争用 |
 | ECM netdev offload | `ecm.general.disable_offloads=1`, `disable_gro_list=1` | IPQ807x 本机终结流量在 GRO/GSO/checksum 等 offload 开启时会丢包/重传 |
+| ECM flow-control | `ecm.general.disable_flow_control=0` 或 unset | 不默认修改 Ethernet PAUSE/autoneg,避免把链路层流控和 NSS/SSDK/DP 问题混在一起 |
 | br-lan | `100-disable_offloads_br_lan` 调用 `/lib/netifd/offload/disable_offloads.sh` | 解决 LuCI/SSH/DNS 等本机终结流量经过 bridge 时的慢加载 |
 | pbuf/N2H | `S19qca-nss-pbuf`, `START=19` | 必须在 netifd 创建 ath11k AP 接口前应用 pbuf/N2H |
 | WiFi NSS | `ath11k frame_mode=2`, `nss_offload=1` | 维持 ath11k NSS redirect 入口 |
@@ -309,3 +321,32 @@ P0-P2 的推进规则:
 | P2d `qca-ssdk/009` | 对 `qcom,nss-dp` netdev 增加 MAC SW sync refresh | 直接影响 NSS DP netdev 和 MAC sync | 高风险,必须和 005 联动验证 |
 | P2d `qca-ssdk/010` | 删除手动 `phy_read_status()`,使用 phydev 缓存状态 | 可能影响实时链路状态读取 | 中高风险,必须用实际链路状态交叉验证 |
 | P2e wifi-scripts | 修改 4 个文件,涉及 iwinfo VHT/HE/EHT 字段条件输出、assoclist `connected_time`、EAP `eap/phase2` 生成、disabled vif key 修复 | 用户态生成逻辑变化,可能影响 STA/EAP、扫描显示、禁用/启用 VIF | 不碰驱动参数,但仍需单独分支和 WiFi 场景验证 |
+
+### 2026-07-03 P2d 逐项交叉验证结论
+
+交叉来源:
+
+- `openwrt/qca-nss-dp` `openwrt=6a5c4716ca258d67202fc7964c9294dfefa3ccfa`
+- `openwrt/qca-ssdk` `openwrt=bb4f3f0b947ebfce51c78a8d39f57c7c758521c9`
+- `qosmio/openwrt-ipq` `main-nss=92a2d104145c8d265851c4b388a41bd8e9c21cd9`
+- `VIKINGYFY/immortalwrt` `main=1d9b6b4dfa72e863600d50a71699d365065c8bf4`
+
+| 子项 | 代码性质 | 与 NSS/WiFi/链路冲突面 | 当前处理 |
+|---|---|---|---|
+| DP `002-compat-linux-6.18-ethtool-keee` | Linux 6.18 `kernel_ethtool_keee` 兼容层 | ethtool/EEE 能力读取,不直接改 WiFi 或 ECM offload | 可建低风险编译候选,但仍需确认不改变端口协商显示 |
+| DP 删除 `004-register-netdev-before-phy-connect` | 早期 phy connect 顺序修补被替换 | 影响 netdev 注册和 PHY 绑定顺序 | 不能单独删除;必须随 DP 组验证 |
+| DP `005-fix-switchdev-stp-fdb-roaming` | 新增 switchdev/netdev notifier 和递归 FDB 删除 | 直接触碰 bridge/FDB/STP/LAN roaming/SMB 多文件路径 | 高风险候选,只允许单独分支和实机端口/FDB/SMB 验证 |
+| SSDK `004-fix-mht-phy-package-priv` | MHT PHY 私有数据修复 | 更偏 PHY 初始化,AX6/IPQ807x 是否命中需编译和符号确认 | 可随 SSDK 低风险组候选,不可直接进主线 |
+| SSDK 删除 `004-platform-mht-init-guards` | 移除本仓已有 MHT init guard patch | 可能改变部分平台 SSDK 初始化兜底 | 不能删除本仓 guard,除非证明 openwrt/qca-ssdk 已覆盖同等保护 |
+| SSDK `005-fix-dsa-link-polling-netdev-event` | DSA link polling 触发源从 blocking notifier 改为 `NETDEV_CHANGE` | 直接影响 LAN 端口 link flap、速率协商、断流恢复 | 高风险候选,必须单独做端口上下线和 `ethtool` 状态对比 |
+| SSDK `006-compat-platform-mdio-pinctrl-linux-6.18` | Linux 6.18 MDIO/pinctrl 兼容层 | 平台初始化兼容,不直接改 NSS offload | 可进入低风险编译候选 |
+| SSDK `008-fix-mac-sw-sync-lock-unwind` | 修复锁释放路径 | 单点 bugfix,但在 switch MAC sync 任务路径 | P2d 最低风险项,可先单独候选构建 |
+| SSDK `009-feature-nss-dp-netdev-mac-sync` | 对 `qcom,nss-dp` netdev 触发 MAC SW sync | 直接影响 NSS DP 端口 MAC 同步和链路恢复 | 高风险,必须与 005/010 组合实机验证 |
+| SSDK `010-compat-drop-manual-phy-read-status` | 改信任 phydev 缓存状态 | 可能影响实时 link state 判断 | 中高风险,必须和物理插拔/速率协商交叉验证 |
+
+P2d 当前正确路径:
+
+1. 第一组仅做低风险兼容编译候选: DP `002`、SSDK `006`、SSDK `008`。
+2. 第二组单独验证 FDB/STP: DP `005`,用 `bridge fdb show`、端口离开/加入 bridge、SMB 单/多文件确认。
+3. 第三组单独验证链路事件: SSDK `005/009/010`,用 LAN2/lan* 插拔、`ethtool` link/speed/duplex、`logread`、NSS DP 统计确认。
+4. 不允许把 P2d 与 OpenClash/ZeroTier/UPnP/feed 更新放在同一个驱动提交里。
