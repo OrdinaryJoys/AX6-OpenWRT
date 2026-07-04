@@ -392,9 +392,15 @@ VIKINGYFY 新增差异拆解:
 | wifi-scripts update | `package/network/config/wifi-scripts/files-ucode/*` | 用户态 hostapd/supplicant/iwinfo 生成逻辑,需要 2.4G/5G/IoT/扫描/重启 WiFi 场景验证 |
 | qualcommax remoteproc/MDT loader | `target/linux/qualcommax/patches-6.18/0805-*`, `0812-*` | 触碰 MPD/firmware loader,可能影响 NSS core/WCSS 启动,不能和包清理 PR 混合 |
 
+补充交叉验证:
+
+- `0bad892... update wifi-scripts` 在 GitHub compare 中显示 8 个 wifi-scripts 文件被修改,但逐个查询 blob SHA 后确认旧新完全一致。
+- 因此当前不把 wifi-scripts 作为真实内容变更合并候选;后续只需在上游再次出现非零 diff 时恢复 P2e 验证。
+- 当前真正需要拆分验证的是 mac80211/ath11k NSS patch refresh 与 qualcommax remoteproc/MDT loader 两组。
+
 下一步执行顺序:
 
 1. PR #2 仅作为 P0/P1 防回归与空间/孤立组件清理候选,保持 draft,等待人工确认后再 ready-for-review 或合并。
-2. 新建单独上游拆解分支,只分析 VIKINGYFY `0bad892...` 中 mac80211 NSS 和 wifi-scripts 的实际补丁内容,不改当前 PR。
+2. 新建单独上游拆解分支,只分析 VIKINGYFY `0bad892...` 中 mac80211/ath11k NSS refresh 和 qualcommax remoteproc/MDT loader 的实际补丁内容,不改当前 PR。
 3. P2d 仍按低风险 DP `002`、SSDK `006/008` 先编译验证;FDB/STP/link polling/MAC sync 继续拆成高风险实机验证项。
 4. 若进入实机阶段,只做只读或临时验证;不刷写、不持久修改路由器配置,除非用户明确确认。
