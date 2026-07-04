@@ -350,3 +350,51 @@ P2d 当前正确路径:
 2. 第二组单独验证 FDB/STP: DP `005`,用 `bridge fdb show`、端口离开/加入 bridge、SMB 单/多文件确认。
 3. 第三组单独验证链路事件: SSDK `005/009/010`,用 LAN2/lan* 插拔、`ethtool` link/speed/duplex、`logread`、NSS DP 统计确认。
 4. 不允许把 P2d 与 OpenClash/ZeroTier/UPnP/feed 更新放在同一个驱动提交里。
+
+### 2026-07-04 当前推进状态与下一步
+
+当前 AX6 构建仓库分支:
+
+- `codex/ax6-remove-unused-proxy-cores`
+- head: `a31d6c8f2e683c818f902819b9cacd891c222bb2`
+- PR: <https://github.com/OrdinaryJoys/AX6-OpenWRT/pull/2>
+- 状态: draft, merge state clean,工作区无未提交残留。
+
+本轮已验证:
+
+| 项目 | 结果 | 说明 |
+|---|---|---|
+| PR lint | pass | `28672937849` 和 PR rollup `28689149402` 均成功 |
+| Stock AX6-NSS build | pass | `28672942482`,head 为 `a31d6c8f2e683c818f902819b9cacd891c222bb2` |
+| Expand AX6-NSS build | pass | `28672941116`,head 为 `a31d6c8f2e683c818f902819b9cacd891c222bb2` |
+| rootfs 精确防回归 | pass | stock/expand 均未包含 HAProxy、ChinaDNS-NG、dns2socks、dns2tcp、ipt2socks、microsocks、sing-box、xray-core、WireGuard 内核模块或 userspace |
+| 核心组件保留 | pass | stock/expand 仍包含 NSS/ECM/SSDK、ath11k/mac80211、OpenClash、ZeroTier、UPnP、ZRAM、NSS SQM、`nss-check`、`ax6-config-audit` |
+
+需要避免误判:
+
+- rootfs 中仍存在 LuCI 自带 `proto_wireguard.lua` 和 WireGuard 图标,这不是完整 WireGuard 功能,也不会加载 `wireguard.ko` 或提供 `wg` userspace。
+- 当前 PR 的修复边界是移除孤立/不完整组件并加防回归,不是合并 VIKINGYFY 的 WiFi/NSS 重构。
+- 当前 PR 不修改 OpenClash 订阅 YAML、不修改自定义覆写,也不重新锁定 OpenClash 插件版本。
+
+2026-07-04 远端上游检查:
+
+| 仓库 | 当前远端 | 相对前次判断 | 影响 |
+|---|---|---|---|
+| `VIKINGYFY/immortalwrt` | `main=0bad892975fe49fd180f99b414a7f168bb694dd7` | 相对 `1d9b6b4...` 为 `diverged`,ahead 2 / behind 1 | 触碰 mac80211 NSS patch、wifi-scripts、qualcommax remoteproc/MDT loader;不能直接合入 |
+| `qosmio/openwrt-ipq` | `main-nss=92a2d104145c8d265851c4b388a41bd8e9c21cd9` | 与前次 P2d 检查一致 | 继续作为 NSS/VLAN/DP/SSDK 约束参考 |
+| `immortalwrt/immortalwrt` | `master=6e7e12ed0bb48802b1de76f37433a24ee4a94d9e` | 已记录为普通 upstream 跟踪项 | 不直接覆盖 AX6 NSS 锁定源 |
+
+VIKINGYFY 新增差异拆解:
+
+| 类别 | touched path | 判断 |
+|---|---|---|
+| mac80211 NSS patch refresh | `package/kernel/mac80211/patches/nss/subsys/*`, `patches/nss/ath11k/*`, `patches/build/*` | 直接触碰 WiFi NSS 和 ath11k/mac80211 语义,必须单独 P2e/P2g 分支 |
+| wifi-scripts update | `package/network/config/wifi-scripts/files-ucode/*` | 用户态 hostapd/supplicant/iwinfo 生成逻辑,需要 2.4G/5G/IoT/扫描/重启 WiFi 场景验证 |
+| qualcommax remoteproc/MDT loader | `target/linux/qualcommax/patches-6.18/0805-*`, `0812-*` | 触碰 MPD/firmware loader,可能影响 NSS core/WCSS 启动,不能和包清理 PR 混合 |
+
+下一步执行顺序:
+
+1. PR #2 仅作为 P0/P1 防回归与空间/孤立组件清理候选,保持 draft,等待人工确认后再 ready-for-review 或合并。
+2. 新建单独上游拆解分支,只分析 VIKINGYFY `0bad892...` 中 mac80211 NSS 和 wifi-scripts 的实际补丁内容,不改当前 PR。
+3. P2d 仍按低风险 DP `002`、SSDK `006/008` 先编译验证;FDB/STP/link polling/MAC sync 继续拆成高风险实机验证项。
+4. 若进入实机阶段,只做只读或临时验证;不刷写、不持久修改路由器配置,除非用户明确确认。
