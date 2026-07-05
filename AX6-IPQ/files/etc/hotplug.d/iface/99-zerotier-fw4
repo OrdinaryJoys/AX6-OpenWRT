@@ -1,17 +1,26 @@
 #!/bin/sh
 # Trigger zerotier-fw4 port refresh when a ZeroTier interface comes up.
-# The zerotier init already calls zerotier-fw4 -s at start, but a race
-# between zerotier port selection and fw4 rule generation can leave stale
-# ports in input.nft. This hotplug provides a guaranteed retry once the
-# zt interface is fully up with stable ports.
+#
+# The zerotier init calls zerotier-fw4 -s at S90, but zerotier-cli may
+# not respond yet (daemon still binding ports). The internal 30s wait
+# loop can exhaust before ports stabilize, causing a silent skip.
+#
+# This hotplug fires AFTER the zt interface is fully up — by which point
+# zerotier-cli is guaranteed responsive. A short extra sleep covers the
+# final port binding window.
 #
 # Chain: zerotier starts → picks ports → zt iface up → this hotplug →
-#        zerotier-fw4 -s (port refresh) → fw4 reload → nft rules applied
+#        sleep 10 → zerotier-fw4 -s → fw4 reload → nft rules applied
 
 [ "$ACTION" = "ifup" ] || exit 0
 [ "$INTERFACE" = "Zerotier" ] || exit 0
 
-# zerotier-fw4 -s waits internally for port stability (up to 30s)
+# ZeroTier may still be finalising port bindings when the interface first
+# comes up. A 10s cushion lets the daemon settle before we sample ports.
+sleep 10
+
+# zerotier-fw4 -s has its own 30s stability loop; combined with our sleep
+# this gives ~40s total grace after interface up.
 /usr/bin/zerotier-fw4 -s 2>/dev/null
 
 exit 0
