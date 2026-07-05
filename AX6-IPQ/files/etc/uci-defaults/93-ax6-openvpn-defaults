@@ -1,0 +1,42 @@
+#!/bin/sh
+# AX6: OpenVPN 骨架配置 — 网络接口 + 防火墙规则
+# 仅创建结构骨架，OpenVPN 服务端配置 (certs/keys/订阅) 由用户自行管理
+# 幂等：已存在则跳过
+
+[ -x /usr/sbin/openvpn ] || exit 0
+
+# ---- 网络接口 ----
+if ! uci -q get network.OpenVPN >/dev/null 2>&1; then
+    uci -q add network interface
+    uci -q set network.@interface[-1].name='OpenVPN'
+    uci -q set network.@interface[-1].device='tun0'
+    uci -q set network.@interface[-1].proto='none'
+    uci -q set network.@interface[-1].auto='0'
+    uci commit network
+    logger -t ax6-openvpn "Created OpenVPN network interface (tun0, disabled)"
+fi
+
+# ---- lan zone 加入 OpenVPN ----
+# 仅在 lan zone 存在且未包含 OpenVPN 时追加
+if uci -q get firewall.@zone[0].name 2>/dev/null | grep -q 'lan'; then
+    if ! uci -q get firewall.@zone[0].network 2>/dev/null | grep -q 'OpenVPN'; then
+        uci -q add_list firewall.@zone[0].network='OpenVPN'
+        uci commit firewall
+        logger -t ax6-openvpn "Added OpenVPN to lan zone"
+    fi
+fi
+
+# ---- 防火墙规则 (disabled, 用户启用时生效) ----
+if ! uci -q show firewall 2>/dev/null | grep -q "name='Allow-OpenVPN'"; then
+    uci -q add firewall rule
+    uci -q set firewall.@rule[-1].name='Allow-OpenVPN'
+    uci -q set firewall.@rule[-1].src='wan'
+    uci -q set firewall.@rule[-1].dest_port='1194'
+    uci -q set firewall.@rule[-1].proto='tcp'
+    uci -q set firewall.@rule[-1].target='ACCEPT'
+    uci -q set firewall.@rule[-1].enabled='0'
+    uci commit firewall
+    logger -t ax6-openvpn "Created Allow-OpenVPN firewall rule (disabled)"
+fi
+
+exit 0
