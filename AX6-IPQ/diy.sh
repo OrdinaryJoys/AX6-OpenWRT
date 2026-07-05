@@ -42,6 +42,22 @@ clone_locked "$ARGON_CONFIG_URL" "$ARGON_CONFIG_COMMIT" package/luci-app-argon-c
 # Argon: 侧边栏 brand 字号从 1.8rem 调整为 1.7rem
 sed -i 's/font-size: 1.8rem/font-size: 1.7rem/' package/luci-theme-argon/htdocs/luci-static/argon/css/cascade.css 2>/dev/null || true
 
+# OpenClash: 预置 Meta 核心到固件, 避免首次启动时的网络下载 (aarch64, ~10MB)
+CORE_URL="https://raw.githubusercontent.com/vernesong/OpenClash/core/master/meta/clash-linux-arm64.tar.gz"
+CORE_DEST="files/etc/openclash/core"
+mkdir -p "$CORE_DEST"
+echo "[diy.sh] Downloading OpenClash Meta core..."
+curl -sL --retry 3 --retry-delay 10 -o /tmp/clash_core.tar.gz "$CORE_URL" || {
+  echo "[diy.sh] WARNING: OpenClash core download failed; router will download on first boot"
+}
+if [ -s /tmp/clash_core.tar.gz ]; then
+  tar xzf /tmp/clash_core.tar.gz -C "$CORE_DEST/"
+  mv "$CORE_DEST/clash" "$CORE_DEST/clash_meta"
+  chmod +x "$CORE_DEST/clash_meta"
+  echo "[diy.sh] OpenClash Meta core installed: $($CORE_DEST/clash_meta -v 2>&1 | head -1)"
+  rm -f /tmp/clash_core.tar.gz
+fi
+
 # The locked LuCI feed may lag OpenClash. Track the official upstream package
 # ref so rebuilds receive the latest plugin while driver/kernel inputs remain
 # fixed and reviewable.
