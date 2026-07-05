@@ -195,15 +195,14 @@ fi
 sed -i 's/192.168.1.1/192.168.5.1/g' package/base-files/files/bin/config_generate
 
 # 修改版本标识为 Redmi AX6
-sed -i "s/DISTRIB_ID='ImmortalWRT'/DISTRIB_ID='Redmi AX6'/g" package/base-files/files/etc/openwrt_release 2>/dev/null || true
-sed -i "s/DISTRIB_DESCRIPTION='ImmortalWRT/DISTRIB_DESCRIPTION='Redmi AX6/g" package/base-files/files/etc/openwrt_release 2>/dev/null || true
-sed -i "s/DISTRIB_ID='ImmortalWRT'/DISTRIB_ID='Redmi AX6'/g" $(find package/base-files -name "openwrt_release" 2>/dev/null) 2>/dev/null || true
-sed -i "s/DISTRIB_DESCRIPTION='ImmortalWRT/DISTRIB_DESCRIPTION='Redmi AX6/g" $(find package/base-files -name "openwrt_release" 2>/dev/null) 2>/dev/null || true
-
-# 兜底: 直接修改编译目标目录中的最终生成文件
-if [ -f "build_dir/target-aarch64_cortex-a53_musl/root-qualcommax/etc/openwrt_release" ]; then
-  sed -i "s/DISTRIB_ID='ImmortalWRT'/DISTRIB_ID='Redmi AX6'/g" build_dir/target-aarch64_cortex-a53_musl/root-qualcommax/etc/openwrt_release
-  sed -i "s/DISTRIB_DESCRIPTION='ImmortalWRT/DISTRIB_DESCRIPTION='Redmi AX6/g" build_dir/target-aarch64_cortex-a53_musl/root-qualcommax/etc/openwrt_release
+# openwrt_release 模板使用 %D 占位符, 被 VERSION_SED_SCRIPT 替换
+# 必须在模板层面修改 %D, 这样 build 系统填充时保持我们的值
+TEMPLATE="package/base-files/files/etc/openwrt_release"
+if [ -f "$TEMPLATE" ]; then
+  sed -i "s/DISTRIB_ID='%D'/DISTRIB_ID='Redmi AX6'/g" "$TEMPLATE"
+  sed -i "s/DISTRIB_DESCRIPTION='%D/DISTRIB_DESCRIPTION='Redmi AX6/g" "$TEMPLATE"
+  sed -i "s/DISTRIB_DESCRIPTION='%d/DISTRIB_DESCRIPTION='Redmi AX6/g" "$TEMPLATE"
+  echo "[diy.sh] Branding changed to Redmi AX6 in release template"
 fi
 
 for dir in ./files/etc/uci-defaults ./files/etc/init.d ./files/sbin ./files/usr/sbin ./files/etc/hotplug.d; do

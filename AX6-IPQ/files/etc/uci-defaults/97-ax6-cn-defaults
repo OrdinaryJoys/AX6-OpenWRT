@@ -59,7 +59,7 @@ fi
 # ===========================================================
 if uci -q get system.@system[0].hostname >/dev/null 2>&1; then
     cur_hostname=$(uci -q get system.@system[0].hostname)
-    case "$(echo "$cur_hostname" | tr '[:upper:]' '[:lower:]')" in
+    case "$(echo "$cur_hostname" | awk '{print tolower($0)}')" in
         immortalwrt|openwrt|'')
             uci -q set system.@system[0].hostname='Redmi-AX6'
             uci -q commit system
