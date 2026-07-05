@@ -16,7 +16,19 @@ start() {
             uci -q set "firewall.@defaults[0].${option}=0" && FIREWALL_CHANGED=1
     done
 
-    # 3. Remove obsolete device-level copies. netifd/firewall only consume the
+    # 3. ECM: IPQ807x has no hardware checksum — software offloads (GRO/GSO/
+    # checksum) on br-lan corrupt host-terminated traffic (LuCI, SSH, DNS).
+    # disable_offloads=1 keeps ECM loaded while NSS forwarding acceleration is
+    # fully preserved. disable_gro_list=1 is the upstream safe default (UDP
+    # fraglist → DNS/DHCP breakage).
+    for ecm_opt in disable_offloads:1 disable_gro_list:1; do
+        key="${ecm_opt%%:*}"
+        expected="${ecm_opt##*:}"
+        [ "$(uci -q get "ecm.general.${key}")" != "$expected" ] &&
+            uci -q set "ecm.general.${key}=${expected}" && ECM_CHANGED=1
+    done
+
+    # 4. Remove obsolete device-level copies. netifd/firewall only consume the
     # global packet_steering and firewall defaults above.
     for d in $(uci -q show network 2>/dev/null | awk -F'[.=]' '/=device$/{print $2}'); do
         for option in packet_steering flow_offloading flow_offloading_hw; do
@@ -26,7 +38,7 @@ start() {
         done
     done
 
-    # 4. Only commit settings owned by the NSS data path.
+    # 5. Only commit settings owned by the NSS data path.
     if [ "${CHANGED:-0}" = "1" ]; then
         uci commit network
         logger -t ax6-boot-guard "Corrected NSS-incompatible settings (likely from sysupgrade with preserved config)"
@@ -34,5 +46,9 @@ start() {
     if [ "${FIREWALL_CHANGED:-0}" = "1" ]; then
         uci commit firewall
         logger -t ax6-boot-guard "Disabled firewall flow offload so NSS ECM remains the only offload owner"
+    fi
+    if [ "${ECM_CHANGED:-0}" = "1" ]; then
+        uci commit ecm
+        logger -t ax6-boot-guard "Enforced ecm disable_offloads=1 + disable_gro_list=1 (IPQ807x HW checksum absent)"
     fi
 }
