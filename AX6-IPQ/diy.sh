@@ -58,6 +58,28 @@ if [ -s /tmp/clash_core.tar.gz ]; then
   rm -f /tmp/clash_core.tar.gz
 fi
 
+# OpenClash: 预置最新 Metacubexd + Zashboard 到固件
+DASH_DIR="files/usr/share/openclash/ui"
+mkdir -p "$DASH_DIR"
+for dash in \
+  "metacubexd:https://codeload.github.com/MetaCubeX/metacubexd/zip/refs/heads/gh-pages:metacubexd-gh-pages" \
+  "zashboard:https://codeload.github.com/Zephyruso/zashboard/zip/refs/heads/gh-pages-cdn-fonts:zashboard-gh-pages-cdn-fonts"; do
+	name="${dash%%:*}"
+	rest="${dash#*:}"
+	url="${rest%:*}"
+	dir="${rest##*:}"
+	echo "[diy.sh] Downloading $name dashboard..."
+	if curl -sL --retry 2 --retry-delay 10 -o "/tmp/${name}.zip" "$url"; then
+		rm -rf "$DASH_DIR/${name}" "$DASH_DIR/${name}_backup"
+		unzip -qo "/tmp/${name}.zip" -d "/tmp/${name}_extract/"
+		mv "/tmp/${name}_extract/${dir}" "$DASH_DIR/${name}"
+		rm -rf "/tmp/${name}_extract" "/tmp/${name}.zip"
+		echo "[diy.sh] $name dashboard installed"
+	else
+		echo "[diy.sh] WARNING: $name dashboard download failed; keeping plugin default"
+	fi
+done
+
 # The locked LuCI feed may lag OpenClash. Track the official upstream package
 # ref so rebuilds receive the latest plugin while driver/kernel inputs remain
 # fixed and reviewable.
