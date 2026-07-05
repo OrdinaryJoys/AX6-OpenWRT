@@ -18,23 +18,6 @@ drop_stale_port_rules() {
 	mv "$tmp" "$file"
 }
 
-zt_current_ports() {
-	zerotier-cli -j info 2>/dev/null |
-		jsonfilter \
-			-e "@.config.settings.primaryPort" \
-			-e "@.config.settings.secondaryPort" \
-			-e "@.config.settings.tertiaryPort" \
-			-e "@.config.settings.listeningOn[*]" 2>/dev/null |
-		awk '
-			/^[0-9]+$/ { print; next }
-			/\/[0-9]+$/ {
-				sub(/^.*\//, "")
-				print
-			}
-		' |
-		awk '/^[0-9]+$/ && !seen[$0]++ { print }'
-}
-
 while getopts "i:s" arg; do
 	case "$arg" in
 	i)
@@ -80,49 +63,37 @@ while getopts "i:s" arg; do
 	s)
 		[ "$(uci -q get zerotier.global.fw_allow_input)" = "1" ] || continue
 
-		wait=0
-		ports=""
-		last_ports=""
-		stable_count=0
-		until [ "$wait" -ge "30" ]; do
-			current_ports="$(zt_current_ports)"
-			if [ -n "$current_ports" ] && [ "$current_ports" = "$last_ports" ]; then
-				stable_count="$(( stable_count + 1 ))"
-			else
-				stable_count=0
-				last_ports="$current_ports"
-			fi
-			if [ "$stable_count" -ge 2 ]; then
-				ports="$current_ports"
+		# Wait until zerotier-cli responds (daemon may still be starting).
+		cli_wait=0
+		while [ "$cli_wait" -lt 60 ]; do
+			if zerotier-cli info >/dev/null 2>&1; then
 				break
 			fi
 			sleep 2s
-			wait="$(( wait + 2 ))"
+			cli_wait=$((cli_wait + 2))
 		done
-		[ -n "$ports" ] || ports="$last_ports"
-		[ -n "$ports" ] || continue
-		primary_port="$(zerotier-cli -j info | jsonfilter -qe "@.config.settings.primaryPort" 2>/dev/null)"
+		if [ "$cli_wait" -ge 60 ]; then
+			logger -t zerotier-fw4 "zerotier-cli unresponsive after 60s — giving up"
+			continue
+		fi
+
+		# Per ZeroTier official documentation, only the primary port
+		# (default 9993, UDP + TCP) must be open in the firewall.
+		# Secondary/tertiary ports are for outgoing STUN/ICE NAT
+		# traversal and do NOT need inbound rules. Tracking ephemeral
+		# ports is inherently unreliable across reboots.
+		primary_port="$(zerotier-cli -j info 2>/dev/null | jsonfilter -qe "@.config.settings.primaryPort" 2>/dev/null)"
+		[ -n "$primary_port" ] || primary_port=9993
 
 		drop_stale_port_rules "$FW_PATH/input.nft"
-		while IFS= read -r pport; do
-			[ -n "$pport" ] || continue
-			network="udp"
-			label="port"
-			if [ "$pport" = "$primary_port" ]; then
-				network="udp, tcp"
-				label="primaryPort"
-			fi
-			rule="meta l4proto { $network } th dport $pport counter accept comment \"!fw4: Accept ZeroTier input $pport ($label)\""
-			append_input_rule_once "$FW_PATH/input.nft" "$rule"
-		done <<EOF
-$ports
-EOF
+		rule="meta l4proto { udp, tcp } th dport $primary_port counter accept comment \"!fw4: Accept ZeroTier input $primary_port (primaryPort)\""
+		append_input_rule_once "$FW_PATH/input.nft" "$rule"
 		fw4 reload >/dev/null 2>&1 || true
 		;;
 	*)
 		echo "Usage: $0 -i <interface> | -s"
 		echo "  -i <interface> : Generate rules for the specified interface"
-		echo "  -s             : Generate rules for the zerotier service"
+		echo "  -s             : Generate rules for the zerotier service primary port"
 		exit 1
 		;;
 	esac
