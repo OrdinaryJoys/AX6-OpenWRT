@@ -39,6 +39,9 @@ clone_tracking() {
 clone_locked "$ARGON_THEME_URL" "$ARGON_THEME_COMMIT" package/luci-theme-argon
 clone_locked "$ARGON_CONFIG_URL" "$ARGON_CONFIG_COMMIT" package/luci-app-argon-config
 
+# Argon: 侧边栏 brand 字号从 1.8rem 调整为 1.7rem
+sed -i 's/font-size: 1.8rem/font-size: 1.7rem/' package/luci-theme-argon/htdocs/luci-static/argon/css/cascade.css 2>/dev/null || true
+
 # The locked LuCI feed may lag OpenClash. Track the official upstream package
 # ref so rebuilds receive the latest plugin while driver/kernel inputs remain
 # fixed and reviewable.
