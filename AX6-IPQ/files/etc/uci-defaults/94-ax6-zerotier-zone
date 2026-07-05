@@ -1,0 +1,42 @@
+#!/bin/sh
+# AX6: ZeroTier 防火墙 zone 自动创建
+# zerotier-fw4 负责动态 nftables 规则, 本脚本负责 zone 和转发骨架
+# 仅在 ZeroTier 已安装且 zone 不存在时创建 (幂等)
+
+[ -x /usr/bin/zerotier-cli ] || exit 0
+
+ZT_NETWORK_ID=""
+for section in $(uci -q show zerotier 2>/dev/null | awk -F'[.=]' '/=network$/{print $2}'); do
+    nid=$(uci -q get "zerotier.${section}.id")
+    [ -n "$nid" ] && ZT_NETWORK_ID="$nid" && break
+done
+[ -n "$ZT_NETWORK_ID" ] || exit 0
+
+# 检查是否已有 Zerotier zone (sysupgrade 保留配置时跳过)
+if uci -q show firewall 2>/dev/null | grep -q "name='Zerotier'"; then
+    exit 0
+fi
+
+# 创建 Zerotier zone
+uci -q add firewall zone
+uci -q set firewall.@zone[-1].name='Zerotier'
+uci -q set firewall.@zone[-1].input='ACCEPT'
+uci -q set firewall.@zone[-1].output='ACCEPT'
+uci -q set firewall.@zone[-1].forward='REJECT'
+uci -q set firewall.@zone[-1].masq='1'
+uci -q set firewall.@zone[-1].network='Zerotier'
+
+# Zerotier ↔ LAN 双向转发
+uci -q add firewall forwarding
+uci -q set firewall.@forwarding[-1].src='Zerotier'
+uci -q set firewall.@forwarding[-1].dest='lan'
+
+uci -q add firewall forwarding
+uci -q set firewall.@forwarding[-1].src='lan'
+uci -q set firewall.@forwarding[-1].dest='Zerotier'
+
+uci commit firewall
+
+logger -t ax6-zerotier-zone "Created Zerotier firewall zone (network: $ZT_NETWORK_ID)"
+
+exit 0

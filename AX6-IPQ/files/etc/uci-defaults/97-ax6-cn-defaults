@@ -54,5 +54,27 @@ if [ "$apply_dns" = "1" ]; then
     uci -q commit dhcp
 fi
 
+# ===========================================================
+# 主机名 (sysupgrade -n 后恢复为 Redmi-AX6)
+# ===========================================================
+if uci -q get system.@system[0].hostname >/dev/null 2>&1; then
+    cur_hostname=$(uci -q get system.@system[0].hostname)
+    case "$cur_hostname" in
+        ImmortalWrt|OpenWrt|'')
+            uci -q set system.@system[0].hostname='Redmi-AX6'
+            uci -q commit system
+            ;;
+    esac
+fi
+
+# ===========================================================
+# 设备信息 (覆盖默认值, sysupgrade 保留配置时跳过)
+# ===========================================================
+DEVICE_INFO="/etc/device_info"
+if [ -f "$DEVICE_INFO" ] && grep -q "ImmortalWRT\|OpenWrt" "$DEVICE_INFO" 2>/dev/null; then
+    sed -i "s/DEVICE_MANUFACTURER=.*/DEVICE_MANUFACTURER='Redmi AX6'/" "$DEVICE_INFO"
+    sed -i "s|DEVICE_MANUFACTURER_URL=.*|DEVICE_MANUFACTURER_URL='https://github.com/OrdinaryJoys/AX6-OpenWRT'|" "$DEVICE_INFO"
+fi
+
 exit 0
 
