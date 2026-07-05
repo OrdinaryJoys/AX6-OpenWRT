@@ -194,6 +194,18 @@ fi
 # 修改默认IP
 sed -i 's/192.168.1.1/192.168.5.1/g' package/base-files/files/bin/config_generate
 
+# 修改版本标识为 Redmi AX6
+sed -i "s/DISTRIB_ID='ImmortalWRT'/DISTRIB_ID='Redmi AX6'/g" package/base-files/files/etc/openwrt_release 2>/dev/null || true
+sed -i "s/DISTRIB_DESCRIPTION='ImmortalWRT/DISTRIB_DESCRIPTION='Redmi AX6/g" package/base-files/files/etc/openwrt_release 2>/dev/null || true
+sed -i "s/DISTRIB_ID='ImmortalWRT'/DISTRIB_ID='Redmi AX6'/g" $(find package/base-files -name "openwrt_release" 2>/dev/null) 2>/dev/null || true
+sed -i "s/DISTRIB_DESCRIPTION='ImmortalWRT/DISTRIB_DESCRIPTION='Redmi AX6/g" $(find package/base-files -name "openwrt_release" 2>/dev/null) 2>/dev/null || true
+
+# 兜底: 直接修改编译目标目录中的最终生成文件
+if [ -f "build_dir/target-aarch64_cortex-a53_musl/root-qualcommax/etc/openwrt_release" ]; then
+  sed -i "s/DISTRIB_ID='ImmortalWRT'/DISTRIB_ID='Redmi AX6'/g" build_dir/target-aarch64_cortex-a53_musl/root-qualcommax/etc/openwrt_release
+  sed -i "s/DISTRIB_DESCRIPTION='ImmortalWRT/DISTRIB_DESCRIPTION='Redmi AX6/g" build_dir/target-aarch64_cortex-a53_musl/root-qualcommax/etc/openwrt_release
+fi
+
 for dir in ./files/etc/uci-defaults ./files/etc/init.d ./files/sbin ./files/usr/sbin ./files/etc/hotplug.d; do
   [ -d "$dir" ] || continue
   find "$dir" -type f -exec chmod +x {} +
