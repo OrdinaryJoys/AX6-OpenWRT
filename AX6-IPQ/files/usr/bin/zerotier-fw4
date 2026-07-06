@@ -79,7 +79,7 @@ while getopts "i:s" arg; do
 
 		# Per ZeroTier official documentation, only the primary port
 		# (default 9993, UDP + TCP) must be open in the firewall.
-		# Secondary/tertiary ports are for outgoing STUN/ICE NAT
+		# @.config.settings.tertiaryPort (and other ports listed in @.config.settings.listeningOn[*]) are for STUN/ICE NAT
 		# traversal and do NOT need inbound rules. Tracking ephemeral
 		# ports is inherently unreliable across reboots.
 		primary_port="$(zerotier-cli -j info 2>/dev/null | jsonfilter -qe "@.config.settings.primaryPort" 2>/dev/null)"
