@@ -37,6 +37,7 @@
 | --- | --- | --- |
 | `qca-nss-pbuf.init` 整体替换 | 会把 `START=19` 回退为 `START=27`,并在应用 pbuf 后主动 `wifi up`;这与 AX6 当前 NSS/WiFi 稳定边界冲突 | 保持现有 S19;如需要,只单独拆 `read_sysctl/write_sysctl` 这类无策略变化的小函数 |
 | `qca-nss-ecm/files/disable_offloads.sh` 缩减版本 | 上游版本只处理 `rx-gro-list`,会重新暴露 IPQ807x 本机终结流量 GRO/GSO/checksum 丢包/重传风险 | 保持 `ecm.general.disable_offloads=1`、`disable_gro_list=1` 和 br-lan hotplug helper |
+| `package/kernel/mac80211/ath.mk` 整体替换 | 会删除 `/etc/config/pbuf` conffiles,并折叠 `ATH11K_NSS_MESH_SUPPORT`/`ATH11K_MEM_PROFILE_512M` 选择项;与当前多 SKU pbuf/NSS 配置边界冲突 | 不整合;如后续需要,只逐项审 Kconfig 依赖,不能影响 pbuf UCI 和 rootfs 防回归 |
 | `015-frontends-nss-respect-bridge-port-vlan-tagging-for-vlan-over-bridge.patch` 直接进入主线 | 它服务于 DSA bridge VLAN filtering;本仓默认拓扑禁止该配置 | 如用户要 bridge VLAN filtering 专项实验,必须单独分支、单独构建、单独实机验证 |
 | `qualcommbe` EDMA/PPE 补丁 | 非 AX6 目标平台 | 仅记录上游动态,不进入 AX6 构建 |
 | fitblk inline FIT 补丁 | AX6 当前不是 FIT block root 路径 | 仅记录上游动态,不用于 AX6 分区修复 |
@@ -52,6 +53,9 @@
 | P1 | runtime audit 整合分支 | 本地 `codex/ax6-runtime-audit-integration` 已通过静态验证 | GitHub 可用后推送;可作为后续构建仓基线 |
 | P2 | VLAN-over-bridge ECM 补丁 | 已判定不进默认主线 | 如后续确有 bridge VLAN filtering 需求,建立独立实验分支 |
 | P2 | DP/SSDK/FDB/STP/MAC sync | 本轮未合并 | 继续沿用旧计划:每个补丁组单独分支、单独构建、端口/FDB/SMB 实机验证 |
+| P2 | `999-921` debugfs NSS peer stats | 已拆解,未合并 | 仅提供观测能力;需确认 `peer->nss.nss_stats` 生命周期和 debugfs 读取路径后再单独验证 |
+| P2 | `999-925` per-CPU vif transmit queues | 已拆解,未合并 | 性能路径改动,影响本机到 WiFi 的 NSS redirect 发送锁竞争;必须单独吞吐/延迟/丢包验证 |
+| P2 | `390` airtime weight driver op | 已拆解,未合并 | 需要先确认 ath11k/NSS 是否实际实现该 op;没有消费者时不作为 AX6 故障修复项 |
 
 ## 下一步顺序
 
@@ -60,4 +64,4 @@
 3. 推送 `codex/ax6-runtime-audit-integration`,作为 nss-check/fullcone 审计整合基线。
 4. 推送 `codex/ax6-32b5-ath11k-recovery-candidate`,再单独建立构建锁分支验证 WiFi recovery 补丁。
 5. 推送 `codex/ax6-32b5-tx-teardown-candidate`,再单独建立构建锁分支验证 TX teardown 稳定性补丁。
-6. 继续拆 mac80211/NSS 统计、per-cpu vif 队列、airtime weight 等 WiFi/NSS 项,每项都按“源码边界检查 -> 构建 -> rootfs -> 实机确认”推进。
+6. 继续拆 mac80211/NSS 统计、per-cpu vif 队列、airtime weight 等 WiFi/NSS 项,每项都按“源码边界检查 -> 构建 -> rootfs -> 实机确认”推进;`ath.mk` 只允许逐项审依赖,不得整体替换。
