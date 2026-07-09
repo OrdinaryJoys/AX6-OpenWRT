@@ -326,6 +326,32 @@ else
     ok "ZeroTier: not installed"
 fi
 
+# Firewall NAT mode: fullcone is not OpenWrt flow offload, but it changes
+# conntrack/NAT behaviour in the same fw4/nftables path used by UPnP,
+# OpenClash redirection and ZeroTier forwarding.
+fw_fullcone=$(uci -q get firewall.@defaults[0].fullcone)
+fw_fullcone6=$(uci -q get firewall.@defaults[0].fullcone6)
+if [ "$fw_fullcone" = "1" ] || [ "$fw_fullcone6" = "1" ]; then
+    fullcone_users=""
+    [ "$(uci -q get upnpd.config.enabled)" = "1" ] && fullcone_users="${fullcone_users}${fullcone_users:+,}UPnP"
+    [ "$(uci -q get openclash.config.enable)" = "1" ] && fullcone_users="${fullcone_users}${fullcone_users:+,}OpenClash"
+    zt_active=0
+    [ "$(uci -q get zerotier.global.enabled)" = "1" ] && zt_active=1
+    for section in $(uci -q show zerotier 2>/dev/null | awk -F'[.=]' '/=network$/{print $2}'); do
+        [ "$(uci -q get "zerotier.${section}.enabled")" = "1" ] && zt_active=1
+    done
+    if [ "$zt_active" = "1" ]; then
+        fullcone_users="${fullcone_users}${fullcone_users:+,}ZeroTier"
+    fi
+    if [ -n "$fullcone_users" ]; then
+        warn "Firewall: fullcone NAT enabled with ${fullcone_users}; verify nftables/NAT traversal behaviour"
+    else
+        ok "Firewall: fullcone NAT enabled without active UPnP/OpenClash/ZeroTier dependency"
+    fi
+else
+    ok "Firewall: fullcone NAT disabled"
+fi
+
 # UPnP: enabled operation requires secure mode and a final deny rule.
 if uci -q get upnpd.config >/dev/null 2>&1; then
     if [ "$(uci -q get upnpd.config.enabled)" = "1" ]; then
