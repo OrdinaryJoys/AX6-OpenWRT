@@ -59,10 +59,18 @@ fi
 
 # ---- 1. RAM ----
 mem_kb=$(awk '/MemTotal/{print $2}' /proc/meminfo 2>/dev/null)
-if [ -n "$mem_kb" ] && [ "$mem_kb" -gt 800000 ] 2>/dev/null; then
-    ok "RAM detected: ${mem_kb} kB ≥ 800MB (1GB SKU)"
+if [ -z "$mem_kb" ]; then
+    warn "RAM size unavailable from /proc/meminfo"
+elif [ "$mem_kb" -gt 800000 ] 2>/dev/null; then
+    ok "RAM detected: ${mem_kb} kB (1GB SKU/profile)"
+elif [ "$mem_kb" -gt 512000 ] 2>/dev/null; then
+    ok "RAM detected: ${mem_kb} kB (high-memory SKU; pbuf auto uses 1GB profile)"
+elif [ "$mem_kb" -gt 256000 ] 2>/dev/null; then
+    ok "RAM detected: ${mem_kb} kB (512MB/official-class SKU; pbuf auto uses 512MB profile)"
+elif [ "$mem_kb" -gt 220000 ] 2>/dev/null; then
+    warn "RAM detected: ${mem_kb} kB (256MB-class; keep OpenClash/UI/plugin load under observation)"
 else
-    fail "RAM only ${mem_kb:-?} kB < 800MB — 不是 1GB 高配 SKU,nss-extra.config 配置可能不匹配"
+    fail "RAM only ${mem_kb} kB — below supported NSS/WiFi operating range"
 fi
 
 # ---- 2. NAND 布局 ----
