@@ -162,10 +162,16 @@ jobs:
               exit 1
             }
           done
-          [ "$SOURCE_TRACKING_BRANCH" = main ] || {
-            echo "::error::unexpected source tracking branch: $SOURCE_TRACKING_BRANCH"
-            exit 1
-          }
+          if [ "$SOURCE_TRACKING_BRANCH" != main ]; then
+            ref_name="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-}}"
+            case "$SOURCE_TRACKING_BRANCH:$ref_name" in
+              codex/ax6-*:codex/ax6-*) ;;
+              *)
+                echo "::error::unexpected source tracking branch: $SOURCE_TRACKING_BRANCH for workflow ref: ${ref_name:-unknown}"
+                exit 1
+                ;;
+            esac
+          fi
           workflow=.github/workflows/build-AX6-NSS.yml
           grep -Fq 'CONFIG_ATH11K_NSS_MESH_SUPPORT) += ATH11K_NSS_MESH_SUPPORT' "$workflow"
           grep -Fq 'CONFIG_ATH11K_NSS_SUPPORT) += ATH11K_NSS_SUPPORT' "$workflow"
