@@ -354,3 +354,25 @@ Proceed in this order:
 
 Do not combine NSS runtime scripts, qca8k/generic, DTS/nvmem, and kernel bump with WiFi/hostapd. Their risk surfaces are different and would make failures hard to isolate.
 
+## Follow-up branch validation
+
+Completed on 2026-07-09:
+
+| Branch | Source base | Included scope | Validation result | Status |
+| --- | --- | --- | --- | --- |
+| `codex/ax6-b3a261a-wifi-scripts-v2-candidate` | `origin/codex/ax6-b3a261a-wifi-scripts-candidate` | Official wifi-scripts EAP alias/certificate/phase2 fixes plus WPA3 GCMP-256/SAE-EXT-KEY compatibility fixes | `git diff --check` passed; JSON schema parsed with `jq`; no conflict markers; changed files limited to five `wifi-scripts` files | Pushed |
+| `codex/ax6-b3a261a-hostapd-wifi-v2-candidate` | `origin/main` | Hostapd security advisory 2026-1 plus WiFi batch 1 and WiFi v2 | `git diff --check origin/main...HEAD` passed; changed files limited to `package/network/services/hostapd` and `package/network/config/wifi-scripts`; no NSS/ECM/SSDK/qca8k/DTS/kernel/DNS/firewall files included | Pushed |
+
+Conflict-resolution notes:
+
+- `wifi/iface.uc` keeps the official final behavior: `parse_encryption(config, dev_config, phy_features)` receives driver capabilities.
+- `GCMP-256` is only advertised when both `config.gcmp256` is true and `phy_features.cipher_gcmp256` is reported by the driver.
+- The default `gcmp256` and `sae_ext_key` behavior remains limited to `sae-compat` BSSes using EHT htmode.
+- This keeps the compatibility-oriented behavior and avoids forcing stronger WPA3 ciphers onto clients or drivers that did not advertise support.
+
+Next build-side step:
+
+1. Create an AX6 build test branch that locks the source repository to `codex/ax6-b3a261a-hostapd-wifi-v2-candidate`.
+2. Run lint/static checks and GitHub Actions build against that source branch.
+3. Inspect the generated firmware contents before any real-router action.
+4. Keep NSS runtime scripts, qca8k/generic migration, DTS/nvmem layout, kernel bump, and dnsmasq/odhcpd changes out of this build test branch.
