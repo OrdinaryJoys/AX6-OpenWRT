@@ -505,6 +505,8 @@ jobs:
             'zerotier_input_ports_match' \
             'vlan_filtering=1 conflicts with qosmio NSS WiFi offload guidance' \
             'config bridge-vlan is present' \
+            'Firewall: fullcone NAT enabled with ${fullcone_users}' \
+            'fullcone NAT enabled without active UPnP/OpenClash/ZeroTier dependency' \
             'openclash_dns_redirect' \
             'OpenClash DNS Hijack' \
             'GeoIP/GeoSite/ASN use' \
