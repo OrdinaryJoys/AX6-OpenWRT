@@ -12,6 +12,7 @@
 | `nss-check` 多 SKU RAM 检查 | 已修复并整合到本地 `codex/ax6-runtime-audit-integration` | 1GB/512MB/256MB-class 设备不再被 1GB 专用阈值误判;低于 NSS/WiFi 安全范围仍 fail |
 | fullcone NAT 审计 | 已修复并整合到本地 `codex/ax6-runtime-audit-integration` | 只在 fullcone 与已启用 UPnP/OpenClash/ZeroTier 重叠时 warn;不误报默认禁用的 ZeroTier 网络段 |
 | ath11k recovery 32b5 候选 | 源仓本地分支 `codex/ax6-32b5-ath11k-recovery-candidate`, commit `f727574377c` | 仅原样引入 VIKING `999-926` 到 `999-931` 六个 WiFi recovery 补丁;边界检查无额外文件 |
+| ath11k/mac80211 TX teardown 候选 | 源仓本地分支 `codex/ax6-32b5-tx-teardown-candidate`, commit `d6a2fa9cebc` | 只包含 `911` pending TX cleanup、`658` stopping iface status-frame cleanup、以及旧 `909` 到新 `912` 的 HTT 0x30 日志补丁替换 |
 | pbuf/N2H 上游差异 | 已拆解 | 拒绝直接合并 VIKING `START=27`/启动后 `wifi up`/删除 UCI profile 的版本;当前继续保持 `S19` 早启动 |
 | VLAN-over-bridge ECM 补丁 | 已拆解 | 该补丁修 DSA bridge VLAN filtering 下的 untagged/pvid 加速黑洞;但本仓按 qosmio 说明禁止 bridge VLAN filtering,默认使用 802.1q 子接口,因此不得作为主线修复混入 |
 | `qualcommbe` EDMA/PPE 补丁 | 已拆解 | 属于 IPQ5332/IPQ9574/qualcommbe 路径,非 AX6 `qualcommax/ipq807x` 当前目标 |
@@ -47,6 +48,7 @@
 | P0 | NSS core 32b5 云端构建 | 已触发 run `29036509737`;GitHub 查询因当前环境网络/用量限制暂时不可继续 | 等 GitHub 可用后查看 run;失败则拉失败日志定位;成功则下载 artifact 解包 rootfs |
 | P0 | 实机运行态 | 本轮未进行 SSH 修改或刷写 | 只有在用户确认后再做只读 SSH 检查或临时验证 |
 | P1 | ath11k recovery 32b5 六补丁 | 本地候选 commit `f727574377c`;尚未推送/构建 | GitHub 可用后推送源仓候选;等待 NSS core 构建结论后再建构建锁分支 |
+| P1 | ath11k/mac80211 TX teardown 三项 | 本地候选 commit `d6a2fa9cebc`;尚未推送/构建 | GitHub 可用后推送源仓候选;单独构建验证,不与 per-CPU TX queue/debugfs 统计混合 |
 | P1 | runtime audit 整合分支 | 本地 `codex/ax6-runtime-audit-integration` 已通过静态验证 | GitHub 可用后推送;可作为后续构建仓基线 |
 | P2 | VLAN-over-bridge ECM 补丁 | 已判定不进默认主线 | 如后续确有 bridge VLAN filtering 需求,建立独立实验分支 |
 | P2 | DP/SSDK/FDB/STP/MAC sync | 本轮未合并 | 继续沿用旧计划:每个补丁组单独分支、单独构建、端口/FDB/SMB 实机验证 |
@@ -57,4 +59,5 @@
 2. 若 NSS core 成功,解包 artifact 检查 rootfs: ECM offload 禁止项、`S19qca-nss-pbuf`、OpenClash 自动更新、VLAN 禁止项、插件构成和空间。
 3. 推送 `codex/ax6-runtime-audit-integration`,作为 nss-check/fullcone 审计整合基线。
 4. 推送 `codex/ax6-32b5-ath11k-recovery-candidate`,再单独建立构建锁分支验证 WiFi recovery 补丁。
-5. 继续拆 mac80211/NSS 统计、per-cpu vif 队列、subsys 658/999-925 等 WiFi/NSS 项,每项都按“源码边界检查 -> 构建 -> rootfs -> 实机确认”推进。
+5. 推送 `codex/ax6-32b5-tx-teardown-candidate`,再单独建立构建锁分支验证 TX teardown 稳定性补丁。
+6. 继续拆 mac80211/NSS 统计、per-cpu vif 队列、airtime weight 等 WiFi/NSS 项,每项都按“源码边界检查 -> 构建 -> rootfs -> 实机确认”推进。
