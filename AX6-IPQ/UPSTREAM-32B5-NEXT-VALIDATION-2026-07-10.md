@@ -12,8 +12,9 @@
 | `nss-check` 多 SKU RAM 检查 | 已修复并整合到本地 `codex/ax6-runtime-audit-integration` | 1GB/512MB/256MB-class 设备不再被 1GB 专用阈值误判;低于 NSS/WiFi 安全范围仍 fail |
 | fullcone NAT 审计 | 已修复并整合到本地 `codex/ax6-runtime-audit-integration` | 只在 fullcone 与已启用 UPnP/OpenClash/ZeroTier 重叠时 warn;不误报默认禁用的 ZeroTier 网络段 |
 | OpenClash geodata 自动更新 | 真实产物发现 0.47.116 缺少五个自动更新 UCI 项,上游 LuCI 缺省值为 `0`;已在本地集成分支补修 | 新装仅为缺失项启用 Country MMDB/GeoIP.dat/GeoSite/GeoASN/chnroute 自动更新并错峰到工作日凌晨;显式 `0/1` 和自定义时间保持不变;不接触订阅、覆写或 YAML |
-| ath11k recovery 32b5 候选 | 源仓本地分支 `codex/ax6-32b5-ath11k-recovery-candidate`, commit `f727574377c` | 仅原样引入 VIKING `999-926` 到 `999-931` 六个 WiFi recovery 补丁;边界检查无额外文件 |
-| ath11k/mac80211 TX teardown 候选 | 源仓本地分支 `codex/ax6-32b5-tx-teardown-candidate`, commit `d6a2fa9cebc` | 只包含 `911` pending TX cleanup、`658` stopping iface status-frame cleanup、以及旧 `909` 到新 `912` 的 HTT 0x30 日志补丁替换 |
+| ath11k recovery 32b5 干净候选 | 源仓分支 `codex/ax6-32b5-ath11k-recovery-clean`, commit `af8b2e1f1c6` | 以已成功构建的 NSS core `ccf777645f4` 为父提交,相对父提交恰好 6 个 VIKING `999-926` 到 `999-931` recovery 补丁 |
+| ath11k/mac80211 TX teardown 干净候选 | 源仓分支 `codex/ax6-32b5-tx-teardown-clean`, commit `440f90246cb` | 同样以 `ccf777645f4` 为父提交,相对父提交恰好 4 个路径:`911`、`912`、`658` 和删除旧 `909` |
+| 旧 WiFi 候选分支 | `codex/ax6-32b5-ath11k-recovery-candidate` 与 `codex/ax6-32b5-tx-teardown-candidate` | 禁止构建或合并:二者基于 `a706a46e462`,相对 `main` 额外混入 24 个 hostapd/WiFi v2 文件;仅保留作审计记录 |
 | pbuf/N2H 上游差异 | 已拆解 | 拒绝直接合并 VIKING `START=27`/启动后 `wifi up`/删除 UCI profile 的版本;当前继续保持 `S19` 早启动 |
 | VLAN-over-bridge ECM 补丁 | 已拆解 | 该补丁修 DSA bridge VLAN filtering 下的 untagged/pvid 加速黑洞;但本仓按 qosmio 说明禁止 bridge VLAN filtering,默认使用 802.1q 子接口,因此不得作为主线修复混入 |
 | `qualcommbe` EDMA/PPE 补丁 | 已拆解 | 属于 IPQ5332/IPQ9574/qualcommbe 路径,非 AX6 `qualcommax/ipq807x` 当前目标 |
@@ -52,11 +53,11 @@
 | 优先级 | 项目 | 当前状态 | 下一步 |
 | --- | --- | --- | --- |
 | P0 | NSS core 32b5 云端构建 | run `29036509737` 已成功;产物已下载到临时目录并完成 SHA256、sysupgrade 容器和 rootfs 内容检查 | 源码/构建级候选可进入下一阶段;仍未授权刷写或实机验证 |
-| P0 | runtime audit + OpenClash geodata 整合构建 | 本地集成分支已通过静态和模拟 UCI 测试;本次 NSS core 产物基于独立 build-test 分支,尚不包含这些后续修复 | 提交并推送集成分支,再建立独立构建验证,确认新 rootfs 含多 SKU 审计和 geodata 缺省策略 |
+| P0 | runtime audit + OpenClash geodata 整合构建 | 分支 `codex/ax6-runtime-audit-integration`,commit `7c2602a`;Actions run `29060343662` 已进入 `Compile firmware` | 等编译和 final rootfs validation;成功后下载产物验证多 SKU 审计和 geodata 缺省策略 |
 | P0 | 实机运行态 | 本轮未进行 SSH 修改或刷写 | 只有在用户确认后再做只读 SSH 检查或临时验证 |
-| P1 | ath11k recovery 32b5 六补丁 | 本地候选 commit `f727574377c`;尚未推送/构建 | GitHub 可用后推送源仓候选;等待 NSS core 构建结论后再建构建锁分支 |
-| P1 | ath11k/mac80211 TX teardown 三项 | 本地候选 commit `d6a2fa9cebc`;尚未推送/构建 | GitHub 可用后推送源仓候选;单独构建验证,不与 per-CPU TX queue/debugfs 统计混合 |
-| P1 | runtime audit 整合分支 | 本地 `codex/ax6-runtime-audit-integration` 已通过静态验证 | GitHub 可用后推送;可作为后续构建仓基线 |
+| P1 | ath11k recovery 32b5 六补丁 | 干净源分支已推送;构建仓分支 `codex/ax6-32b5-ath11k-recovery-clean-build-test`,commit `a19b5d9`,已锁定远端 SHA 并推送 | runtime-audit run 成功后按顺序触发 STOCK 构建 |
+| P1 | ath11k/mac80211 TX teardown 三项 | 干净源分支已推送;尚未建立干净构建锁分支 | recovery 构建与 rootfs 通过后再单独准备和触发,不与 per-CPU TX queue/debugfs 统计混合 |
+| P1 | runtime audit 整合分支 | 已推送并通过本地静态/模拟测试 | 以 Actions run `29060343662` 的结果作为后续 WiFi 构建仓基线 |
 | P2 | VLAN-over-bridge ECM 补丁 | 已判定不进默认主线 | 如后续确有 bridge VLAN filtering 需求,建立独立实验分支 |
 | P2 | DP/SSDK/FDB/STP/MAC sync | 本轮未合并 | 继续沿用旧计划:每个补丁组单独分支、单独构建、端口/FDB/SMB 实机验证 |
 | P2 | `999-921` debugfs NSS peer stats | 已拆解,未合并 | 仅提供观测能力;需确认 `peer->nss.nss_stats` 生命周期和 debugfs 读取路径后再单独验证 |
@@ -65,9 +66,9 @@
 
 ## 下一步顺序
 
-1. 提交并推送 `codex/ax6-runtime-audit-integration`,建立独立构建验证多 SKU 审计、fullcone 只读告警和 OpenClash geodata 缺省策略。
-2. 推送 `codex/ax6-32b5-ath11k-recovery-candidate`,再单独建立构建锁分支验证 WiFi recovery 补丁。
-3. 推送 `codex/ax6-32b5-tx-teardown-candidate`,再单独建立构建锁分支验证 TX teardown 稳定性补丁。
+1. 跟踪 runtime-audit run `29060343662`;成功后下载并解包产物,确认新增 OpenClash geodata defaults 与多 SKU 审计真实进入 rootfs。
+2. 触发 `codex/ax6-32b5-ath11k-recovery-clean-build-test` 的 STOCK 构建,验证 6 个 WiFi recovery 补丁。
+3. recovery 构建通过后,从 `7c2602a` 建立只锁定 `codex/ax6-32b5-tx-teardown-clean` 的构建分支,再单独验证 TX teardown。
 4. 对上述两个 WiFi 分支分别做源码边界、编译、rootfs 检查;不得在同一构建中混入 `999-921`、`999-925` 或 airtime weight。
 5. 只有用户明确确认后,才对通过构建的单一候选做实机临时验证;不自动刷写、不直接合并主线。
 6. 继续拆 mac80211/NSS 统计、per-cpu vif 队列、airtime weight 等 WiFi/NSS 项;`ath.mk` 只允许逐项审依赖,不得整体替换。
