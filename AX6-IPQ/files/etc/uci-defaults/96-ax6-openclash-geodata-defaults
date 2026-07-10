@@ -1,0 +1,41 @@
+#!/bin/sh
+# Enable OpenClash geodata refreshes for new installs while preserving every
+# explicit administrator choice carried across sysupgrade.
+
+uci -q get openclash.config >/dev/null 2>&1 || exit 0
+
+changed=0
+
+set_default() {
+    option="$1"
+    value="$2"
+
+    [ -n "$(uci -q get "openclash.config.${option}")" ] && return 0
+    uci -q set "openclash.config.${option}=${value}"
+    changed=1
+}
+
+# Stagger downloads and any resulting OpenClash restart across weekday nights.
+set_default geo_auto_update 1
+set_default geo_update_week_time 1
+set_default geo_update_day_time 4
+
+set_default geoip_auto_update 1
+set_default geoip_update_week_time 2
+set_default geoip_update_day_time 4
+
+set_default geosite_auto_update 1
+set_default geosite_update_week_time 3
+set_default geosite_update_day_time 4
+
+set_default geoasn_auto_update 1
+set_default geoasn_update_week_time 4
+set_default geoasn_update_day_time 4
+
+set_default chnr_auto_update 1
+set_default chnr_update_week_time 5
+set_default chnr_update_day_time 4
+
+[ "$changed" -eq 0 ] || uci -q commit openclash
+
+exit 0

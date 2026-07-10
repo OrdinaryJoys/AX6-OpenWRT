@@ -33,6 +33,7 @@ jobs:
             xargs -0 -P4 shellcheck -S error -f gcc
           sh tests/test-vlan-add.sh
           sh tests/test-openclash-archive.sh
+          sh tests/test-openclash-geodata-defaults.sh
 
       - name: Actionlint
         run: actionlint -color .github/workflows/*.yml
@@ -372,6 +373,7 @@ jobs:
           for workflow in .github/workflows/build-AX6-NSS.yml .github/workflows/build-AX6-IPQ.yml; do
             for required in \
               'etc/uci-defaults/98-nss-tune' \
+              'etc/uci-defaults/96-ax6-openclash-geodata-defaults' \
               'etc/hotplug\.d/net/99-disable_offloads' \
               'etc/hotplug\.d/net/100-disable_offloads_br_lan' \
               'lib/netifd/offload/disable_offloads\.sh'; do
@@ -381,6 +383,30 @@ jobs:
               }
             done
           done
+
+      - name: OpenClash geodata defaults policy
+        run: |
+          set -eo pipefail
+          defaults=AX6-IPQ/files/etc/uci-defaults/96-ax6-openclash-geodata-defaults
+          test -x "$defaults"
+          grep -Fq 'uci -q get openclash.config' "$defaults"
+          # shellcheck disable=SC2016 # Match the helper's literal UCI template.
+          grep -Fq '[ -n "$(uci -q get "openclash.config.${option}")" ] && return 0' "$defaults"
+          for option in \
+            geo_auto_update \
+            geoip_auto_update \
+            geosite_auto_update \
+            geoasn_auto_update \
+            chnr_auto_update; do
+            grep -Fqx "set_default $option 1" "$defaults" || {
+              echo "::error file=$defaults::missing enabled default for $option"
+              exit 1
+            }
+          done
+          if grep -Eq '/etc/openclash/(config|custom|overwrite)|config_(subscribe|overwrite)' "$defaults"; then
+            echo "::error file=$defaults::geodata policy must not modify subscriptions or overwrite files"
+            exit 1
+          fi
 
       - name: Kconfig assignment consistency check
         run: |

@@ -8,9 +8,10 @@
 
 | 项目 | 状态 | 结论 |
 | --- | --- | --- |
-| NSS core 32b5 候选 | 已拆分源仓分支 `codex/ax6-32b5-nss-core-candidate`;构建仓分支 `codex/ax6-32b5-nss-core-build-test` 已触发云端构建 | 只包含 qca-nss-clients/qca-nss-drv 的 5 个核心稳定补丁,未混入 pbuf/ECM/VLAN/IRQ 策略 |
+| NSS core 32b5 候选 | 源仓分支 `codex/ax6-32b5-nss-core-candidate`;构建仓分支 `codex/ax6-32b5-nss-core-build-test`;Actions run `29036509737` 已成功 | 只包含 qca-nss-clients/qca-nss-drv 的 5 个核心稳定补丁,未混入 pbuf/ECM/VLAN/IRQ 策略;编译、最终 rootfs 校验和产物上传全部通过 |
 | `nss-check` 多 SKU RAM 检查 | 已修复并整合到本地 `codex/ax6-runtime-audit-integration` | 1GB/512MB/256MB-class 设备不再被 1GB 专用阈值误判;低于 NSS/WiFi 安全范围仍 fail |
 | fullcone NAT 审计 | 已修复并整合到本地 `codex/ax6-runtime-audit-integration` | 只在 fullcone 与已启用 UPnP/OpenClash/ZeroTier 重叠时 warn;不误报默认禁用的 ZeroTier 网络段 |
+| OpenClash geodata 自动更新 | 真实产物发现 0.47.116 缺少五个自动更新 UCI 项,上游 LuCI 缺省值为 `0`;已在本地集成分支补修 | 新装仅为缺失项启用 Country MMDB/GeoIP.dat/GeoSite/GeoASN/chnroute 自动更新并错峰到工作日凌晨;显式 `0/1` 和自定义时间保持不变;不接触订阅、覆写或 YAML |
 | ath11k recovery 32b5 候选 | 源仓本地分支 `codex/ax6-32b5-ath11k-recovery-candidate`, commit `f727574377c` | 仅原样引入 VIKING `999-926` 到 `999-931` 六个 WiFi recovery 补丁;边界检查无额外文件 |
 | ath11k/mac80211 TX teardown 候选 | 源仓本地分支 `codex/ax6-32b5-tx-teardown-candidate`, commit `d6a2fa9cebc` | 只包含 `911` pending TX cleanup、`658` stopping iface status-frame cleanup、以及旧 `909` 到新 `912` 的 HTT 0x30 日志补丁替换 |
 | pbuf/N2H 上游差异 | 已拆解 | 拒绝直接合并 VIKING `START=27`/启动后 `wifi up`/删除 UCI profile 的版本;当前继续保持 `S19` 早启动 |
@@ -30,6 +31,10 @@
 | `codex/ax6-runtime-audit-integration` | `sh tests/test-openclash-archive.sh` | PASS |
 | `qca-nss-pbuf.init` | `shellcheck -S error` 和 `sh -n` | PASS |
 | 构建 workflow | `S19qca-nss-pbuf`、`START=19`、`wait_for_ath11k_nss_offload` 防回归扫描 | PASS |
+| NSS core Actions run `29036509737` | compile、final rootfs validation、artifact checksums | PASS |
+| NSS core sysupgrade rootfs | SquashFS superblock、BOARD、NSS/ECM/ath11k/SSDK/ZRAM/ZeroTier/OpenClash 文件与启动链接 | PASS |
+| NSS core 产物校验 | sysupgrade、factory UBI、initramfs ITB、离线 kmod `SHA256SUMS` | PASS |
+| OpenClash geodata defaults | `shellcheck`、`actionlint`、`yamllint`、模拟 UCI 幂等/保留显式值测试 | PASS |
 
 ## 明确不能直接合并的上游项
 
@@ -46,7 +51,8 @@
 
 | 优先级 | 项目 | 当前状态 | 下一步 |
 | --- | --- | --- | --- |
-| P0 | NSS core 32b5 云端构建 | 已触发 run `29036509737`;GitHub 查询因当前环境网络/用量限制暂时不可继续 | 等 GitHub 可用后查看 run;失败则拉失败日志定位;成功则下载 artifact 解包 rootfs |
+| P0 | NSS core 32b5 云端构建 | run `29036509737` 已成功;产物已下载到临时目录并完成 SHA256、sysupgrade 容器和 rootfs 内容检查 | 源码/构建级候选可进入下一阶段;仍未授权刷写或实机验证 |
+| P0 | runtime audit + OpenClash geodata 整合构建 | 本地集成分支已通过静态和模拟 UCI 测试;本次 NSS core 产物基于独立 build-test 分支,尚不包含这些后续修复 | 提交并推送集成分支,再建立独立构建验证,确认新 rootfs 含多 SKU 审计和 geodata 缺省策略 |
 | P0 | 实机运行态 | 本轮未进行 SSH 修改或刷写 | 只有在用户确认后再做只读 SSH 检查或临时验证 |
 | P1 | ath11k recovery 32b5 六补丁 | 本地候选 commit `f727574377c`;尚未推送/构建 | GitHub 可用后推送源仓候选;等待 NSS core 构建结论后再建构建锁分支 |
 | P1 | ath11k/mac80211 TX teardown 三项 | 本地候选 commit `d6a2fa9cebc`;尚未推送/构建 | GitHub 可用后推送源仓候选;单独构建验证,不与 per-CPU TX queue/debugfs 统计混合 |
@@ -59,9 +65,9 @@
 
 ## 下一步顺序
 
-1. GitHub 可用后先确认 NSS core run `29036509737` 的 `Compile firmware` 和 rootfs validation 结果。
-2. 若 NSS core 成功,解包 artifact 检查 rootfs: ECM offload 禁止项、`S19qca-nss-pbuf`、OpenClash 自动更新、VLAN 禁止项、插件构成和空间。
-3. 推送 `codex/ax6-runtime-audit-integration`,作为 nss-check/fullcone 审计整合基线。
-4. 推送 `codex/ax6-32b5-ath11k-recovery-candidate`,再单独建立构建锁分支验证 WiFi recovery 补丁。
-5. 推送 `codex/ax6-32b5-tx-teardown-candidate`,再单独建立构建锁分支验证 TX teardown 稳定性补丁。
-6. 继续拆 mac80211/NSS 统计、per-cpu vif 队列、airtime weight 等 WiFi/NSS 项,每项都按“源码边界检查 -> 构建 -> rootfs -> 实机确认”推进;`ath.mk` 只允许逐项审依赖,不得整体替换。
+1. 提交并推送 `codex/ax6-runtime-audit-integration`,建立独立构建验证多 SKU 审计、fullcone 只读告警和 OpenClash geodata 缺省策略。
+2. 推送 `codex/ax6-32b5-ath11k-recovery-candidate`,再单独建立构建锁分支验证 WiFi recovery 补丁。
+3. 推送 `codex/ax6-32b5-tx-teardown-candidate`,再单独建立构建锁分支验证 TX teardown 稳定性补丁。
+4. 对上述两个 WiFi 分支分别做源码边界、编译、rootfs 检查;不得在同一构建中混入 `999-921`、`999-925` 或 airtime weight。
+5. 只有用户明确确认后,才对通过构建的单一候选做实机临时验证;不自动刷写、不直接合并主线。
+6. 继续拆 mac80211/NSS 统计、per-cpu vif 队列、airtime weight 等 WiFi/NSS 项;`ath.mk` 只允许逐项审依赖,不得整体替换。
