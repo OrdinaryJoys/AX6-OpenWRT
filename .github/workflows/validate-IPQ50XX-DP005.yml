@@ -156,6 +156,12 @@ jobs:
           make tools/install -j"$(nproc)" V=s || make tools/install -j1 V=s
           make toolchain/install -j"$(nproc)" V=s || make toolchain/install -j1 V=s
 
+      - name: Build IPQ50xx target kernel
+        working-directory: ./openwrt
+        run: |
+          set -eo pipefail
+          make target/linux/compile -j"$(nproc)" V=s || make target/linux/compile -j1 V=s
+
       - name: Compile qca-nss-dp for IPQ50xx
         working-directory: ./openwrt
         run: |
