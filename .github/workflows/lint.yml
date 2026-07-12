@@ -33,6 +33,7 @@ jobs:
             xargs -0 -P4 shellcheck -S error -f gcc
           sh tests/test-vlan-add.sh
           sh tests/test-openclash-archive.sh
+          sh tests/test-zerotier-fw4.sh
 
       - name: Actionlint
         run: actionlint -color .github/workflows/*.yml
