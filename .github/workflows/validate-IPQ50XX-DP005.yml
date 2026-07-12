@@ -149,6 +149,13 @@ jobs:
           make download -j8
           find dl -size -1024c -print -delete
 
+      - name: Build host tools and target toolchain
+        working-directory: ./openwrt
+        run: |
+          set -eo pipefail
+          make tools/install -j"$(nproc)" V=s || make tools/install -j1 V=s
+          make toolchain/install -j"$(nproc)" V=s || make toolchain/install -j1 V=s
+
       - name: Compile qca-nss-dp for IPQ50xx
         working-directory: ./openwrt
         run: |
