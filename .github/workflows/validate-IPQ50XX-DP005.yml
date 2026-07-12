@@ -174,28 +174,26 @@ jobs:
           set -eo pipefail
           mapfile -d '' packages < <(
             find openwrt/bin/packages openwrt/bin/targets -type f \
-              -name 'kmod-qca-nss-dp_*.ipk' -print0 2>/dev/null
+              \( -name 'kmod-qca-nss-dp_*.ipk' -o -name 'kmod-qca-nss-dp-*.apk' \) \
+              -print0 2>/dev/null
           )
           if [ "${#packages[@]}" -ne 1 ]; then
-            echo "::error::Expected one qca-nss-dp IPK, found ${#packages[@]}"
+            echo "::error::Expected one qca-nss-dp package, found ${#packages[@]}"
             exit 1
           fi
           package=$(realpath "${packages[0]}")
 
-          mkdir -p dp-ipk dp-root validation-output
-          ( cd dp-ipk && ar x "$package" )
-          data_archive=$(find dp-ipk -maxdepth 1 -type f -name 'data.tar.*' -print -quit)
-          [ -n "$data_archive" ] || {
-            echo "::error::qca-nss-dp IPK has no data archive"
+          mapfile -d '' modules < <(
+            find openwrt/build_dir/target-aarch64_cortex-a53_musl \
+              -type f -path '*/qca-nss-dp-*/qca-nss-dp.ko' -print0
+          )
+          if [ "${#modules[@]}" -ne 1 ]; then
+            echo "::error::Expected one built qca-nss-dp.ko, found ${#modules[@]}"
             exit 1
-          }
-          tar -xf "$data_archive" -C dp-root
-          module=$(find dp-root -type f -name 'qca-nss-dp.ko' -print -quit)
-          [ -n "$module" ] || {
-            echo "::error::qca-nss-dp.ko is missing from the IPK"
-            exit 1
-          }
+          fi
+          module="${modules[0]}"
 
+          mkdir -p validation-output
           readelf -h "$module" | tee validation-output/qca-nss-dp-elf-header.txt
           readelf -Ws "$module" | tee validation-output/qca-nss-dp-symbols.txt
           grep -Eq '^  Machine:[[:space:]]+AArch64$' validation-output/qca-nss-dp-elf-header.txt || {
