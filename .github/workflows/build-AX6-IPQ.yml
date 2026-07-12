@@ -98,6 +98,27 @@ jobs:
           chmod +x "$DIY_SH"
           ( cd openwrt && "$GITHUB_WORKSPACE/$DIY_SH" )
 
+      - name: Verify tracked OpenClash inputs
+        run: |
+          set -eo pipefail
+          metadata=openwrt/.openclash-build.env
+          [ -s "$metadata" ] || {
+            echo "::error file=$metadata::OpenClash build metadata is missing"
+            exit 1
+          }
+          set -a
+          # shellcheck source=/dev/null
+          . "$metadata"
+          set +a
+          printf '%s\n' "$OPENCLASH_ACTUAL_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'
+          printf '%s\n' "$OPENCLASH_ACTUAL_COMMIT" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s\n' "$OPENCLASH_CORE_SHA256" | grep -Eq '^[0-9a-f]{64}$'
+          for name in \
+            OPENCLASH_ACTUAL_VERSION OPENCLASH_ACTUAL_COMMIT \
+            OPENCLASH_CORE_URL OPENCLASH_CORE_SHA256; do
+            echo "$name=${!name}" >> "$GITHUB_ENV"
+          done
+
       - name: Download package
         working-directory: ./openwrt
         run: |
@@ -186,6 +207,7 @@ jobs:
             'etc/init\.d/set-irq-affinity' \
             'etc/init\.d/smp_affinity' \
             'etc/init\.d/zram' \
+            'etc/openclash/core/clash_meta' \
             'etc/modprobe\.d/nss-no-flow\.conf' \
             'etc/uci-defaults/95-ax6-zram-defaults' \
             'etc/uci-defaults/98-nss-tune' \
@@ -234,6 +256,32 @@ jobs:
             echo "::error::Final rootfs contains unsupported ath11k rx_hash parameter"
             exit 1
           fi
+          unsquashfs -cat "$rootfs" usr/lib/opkg/status \
+            > image-verify/opkg-status
+          openclash_version=$(awk '
+            BEGIN { RS=""; FS="\n" }
+            {
+              package=""; version=""
+              for (i = 1; i <= NF; i++) {
+                if ($i ~ /^Package: /) package=substr($i, 10)
+                if ($i ~ /^Version: /) version=substr($i, 10)
+              }
+              if (package == "luci-app-openclash") print version
+            }
+          ' image-verify/opkg-status)
+          [ "$openclash_version" = "$OPENCLASH_ACTUAL_VERSION" ] || {
+            echo "::error::OpenClash package version mismatch: metadata=$OPENCLASH_ACTUAL_VERSION rootfs=${openclash_version:-missing}"
+            exit 1
+          }
+          unsquashfs -cat "$rootfs" etc/openclash/core/clash_meta \
+            > image-verify/clash_meta
+          printf '%s  %s\n' "$OPENCLASH_CORE_SHA256" image-verify/clash_meta |
+            sha256sum -c -
+          readelf -h image-verify/clash_meta | grep -Eq '^  Machine:[[:space:]]+AArch64$' || {
+            echo "::error::Final rootfs OpenClash core is not AArch64"
+            exit 1
+          }
+
           unsquashfs -cat "$rootfs" etc/init.d/qca-nss-pbuf \
             > image-verify/qca-nss-pbuf.init
           grep -Fqx 'START=19' image-verify/qca-nss-pbuf.init
@@ -268,6 +316,10 @@ jobs:
             echo "ARGON_CONFIG_COMMIT=$ARGON_CONFIG_COMMIT"
             echo "OPENCLASH_URL=$OPENCLASH_URL"
             echo "OPENCLASH_REF=$OPENCLASH_REF"
+            echo "OPENCLASH_ACTUAL_VERSION=$OPENCLASH_ACTUAL_VERSION"
+            echo "OPENCLASH_ACTUAL_COMMIT=$OPENCLASH_ACTUAL_COMMIT"
+            echo "OPENCLASH_CORE_URL=$OPENCLASH_CORE_URL"
+            echo "OPENCLASH_CORE_SHA256=$OPENCLASH_CORE_SHA256"
           } > upload/BUILD-PROVENANCE-AX6-IPQ.txt
           ( cd upload && sha256sum -- * 2>/dev/null > SHA256SUMS ) || true
           ls -lh upload/

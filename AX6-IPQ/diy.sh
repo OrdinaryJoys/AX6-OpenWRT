@@ -47,16 +47,20 @@ CORE_URL="https://raw.githubusercontent.com/vernesong/OpenClash/core/master/meta
 CORE_DEST="files/etc/openclash/core"
 mkdir -p "$CORE_DEST"
 echo "[diy.sh] Downloading OpenClash Meta core..."
-curl -sL --retry 3 --retry-delay 10 -o /tmp/clash_core.tar.gz "$CORE_URL" || {
-  echo "[diy.sh] WARNING: OpenClash core download failed; router will download on first boot"
+curl -fsSL --retry 3 --retry-delay 10 -o /tmp/clash_core.tar.gz "$CORE_URL"
+tar tzf /tmp/clash_core.tar.gz | grep -Fqx 'clash' || {
+  echo "[diy.sh] OpenClash Meta archive does not contain the expected clash binary" >&2
+  exit 2
 }
-if [ -s /tmp/clash_core.tar.gz ]; then
-  tar xzf /tmp/clash_core.tar.gz -C "$CORE_DEST/"
-  mv "$CORE_DEST/clash" "$CORE_DEST/clash_meta"
-  chmod +x "$CORE_DEST/clash_meta"
-  echo "[diy.sh] OpenClash Meta core installed: $($CORE_DEST/clash_meta -v 2>&1 | head -1)"
-  rm -f /tmp/clash_core.tar.gz
-fi
+tar xzf /tmp/clash_core.tar.gz -C "$CORE_DEST/" clash
+mv "$CORE_DEST/clash" "$CORE_DEST/clash_meta"
+chmod +x "$CORE_DEST/clash_meta"
+readelf -h "$CORE_DEST/clash_meta" | grep -Eq '^  Machine:[[:space:]]+AArch64$' || {
+  echo "[diy.sh] OpenClash Meta core is not an AArch64 ELF binary" >&2
+  exit 2
+}
+echo "[diy.sh] OpenClash Meta AArch64 core installed"
+rm -f /tmp/clash_core.tar.gz
 
 # OpenClash: 预置最新 Metacubexd + Zashboard 到固件
 DASH_DIR="files/usr/share/openclash/ui"
@@ -85,14 +89,25 @@ done
 # fixed and reviewable.
 rm -rf package/feeds/luci/luci-app-openclash
 clone_tracking "$OPENCLASH_URL" "${OPENCLASH_REF:-master}" package/luci-app-openclash-source
+OPENCLASH_ACTUAL_COMMIT=$(git -C package/luci-app-openclash-source rev-parse HEAD)
+OPENCLASH_ACTUAL_VERSION=$(sed -n 's/^PKG_VERSION:=//p' \
+  package/luci-app-openclash-source/luci-app-openclash/Makefile | head -1)
 mv package/luci-app-openclash-source/luci-app-openclash package/luci-app-openclash
 rm -rf package/luci-app-openclash-source
-OPENCLASH_ACTUAL_VERSION=$(sed -n 's/^PKG_VERSION:=//p' package/luci-app-openclash/Makefile | head -1)
-OPENCLASH_ACTUAL_COMMIT=$(git -C package/luci-app-openclash rev-parse HEAD)
 printf '%s\n' "$OPENCLASH_ACTUAL_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || {
   echo "[diy.sh] OpenClash PKG_VERSION is missing or non-numeric" >&2
   exit 2
 }
+printf '%s\n' "$OPENCLASH_ACTUAL_COMMIT" | grep -Eq '^[0-9a-f]{40}$' || {
+  echo "[diy.sh] OpenClash commit is not a full SHA" >&2
+  exit 2
+}
+{
+  echo "OPENCLASH_ACTUAL_VERSION=$OPENCLASH_ACTUAL_VERSION"
+  echo "OPENCLASH_ACTUAL_COMMIT=$OPENCLASH_ACTUAL_COMMIT"
+  echo "OPENCLASH_CORE_URL=$CORE_URL"
+  echo "OPENCLASH_CORE_SHA256=$(sha256sum "$CORE_DEST/clash_meta" | awk '{print $1}')"
+} > .openclash-build.env
 echo "[diy.sh] OpenClash ${OPENCLASH_ACTUAL_VERSION} from ${OPENCLASH_ACTUAL_COMMIT}"
 
 # ----------------------------------------------------

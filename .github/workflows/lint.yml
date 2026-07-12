@@ -176,6 +176,29 @@ jobs:
             echo "::error::OpenClash plugin must track upstream ref, not a pinned plugin version"
             exit 1
           fi
+          # shellcheck disable=SC2016 # Match the literal command substitution in diy.sh.
+          capture_line=$(grep -nF 'OPENCLASH_ACTUAL_COMMIT=$(git -C package/luci-app-openclash-source rev-parse HEAD)' AX6-IPQ/diy.sh | cut -d: -f1)
+          move_line=$(grep -nF 'mv package/luci-app-openclash-source/luci-app-openclash package/luci-app-openclash' AX6-IPQ/diy.sh | cut -d: -f1)
+          [ -n "$capture_line" ] && [ -n "$move_line" ] && [ "$capture_line" -lt "$move_line" ] || {
+            echo "::error::OpenClash commit must be captured before its source repository is removed"
+            exit 1
+          }
+          grep -Fq '} > .openclash-build.env' AX6-IPQ/diy.sh
+          for workflow in \
+            .github/workflows/build-AX6-NSS.yml \
+            .github/workflows/build-AX6-IPQ.yml; do
+            for required in \
+              'Verify tracked OpenClash inputs' \
+              'OPENCLASH_ACTUAL_VERSION' \
+              'OPENCLASH_ACTUAL_COMMIT' \
+              'OPENCLASH_CORE_SHA256' \
+              'etc/openclash/core/clash_meta'; do
+              grep -Fq "$required" "$workflow" || {
+                echo "::error file=$workflow::missing OpenClash provenance gate: $required"
+                exit 1
+              }
+            done
+          done
 
       - name: Obsolete NSS config symbol check
         run: |
