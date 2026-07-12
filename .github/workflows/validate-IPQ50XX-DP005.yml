@@ -1,0 +1,260 @@
+# yamllint disable rule:line-length
+name: Validate DP005 on IPQ50xx
+
+on:
+  workflow_dispatch:
+
+env:
+  BUILD_LOCK: .github/ax6-nss-lock.env
+  TEST_CONFIG: .github/ipq50xx-dp005.config
+  TZ: Asia/Shanghai
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+    steps:
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be  # v1.3.1
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: false
+          docker-images: true
+          swap-storage: true
+
+      - name: Checkout validation branch
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+
+      - name: Initialize build environment
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -eo pipefail
+          mapfile -t PKGS < <(grep -v '^\s*#' .github/depends-ubuntu-2204.txt | grep -v '^\s*$')
+          sudo -E apt-get -qq -o Acquire::Retries=3 update
+          sudo -E apt-get -qq -o Acquire::Retries=3 install -y --no-install-recommends "${PKGS[@]}"
+          sudo -E apt-get -qq clean
+          sudo timedatectl set-timezone "$TZ"
+          sudo chown -R "$USER":"$(id -gn)" "$GITHUB_WORKSPACE"
+
+      - name: Load and verify source and feed locks
+        run: |
+          set -eo pipefail
+          set -a
+          # shellcheck source=.github/ax6-nss-lock.env
+          . "$BUILD_LOCK"
+          set +a
+          for name in \
+            SOURCE_REPO SOURCE_TRACKING_BRANCH SOURCE_COMMIT \
+            SQM_SCRIPTS_NSS_URL SQM_SCRIPTS_NSS_COMMIT \
+            LUCI_FEED_URL LUCI_FEED_COMMIT \
+            PACKAGES_FEED_URL PACKAGES_FEED_COMMIT \
+            ROUTING_FEED_URL ROUTING_FEED_COMMIT \
+            TELEPHONY_FEED_URL TELEPHONY_FEED_COMMIT \
+            VIDEO_FEED_URL VIDEO_FEED_COMMIT; do
+            value="${!name:-}"
+            [ -n "$value" ] || {
+              echo "::error::$name is missing from $BUILD_LOCK"
+              exit 1
+            }
+            echo "$name=$value" >> "$GITHUB_ENV"
+          done
+          for name in \
+            SOURCE_COMMIT SQM_SCRIPTS_NSS_COMMIT LUCI_FEED_COMMIT \
+            PACKAGES_FEED_COMMIT ROUTING_FEED_COMMIT TELEPHONY_FEED_COMMIT \
+            VIDEO_FEED_COMMIT; do
+            value="${!name}"
+            if ! [[ "$value" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::error::$name must be a full 40-character lowercase commit SHA"
+              exit 1
+            fi
+          done
+
+      - name: Clone locked source and verify DP005 guard
+        run: |
+          set -eo pipefail
+          git init openwrt
+          git -C openwrt remote add origin "$SOURCE_REPO"
+          git -C openwrt fetch --depth 1 origin "$SOURCE_COMMIT"
+          git -C openwrt checkout --detach FETCH_HEAD
+          actual=$(git -C openwrt rev-parse HEAD)
+          [ "$actual" = "$SOURCE_COMMIT" ] || {
+            echo "::error::Source lock mismatch: expected $SOURCE_COMMIT, got $actual"
+            exit 1
+          }
+
+          patch=openwrt/package/qca-nss/qca-nss-dp/patches/005-fix-switchdev-stp-fdb-roaming.patch
+          for required in \
+            'static inline bool nss_dp_supports_fal_stp_ops(void)' \
+            '#ifdef NSS_DP_IPQ50XX' \
+            'if (!nss_dp_supports_fal_stp_ops())'; do
+            grep -Fq "$required" "$patch" || {
+              echo "::error file=$patch::missing DP005 IPQ50xx guard: $required"
+              exit 1
+            }
+          done
+
+      - name: Prepare locked feeds
+        working-directory: ./openwrt
+        run: |
+          set -eo pipefail
+          cat > feeds.conf.default <<EOF
+          src-git sqm_scripts_nss ${SQM_SCRIPTS_NSS_URL}^${SQM_SCRIPTS_NSS_COMMIT}
+          src-git packages ${PACKAGES_FEED_URL}^${PACKAGES_FEED_COMMIT}
+          src-git luci ${LUCI_FEED_URL}^${LUCI_FEED_COMMIT}
+          src-git routing ${ROUTING_FEED_URL}^${ROUTING_FEED_COMMIT}
+          src-git telephony ${TELEPHONY_FEED_URL}^${TELEPHONY_FEED_COMMIT}
+          src-git video ${VIDEO_FEED_URL}^${VIDEO_FEED_COMMIT}
+          EOF
+          ./scripts/feeds clean
+          rm -rf tmp/
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Configure IPQ50xx validation target
+        working-directory: ./openwrt
+        run: |
+          set -eo pipefail
+          cp "$GITHUB_WORKSPACE/$TEST_CONFIG" .config
+          make defconfig 2>&1 | tee defconfig.log
+          if grep -q 'recursive dependency detected' defconfig.log; then
+            echo "::error::Kconfig recursive dependency detected"
+            exit 1
+          fi
+          sed -i 's/^CONFIG_KERNEL_WERROR=y$/# CONFIG_KERNEL_WERROR is not set/' .config
+
+          for required in \
+            'CONFIG_TARGET_qualcommax=y' \
+            'CONFIG_TARGET_qualcommax_ipq50xx=y' \
+            'CONFIG_TARGET_qualcommax_ipq50xx_DEVICE_cmcc_pz-l8=y' \
+            'CONFIG_TARGET_SUBTARGET="ipq50xx"' \
+            'CONFIG_PACKAGE_kmod-qca-nss-dp=y'; do
+            grep -Fqx "$required" .config || {
+              echo "::error::.config is missing required selection: $required"
+              exit 1
+            }
+          done
+
+      - name: Download sources
+        working-directory: ./openwrt
+        run: |
+          set -eo pipefail
+          make download -j8
+          find dl -size -1024c -print -delete
+
+      - name: Compile qca-nss-dp for IPQ50xx
+        working-directory: ./openwrt
+        run: |
+          set -eo pipefail
+          make package/qca-nss/qca-nss-dp/compile -j"$(nproc)" V=s || \
+            make package/qca-nss/qca-nss-dp/compile -j1 V=s
+
+      - name: Validate IPQ50xx qca-nss-dp symbols
+        run: |
+          set -eo pipefail
+          mapfile -d '' packages < <(
+            find openwrt/bin/packages openwrt/bin/targets -type f \
+              -name 'kmod-qca-nss-dp_*.ipk' -print0 2>/dev/null
+          )
+          if [ "${#packages[@]}" -ne 1 ]; then
+            echo "::error::Expected one qca-nss-dp IPK, found ${#packages[@]}"
+            exit 1
+          fi
+          package=$(realpath "${packages[0]}")
+
+          mkdir -p dp-ipk dp-root validation-output
+          ( cd dp-ipk && ar x "$package" )
+          data_archive=$(find dp-ipk -maxdepth 1 -type f -name 'data.tar.*' -print -quit)
+          [ -n "$data_archive" ] || {
+            echo "::error::qca-nss-dp IPK has no data archive"
+            exit 1
+          }
+          tar -xf "$data_archive" -C dp-root
+          module=$(find dp-root -type f -name 'qca-nss-dp.ko' -print -quit)
+          [ -n "$module" ] || {
+            echo "::error::qca-nss-dp.ko is missing from the IPK"
+            exit 1
+          }
+
+          readelf -h "$module" | tee validation-output/qca-nss-dp-elf-header.txt
+          readelf -Ws "$module" | tee validation-output/qca-nss-dp-symbols.txt
+          grep -Eq '^  Machine:[[:space:]]+AArch64$' validation-output/qca-nss-dp-elf-header.txt || {
+            echo "::error::qca-nss-dp.ko is not an AArch64 module"
+            exit 1
+          }
+          for forbidden in \
+            fal_stp_port_state_set \
+            fal_mgmtctrl_ethtype_profile_set \
+            fal_fdb_entry_del_bymac \
+            ppe_port_vsi_get; do
+            if grep -Fwq "$forbidden" validation-output/qca-nss-dp-symbols.txt; then
+              echo "::error::IPQ50xx qca-nss-dp still references unsupported symbol: $forbidden"
+              exit 1
+            fi
+          done
+          cp "$package" validation-output/
+
+      - name: Compile complete IPQ50xx firmware
+        working-directory: ./openwrt
+        run: |
+          set -eo pipefail
+          make -j"$(nproc)" V=s || make -j1 V=s
+
+      - name: Validate IPQ50xx firmware contents
+        run: |
+          set -eo pipefail
+          mapfile -d '' images < <(
+            find openwrt/bin/targets/qualcommax/ipq50xx -type f \
+              -name '*cmcc_pz-l8*squashfs-sysupgrade.bin' -print0
+          )
+          if [ "${#images[@]}" -ne 1 ]; then
+            echo "::error::Expected one cmcc_pz-l8 sysupgrade image, found ${#images[@]}"
+            exit 1
+          fi
+
+          mkdir -p image-root
+          tar -xf "${images[0]}" -C image-root
+          control=$(find image-root -type f -name CONTROL -print -quit)
+          rootfs=$(find image-root -type f -name root -print -quit)
+          [ -n "$control" ] && [ -n "$rootfs" ] || {
+            echo "::error::Sysupgrade image is missing CONTROL or rootfs"
+            exit 1
+          }
+          grep -Fqx 'BOARD=cmcc_pz-l8' "$control" || {
+            echo "::error::Unexpected sysupgrade board identity"
+            cat "$control"
+            exit 1
+          }
+          unsquashfs -ll "$rootfs" > validation-output/rootfs-files.txt
+          grep -Eq 'squashfs-root/lib/modules/.*/qca-nss-dp\.ko$' validation-output/rootfs-files.txt || {
+            echo "::error::Final IPQ50xx rootfs is missing qca-nss-dp.ko"
+            exit 1
+          }
+
+          cp "${images[0]}" validation-output/
+          cp openwrt/.config validation-output/ipq50xx-final.config
+          {
+            echo "BUILD_REPOSITORY=${GITHUB_REPOSITORY}"
+            echo "BUILD_WORKFLOW_COMMIT=${GITHUB_SHA}"
+            echo "BUILD_RUN_ID=${GITHUB_RUN_ID}"
+            echo "SOURCE_REPO=${SOURCE_REPO}"
+            echo "SOURCE_TRACKING_BRANCH=${SOURCE_TRACKING_BRANCH}"
+            echo "SOURCE_COMMIT=${SOURCE_COMMIT}"
+            echo "TARGET=qualcommax/ipq50xx"
+            echo "DEVICE=cmcc_pz-l8"
+          } > validation-output/BUILD-LOCK-IPQ50XX.txt
+          ( cd validation-output && sha256sum ./* > SHA256SUMS-IPQ50XX.txt )
+
+      - name: Upload IPQ50xx validation artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: IPQ50XX_DP005_VALIDATION_${{ github.sha }}
+          path: validation-output/
+          retention-days: 14
+          if-no-files-found: error
