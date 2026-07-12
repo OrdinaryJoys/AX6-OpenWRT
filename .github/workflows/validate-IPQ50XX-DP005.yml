@@ -3,6 +3,7 @@ name: Validate DP005 on IPQ50xx
 
 on:
   workflow_dispatch:
+  workflow_call:
 
 env:
   BUILD_LOCK: .github/ax6-nss-lock.env

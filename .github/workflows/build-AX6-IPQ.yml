@@ -17,7 +17,12 @@ permissions:
   contents: read
 
 jobs:
+  validate-dp005-ipq50xx:
+    if: ${{ github.ref_name == 'codex/ax6-dp005-ipq50xx-build-test' }}
+    uses: ./.github/workflows/validate-IPQ50XX-DP005.yml
+
   build:
+    if: ${{ github.ref_name != 'codex/ax6-dp005-ipq50xx-build-test' }}
     runs-on: ubuntu-22.04
     timeout-minutes: 180
     steps:
