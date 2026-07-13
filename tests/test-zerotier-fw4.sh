@@ -33,7 +33,7 @@ for arg in "$@"; do
 done
 case "$key" in
     zerotier.global.fw_allow_input|zerotier.test.fw_allow_input|zerotier.test.fw_allow_forward|zerotier.test.fw_allow_masq) printf '%s\n' 1 ;;
-    zerotier.test.fw_forward_ifaces|zerotier.test.fw_masq_ifaces) printf '%s\n' lan ;;
+    zerotier.test.fw_forward_ifaces|zerotier.test.fw_masq_ifaces) printf '%s\n' 'lan br-iot' ;;
 esac
 case "$*" in
     *'show zerotier'*) printf "%s\n" "zerotier.test=network" "zerotier.test.id='8056c2e21c000001'" ;;
@@ -63,6 +63,9 @@ printf '%s\n' 'iifname ztabc counter accept comment "!fw4: Accept ZeroTier input
 [ "$(wc -l < "$TMP/fw/input.nft" | tr -d ' ')" -eq 1 ]
 [ "$(wc -l < "$TMP/fw/forward.nft" | tr -d ' ')" -eq 2 ]
 [ "$(wc -l < "$TMP/fw/srcnat.nft" | tr -d ' ')" -eq 1 ]
+grep -Fq 'oifname { lan, br-iot } iifname ztabc' "$TMP/fw/forward.nft"
+grep -Fq 'iifname { lan, br-iot } oifname ztabc' "$TMP/fw/forward.nft"
+grep -Fq 'iifname { lan, br-iot } oifname ztabc' "$TMP/fw/srcnat.nft"
 
 # A second hotplug event must not duplicate any rule.
 "$SCRIPT" -i ztabc

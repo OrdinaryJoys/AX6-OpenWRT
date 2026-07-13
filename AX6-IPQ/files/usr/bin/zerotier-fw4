@@ -19,6 +19,15 @@ drop_stale_port_rules() {
 	mv "$tmp" "$file"
 }
 
+format_iface_set() {
+	formatted=""
+	for iface_name in $1; do
+		[ -z "$formatted" ] || formatted="$formatted, "
+		formatted="${formatted}${iface_name}"
+	done
+	printf '%s' "$formatted"
+}
+
 while getopts "i:s" arg; do
 	case "$arg" in
 	i)
@@ -38,19 +47,21 @@ while getopts "i:s" arg; do
 
 		if [ "$(uci -q get zerotier."$network_cfg".fw_allow_forward)" = "1" ]; then
 			fwd_ifaces="$(uci -q get zerotier."$network_cfg".fw_forward_ifaces)"
+			fwd_ifaces="$(format_iface_set "$fwd_ifaces")"
 			rule="iifname $iface counter accept comment \"!fw4: Accept ZeroTier input forward $iface\""
-			[ -n "$fwd_ifaces" ] && rule="oifname { ${fwd_ifaces// /, } } $rule"
+			[ -n "$fwd_ifaces" ] && rule="oifname { $fwd_ifaces } $rule"
 			append_rule_once "$FW_PATH/forward.nft" forward "$rule"
 
 			rule="oifname $iface counter accept comment \"!fw4: Accept ZeroTier output forward $iface\""
-			[ -n "$fwd_ifaces" ] && rule="iifname { ${fwd_ifaces// /, } } $rule"
+			[ -n "$fwd_ifaces" ] && rule="iifname { $fwd_ifaces } $rule"
 			append_rule_once "$FW_PATH/forward.nft" forward "$rule"
 		fi
 
 		if [ "$(uci -q get zerotier."$network_cfg".fw_allow_masq)" = "1" ]; then
 			masq_ifaces="$(uci -q get zerotier."$network_cfg".fw_masq_ifaces)"
+			masq_ifaces="$(format_iface_set "$masq_ifaces")"
 			rule="oifname $iface counter masquerade comment \"!fw4: Masquerade ZeroTier traffic $iface\""
-			[ -n "$masq_ifaces" ] && rule="iifname { ${masq_ifaces// /, } } $rule"
+			[ -n "$masq_ifaces" ] && rule="iifname { $masq_ifaces } $rule"
 			append_rule_once "$FW_PATH/srcnat.nft" srcnat "$rule"
 		fi
 		;;
