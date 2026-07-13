@@ -258,8 +258,9 @@ jobs:
           fi
           unsquashfs -cat "$rootfs" usr/lib/opkg/status \
             > image-verify/opkg-status
+          target_dir=$(dirname "${images[0]}")
           mapfile -d '' device_manifests < <(
-            find openwrt/bin/targets -type f -name '*.manifest' -print0
+            find "$target_dir" -maxdepth 1 -type f -name '*.manifest' -print0
           )
           if [ "${#device_manifests[@]}" -ne 1 ]; then
             echo "::error::Expected exactly one device package manifest, found ${#device_manifests[@]}"
@@ -311,8 +312,16 @@ jobs:
           set -eo pipefail
           mkdir -p upload
           find openwrt/bin/targets -type f \( -name '*.ubi' -o -name '*.bin' -o -name '*.itb' \) -exec cp {} upload/ \;
+          mapfile -d '' sysupgrade_images < <(
+            find openwrt/bin/targets -type f -name '*-squashfs-sysupgrade.bin' -print0
+          )
+          if [ "${#sysupgrade_images[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one squashfs sysupgrade image, found ${#sysupgrade_images[@]}"
+            exit 1
+          fi
+          target_dir=$(dirname "${sysupgrade_images[0]}")
           mapfile -d '' device_manifests < <(
-            find openwrt/bin/targets -type f -name '*.manifest' -print0
+            find "$target_dir" -maxdepth 1 -type f -name '*.manifest' -print0
           )
           if [ "${#device_manifests[@]}" -ne 1 ]; then
             echo "::error::Expected exactly one device package manifest, found ${#device_manifests[@]}"
