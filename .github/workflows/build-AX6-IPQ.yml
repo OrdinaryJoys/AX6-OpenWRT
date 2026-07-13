@@ -211,12 +211,18 @@ jobs:
             "firewall.zerotier_input.path='/var/run/zerotier-one/_fw4/input.nft'" \
             "firewall.zerotier_forward.path='/var/run/zerotier-one/_fw4/forward.nft'" \
             "firewall.zerotier_srcnat.path='/var/run/zerotier-one/_fw4/srcnat.nft'" \
-            "firewall.zerotier_srcnat.chain='srcnat'"; do
+            "firewall.zerotier_srcnat.chain='srcnat'" \
+            "set firewall.@zone[-1].masq='0'" \
+            'ZT_ZONE_SECTION}.masq=0'; do
             grep -Fq "$required" image-verify/94-ax6-zerotier-zone || {
               echo "::error::Final rootfs ZeroTier fw4 registration is missing: $required"
               exit 1
             }
           done
+          if grep -Fq "set firewall.@zone[-1].masq='1'" image-verify/94-ax6-zerotier-zone; then
+            echo "::error::Final rootfs ZeroTier zone enables implicit masquerade"
+            exit 1
+          fi
           if grep -Eq \
             'squashfs-root/etc/(init\.d/ax6-irq-affinity|rc\.d/[SK][0-9]+ax6-irq-affinity)( ->|$)' \
             image-verify/rootfs-files.txt; then

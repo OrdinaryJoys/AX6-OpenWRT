@@ -81,4 +81,13 @@ grep -Fq 'th dport 9993' "$TMP/fw/input.nft"
 grep -q "firewall.zerotier_srcnat.path='/var/run/zerotier-one/_fw4/srcnat.nft'" "$ZONE_SCRIPT"
 grep -q "firewall.zerotier_srcnat.chain='srcnat'" "$ZONE_SCRIPT"
 
+# The firewall zone is routing-only. Per-network fw_allow_masq exclusively
+# owns optional NAT so retained configs cannot enable two masquerade paths.
+grep -Fq "set firewall.@zone[-1].masq='0'" "$ZONE_SCRIPT"
+grep -Fq 'ZT_ZONE_SECTION}.masq=0' "$ZONE_SCRIPT"
+if grep -Fq "set firewall.@zone[-1].masq='1'" "$ZONE_SCRIPT"; then
+    echo "ZeroTier zone unexpectedly enables implicit masquerade" >&2
+    exit 1
+fi
+
 echo "test-zerotier-fw4: PASS"

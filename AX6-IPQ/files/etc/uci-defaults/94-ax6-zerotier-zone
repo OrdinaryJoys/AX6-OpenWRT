@@ -1,7 +1,8 @@
 #!/bin/sh
 # AX6: ZeroTier 防火墙 zone 自动创建
 # zerotier-fw4 负责动态 nftables 规则, 本脚本负责 zone、转发骨架和 fw4 include 注册
-# 仅在 ZeroTier 已安装且 zone 不存在时创建 (幂等)
+# ZeroTier 运行在主路由器上时使用托管路由保留 LAN 源地址；仅由 fw_allow_masq 显式请求 NAT
+# ZeroTier 已安装时幂等创建或修正配置；兼容 sysupgrade 保留的旧 zone
 
 [ -x /usr/bin/zerotier-cli ] || exit 0
 
@@ -12,10 +13,22 @@ for section in $(uci -q show zerotier 2>/dev/null | awk -F'[.=]' '/=network$/{pr
 done
 [ -n "$ZT_NETWORK_ID" ] || exit 0
 
-# 检查是否已有 Zerotier zone (sysupgrade 保留配置时跳过)
-if uci -q show firewall 2>/dev/null | grep -q "name='Zerotier'"; then
-    # zone 已存在，但仍然确保 nftables include 注册（可能在 sysupgrade 后丢失）
+# 检查是否已有 Zerotier zone（sysupgrade 可能保留旧版的隐式 masq=1）
+ZT_ZONE_SECTION=""
+for section in $(uci -q show firewall 2>/dev/null | awk -F'[.=]' '/=zone$/{print $2}'); do
+    if [ "$(uci -q get "firewall.${section}.name")" = "Zerotier" ]; then
+        ZT_ZONE_SECTION="$section"
+        break
+    fi
+done
+if [ -n "$ZT_ZONE_SECTION" ]; then
+    # zone 只负责路由骨架；可选 NAT 由 zerotier-fw4 按 fw_allow_masq 生成，避免双重所有权。
     ZT_NEED_COMMIT=0
+    if [ "$(uci -q get "firewall.${ZT_ZONE_SECTION}.masq")" = "1" ]; then
+        uci -q set "firewall.${ZT_ZONE_SECTION}.masq=0"
+        ZT_NEED_COMMIT=1
+        logger -t ax6-zerotier-zone "Migrated Zerotier firewall zone to managed routing (masq owned by zerotier-fw4)"
+    fi
 
     # 注册 input include（zerotier-fw4 -s 依赖此项）
     if ! uci -q get firewall.zerotier_input >/dev/null 2>&1; then
@@ -57,7 +70,7 @@ uci -q set firewall.@zone[-1].name='Zerotier'
 uci -q set firewall.@zone[-1].input='ACCEPT'
 uci -q set firewall.@zone[-1].output='ACCEPT'
 uci -q set firewall.@zone[-1].forward='REJECT'
-uci -q set firewall.@zone[-1].masq='1'
+uci -q set firewall.@zone[-1].masq='0'
 uci -q set firewall.@zone[-1].network='Zerotier'
 
 # Zerotier ↔ LAN 双向转发
