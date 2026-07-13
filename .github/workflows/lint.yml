@@ -503,6 +503,7 @@ jobs:
             '/var/run/zerotier-one/_fw4/srcnat.nft' \
             'firewall.${_zt_section}.position' \
             'zerotier_input_ports_match' \
+            'firewall zone masquerade conflicts with package-managed fw_allow_masq ownership' \
             'vlan_filtering=1 conflicts with qosmio NSS WiFi offload guidance' \
             'config bridge-vlan is present' \
             'openclash_dns_redirect' \
@@ -523,6 +524,11 @@ jobs:
             'upnpd\.config\.enabled=|zerotier\..*fw_allow_|openclash\.config\.|wireless\..*isolate=|=bridge-vlan|vlan_filtering' \
             AX6-IPQ/files/etc/init.d AX6-IPQ/files/etc/uci-defaults; then
             echo "::error::boot/default scripts must not force scenario-dependent service policy"
+            exit 1
+          fi
+          if grep -Eq "set firewall\.@zone\[-1\]\.masq='1'" \
+            AX6-IPQ/files/etc/uci-defaults/94-ax6-zerotier-zone; then
+            echo "::error::ZeroTier default zone must use managed routing; zerotier-fw4 owns optional masquerade"
             exit 1
           fi
           grep -Fq "grep -q '=bridge-vlan'" "$vlan"

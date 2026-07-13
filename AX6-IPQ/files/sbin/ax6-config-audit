@@ -295,6 +295,17 @@ if uci -q get zerotier.global >/dev/null 2>&1; then
                     ;;
             esac
         done
+        zt_zone_seen=0
+        for section in $(uci -q show firewall 2>/dev/null | awk -F'[.=]' '/=zone$/{print $2}'); do
+            [ "$(uci -q get "firewall.${section}.name")" = "Zerotier" ] || continue
+            zt_zone_seen=1
+            if [ "$(uci -q get "firewall.${section}.masq")" = "1" ]; then
+                fail "ZeroTier firewall zone masquerade conflicts with package-managed fw_allow_masq ownership"
+            else
+                ok "ZeroTier: firewall zone uses managed routing without implicit masquerade"
+            fi
+        done
+        [ "$zt_zone_seen" -eq 1 ] || warn "ZeroTier: firewall zone is missing"
         if [ "$zt_need_input" = "1" ]; then
             if zerotier_include_ok zerotier_input /var/run/zerotier-one/_fw4/input.nft input; then
                 ok "ZeroTier: dynamic nftables input include installed"
