@@ -533,6 +533,8 @@ jobs:
           grep -Fq 'fw4 reload' "$zt_fw4"
           for workflow in .github/workflows/build-AX6-NSS.yml .github/workflows/build-AX6-IPQ.yml; do
             grep -Fq "'usr/bin/zerotier-fw4'" "$workflow"
+            grep -Fq "'etc/uci-defaults/94-ax6-zerotier-zone'" "$workflow"
+            grep -Fq "firewall.zerotier_srcnat.chain='srcnat'" "$workflow"
           done
           # shellcheck disable=SC2016 # Match vlan-add literal awk field reference.
           grep -Fq '/=zone$/{print $2}' "$vlan"

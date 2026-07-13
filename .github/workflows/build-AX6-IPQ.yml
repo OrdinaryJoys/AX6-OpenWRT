@@ -187,6 +187,7 @@ jobs:
             'etc/init\.d/smp_affinity' \
             'etc/init\.d/zram' \
             'etc/modprobe\.d/nss-no-flow\.conf' \
+            'etc/uci-defaults/94-ax6-zerotier-zone' \
             'etc/uci-defaults/95-ax6-zram-defaults' \
             'etc/uci-defaults/98-nss-tune' \
             'etc/uci-defaults/15_smp_affinity\.sh' \
@@ -201,6 +202,18 @@ jobs:
             'usr/sbin/ax6-irq-affinity'; do
             grep -Eq "squashfs-root/${required}( ->|$)" image-verify/rootfs-files.txt || {
               echo "::error::Final rootfs is missing required path: $required"
+              exit 1
+            }
+          done
+          unsquashfs -cat "$rootfs" etc/uci-defaults/94-ax6-zerotier-zone \
+            > image-verify/94-ax6-zerotier-zone
+          for required in \
+            "firewall.zerotier_input.path='/var/run/zerotier-one/_fw4/input.nft'" \
+            "firewall.zerotier_forward.path='/var/run/zerotier-one/_fw4/forward.nft'" \
+            "firewall.zerotier_srcnat.path='/var/run/zerotier-one/_fw4/srcnat.nft'" \
+            "firewall.zerotier_srcnat.chain='srcnat'"; do
+            grep -Fq "$required" image-verify/94-ax6-zerotier-zone || {
+              echo "::error::Final rootfs ZeroTier fw4 registration is missing: $required"
               exit 1
             }
           done
