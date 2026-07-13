@@ -258,6 +258,15 @@ jobs:
           fi
           unsquashfs -cat "$rootfs" usr/lib/opkg/status \
             > image-verify/opkg-status
+          mapfile -d '' device_manifests < <(
+            find openwrt/bin/targets -type f -name '*.manifest' -print0
+          )
+          if [ "${#device_manifests[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one device package manifest, found ${#device_manifests[@]}"
+            exit 1
+          fi
+          .github/scripts/verify-device-manifest.sh \
+            "${device_manifests[0]}" image-verify/opkg-status
           openclash_version=$(awk '
             BEGIN { RS=""; FS="\n" }
             {
@@ -302,6 +311,17 @@ jobs:
           set -eo pipefail
           mkdir -p upload
           find openwrt/bin/targets -type f \( -name '*.ubi' -o -name '*.bin' -o -name '*.itb' \) -exec cp {} upload/ \;
+          mapfile -d '' device_manifests < <(
+            find openwrt/bin/targets -type f -name '*.manifest' -print0
+          )
+          if [ "${#device_manifests[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one device package manifest, found ${#device_manifests[@]}"
+            exit 1
+          fi
+          cp "${device_manifests[0]}" upload/
+          manifest_file=$(basename "${device_manifests[0]}")
+          manifest_sha256=$(sha256sum "upload/$manifest_file")
+          manifest_sha256=${manifest_sha256%% *}
           # 附带 build info / checksums / read-only audit tools
           find openwrt/bin/targets -type f \( -name 'config.buildinfo' -o -name 'feeds.buildinfo' -o -name 'version.buildinfo' \) -exec cp {} upload/ \; 2>/dev/null || true
           [ -f AX6-IPQ/files/sbin/nss-check ] && cp AX6-IPQ/files/sbin/nss-check upload/nss-check.sh
@@ -320,8 +340,10 @@ jobs:
             echo "OPENCLASH_ACTUAL_COMMIT=$OPENCLASH_ACTUAL_COMMIT"
             echo "OPENCLASH_CORE_URL=$OPENCLASH_CORE_URL"
             echo "OPENCLASH_CORE_SHA256=$OPENCLASH_CORE_SHA256"
+            echo "DEVICE_MANIFEST_FILE=$manifest_file"
+            echo "DEVICE_MANIFEST_SHA256=$manifest_sha256"
           } > upload/BUILD-PROVENANCE-AX6-IPQ.txt
-          ( cd upload && sha256sum -- * 2>/dev/null > SHA256SUMS ) || true
+          ( cd upload && sha256sum -- * > SHA256SUMS )
           ls -lh upload/
 
       - name: Upload unvalidated backup artifact

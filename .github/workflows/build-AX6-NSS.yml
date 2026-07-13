@@ -503,6 +503,15 @@ jobs:
           fi
           unsquashfs -cat "$rootfs" usr/lib/opkg/status \
             > image-verify/opkg-status
+          mapfile -d '' device_manifests < <(
+            find openwrt/bin/targets -type f -name '*.manifest' -print0
+          )
+          if [ "${#device_manifests[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one device package manifest, found ${#device_manifests[@]}"
+            exit 1
+          fi
+          .github/scripts/verify-device-manifest.sh \
+            "${device_manifests[0]}" image-verify/opkg-status
           openclash_version=$(awk '
             BEGIN { RS=""; FS="\n" }
             {
@@ -592,6 +601,16 @@ jobs:
           fi
           cp "${upgrade_images[@]}" upload/upgrade/
 
+          mapfile -d '' device_manifests < <(
+            find openwrt/bin/targets -type f -name '*.manifest' -print0
+          )
+          if [ "${#device_manifests[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one device package manifest, found ${#device_manifests[@]}"
+            exit 1
+          fi
+          cp "${device_manifests[0]}" upload/upgrade/
+          cp "${device_manifests[0]}" upload/recovery/
+
           find openwrt/bin/targets -type f \
             \( -name 'config.buildinfo' -o -name 'feeds.buildinfo' \
                -o -name 'version.buildinfo' \) \
@@ -603,7 +622,9 @@ jobs:
             -exec cp {} upload/recovery/ \;
 
           cd upload/upgrade
-          sha256sum -- ./*-squashfs-sysupgrade.bin >SHA256SUMS-AX6.txt
+          manifest_file=$(basename "${device_manifests[0]}")
+          manifest_sha256=$(sha256sum "$manifest_file")
+          manifest_sha256=${manifest_sha256%% *}
           {
             echo "BUILD_REPOSITORY=$GITHUB_REPOSITORY"
             echo "BUILD_WORKFLOW_COMMIT=$GITHUB_SHA"
@@ -633,24 +654,30 @@ jobs:
             echo "OPENCLASH_ACTUAL_COMMIT=$OPENCLASH_ACTUAL_COMMIT"
             echo "OPENCLASH_CORE_URL=$OPENCLASH_CORE_URL"
             echo "OPENCLASH_CORE_SHA256=$OPENCLASH_CORE_SHA256"
+            echo "DEVICE_MANIFEST_FILE=$manifest_file"
+            echo "DEVICE_MANIFEST_SHA256=$manifest_sha256"
           } > BUILD-LOCK-AX6.txt
           cp ../../AX6-IPQ/files/sbin/nss-check ./nss-check.sh
           cp ../../AX6-IPQ/files/sbin/ax6-config-audit ./ax6-config-audit.sh
+          find . -maxdepth 1 -type f ! -name 'SHA256SUMS-AX6.txt' \
+            -print0 | sort -z | xargs -0 sha256sum >SHA256SUMS-AX6.txt
           ls -lh
 
           cd ../recovery
+          cp ../upgrade/BUILD-LOCK-AX6.txt ./
           mapfile -d '' recovery_images < <(
             find . -maxdepth 1 -type f \
               \( -name '*.ubi' -o -name '*.itb' \) -print0
           )
-          if [ "${#recovery_images[@]}" -gt 0 ]; then
-            sha256sum -- "${recovery_images[@]}" >SHA256SUMS-RECOVERY.txt
-          fi
           printf '%s\n' \
             'RECOVERY IMAGES - NOT FOR LUCI OR NORMAL SYSUPGRADE' \
             'factory.ubi and initramfs ITB have different bootloader/recovery purposes.' \
             'Do not write either image to a raw NAND partition without a device-specific, verified procedure.' \
             >RECOVERY-README.txt
+          if [ "${#recovery_images[@]}" -gt 0 ]; then
+            find . -maxdepth 1 -type f ! -name 'SHA256SUMS-RECOVERY.txt' \
+              -print0 | sort -z | xargs -0 sha256sum >SHA256SUMS-RECOVERY.txt
+          fi
           ls -lh
 
       - name: Package kmod for offline install

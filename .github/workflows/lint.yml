@@ -33,6 +33,7 @@ jobs:
             xargs -0 -P4 shellcheck -S error -f gcc
           sh tests/test-vlan-add.sh
           sh tests/test-openclash-archive.sh
+          sh tests/test-device-manifest.sh
 
       - name: Actionlint
         run: actionlint -color .github/workflows/*.yml
@@ -192,7 +193,10 @@ jobs:
               'OPENCLASH_ACTUAL_VERSION' \
               'OPENCLASH_ACTUAL_COMMIT' \
               'OPENCLASH_CORE_SHA256' \
-              'etc/openclash/core/clash_meta'; do
+              'etc/openclash/core/clash_meta' \
+              'verify-device-manifest.sh' \
+              'DEVICE_MANIFEST_FILE' \
+              'DEVICE_MANIFEST_SHA256'; do
               grep -Fq "$required" "$workflow" || {
                 echo "::error file=$workflow::missing OpenClash provenance gate: $required"
                 exit 1
