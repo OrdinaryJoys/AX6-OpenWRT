@@ -1,78 +1,153 @@
-# AX6 完整修复审查与统一构建准入（2026-07-14）
+# AX6 完整修复审查与构建验证报告（2026-07-14）
 
-## 1. 审查边界
+## 1. 最终状态
 
-- 主源码基线：`OrdinaryJoys/immortalwrt-nss@56807d9661dbe7df421d1fd31feba76677b5703d`
-- 源码候选：`codex/ax6-core-integration-review@da2a771963c01baf0b8350a4126b8533ea23ac45`
-- 构建仓主线：`OrdinaryJoys/AX6-OpenWRT@099556aae4c0449a23e157fd95d061fc7537f59a`
-- 构建候选：`codex/ax6-openclash-manifest-guard`（本文档提交前仍为本地候选）
-- 交叉上游：VIKINGYFY/immortalwrt、qosmio/openwrt-ipq、ImmortalWrt、Linux 6.18、锁定 feeds 与各插件官方仓库。
-- 本轮未刷写、未改动路由器，也未把候选合并到主分支或发布固件。
+本轮已经完成源码差异审查、遗漏修复、补丁严格重放、构建锁定、云端静态检查、AX6 STOCK 完整编译和 artifact 独立复核。
 
-## 2. 已确认并修复
-
-| 范围 | 问题/根因 | 完整修复 | 验证 |
-|---|---|---|---|
-| qca-nss-dp | 广泛的 netdev/PHY 顺序改写偏离上游，失败回滚不完整 | 删除广泛改写，只保留 `phy_connect_direct()` 失败时清空 `phydev` 的窄修复 | 5 个 DP 补丁顺序重放，无 fuzz/reject/offset |
-| qca-nss-drv | fraglist `truesize` 少计；空 buffer payload 缺后备分配 | 引入隔离补丁 015/016 | 16 个 drv 补丁顺序重放和内容哈希通过 |
-| qca-nss-clients | mirred 释放链表损坏、noop qdisc 统计、netlink 规则注入权限 | 分别加入 011/012/013 | 13 个 clients 补丁顺序重放；netlink 使用全局管理权限 |
-| ath11k NSS | Q6 恢复期间 CE/IRQ/ring 访问次序风险 | 以 999-927/928/932 有序组修复 | 149 个 backports/mac80211 补丁顺序重放 |
-| IRQ/RPS | `set-irq-affinity` 硬编码 4 CPU 掩码且无可写检查 | 读取 online CPU 生成掩码，仅写存在且可写的 RPS/XPS 节点 | ShellCheck；与 NSS queue、EDMA IRQ 所有权逐项核对 |
-| NSS 自检 | 用 `qca_nss* >= 10` 可被可选模块凑数，也会误伤精简配置 | 精确要求 `qca_nss_drv/qca_nss_dp/qca_ssdk/ecm` | 与已验证 rootfs 模块和 autoload 清单交叉检查 |
-| 多内存版本 | 自检错误地只接受 1 GiB | 同时接受 512 MiB STOCK 与 1 GiB SKU，均使用 ath11k MID profile | pbuf 512M/1G 阈值与上游脚本一致 |
-| ZRAM | 旧符号和运行态检查曾不匹配 | 256 MiB、ZSTD、有效 UCI 字段和运行态算法/大小检查 | 内核 `CONFIG_CRYPTO_ZSTD/ZSTD_COMPRESS` 与两套 config 依赖闭环 |
-| ECM/offload | firewall flow path 与 NSS 重复；本机终结流量存在完整性风险 | blacklist + UCI + Boot Guard；使用打包的 ECM helper，br-lan hotplug 补齐 | 冲突模块、UCI、helper 和最终 rootfs 路径门禁 |
-| 网络调度 | 20 ms NAPI budget 和 65536 packet budget 会放大 CPU 慢路径占用 | 删除激进 `netdev_budget*`/backlog 覆盖，交回内核和 qualcommax | Linux sysctl 语义、NSS 快/慢路径交叉审查 |
-| WiFi | 5 GHz 固定信道仍强制 `noscan=1` | 删除 `noscan`；2.4 GHz 保持 HE40 + auto + `ht_coex=1`，国家码默认 US | WiFi 门禁和脚本审查 |
-| ZeroTier | 自建 zone/双向 LAN/默认 masquerade 越过官方策略；端口集合曾被错误简化 | 恢复官方三 include 模型，策略由 `fw_allow_*` 所有；跟踪 primary + secondary，不推断 tertiary | 独立端口/idempotence 测试；与锁定 packages 源码对照 |
-| OpenClash DNS | 可能形成错误重定向或单 DNS 依赖，但不能改订阅/覆写 | 保持插件所有权，只做只读模式、dnsmasq/nft、DNS 组和 IPv6 冲突审计 | 不写订阅、覆写和自动更新配置；CHNR 纳入空间/更新审计 |
-| OpenClash 供应链 | core/dashboard 使用移动 URL；dashboard 下载失败可静默生成残缺固件 | 构建时解析官方分支提交，按不可变提交下载；记录 commit/URL/archive 或 ELF 哈希，缺失硬失败 | Meta arm64 ELF、两个 dashboard 归档结构/index 实下载通过 |
-| 构建溯源 | 只锁源码提交，无法证明关键补丁集合未被替换 | 新增 9 个候选补丁 SHA256 清单、清单自身哈希和废弃补丁缺席门禁 | 正向通过；篡改内容/恢复废弃补丁的反向测试均失败 |
-| manifest | 设备 manifest 曾与 kmod `Packages.manifest` 混淆 | 只选 sysupgrade 同目录唯一设备 manifest，并与最终 opkg 状态逐项一致 | 独立 manifest 测试和既有成功 artifact 验证 |
-
-## 3. 上游与插件状态
-
-| 仓库 | 2026-07-14 状态 | 处理 |
+| 项目 | 最终证据 | 状态 |
 |---|---|---|
-| OrdinaryJoys/immortalwrt-nss | main 仍为 `56807d9661d...` | 候选修复保持独立分支 |
-| VIKINGYFY/immortalwrt | main 仍为 `30e28764598d...` | 只移植已验证的 RPS 可写/online CPU 思路 |
-| qosmio/openwrt-ipq | main-nss 仍为 `92a2d104145c...` | 作为 NSS/VLAN/驱动结构参照，不整仓合并 |
-| ImmortalWrt | master 仍为 `4cafb73e88b6...` | 无新增 AX6 必合并项 |
-| packages | 新增 1 个未选中的 rtp2httpd 更新 | feed 锁前移，固件包集合不变 |
-| routing / telephony | 各 1 个 CI-only 更新 | feed 锁前移，无目标包代码变化 |
-| Argon | tooltip CSS 一行修复 | 锁前移到 `8344bc932f3c...` |
-| OpenClash | master `1c8e8cb8eaad...`，版本 0.47.116 | 继续跟踪 master，单次构建记录实际提交 |
+| 源码主线基线 | `OrdinaryJoys/immortalwrt-nss@56807d9661dbe7df421d1fd31feba76677b5703d` | 已锁定 |
+| 源码候选 | `codex/ax6-upstream-gap-complete@991f215ffb3aeeaf65e3e4703d8e1fb696065faf` | 已推送，工作区干净 |
+| 构建仓主线 | `OrdinaryJoys/AX6-OpenWRT@099556aae4c0449a23e157fd95d061fc7537f59a` | 未修改 |
+| 构建候选代码提交 | `codex/ax6-upstream-gap-complete-build@a3d6d58669e767e5d7ae82787ddfe7615f5bf1ee` | 已推送；其后只追加本文档 |
+| 云端 Lint | Actions `29345426186`，提交 `a3d6d58` | 全部通过 |
+| 完整 STOCK 构建 | Actions `29345081914`，提交 `8505d7d` | 成功 |
+| 构建源码锁 | `991f215`，基线 `56807d9`，清单 SHA256 `d2ebf619...738c9` | 产物内一致 |
+| 发布/实机 | 未合并主分支、未发布、未 SSH、未刷写 | 保持安全边界 |
 
-## 4. 非构建验证结果
+完整构建使用 `8505d7d`。其后的 `a3d6d58` 只把 Lint 中不可靠的 `A && B || C` 改成显式 `if`，不改变源码锁、配置、固件构成或编译路径；该提交已由独立云端 Lint 完整验证。
 
-- 全仓库 ShellCheck（error 级）：PASS
-- Actionlint：PASS
-- Yamllint relaxed：PASS
-- `lint.yml` 除工具安装外的全部 run 步骤本地逐项执行：PASS
-- STOCK/EXPAND 配置差异 allowlist：PASS
-- NSS/SSDK/ECM/ath11k/SQM/ZRAM 依赖与互斥矩阵：PASS
-- device manifest、OpenClash archive、VLAN transaction、ZeroTier fw4 测试：PASS
-- 源码补丁内容门禁：PASS
-- Meta core 不可变提交 URL、arm64 ELF：PASS
-- Metacubexd/Zashboard 不可变提交 URL、归档安全、唯一目录、index：PASS
+## 2. 本轮补齐的遗漏和错误
 
-## 5. 仍需保留的边界
+| 范围 | 原问题 | 完整修复 | 验证 |
+|---|---|---|---|
+| hostapd | 缺少 2026-1 安全公告的完整 MLE/MLD 边界修复 | 纳入 8 个安全补丁，`PKG_RELEASE=2` | 70/70 补丁严格重放；云端编译通过 |
+| netifd/libubox/ubus | 基础网络组件落后于上游修复 | 按 ABI 关系同步锁定版本 | 构建、bridge/VLAN 相关脚本与 Lint 通过 |
+| WiFi scripts | disabled VIF、antenna、mesh probe、GCMP-256、SAE-EXT-KEY、EAP/cert/私钥别名和 iwinfo 信息缺失 | 合并完整上游逻辑并保留 AX6 的 US/HE40/coexistence 策略 | schema、ucode、hostapd/supplicant 路径和完整构建通过 |
+| hostapd ubus | radar-detected 通知位置错误 | 对齐上游通知路径 | hostapd 补丁重放与编译通过 |
+| ECM VLAN | VLAN-over-bridge 加速规则只看上层 VLAN，可能与 bridge port 线侧 tagged/untagged 状态不一致 | 新增 bridge port on-wire tag 判断，无法确定时回退 host path | ECM 15/15 补丁重放，`kmod-qca-nss-ecm ...-r8` 构建成功 |
+| ath11k NSS recovery | Q6 恢复期间仍存在 monitor/CE/TX/ring 生命周期窗口 | 对齐完整 recovery guard 组并保留本地 999-932 IRQ/NAPI quiesce | mac80211/backports 278/278 严格重放；ath11k/ath11k-ahb 产物存在 |
+| SSDK | NSS-DP netdev carrier 变化后 MAC software sync 可能未重新调度 | 新增 `ssdk_netdev_refresh_mac_sw_sync()` 和端口边界检查 | SSDK 8/8 补丁重放；`kmod-qca-ssdk` 构建成功 |
+| AX3600 stock DTS | 上游同步时 ART fixed-layout NVMEM 状态不完整 | 恢复 stock ART NVMEM，保留尚需实机确认的 ethernet aliases | DTS 进入锁定差异和 AX6 构建 |
+| Linux 6.18 | 仍为 6.18.35，且直接同步会引入重复/已上游补丁 | 完整升级到 6.18.38，刷新 generic/qualcommax/NSS 栈，删除已内建 MIPS 与重复 flowtable 补丁 | 精确版本/hash 门禁；Linux 云端全构建通过 |
+| 构建溯源 | 只校验已列文件，不能证明清单覆盖全部 Git 差异 | 锁定基线提交，自动集合比对现存、删除和重命名路径 | 169 个现存变化 + 14 个旧路径完全一致；负向测试通过 |
+| absent 清单 | 只记录 9 个纯删除路径，遗漏 5 个重命名旧路径 | 将全部 5 个迁移源路径加入缺席门禁 | 故意删除一项时 verifier 正确失败 |
+| 云端 Lint | OpenClash 提交捕获顺序检查使用 `&& ... ||` | 改为显式 `if` | Actions `29345426186` 全部通过 |
 
-1. `act_nssmirred` 的 release 链表损坏已经修复，但其 create/replace/IDR/NSS/IFB 全事务重构仍是上游级工作。当前 `nss-zk.qos` 只走 create-only 路径；本轮不以未经实机故障注入验证的大改替换它。
-2. 编译通过只能证明补丁应用、ABI/依赖、rootfs 和产物门禁；不能证明无线恢复、长时 ECM、ZeroTier NAT 穿透和多客户端压力下完全无运行态问题。
-3. 原厂双 `0x023c0000` rootfs 槽与 `0x06640000` 合并布局不能共用同一大镜像。STOCK profile 使用 SMEM 读真实布局并在升级前按 MTD 几何拒绝过大镜像；不得绕过该检查或 raw-write。
-4. 不修改实机、不刷写、不发布。最终构建成功后仍需用户确认才进入实机验证。
+## 3. 上游交叉检查结果
 
-## 6. 唯一统一构建的准入与验收
+截至本轮 fetch，主要参照状态为：
 
-构建前必须满足：源码/构建候选工作区干净、候选提交已推送、远端 SHA 与锁一致、所有非构建门禁再次通过。随后只触发一次 AX6 STOCK NSS 构建，并检查：
+| 仓库/分支 | HEAD | 处理结论 |
+|---|---|---|
+| OrdinaryJoys/immortalwrt-nss main | `56807d9661db` | 作为固定基线，修复保持候选分支 |
+| VIKINGYFY/immortalwrt main | `30e28764598d` | 按文件和语义拆解，不整仓合并 |
+| immortalwrt/immortalwrt master | `4cafb73e88b6` | hostapd、基础组件、WiFi scripts、kernel 通用修复参照 |
+| qosmio/openwrt-ipq main-nss | `92a2d104145c` | NSS/ath11k 架构与限制参照；Linux 6.12 栈不直接合入 6.18 |
+| qosmio/openwrt-ipq 25.12-nss | `d6848fa2ea00` | backports 6.18.26 参照 |
+| Qualcomm CodeLinaro qca-ssdk | `d9a19649...` | 锁定所选 QSDK 分支 |
+| Qualcomm CodeLinaro qca-nss-dp | `d8f802f0...` | 锁定所选 QSDK 分支 |
+| Qualcomm CodeLinaro qca-nss-drv | `6aa14c7...` | 锁定所选 QSDK 分支 |
+| Qualcomm CodeLinaro qca-nss-ecm | `8c7355b...` | 锁定所选 QSDK 分支 |
+| Qualcomm CodeLinaro qca-nss-clients | `51be82d...` | 锁定所选 QSDK 分支 |
 
-- 锁定源码和 9 个补丁内容门禁；
-- SSDK、qca-nss-dp、qca-nss-drv/clients、ath11k NSS 编译；
-- 唯一 sysupgrade、recovery、kmod、设备 manifest；
-- manifest 与最终 rootfs opkg 状态完全一致；
-- OpenClash 0.47.116（或构建时 master 的实际版本）、AArch64 Meta core、两个 dashboard 的提交/哈希；
-- NSS/ECM/WiFi/ZRAM/ZeroTier/审计脚本的最终 rootfs 内容；
-- 全部 artifact SHA256 和 BUILD-LOCK/PROVENANCE。
+没有整合 VIKINGYFY 的 NSS cleanup 脚本，因为它会删除当前已验证的 ECM/pbuf 配置所有权并改变 `disable_offloads=1` 策略。没有整合 qca8084/qca81xx PHY 补丁，因为 AX6 使用 qca8075。没有删除 AX6/AX3600 ethernet aliases，因为缺少 stock/custom U-Boot 实机证据。
 
-任何门禁失败都先读取准确日志并回到独立候选分支修复，不盲目重跑、不合并主分支、不发布或刷写。
+## 4. 源码和补丁验证
+
+严格重放采用锁定上游源、`-F0`、零 fuzz、零 reject：
+
+| 补丁栈 | 结果 |
+|---|---:|
+| mac80211/backports 6.18.26 | 278/278 |
+| hostapd | 70/70 |
+| qca-nss-ecm | 15/15 |
+| qca-nss-dp | 5/5 |
+| qca-ssdk | 8/8 |
+| qca-nss-drv | 16/16 |
+| qca-nss-clients | 13/13 |
+| 合计 | 405/405 |
+
+附加检查：
+
+- 源码分支相对基线共有 42 个提交、169 个现存变化路径和 14 个删除/重命名旧路径。
+- `git diff --check`、`git fsck`、冲突标记扫描、ShellCheck、schema/JSON 检查均通过。
+- 本地 macOS 大小写不敏感文件系统无法同时展开 Linux 的 `xt_DSCP.c` 与 `xt_dscp.c`，因此 Linux 全补丁栈的最终结论以 Ubuntu Actions 完整构建为准；这不是源码 reject。
+- 构建工作流直接检查 Linux 6.18.38/hash、hostapd 8 个补丁、ECM VLAN、SSDK MAC sync、WiFi EAP 映射、ath11k recovery 文件及 ucode 执行位。
+
+## 5. 云端验证
+
+### 5.1 Lint `29345426186`
+
+以下检查全部通过：ShellCheck、Actionlint、Yamllint、构建锁、STOCK/EXPAND 差异、NSS 冲突、ZRAM 依赖、ECM offload、Kconfig 一致性、包归属、WiFi 默认值、IRQ 所有权、pbuf 和最终配置合并。
+
+### 5.2 完整构建 `29345081914`
+
+- 开始：2026-07-14 15:23:03 UTC
+- 完成：2026-07-14 17:21:30 UTC
+- `Clone locked source code`：完整差异与语义门禁通过
+- `Compile firmware`：成功，Linux 6.18.38/NSS/SSDK/ECM/ath11k 全部编译
+- `Validate final rootfs contents`：成功
+- sysupgrade、recovery、kmod artifact：全部上传成功
+- Release：按策略跳过，没有发布固件
+
+## 6. Artifact 独立复核
+
+artifact 下载到临时目录后重新校验，不依赖 Actions 步骤结论。
+
+| 产物 | 实际内容/大小 | 独立结果 |
+|---|---:|---|
+| sysupgrade | `52,194,082` B | SHA256 全部通过；唯一镜像 |
+| factory UBI | `54,263,808` B | SHA256 通过 |
+| initramfs ITB | `51,574,684` B | SHA256 通过 |
+| kmod archive | `3,546,063` B | 143 个 ipk 与索引全部通过 |
+| NSS 相关 kmod | 20 个 | drv/dp/ssdk/ecm/clients 等均存在 |
+| device manifest | 12,096 B | sysupgrade/recovery 相同；与 rootfs opkg 完全一致 |
+
+STOCK factory UBI 门禁上限为 `0x06340000`（99.25 MiB），当前 51.75 MiB，保留约 47.50 MiB 余量；这只证明适配仓库定义的 merged-layout STOCK profile，不代表可写入原厂双小 rootfs 槽。
+
+最终 rootfs 关键版本：
+
+| 组件 | 版本 |
+|---|---|
+| Linux | `6.18.38` |
+| ath11k/backports | `6.18.26-r1` |
+| qca-nss-drv | `...6aa14c7-r18` |
+| qca-nss-dp | `...d8f802f0-r1` |
+| qca-nss-ecm | `...8c7355b-r8` |
+| qca-ssdk | `...d9a19649-r1` |
+| OpenClash | `0.47.116` |
+| ZeroTier | `1.16.2-r1` |
+| zram-swap | `32` |
+
+OpenClash 供应链证据：实际插件提交 `1c8e8cb8...`，Meta core 提交 `0657e71e...`，core SHA256 `8a5cd36a...d3765`；独立提取后确认是静态 AArch64 ELF。Metacubexd 与 Zashboard 的提交和归档哈希均写入 BUILD-LOCK。
+
+rootfs 还通过以下边界：
+
+- NSS/SSDK/DP/ECM/ath11k/ZRAM 模块、init 和启动链接存在；
+- `ath11k frame_mode=2`、`nss_offload=1`，没有无效 `rx_hash`；
+- ECM helper、br-lan hotplug、SQM NSS、ZeroTier fw4、OpenClash UI/core、审计脚本存在；
+- sing-box、xray-core、WireGuard、HAProxy、microsocks 和未选 DNS 转发组件不在 manifest/rootfs；
+- 手工 `ax6-irq-affinity` 未自动启用，官方 `set-irq-affinity` 与 `smp_affinity` 启动链保留。
+
+## 7. 配置和运行逻辑结论
+
+- NSS 与 firewall 软件 flow offload 的互斥门禁保持有效，未发现隐藏启用的 `kmod-nf-flow`/shortcut-fe 路径。
+- ECM 继续使用仓库已验证的 `disable_offloads=1` 运行策略；本轮没有用上游 cleanup 覆盖它。
+- 2.4 GHz 保持 US、HE40 与 coexistence，可与 HE20 客户端协商；没有为修复本轮源码问题强制降到 HE20。
+- ECM VLAN 修复的是 routed VLAN-over-bridge 的线侧 tag 判断。qosmio 对 NSS WiFi offload + DSA bridge VLAN filtering 的限制仍然成立，不能把本次构建通过解释为该组合已全面支持。
+- ZeroTier fw4、OpenClash DNS 只读审计、ZRAM 和 IRQ 所有权保持既有已验证设计，本轮没有修改订阅文件、覆写或实机配置。
+
+## 8. 仍未消除的边界
+
+1. 本轮没有实机运行验证。编译不能证明冷/热重启、ath11k firmware recovery、长时 ECM、本机终结流量、VLAN、ZeroTier、OpenClash DNS failover 和 2.4 GHz IoT 在真实环境完全无故障。
+2. `act_nssmirred` create/replace/IDR/NSS/IFB 的全事务重构仍属于上游级工作；当前已修复已知 release 链表损坏，并保留 create-only 使用边界。
+3. 仅完成 AX6 STOCK 统一构建；EXPAND、其他官方配置和非 AX6 target 没有在本次 run 中逐一生成固件。
+4. OpenClash 按用户要求继续跟踪 master，不固定插件版本；可复现性由每次 BUILD-LOCK 记录实际插件/core/dashboard 提交和哈希保证。
+5. 候选尚未合并主分支、未发布。任何实机测试必须再次取得用户确认，并先核对 `/proc/mtd`、SMEM/bootloader 布局和镜像用途。
+
+## 9. 最终判断
+
+在“源码一致性、补丁适配、构建配置、云端编译、rootfs 和 artifact”范围内，本轮发现的确定遗漏已经修复并通过验证，没有剩余已知编译错误、清单遗漏或产物结构错误。
+
+不能据此承诺实机运行态不存在未知问题。下一阶段只能是经用户确认后的受控实机验证，不能自动刷写或直接合并发布。
