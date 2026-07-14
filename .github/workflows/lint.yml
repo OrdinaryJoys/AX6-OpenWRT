@@ -138,7 +138,7 @@ jobs:
           . .github/ax6-nss-lock.env
           set +a
           for name in \
-            SOURCE_REPO SOURCE_TRACKING_BRANCH SOURCE_COMMIT \
+            SOURCE_REPO SOURCE_TRACKING_BRANCH SOURCE_BASE_COMMIT SOURCE_COMMIT \
             SOURCE_PATCHSET_MANIFEST_SHA256 \
             SQM_SCRIPTS_NSS_URL SQM_SCRIPTS_NSS_COMMIT \
             LUCI_FEED_URL LUCI_FEED_COMMIT \
@@ -156,7 +156,7 @@ jobs:
             }
           done
           for name in \
-            SOURCE_COMMIT SQM_SCRIPTS_NSS_COMMIT LUCI_FEED_COMMIT \
+            SOURCE_BASE_COMMIT SOURCE_COMMIT SQM_SCRIPTS_NSS_COMMIT LUCI_FEED_COMMIT \
             PACKAGES_FEED_COMMIT ROUTING_FEED_COMMIT TELEPHONY_FEED_COMMIT \
             VIDEO_FEED_COMMIT ARGON_THEME_COMMIT ARGON_CONFIG_COMMIT; do
             value="${!name}"
@@ -169,7 +169,7 @@ jobs:
             echo "::error::SOURCE_PATCHSET_MANIFEST_SHA256 must be a 64-character lowercase SHA256"
             exit 1
           }
-          [ "$SOURCE_TRACKING_BRANCH" = codex/ax6-core-integration-review ] || {
+          [ "$SOURCE_TRACKING_BRANCH" = codex/ax6-upstream-gap-complete ] || {
             echo "::error::unexpected source tracking branch: $SOURCE_TRACKING_BRANCH"
             exit 1
           }
@@ -180,6 +180,20 @@ jobs:
             exit 1
           }
           workflow=.github/workflows/build-AX6-NSS.yml
+          for source_gate in \
+            'AX6 source must use Linux 6.18.38' \
+            'Linux 6.18.38 archive hash is missing or incorrect' \
+            'missing hostapd 2026-1 security fix' \
+            'missing bridge-port on-wire VLAN decision' \
+            'missing NSS-DP MAC synchronization fix' \
+            'missing outer EAP method mapping' \
+            'wifi ucode helper lost its executable mode' \
+            'missing ath11k recovery guard'; do
+            grep -Fq "$source_gate" "$workflow" || {
+              echo "::error file=$workflow::missing locked-source semantic gate: $source_gate"
+              exit 1
+            }
+          done
           grep -Fq 'CONFIG_ATH11K_NSS_MESH_SUPPORT) += ATH11K_NSS_MESH_SUPPORT' "$workflow"
           grep -Fq 'CONFIG_ATH11K_NSS_SUPPORT) += ATH11K_NSS_SUPPORT' "$workflow"
           grep -Fq 'ATH11K_NSS_SUPPORT must not force ATH11K_NSS_MESH_SUPPORT' "$workflow"

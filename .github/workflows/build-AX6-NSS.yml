@@ -160,7 +160,7 @@ jobs:
           . "$BUILD_LOCK"
           set +a
           for name in \
-            SOURCE_REPO SOURCE_TRACKING_BRANCH SOURCE_COMMIT \
+            SOURCE_REPO SOURCE_TRACKING_BRANCH SOURCE_BASE_COMMIT SOURCE_COMMIT \
             SOURCE_PATCHSET_MANIFEST_SHA256 \
             SQM_SCRIPTS_NSS_URL SQM_SCRIPTS_NSS_COMMIT \
             LUCI_FEED_URL LUCI_FEED_COMMIT \
@@ -179,7 +179,7 @@ jobs:
             echo "$name=$value" >> "$GITHUB_ENV"
           done
           for name in \
-            SOURCE_COMMIT SQM_SCRIPTS_NSS_COMMIT LUCI_FEED_COMMIT \
+            SOURCE_BASE_COMMIT SOURCE_COMMIT SQM_SCRIPTS_NSS_COMMIT LUCI_FEED_COMMIT \
             PACKAGES_FEED_COMMIT ROUTING_FEED_COMMIT TELEPHONY_FEED_COMMIT \
             VIDEO_FEED_COMMIT ARGON_THEME_COMMIT ARGON_CONFIG_COMMIT; do
             value="${!name}"
@@ -200,6 +200,7 @@ jobs:
           git -C openwrt remote add origin "$SOURCE_REPO"
           git -C openwrt fetch --depth 1 origin "$SOURCE_COMMIT"
           git -C openwrt checkout --detach FETCH_HEAD
+          git -C openwrt fetch --depth 1 origin "$SOURCE_BASE_COMMIT"
           actual=$(git -C openwrt rev-parse HEAD)
           [ "$actual" = "$SOURCE_COMMIT" ] || {
             echo "::error::Source lock mismatch: expected $SOURCE_COMMIT, got $actual"
@@ -209,7 +210,74 @@ jobs:
             openwrt \
             "$GITHUB_WORKSPACE/.github/ax6-source-patchset.sha256" \
             "$GITHUB_WORKSPACE/.github/ax6-source-patchset.absent" \
-            "$SOURCE_PATCHSET_MANIFEST_SHA256"
+            "$SOURCE_PATCHSET_MANIFEST_SHA256" \
+            "$SOURCE_BASE_COMMIT"
+          kernel_mk="openwrt/target/linux/generic/kernel-6.18"
+          grep -Fxq 'LINUX_VERSION-6.18 = .38' "$kernel_mk" || {
+            echo "::error file=$kernel_mk::AX6 source must use Linux 6.18.38"
+            exit 1
+          }
+          grep -Fxq 'LINUX_KERNEL_HASH-6.18.38 = ac26e508abd56e9f8b89872b6e10c49fc823bcc70d8068a5d8504c1a7c4ff045' "$kernel_mk" || {
+            echo "::error file=$kernel_mk::Linux 6.18.38 archive hash is missing or incorrect"
+            exit 1
+          }
+          hostapd_dir="openwrt/package/network/services/hostapd"
+          grep -Fxq 'PKG_RELEASE:=2' "$hostapd_dir/Makefile" || {
+            echo "::error file=$hostapd_dir/Makefile::hostapd security patchset release must be 2"
+            exit 1
+          }
+          for security_patch in \
+            001-AP-MLD-Fix-link-ID-validation-in-Basic-MLE-parsing.patch \
+            002-BSS-Add-bounds-check-for-link_id-in-Basic-MLE-parsin.patch \
+            003-MLD-Validate-MLE-Link-ID-fields-in-association-rejec.patch \
+            004-Verify-MLD-link-ID-validity-in-get_basic_mle_link_id.patch \
+            005-MLD-Verify-link-ID-validity-in-MLE-in-reconfiguratio.patch \
+            006-AP-MLD-Verify-AP-MLD-link-ID-validity-before-updatin.patch \
+            007-MLD-Fix-length-check-in-common-info-for-association-.patch \
+            008-BSS-Fix-validation-of-ML-common-info-length-during-s.patch; do
+            [ -s "$hostapd_dir/patches/$security_patch" ] || {
+              echo "::error file=$hostapd_dir/patches/$security_patch::missing hostapd 2026-1 security fix"
+              exit 1
+            }
+          done
+          ecm_mk="openwrt/package/qca-nss/qca-nss-ecm/Makefile"
+          ecm_vlan_patch="openwrt/package/qca-nss/qca-nss-ecm/patches/026-frontends-nss-respect-bridge-port-vlan-tagging-for-vlan-over-bridge.patch"
+          grep -Fxq 'PKG_RELEASE:=8' "$ecm_mk" || {
+            echo "::error file=$ecm_mk::ECM VLAN fix release must be 8"
+            exit 1
+          }
+          grep -Fq 'ecm_interface_bridge_vlan_wire_tagged' "$ecm_vlan_patch" || {
+            echo "::error file=$ecm_vlan_patch::missing bridge-port on-wire VLAN decision"
+            exit 1
+          }
+          ssdk_patch="openwrt/package/qca-nss/qca-ssdk/patches/009-feature-nss-dp-netdev-mac-sync.patch"
+          grep -Fq 'ssdk_netdev_refresh_mac_sw_sync' "$ssdk_patch" || {
+            echo "::error file=$ssdk_patch::missing NSS-DP MAC synchronization fix"
+            exit 1
+          }
+          wifi_supplicant="openwrt/package/network/config/wifi-scripts/files-ucode/usr/share/ucode/wifi/supplicant.uc"
+          grep -Fq "const eap_method_map = { fast: 'FAST', peap: 'PEAP', ttls: 'TTLS', tls: 'TLS' };" "$wifi_supplicant" || {
+            echo "::error file=$wifi_supplicant::missing outer EAP method mapping"
+            exit 1
+          }
+          [ -x "$wifi_supplicant" ] || {
+            echo "::error file=$wifi_supplicant::wifi ucode helper lost its executable mode"
+            exit 1
+          }
+          ath11k_recovery_dir="openwrt/package/kernel/mac80211/patches/nss/ath11k"
+          for recovery_patch in \
+            911-wifi-ath11k-complete-pending-tx-frames-on-mac-stop.patch \
+            912-wifi-ath11k-do-not-warn-about-htt-event-48.patch \
+            999-926-ath11k-skip-mon-status-reap-until-ring-initialized.patch \
+            999-929-ath11k-ce-send-srng-guard.patch \
+            999-930-ath11k-drop-data-tx-during-crash-recovery.patch \
+            999-931-ath11k-guard-ce-send-reap-against-cleared-srng.patch \
+            999-932-ath11k-quiesce-irqs-before-recovery-ring-reset.patch; do
+            [ -s "$ath11k_recovery_dir/$recovery_patch" ] || {
+              echo "::error file=$ath11k_recovery_dir/$recovery_patch::missing ath11k recovery guard"
+              exit 1
+            }
+          done
           ath_mk="openwrt/package/kernel/mac80211/ath.mk"
           for dependency in \
             '+ATH11K_NSS_SUPPORT:kmod-qca-nss-drv' \
@@ -666,6 +734,7 @@ jobs:
             echo "BUILD_RUN_ID=$GITHUB_RUN_ID"
             echo "SOURCE_REPO=$SOURCE_REPO"
             echo "SOURCE_TRACKING_BRANCH=$SOURCE_TRACKING_BRANCH"
+            echo "SOURCE_BASE_COMMIT=$SOURCE_BASE_COMMIT"
             echo "SOURCE_COMMIT=$SOURCE_COMMIT"
             echo "SOURCE_PATCHSET_MANIFEST_SHA256=$SOURCE_PATCHSET_MANIFEST_SHA256"
             echo "SQM_SCRIPTS_NSS_URL=$SQM_SCRIPTS_NSS_URL"
