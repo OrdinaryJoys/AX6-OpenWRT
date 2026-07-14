@@ -52,19 +52,19 @@ Layer 4 (monitoring):   nss-check cron (每 30 分钟)                 ← 已�
 
 **问题:** 每次重启后 ZeroTier 端口规则丢失, 外部无法连接。
 
-**根因:** 旧方案追踪 ZeroTier 的所有 ephemeral 端口 (primary + secondary + tertiary),
-但 secondary/tertiary 端口用于 STUN/ICE NAT 穿透, 每次重启随机变化,
-且 ZeroTier 官方明确只需开放 primary port (9993)。
+**后续复核:** 锁定的 ImmortalWrt ZeroTier 包会跟踪 daemon 报告的
+`primaryPort` 与 `secondaryPort`，不跟踪 tertiary/listeningOn。仓库可靠性增强必须
+保持这一上游端口集合，不能简化为 primary-only。
 
 **修复 (`db2f339`):**
-- zerotier-fw4: 仅追踪 primary port (9993), 删除 ephemeral port 追踪
+- zerotier-fw4: 跟踪 primary + secondary，删除 tertiary/listeningOn 推断
 - 增加 cli-ready guard (60s 等待 zerotier-cli 响应)
 - drop_stale + append_once 防重复规则
-- ax6-config-audit: 同步简化 ZT 部分 (primaryPort only)
+- ax6-config-audit: 核对运行时 primary + secondary 与 nft include 一致
 - 删除无效的 hotplug 脚本 (99-zerotier-fw4)
 
 **验证:**
-- ZT input: primary port 9993 + ztiv5j73wk accept
+- ZT input: daemon 报告的 primary/secondary 端口 + zt 接口 accept
 - ZT forward: bidirectional rules, **33,161 pkts** 活跃转发
 - ZT ONLINE, 7-8 peers, ARP 可见远程 peer (172.29.144.138)
 
