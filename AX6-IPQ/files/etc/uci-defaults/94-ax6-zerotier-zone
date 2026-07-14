@@ -1,81 +1,35 @@
 #!/bin/sh
-# AX6: ZeroTier 防火墙 zone 自动创建
-# zerotier-fw4 负责动态 nftables 规则, 本脚本负责 zone、转发骨架和 fw4 include 注册
-# 仅在 ZeroTier 已安装且 zone 不存在时创建 (幂等)
+# Keep the upstream ZeroTier fw4 include contract intact. Interface access,
+# forwarding and masquerading remain controlled by each ZeroTier network's
+# fw_allow_* options and the package hotplug handler.
 
 [ -x /usr/bin/zerotier-cli ] || exit 0
 
-ZT_NETWORK_ID=""
-for section in $(uci -q show zerotier 2>/dev/null | awk -F'[.=]' '/=network$/{print $2}'); do
-    nid=$(uci -q get "zerotier.${section}.id")
-    [ -n "$nid" ] && ZT_NETWORK_ID="$nid" && break
-done
-[ -n "$ZT_NETWORK_ID" ] || exit 0
+FW_PATH="/var/run/zerotier-one/_fw4"
 
-# 检查是否已有 Zerotier zone (sysupgrade 保留配置时跳过)
-if uci -q show firewall 2>/dev/null | grep -q "name='Zerotier'"; then
-    # zone 已存在，但仍然确保 nftables include 注册（可能在 sysupgrade 后丢失）
-    ZT_NEED_COMMIT=0
+uci -q batch <<-EOF >/dev/null
+	delete firewall.zerotier_input
+	set firewall.zerotier_input='include'
+	set firewall.zerotier_input.type='nftables'
+	set firewall.zerotier_input.path='$FW_PATH/input.nft'
+	set firewall.zerotier_input.position='chain-pre'
+	set firewall.zerotier_input.chain='input'
 
-    # 注册 input include（zerotier-fw4 -s 依赖此项）
-    if ! uci -q get firewall.zerotier_input >/dev/null 2>&1; then
-        uci -q set firewall.zerotier_input=include
-        uci -q set firewall.zerotier_input.type='nftables'
-        uci -q set firewall.zerotier_input.path='/var/run/zerotier-one/_fw4/input.nft'
-        uci -q set firewall.zerotier_input.position='chain-pre'
-        uci -q set firewall.zerotier_input.chain='input'
-        ZT_NEED_COMMIT=1
-    fi
+	delete firewall.zerotier_srcnat
+	set firewall.zerotier_srcnat='include'
+	set firewall.zerotier_srcnat.type='nftables'
+	set firewall.zerotier_srcnat.path='$FW_PATH/srcnat.nft'
+	set firewall.zerotier_srcnat.position='chain-pre'
+	set firewall.zerotier_srcnat.chain='srcnat'
 
-    # 注册 forward include（zerotier-fw4 -i 依赖此项）
-    if ! uci -q get firewall.zerotier_forward >/dev/null 2>&1; then
-        uci -q set firewall.zerotier_forward=include
-        uci -q set firewall.zerotier_forward.type='nftables'
-        uci -q set firewall.zerotier_forward.path='/var/run/zerotier-one/_fw4/forward.nft'
-        uci -q set firewall.zerotier_forward.position='chain-pre'
-        uci -q set firewall.zerotier_forward.chain='forward'
-        ZT_NEED_COMMIT=1
-    fi
+	delete firewall.zerotier_forward
+	set firewall.zerotier_forward='include'
+	set firewall.zerotier_forward.type='nftables'
+	set firewall.zerotier_forward.path='$FW_PATH/forward.nft'
+	set firewall.zerotier_forward.position='chain-pre'
+	set firewall.zerotier_forward.chain='forward'
 
-    [ "$ZT_NEED_COMMIT" = "1" ] && uci commit firewall
-    exit 0
-fi
-
-# 创建 Zerotier zone
-uci -q add firewall zone
-uci -q set firewall.@zone[-1].name='Zerotier'
-uci -q set firewall.@zone[-1].input='ACCEPT'
-uci -q set firewall.@zone[-1].output='ACCEPT'
-uci -q set firewall.@zone[-1].forward='REJECT'
-uci -q set firewall.@zone[-1].masq='1'
-uci -q set firewall.@zone[-1].network='Zerotier'
-
-# Zerotier ↔ LAN 双向转发
-uci -q add firewall forwarding
-uci -q set firewall.@forwarding[-1].src='Zerotier'
-uci -q set firewall.@forwarding[-1].dest='lan'
-
-uci -q add firewall forwarding
-uci -q set firewall.@forwarding[-1].src='lan'
-uci -q set firewall.@forwarding[-1].dest='Zerotier'
-
-# 注册 nftables includes（zerotier-fw4 生成规则, fw4 负责加载）
-# input include: zerotier-fw4 -s 写入端口规则
-uci -q set firewall.zerotier_input=include
-uci -q set firewall.zerotier_input.type='nftables'
-uci -q set firewall.zerotier_input.path='/var/run/zerotier-one/_fw4/input.nft'
-uci -q set firewall.zerotier_input.position='chain-pre'
-uci -q set firewall.zerotier_input.chain='input'
-
-# forward include: zerotier-fw4 -i 写入接口 accept 规则
-uci -q set firewall.zerotier_forward=include
-uci -q set firewall.zerotier_forward.type='nftables'
-uci -q set firewall.zerotier_forward.path='/var/run/zerotier-one/_fw4/forward.nft'
-uci -q set firewall.zerotier_forward.position='chain-pre'
-uci -q set firewall.zerotier_forward.chain='forward'
-
-uci commit firewall
-
-logger -t ax6-zerotier-zone "Created Zerotier firewall zone (network: $ZT_NETWORK_ID)"
+	commit firewall
+EOF
 
 exit 0

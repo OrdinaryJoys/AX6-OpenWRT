@@ -47,9 +47,9 @@ for radio in $RADIOS; do
             if [ -z "$cur_chan" ] || [ "$cur_chan" = "auto" ]; then
                 uci -q set "wireless.${radio}.channel=36"
             fi
-            # Fixed 5G channel — disable ACS so the configured channel is used.
-            _n=1
-            uci -q set "wireless.${radio}.noscan=$_n"
+            # A fixed channel already bypasses ACS. Keep overlap scanning at
+            # the wifi-scripts default instead of forcing hostapd noscan.
+            uci -q delete "wireless.${radio}.noscan"
             ;;
         2g)
             uci -q set "wireless.${radio}.htmode=HE40"

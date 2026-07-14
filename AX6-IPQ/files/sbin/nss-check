@@ -60,9 +60,11 @@ fi
 # ---- 1. RAM ----
 mem_kb=$(awk '/MemTotal/{print $2}' /proc/meminfo 2>/dev/null)
 if [ -n "$mem_kb" ] && [ "$mem_kb" -gt 800000 ] 2>/dev/null; then
-    ok "RAM detected: ${mem_kb} kB ≥ 800MB (1GB SKU)"
+    ok "RAM detected: ${mem_kb} kB (1GB SKU)"
+elif [ -n "$mem_kb" ] && [ "$mem_kb" -gt 400000 ] 2>/dev/null; then
+    ok "RAM detected: ${mem_kb} kB (512MB stock SKU)"
 else
-    fail "RAM only ${mem_kb:-?} kB < 800MB — 不是 1GB 高配 SKU,nss-extra.config 配置可能不匹配"
+    fail "RAM only ${mem_kb:-?} kB; expected a 512MB or 1GB AX6 SKU"
 fi
 
 # ---- 2. NAND 布局 ----
@@ -84,12 +86,18 @@ case "${rootfs_size}:${rootfs1_size}:${overlay_size}" in
         ;;
 esac
 
-# ---- 3. NSS 模块加载 ----
-nss_count=$(lsmod | grep -c '^qca_nss')
-if [ "$nss_count" -ge 10 ]; then
-    ok "NSS 模块 loaded: $nss_count"
+# ---- 3. NSS 核心模块加载 ----
+# 可选的隧道/协议模块数量会随配置变化，不能用 qca_nss* 总数判断核心状态。
+nss_core_missing=""
+for nss_core_module in qca_nss_drv qca_nss_dp qca_ssdk ecm; do
+    if ! lsmod | awk -v module="$nss_core_module" '$1 == module { found=1 } END { exit !found }'; then
+        nss_core_missing="${nss_core_missing}${nss_core_missing:+,}${nss_core_module}"
+    fi
+done
+if [ -z "$nss_core_missing" ]; then
+    ok "NSS core modules loaded: qca_nss_drv,qca_nss_dp,qca_ssdk,ecm"
 else
-    fail "NSS 模块只 loaded $nss_count(应 ≥10)"
+    fail "Missing NSS core modules: $nss_core_missing"
 fi
 
 # ---- 4. NSS Core 启动 ----
@@ -127,7 +135,7 @@ else
 fi
 
 # ---- 8. ath11k fw memory mode ----
-# AX6 (1GB RAM) 使用 MID 模式 (mode=1):
+# AX6 512MB/1GB SKU 均使用 MID 模式 (mode=1):
 #   FULL (mode=0) 需要 ~100MB DMA 连续内存,CMA 不足时固件加载失败 → 内核 panic
 #   MID (mode=1) ~32MB 内存占用,稳定且性能足够家用 4×4 MU-MIMO 场景
 # (dmesg 格式 "FW memory mode: N")
@@ -216,8 +224,11 @@ fi
 no_path="/sys/module/ath11k/parameters/nss_offload"
 if [ -r "$no_path" ]; then
     no_val=$(cat "$no_path")
-    [ "$no_val" = "1" ] && ok "ath11k nss_offload=1 (NSS WiFi offload enabled)" \
-        || fail "ath11k nss_offload=$no_val; expected 1 for NSS offload"
+    if [ "$no_val" = "1" ]; then
+        ok "ath11k nss_offload=1 (NSS WiFi offload enabled)"
+    else
+        fail "ath11k nss_offload=$no_val; expected 1 for NSS offload"
+    fi
 else
     lsmod | grep -q ath11k && fail "ath11k loaded but nss_offload parameter absent"
 fi
@@ -226,8 +237,11 @@ fi
 cm_path="/sys/module/ath11k/parameters/crypto_mode"
 if [ -r "$cm_path" ]; then
     cm_val=$(cat "$cm_path")
-    [ "$cm_val" = "0" ] && ok "ath11k crypto_mode=0 (hardware crypto)" \
-        || fail "ath11k crypto_mode=$cm_val; expected 0 for hardware crypto path"
+    if [ "$cm_val" = "0" ]; then
+        ok "ath11k crypto_mode=0 (hardware crypto)"
+    else
+        fail "ath11k crypto_mode=$cm_val; expected 0 for hardware crypto path"
+    fi
 else
     lsmod | grep -q ath11k && fail "ath11k loaded but crypto_mode parameter absent"
 fi
@@ -274,10 +288,16 @@ fi
 ecm_disable_offloads=$(uci -q get ecm.general.disable_offloads)
 ecm_disable_gro_list=$(uci -q get ecm.general.disable_gro_list)
 ecm_disable_flow_control=$(uci -q get ecm.general.disable_flow_control)
-[ "$ecm_disable_offloads" = "1" ] && ok "ECM disable_offloads=1" \
-    || fail "ECM disable_offloads=${ecm_disable_offloads:-unset}; expected 1"
-[ "$ecm_disable_gro_list" = "1" ] && ok "ECM disable_gro_list=1" \
-    || fail "ECM disable_gro_list=${ecm_disable_gro_list:-unset}; expected 1"
+if [ "$ecm_disable_offloads" = "1" ]; then
+    ok "ECM disable_offloads=1"
+else
+    fail "ECM disable_offloads=${ecm_disable_offloads:-unset}; expected 1"
+fi
+if [ "$ecm_disable_gro_list" = "1" ]; then
+    ok "ECM disable_gro_list=1"
+else
+    fail "ECM disable_gro_list=${ecm_disable_gro_list:-unset}; expected 1"
+fi
 case "$ecm_disable_flow_control" in
     "" | 0)
         ok "ECM disable_flow_control=${ecm_disable_flow_control:-unset} (no forced PAUSE/autoneg change)"
@@ -287,14 +307,10 @@ case "$ecm_disable_flow_control" in
         ;;
 esac
 
-# br-lan = host-terminated traffic ingress -> offloads MUST be off: the bridge's
-# checksum-offload advertisement corrupts router-locally-terminated traffic on
-# IPQ807x (EDMA v1 has no HW checksum). wan/lan1-3 = physical ports -> report-only
-# (WARN): netifd re-enables their offloads and that is the expected, harmless
-# steady state (forwarded traffic is handled by NSS/PPE hardware; disabling them
-# would only slow the Linux-path fallback). Confirmed by QSDK source + community +
-# on-device WAN test (TLS 25/25, 20MB x2 intact, DNS ok).
-# See Review/NSS_OFFLOAD_OFFICIAL_REFERENCES.md
+# br-lan = host-terminated traffic ingress, so the configured ECM helper must
+# leave its software-facing offloads disabled. Physical-port state is reported
+# as WARN only: it can vary with driver/netifd timing and needs packet-integrity
+# evidence before being classified as a fault.
 # severity arg: $2 = "fail" (default) or "warn"
 check_offload_disabled() {
     _dev="$1"
@@ -321,7 +337,7 @@ check_offload_disabled() {
     rm -f /tmp/nss-check-ethtool.$$
     if [ -n "$_bad" ]; then
         if [ "$_sev" = "warn" ]; then
-            warn "$_dev offloads on: $_bad (physical port — expected; only br-lan must be off)"
+            warn "$_dev offloads on: $_bad (physical port; report-only, correlate with packet-integrity tests)"
         else
             fail "$_dev offloads still enabled: $_bad"
         fi

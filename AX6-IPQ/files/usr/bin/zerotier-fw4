@@ -1,7 +1,11 @@
 #!/bin/sh
 
-FW_PATH="/var/run/zerotier-one/_fw4"
+FW_PATH="${FW_PATH:-/var/run/zerotier-one/_fw4}"
 [ -d "$FW_PATH" ] || mkdir -p "$FW_PATH"
+
+nft_iface_set() {
+	printf '%s\n' "$1" | awk '{$1=$1; gsub(/ /, ", "); print}'
+}
 
 append_input_rule_once() {
 	file="$1"
@@ -40,13 +44,14 @@ while getopts "i:s" arg; do
 		if [ "$(uci -q get zerotier."$network_cfg".fw_allow_forward)" = "1" ]; then
 			grep -q "$iface" "$FW_PATH/forward.nft" 2>"/dev/null" && continue
 			fwd_ifaces="$(uci -q get zerotier."$network_cfg".fw_forward_ifaces)"
+			fwd_iface_set="$(nft_iface_set "$fwd_ifaces")"
 			rule="iifname $iface counter accept comment \"!fw4: Accept ZeroTier input forward $iface\""
-			[ -n "$fwd_ifaces" ] && rule="oifname { ${fwd_ifaces// /, } } $rule"
+			[ -n "$fwd_iface_set" ] && rule="oifname { $fwd_iface_set } $rule"
 			echo "$rule" >> "$FW_PATH/forward.nft"
 			nft insert rule inet fw4 forward "$rule"
 
 			rule="oifname $iface counter accept comment \"!fw4: Accept ZeroTier output forward $iface\""
-			[ -n "$fwd_ifaces" ] && rule="iifname { ${fwd_ifaces// /, } } $rule"
+			[ -n "$fwd_iface_set" ] && rule="iifname { $fwd_iface_set } $rule"
 			echo "$rule" >> "$FW_PATH/forward.nft"
 			nft insert rule inet fw4 forward "$rule"
 		fi
@@ -54,8 +59,9 @@ while getopts "i:s" arg; do
 		if [ "$(uci -q get zerotier."$network_cfg".fw_allow_masq)" = "1" ]; then
 			grep -q "$iface" "$FW_PATH/srcnat.nft" 2>"/dev/null" && continue
 			masq_ifaces="$(uci -q get zerotier."$network_cfg".fw_masq_ifaces)"
+			masq_iface_set="$(nft_iface_set "$masq_ifaces")"
 			rule="oifname $iface counter masquerade comment \"!fw4: Masquerade ZeroTier traffic $iface\""
-			[ -n "$masq_ifaces" ] && rule="iifname { ${masq_ifaces// /, } } $rule"
+			[ -n "$masq_iface_set" ] && rule="iifname { $masq_iface_set } $rule"
 			echo "$rule" >> "$FW_PATH/srcnat.nft"
 			nft insert rule inet fw4 srcnat "$rule"
 		fi
@@ -77,23 +83,23 @@ while getopts "i:s" arg; do
 			continue
 		fi
 
-		# Per ZeroTier official documentation, only the primary port
-		# (default 9993, UDP + TCP) must be open in the firewall.
-		# @.config.settings.tertiaryPort (and other ports listed in @.config.settings.listeningOn[*]) are for STUN/ICE NAT
-		# traversal and do NOT need inbound rules. Tracking ephemeral
-		# ports is inherently unreliable across reboots.
-		primary_port="$(zerotier-cli -j info 2>/dev/null | jsonfilter -qe "@.config.settings.primaryPort" 2>/dev/null)"
-		[ -n "$primary_port" ] || primary_port=9993
-
 		drop_stale_port_rules "$FW_PATH/input.nft"
-		rule="meta l4proto { udp, tcp } th dport $primary_port counter accept comment \"!fw4: Accept ZeroTier input $primary_port (primaryPort)\""
-		append_input_rule_once "$FW_PATH/input.nft" "$rule"
+		zerotier_info="$(zerotier-cli -j info 2>/dev/null | jsonfilter -qe '@.config.settings' 2>/dev/null)"
+		[ -n "$zerotier_info" ] || continue
+		for port_name in primaryPort secondaryPort; do
+			port="$(printf '%s\n' "$zerotier_info" | jsonfilter -qe "@.${port_name}" 2>/dev/null)"
+			[ -n "$port" ] || continue
+			protocols="udp"
+			[ "$port_name" = "primaryPort" ] && protocols="udp, tcp"
+			rule="meta l4proto { $protocols } th dport $port counter accept comment \"!fw4: Accept ZeroTier input $port ($port_name)\""
+			append_input_rule_once "$FW_PATH/input.nft" "$rule"
+		done
 		fw4 reload >/dev/null 2>&1 || true
 		;;
 	*)
 		echo "Usage: $0 -i <interface> | -s"
 		echo "  -i <interface> : Generate rules for the specified interface"
-		echo "  -s             : Generate rules for the zerotier service primary port"
+		echo "  -s             : Generate service-port rules"
 		exit 1
 		;;
 	esac
