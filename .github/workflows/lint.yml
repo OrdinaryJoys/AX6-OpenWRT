@@ -206,10 +206,10 @@ jobs:
           # shellcheck disable=SC2016 # Match the literal command substitution in diy.sh.
           capture_line=$(grep -nF 'OPENCLASH_ACTUAL_COMMIT=$(git -C package/luci-app-openclash-source rev-parse HEAD)' AX6-IPQ/diy.sh | cut -d: -f1)
           move_line=$(grep -nF 'mv package/luci-app-openclash-source/luci-app-openclash package/luci-app-openclash' AX6-IPQ/diy.sh | cut -d: -f1)
-          [ -n "$capture_line" ] && [ -n "$move_line" ] && [ "$capture_line" -lt "$move_line" ] || {
+          if [ -z "$capture_line" ] || [ -z "$move_line" ] || [ "$capture_line" -ge "$move_line" ]; then
             echo "::error::OpenClash commit must be captured before its source repository is removed"
             exit 1
-          }
+          fi
           grep -Fq '} > .openclash-build.env' AX6-IPQ/diy.sh
           # shellcheck disable=SC2016 # Match literal target_dir workflow code.
           for workflow in \
