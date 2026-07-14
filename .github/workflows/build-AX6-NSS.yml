@@ -10,7 +10,7 @@ on:
         type: choice
         default: 'stock'
         options:
-          - stock     # 1GB RAM + 128MB NAND — custom U-Boot/SMEM merged rootfs=0x06640000
+          - stock     # 512MB/1GB RAM + SMEM layout; primary target is merged rootfs=0x06640000
           - expand    # 1GB RAM + 256MB NAND (HW-modded only) — DANGER if NAND <256MB
       ssh:
         description: 'SSH debug connection'
@@ -68,7 +68,7 @@ jobs:
           case "$VARIANT_INPUT" in
             stock)
               CFG="AX6-IPQ/.config-stock"; TAG="STOCK"
-              echo "::notice::Building STOCK profile for the 0x06640000 SMEM/custom U-Boot merged layout"
+              echo "::notice::Building STOCK profile (512MB/1GB RAM; validated target: 0x06640000 SMEM/custom U-Boot merged layout; dual-slot devices retain runtime size rejection)"
               ;;
             expand)
               CFG="AX6-IPQ/.config-expand"; TAG="EXPAND"
