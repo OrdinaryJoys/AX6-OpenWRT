@@ -36,6 +36,17 @@ clone_tracking() {
   git -C "$destination" checkout -q --detach FETCH_HEAD
 }
 
+resolve_branch_commit() {
+  repo="$1"
+  branch="$2"
+  commit=$(git ls-remote "$repo" "refs/heads/$branch" | awk 'NR == 1 { print $1 }')
+  printf '%s\n' "$commit" | grep -Eq '^[0-9a-f]{40}$' || {
+    echo "[diy.sh] Unable to resolve $repo branch $branch" >&2
+    return 1
+  }
+  printf '%s\n' "$commit"
+}
+
 clone_locked "$ARGON_THEME_URL" "$ARGON_THEME_COMMIT" package/luci-theme-argon
 clone_locked "$ARGON_CONFIG_URL" "$ARGON_CONFIG_COMMIT" package/luci-app-argon-config
 
@@ -43,7 +54,8 @@ clone_locked "$ARGON_CONFIG_URL" "$ARGON_CONFIG_COMMIT" package/luci-app-argon-c
 sed -i 's/font-size: 1.8rem/font-size: 1.7rem/' package/luci-theme-argon/htdocs/luci-static/argon/css/cascade.css 2>/dev/null || true
 
 # OpenClash: 预置 Meta 核心到固件, 避免首次启动时的网络下载 (aarch64, ~10MB)
-CORE_URL="https://raw.githubusercontent.com/vernesong/OpenClash/core/master/meta/clash-linux-arm64.tar.gz"
+OPENCLASH_CORE_COMMIT=$(resolve_branch_commit "$OPENCLASH_URL" core)
+CORE_URL="https://raw.githubusercontent.com/vernesong/OpenClash/${OPENCLASH_CORE_COMMIT}/master/meta/clash-linux-arm64.tar.gz"
 CORE_DEST="files/etc/openclash/core"
 mkdir -p "$CORE_DEST"
 echo "[diy.sh] Downloading OpenClash Meta core..."
@@ -62,26 +74,59 @@ readelf -h "$CORE_DEST/clash_meta" | grep -Eq '^  Machine:[[:space:]]+AArch64$' 
 echo "[diy.sh] OpenClash Meta AArch64 core installed"
 rm -f /tmp/clash_core.tar.gz
 
-# OpenClash: 预置最新 Metacubexd + Zashboard 到固件
+# OpenClash: resolve each dashboard branch once, then download by immutable
+# commit so the final rootfs can be traced and reproduced.
 DASH_DIR="files/usr/share/openclash/ui"
+METACUBEXD_REPO="https://github.com/MetaCubeX/metacubexd.git"
+METACUBEXD_REF="gh-pages"
+ZASHBOARD_REPO="https://github.com/Zephyruso/zashboard.git"
+ZASHBOARD_REF="gh-pages-cdn-fonts"
 mkdir -p "$DASH_DIR"
 for dash in \
-  "metacubexd:https://codeload.github.com/MetaCubeX/metacubexd/zip/refs/heads/gh-pages:metacubexd-gh-pages" \
-  "zashboard:https://codeload.github.com/Zephyruso/zashboard/zip/refs/heads/gh-pages-cdn-fonts:zashboard-gh-pages-cdn-fonts"; do
+  "metacubexd:${METACUBEXD_REPO}:${METACUBEXD_REF}" \
+  "zashboard:${ZASHBOARD_REPO}:${ZASHBOARD_REF}"; do
 	name="${dash%%:*}"
 	rest="${dash#*:}"
-	url="${rest%:*}"
-	dir="${rest##*:}"
-	echo "[diy.sh] Downloading $name dashboard..."
-	if curl -sL --retry 2 --retry-delay 10 -o "/tmp/${name}.zip" "$url"; then
-		rm -rf "$DASH_DIR/${name}" "$DASH_DIR/${name}_backup"
-		unzip -qo "/tmp/${name}.zip" -d "/tmp/${name}_extract/"
-		mv "/tmp/${name}_extract/${dir}" "$DASH_DIR/${name}"
-		rm -rf "/tmp/${name}_extract" "/tmp/${name}.zip"
-		echo "[diy.sh] $name dashboard installed"
-	else
-		echo "[diy.sh] WARNING: $name dashboard download failed; keeping plugin default"
+	repo="${rest%:*}"
+	branch="${rest##*:}"
+	commit=$(resolve_branch_commit "$repo" "$branch")
+	owner_repo="${repo#https://github.com/}"
+	owner_repo="${owner_repo%.git}"
+	url="https://codeload.github.com/${owner_repo}/zip/${commit}"
+	archive="/tmp/${name}.zip"
+	extract_dir="/tmp/${name}_extract"
+	echo "[diy.sh] Downloading $name dashboard at $commit..."
+	curl -fsSL --retry 3 --retry-delay 10 -o "$archive" "$url"
+	if unzip -Z1 "$archive" | grep -Eq '(^/|(^|/)\.\.(/|$))'; then
+		echo "[diy.sh] Unsafe path in $name dashboard archive" >&2
+		exit 2
 	fi
+	rm -rf "$extract_dir" "${DASH_DIR:?}/${name}" "${DASH_DIR:?}/${name}_backup"
+	mkdir -p "$extract_dir"
+	unzip -qo "$archive" -d "$extract_dir"
+	set -- "$extract_dir"/*
+	[ "$#" -eq 1 ] && [ -d "$1" ] || {
+		echo "[diy.sh] $name dashboard archive has an unexpected layout" >&2
+		exit 2
+	}
+	mv "$1" "$DASH_DIR/${name}"
+	[ -f "$DASH_DIR/${name}/index.html" ] || {
+		echo "[diy.sh] $name dashboard index.html is missing" >&2
+		exit 2
+	}
+	archive_sha=$(sha256sum "$archive" | awk '{print $1}')
+	case "$name" in
+		metacubexd)
+			METACUBEXD_COMMIT="$commit"
+			METACUBEXD_ARCHIVE_SHA256="$archive_sha"
+			;;
+		zashboard)
+			ZASHBOARD_COMMIT="$commit"
+			ZASHBOARD_ARCHIVE_SHA256="$archive_sha"
+			;;
+	esac
+	rm -rf "$extract_dir" "$archive"
+	echo "[diy.sh] $name dashboard installed"
 done
 
 # The locked LuCI feed may lag OpenClash. Track the official upstream package
@@ -105,8 +150,17 @@ printf '%s\n' "$OPENCLASH_ACTUAL_COMMIT" | grep -Eq '^[0-9a-f]{40}$' || {
 {
   echo "OPENCLASH_ACTUAL_VERSION=$OPENCLASH_ACTUAL_VERSION"
   echo "OPENCLASH_ACTUAL_COMMIT=$OPENCLASH_ACTUAL_COMMIT"
+  echo "OPENCLASH_CORE_COMMIT=$OPENCLASH_CORE_COMMIT"
   echo "OPENCLASH_CORE_URL=$CORE_URL"
   echo "OPENCLASH_CORE_SHA256=$(sha256sum "$CORE_DEST/clash_meta" | awk '{print $1}')"
+  echo "METACUBEXD_REPO=$METACUBEXD_REPO"
+  echo "METACUBEXD_REF=$METACUBEXD_REF"
+  echo "METACUBEXD_COMMIT=$METACUBEXD_COMMIT"
+  echo "METACUBEXD_ARCHIVE_SHA256=$METACUBEXD_ARCHIVE_SHA256"
+  echo "ZASHBOARD_REPO=$ZASHBOARD_REPO"
+  echo "ZASHBOARD_REF=$ZASHBOARD_REF"
+  echo "ZASHBOARD_COMMIT=$ZASHBOARD_COMMIT"
+  echo "ZASHBOARD_ARCHIVE_SHA256=$ZASHBOARD_ARCHIVE_SHA256"
 } > .openclash-build.env
 echo "[diy.sh] OpenClash ${OPENCLASH_ACTUAL_VERSION} from ${OPENCLASH_ACTUAL_COMMIT}"
 

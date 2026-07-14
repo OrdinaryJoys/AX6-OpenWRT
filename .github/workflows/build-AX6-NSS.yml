@@ -161,6 +161,7 @@ jobs:
           set +a
           for name in \
             SOURCE_REPO SOURCE_TRACKING_BRANCH SOURCE_COMMIT \
+            SOURCE_PATCHSET_MANIFEST_SHA256 \
             SQM_SCRIPTS_NSS_URL SQM_SCRIPTS_NSS_COMMIT \
             LUCI_FEED_URL LUCI_FEED_COMMIT \
             PACKAGES_FEED_URL PACKAGES_FEED_COMMIT \
@@ -187,6 +188,10 @@ jobs:
               exit 1
             fi
           done
+          if ! [[ "$SOURCE_PATCHSET_MANIFEST_SHA256" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "::error::SOURCE_PATCHSET_MANIFEST_SHA256 must be a 64-character lowercase SHA256"
+            exit 1
+          fi
 
       - name: Clone locked source code
         run: |
@@ -200,6 +205,11 @@ jobs:
             echo "::error::Source lock mismatch: expected $SOURCE_COMMIT, got $actual"
             exit 1
           }
+          .github/scripts/verify-ax6-source-patchset.sh \
+            openwrt \
+            "$GITHUB_WORKSPACE/.github/ax6-source-patchset.sha256" \
+            "$GITHUB_WORKSPACE/.github/ax6-source-patchset.absent" \
+            "$SOURCE_PATCHSET_MANIFEST_SHA256"
           ath_mk="openwrt/package/kernel/mac80211/ath.mk"
           for dependency in \
             '+ATH11K_NSS_SUPPORT:kmod-qca-nss-drv' \
@@ -293,11 +303,32 @@ jobs:
           . "$metadata"
           set +a
           printf '%s\n' "$OPENCLASH_ACTUAL_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'
-          printf '%s\n' "$OPENCLASH_ACTUAL_COMMIT" | grep -Eq '^[0-9a-f]{40}$'
-          printf '%s\n' "$OPENCLASH_CORE_SHA256" | grep -Eq '^[0-9a-f]{64}$'
+          for name in \
+            OPENCLASH_ACTUAL_COMMIT OPENCLASH_CORE_COMMIT \
+            METACUBEXD_COMMIT ZASHBOARD_COMMIT; do
+            printf '%s\n' "${!name}" | grep -Eq '^[0-9a-f]{40}$' || {
+              echo "::error::$name is not a full commit SHA"
+              exit 1
+            }
+          done
+          for name in \
+            OPENCLASH_CORE_SHA256 METACUBEXD_ARCHIVE_SHA256 \
+            ZASHBOARD_ARCHIVE_SHA256; do
+            printf '%s\n' "${!name}" | grep -Eq '^[0-9a-f]{64}$' || {
+              echo "::error::$name is not a SHA256"
+              exit 1
+            }
+          done
           for name in \
             OPENCLASH_ACTUAL_VERSION OPENCLASH_ACTUAL_COMMIT \
-            OPENCLASH_CORE_URL OPENCLASH_CORE_SHA256; do
+            OPENCLASH_CORE_COMMIT OPENCLASH_CORE_URL OPENCLASH_CORE_SHA256 \
+            METACUBEXD_REPO METACUBEXD_REF METACUBEXD_COMMIT \
+            METACUBEXD_ARCHIVE_SHA256 ZASHBOARD_REPO ZASHBOARD_REF \
+            ZASHBOARD_COMMIT ZASHBOARD_ARCHIVE_SHA256; do
+            [ -n "${!name}" ] || {
+              echo "::error::$name is missing from OpenClash build metadata"
+              exit 1
+            }
             echo "$name=${!name}" >> "$GITHUB_ENV"
           done
 
@@ -428,6 +459,8 @@ jobs:
             'etc/init\.d/smp_affinity' \
             'etc/init\.d/zram' \
             'etc/openclash/core/clash_meta' \
+            'usr/share/openclash/ui/metacubexd/index\.html' \
+            'usr/share/openclash/ui/zashboard/index\.html' \
             'etc/modprobe\.d/nss-no-flow\.conf' \
             'etc/uci-defaults/95-ax6-zram-defaults' \
             'etc/uci-defaults/98-nss-tune' \
@@ -634,6 +667,7 @@ jobs:
             echo "SOURCE_REPO=$SOURCE_REPO"
             echo "SOURCE_TRACKING_BRANCH=$SOURCE_TRACKING_BRANCH"
             echo "SOURCE_COMMIT=$SOURCE_COMMIT"
+            echo "SOURCE_PATCHSET_MANIFEST_SHA256=$SOURCE_PATCHSET_MANIFEST_SHA256"
             echo "SQM_SCRIPTS_NSS_URL=$SQM_SCRIPTS_NSS_URL"
             echo "SQM_SCRIPTS_NSS_COMMIT=$SQM_SCRIPTS_NSS_COMMIT"
             echo "LUCI_FEED_URL=$LUCI_FEED_URL"
@@ -654,11 +688,22 @@ jobs:
             echo "OPENCLASH_REF=$OPENCLASH_REF"
             echo "OPENCLASH_ACTUAL_VERSION=$OPENCLASH_ACTUAL_VERSION"
             echo "OPENCLASH_ACTUAL_COMMIT=$OPENCLASH_ACTUAL_COMMIT"
+            echo "OPENCLASH_CORE_COMMIT=$OPENCLASH_CORE_COMMIT"
             echo "OPENCLASH_CORE_URL=$OPENCLASH_CORE_URL"
             echo "OPENCLASH_CORE_SHA256=$OPENCLASH_CORE_SHA256"
+            echo "METACUBEXD_REPO=$METACUBEXD_REPO"
+            echo "METACUBEXD_REF=$METACUBEXD_REF"
+            echo "METACUBEXD_COMMIT=$METACUBEXD_COMMIT"
+            echo "METACUBEXD_ARCHIVE_SHA256=$METACUBEXD_ARCHIVE_SHA256"
+            echo "ZASHBOARD_REPO=$ZASHBOARD_REPO"
+            echo "ZASHBOARD_REF=$ZASHBOARD_REF"
+            echo "ZASHBOARD_COMMIT=$ZASHBOARD_COMMIT"
+            echo "ZASHBOARD_ARCHIVE_SHA256=$ZASHBOARD_ARCHIVE_SHA256"
             echo "DEVICE_MANIFEST_FILE=$manifest_file"
             echo "DEVICE_MANIFEST_SHA256=$manifest_sha256"
           } > BUILD-LOCK-AX6.txt
+          cp ../../.github/ax6-source-patchset.sha256 ./AX6-SOURCE-PATCHSET.sha256
+          cp ../../.github/ax6-source-patchset.absent ./AX6-SOURCE-PATCHSET.absent
           cp ../../AX6-IPQ/files/sbin/nss-check ./nss-check.sh
           cp ../../AX6-IPQ/files/sbin/ax6-config-audit ./ax6-config-audit.sh
           find . -maxdepth 1 -type f ! -name 'SHA256SUMS-AX6.txt' \

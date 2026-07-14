@@ -111,11 +111,32 @@ jobs:
           . "$metadata"
           set +a
           printf '%s\n' "$OPENCLASH_ACTUAL_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'
-          printf '%s\n' "$OPENCLASH_ACTUAL_COMMIT" | grep -Eq '^[0-9a-f]{40}$'
-          printf '%s\n' "$OPENCLASH_CORE_SHA256" | grep -Eq '^[0-9a-f]{64}$'
+          for name in \
+            OPENCLASH_ACTUAL_COMMIT OPENCLASH_CORE_COMMIT \
+            METACUBEXD_COMMIT ZASHBOARD_COMMIT; do
+            printf '%s\n' "${!name}" | grep -Eq '^[0-9a-f]{40}$' || {
+              echo "::error::$name is not a full commit SHA"
+              exit 1
+            }
+          done
+          for name in \
+            OPENCLASH_CORE_SHA256 METACUBEXD_ARCHIVE_SHA256 \
+            ZASHBOARD_ARCHIVE_SHA256; do
+            printf '%s\n' "${!name}" | grep -Eq '^[0-9a-f]{64}$' || {
+              echo "::error::$name is not a SHA256"
+              exit 1
+            }
+          done
           for name in \
             OPENCLASH_ACTUAL_VERSION OPENCLASH_ACTUAL_COMMIT \
-            OPENCLASH_CORE_URL OPENCLASH_CORE_SHA256; do
+            OPENCLASH_CORE_COMMIT OPENCLASH_CORE_URL OPENCLASH_CORE_SHA256 \
+            METACUBEXD_REPO METACUBEXD_REF METACUBEXD_COMMIT \
+            METACUBEXD_ARCHIVE_SHA256 ZASHBOARD_REPO ZASHBOARD_REF \
+            ZASHBOARD_COMMIT ZASHBOARD_ARCHIVE_SHA256; do
+            [ -n "${!name}" ] || {
+              echo "::error::$name is missing from OpenClash build metadata"
+              exit 1
+            }
             echo "$name=${!name}" >> "$GITHUB_ENV"
           done
 
@@ -208,6 +229,8 @@ jobs:
             'etc/init\.d/smp_affinity' \
             'etc/init\.d/zram' \
             'etc/openclash/core/clash_meta' \
+            'usr/share/openclash/ui/metacubexd/index\.html' \
+            'usr/share/openclash/ui/zashboard/index\.html' \
             'etc/modprobe\.d/nss-no-flow\.conf' \
             'etc/uci-defaults/95-ax6-zram-defaults' \
             'etc/uci-defaults/98-nss-tune' \
@@ -347,8 +370,17 @@ jobs:
             echo "OPENCLASH_REF=$OPENCLASH_REF"
             echo "OPENCLASH_ACTUAL_VERSION=$OPENCLASH_ACTUAL_VERSION"
             echo "OPENCLASH_ACTUAL_COMMIT=$OPENCLASH_ACTUAL_COMMIT"
+            echo "OPENCLASH_CORE_COMMIT=$OPENCLASH_CORE_COMMIT"
             echo "OPENCLASH_CORE_URL=$OPENCLASH_CORE_URL"
             echo "OPENCLASH_CORE_SHA256=$OPENCLASH_CORE_SHA256"
+            echo "METACUBEXD_REPO=$METACUBEXD_REPO"
+            echo "METACUBEXD_REF=$METACUBEXD_REF"
+            echo "METACUBEXD_COMMIT=$METACUBEXD_COMMIT"
+            echo "METACUBEXD_ARCHIVE_SHA256=$METACUBEXD_ARCHIVE_SHA256"
+            echo "ZASHBOARD_REPO=$ZASHBOARD_REPO"
+            echo "ZASHBOARD_REF=$ZASHBOARD_REF"
+            echo "ZASHBOARD_COMMIT=$ZASHBOARD_COMMIT"
+            echo "ZASHBOARD_ARCHIVE_SHA256=$ZASHBOARD_ARCHIVE_SHA256"
             echo "DEVICE_MANIFEST_FILE=$manifest_file"
             echo "DEVICE_MANIFEST_SHA256=$manifest_sha256"
           } > upload/BUILD-PROVENANCE-AX6-IPQ.txt

@@ -1,0 +1,9 @@
+7366bc7908e291d92969d3242e65e76753cc90a8f4d182529ccecb9335172831  package/kernel/mac80211/patches/nss/ath11k/999-927-ath11k-keep-ce-access-off-the-q6-while-it-is-down.patch
+9de7a2cc15d4d9b1a0a2fc4c6c021d7fb626c2cb20db208861a982a811416ea4  package/kernel/mac80211/patches/nss/ath11k/999-928-ath11k-balance-ahb-ext-irq-enable-disable.patch
+31a37bd3ecbd5d7f59193626d4f9e085dd62499d8b9559b1440a2aa1a5d5d0ef  package/kernel/mac80211/patches/nss/ath11k/999-932-ath11k-quiesce-irqs-before-recovery-ring-reset.patch
+9f9fe8a246cd6020dc1824f9cc84967079a890713eb9504f0d55f901301e1c2f  package/qca-nss/qca-nss-clients/patches/011-act_nssmirred-fix-action-list-corruption-on-release.patch
+a3450da6e7b815cc7b49edaf84c79749d7a0b09d619331ae9633d5c83d47cd96  package/qca-nss/qca-nss-clients/patches/012-nss_qdisc-guard-stats-attach-detach-against-noop-root.patch
+fe4144c5ebbcb41dfcb68bdb141dc319a6b5aa3cbf869bf69c00e5e1b4fd3f8f  package/qca-nss/qca-nss-clients/patches/013-netlink-require-admin-for-rule-injection.patch
+9cecc83ee00068a4179788e259cfbd94ad0b8a3a7cb9d4f84766323343c53b13  package/qca-nss/qca-nss-dp/patches/004-phydev-clear-on-connect-failure.patch
+5242126dd65ac9b84518e24a3fc923916a19a6c3880f0d18a0f69062b6648c06  package/qca-nss/qca-nss-drv/patches/015-fix-fraglist-skb-truesize-underaccounting.patch
+136c11ed90d8870909fac6e1694caed61f1a03fb36538f4e919f284593c77b01  package/qca-nss/qca-nss-drv/patches/016-back-fw-empty-buffer-payloads-with-kmalloc.patch

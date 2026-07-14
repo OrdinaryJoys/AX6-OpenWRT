@@ -34,6 +34,7 @@ jobs:
           sh tests/test-vlan-add.sh
           sh tests/test-openclash-archive.sh
           sh tests/test-device-manifest.sh
+          sh tests/test-zerotier-fw4.sh
 
       - name: Actionlint
         run: actionlint -color .github/workflows/*.yml
@@ -138,6 +139,7 @@ jobs:
           set +a
           for name in \
             SOURCE_REPO SOURCE_TRACKING_BRANCH SOURCE_COMMIT \
+            SOURCE_PATCHSET_MANIFEST_SHA256 \
             SQM_SCRIPTS_NSS_URL SQM_SCRIPTS_NSS_COMMIT \
             LUCI_FEED_URL LUCI_FEED_COMMIT \
             PACKAGES_FEED_URL PACKAGES_FEED_COMMIT \
@@ -163,8 +165,18 @@ jobs:
               exit 1
             }
           done
-          [ "$SOURCE_TRACKING_BRANCH" = main ] || {
+          [[ "$SOURCE_PATCHSET_MANIFEST_SHA256" =~ ^[0-9a-f]{64}$ ]] || {
+            echo "::error::SOURCE_PATCHSET_MANIFEST_SHA256 must be a 64-character lowercase SHA256"
+            exit 1
+          }
+          [ "$SOURCE_TRACKING_BRANCH" = codex/ax6-core-integration-review ] || {
             echo "::error::unexpected source tracking branch: $SOURCE_TRACKING_BRANCH"
+            exit 1
+          }
+          actual_patchset_manifest_sha=$(sha256sum .github/ax6-source-patchset.sha256)
+          actual_patchset_manifest_sha=${actual_patchset_manifest_sha%% *}
+          [ "$actual_patchset_manifest_sha" = "$SOURCE_PATCHSET_MANIFEST_SHA256" ] || {
+            echo "::error::source patchset manifest hash mismatch"
             exit 1
           }
           workflow=.github/workflows/build-AX6-NSS.yml
@@ -193,8 +205,19 @@ jobs:
               'Verify tracked OpenClash inputs' \
               'OPENCLASH_ACTUAL_VERSION' \
               'OPENCLASH_ACTUAL_COMMIT' \
+              'OPENCLASH_CORE_COMMIT' \
               'OPENCLASH_CORE_SHA256' \
+              'METACUBEXD_REPO' \
+              'METACUBEXD_REF' \
+              'METACUBEXD_COMMIT' \
+              'METACUBEXD_ARCHIVE_SHA256' \
+              'ZASHBOARD_REPO' \
+              'ZASHBOARD_REF' \
+              'ZASHBOARD_COMMIT' \
+              'ZASHBOARD_ARCHIVE_SHA256' \
               'etc/openclash/core/clash_meta' \
+              'usr/share/openclash/ui/metacubexd/index\.html' \
+              'usr/share/openclash/ui/zashboard/index\.html' \
               'verify-device-manifest.sh' \
               'find "$target_dir" -maxdepth 1' \
               'DEVICE_MANIFEST_FILE' \
@@ -536,7 +559,7 @@ jobs:
             'config bridge-vlan is present' \
             'openclash_dns_redirect' \
             'OpenClash DNS Hijack' \
-            'GeoIP/GeoSite/ASN use' \
+            'GeoIP/GeoSite/ASN/CHNR data use' \
             'enabled on ${oc_overlay_total} KiB overlay can refill flash' \
             'dashboard UI files occupy' \
             'fake-ip cache persistence enabled' \
@@ -555,8 +578,7 @@ jobs:
             exit 1
           fi
           grep -Fq "grep -q '=bridge-vlan'" "$vlan"
-          grep -Fq '@.config.settings.tertiaryPort' "$zt_fw4"
-          grep -Fq '@.config.settings.listeningOn[*]' "$zt_fw4"
+          grep -Fq 'for port_name in primaryPort secondaryPort' "$zt_fw4"
           grep -Fq 'drop_stale_port_rules' "$zt_fw4"
           grep -Fq 'fw4 reload' "$zt_fw4"
           for workflow in .github/workflows/build-AX6-NSS.yml .github/workflows/build-AX6-IPQ.yml; do
