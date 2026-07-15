@@ -240,6 +240,7 @@ jobs:
             'lib/netifd/offload/disable_offloads\.sh' \
             'usr/lib/sqm/nss-zk\.qos' \
             'usr/bin/zerotier-fw4' \
+            'usr/bin/ax6-openclash-zerotier-bypass' \
             'sbin/nss-check' \
             'sbin/ax6-config-audit' \
             'etc/init\.d/ax6-wifi-regdom' \
@@ -310,10 +311,17 @@ jobs:
             > image-verify/clash_meta
           printf '%s  %s\n' "$OPENCLASH_CORE_SHA256" image-verify/clash_meta |
             sha256sum -c -
-          readelf -h image-verify/clash_meta | grep -Eq '^  Machine:[[:space:]]+AArch64$' || {
+          readelf -h image-verify/clash_meta 2>/dev/null | grep -Eq '^  Machine:[[:space:]]+AArch64$' || {
             echo "::error::Final rootfs OpenClash core is not AArch64"
             exit 1
           }
+          unsquashfs -cat "$rootfs" etc/init.d/openclash \
+            > image-verify/openclash.init
+          grep -Fq '/usr/bin/ax6-openclash-zerotier-bypass' \
+            image-verify/openclash.init || {
+              echo "::error::Final rootfs OpenClash init is missing the ZeroTier bypass hook"
+              exit 1
+            }
 
           unsquashfs -cat "$rootfs" etc/init.d/qca-nss-pbuf \
             > image-verify/qca-nss-pbuf.init

@@ -1,6 +1,9 @@
 #!/bin/bash
 set -eo pipefail
 
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+REPO_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
+
 # Add packages from the verified build lock exported by the workflow.
 clone_locked() {
   url="$1"
@@ -67,7 +70,7 @@ tar tzf /tmp/clash_core.tar.gz | grep -Fqx 'clash' || {
 tar xzf /tmp/clash_core.tar.gz -C "$CORE_DEST/" clash
 mv "$CORE_DEST/clash" "$CORE_DEST/clash_meta"
 chmod +x "$CORE_DEST/clash_meta"
-readelf -h "$CORE_DEST/clash_meta" | grep -Eq '^  Machine:[[:space:]]+AArch64$' || {
+readelf -h "$CORE_DEST/clash_meta" 2>/dev/null | grep -Eq '^  Machine:[[:space:]]+AArch64$' || {
   echo "[diy.sh] OpenClash Meta core is not an AArch64 ELF binary" >&2
   exit 2
 }
@@ -139,6 +142,8 @@ OPENCLASH_ACTUAL_VERSION=$(sed -n 's/^PKG_VERSION:=//p' \
   package/luci-app-openclash-source/luci-app-openclash/Makefile | head -1)
 mv package/luci-app-openclash-source/luci-app-openclash package/luci-app-openclash
 rm -rf package/luci-app-openclash-source
+"$REPO_ROOT/.github/scripts/inject-openclash-zerotier-hook.sh" \
+  package/luci-app-openclash/root/etc/init.d/openclash
 printf '%s\n' "$OPENCLASH_ACTUAL_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || {
   echo "[diy.sh] OpenClash PKG_VERSION is missing or non-numeric" >&2
   exit 2

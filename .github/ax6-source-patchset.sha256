@@ -5,6 +5,7 @@ dfbeb05256a5c504d3d7afa77e04a51a74bb0960fcf8318788ddc945c8f7e47a  package/kernel
 f3ced7492553c1c42d6583efcf2186da11ae39090c7c8b66f48deacab521d38f  package/kernel/mac80211/patches/ath9k/550-ath9k-of.patch
 fcf1ff758f246508d126589349b43b356a0fb3e2b1d2ef42c46c00c40c27fd1b  package/kernel/mac80211/patches/ath9k/600-wifi-ath9k-Clear-DMA-descriptors-without-memset.patch
 88a957f6fc0a15df6332260f945423a1ea78c39ba1ed01f7056f5cea0c99cfcf  package/kernel/mac80211/patches/ath9k/601-wifi-ath9k-remove-TX99-power-array-zero-init.patch
+89ace2c3d3803f244efda288bfadf02ee48d3078203db8bb55f05b6d70cf7625  package/kernel/mac80211/patches/nss/ath10k/999-800-ath10k-Add-threaded-napi.patch
 97bf63c9f192d4707dee87bd760a44aabd1a5d3dfdccf11c540eeacf0f6b5370  package/kernel/mac80211/patches/nss/ath11k/237-006-ath11k-Allow-fast-rx-by-bypassing-stats-update.patch
 f7498ea6c09693514035019a64cd08f325362ecd27ae5408ce83d3f9b03a53a1  package/kernel/mac80211/patches/nss/ath11k/244-ath11k-dp-tx-perf.patch
 338c0f68ee76d0ceb485f456f808ddf1914e7088ddb90c1f022b8bb5f08698e3  package/kernel/mac80211/patches/nss/ath11k/300-ath11k-nss-mesh-offload-support.patch
@@ -24,6 +25,7 @@ e0faf3162b8bcd92cacdf8f88bb108dc4bc7696503b420cd6ba4313f012f30d2  package/kernel
 98f8e0e691d10b6d3164fe3f66276349ca0ec008955335eeb78889396939342c  package/kernel/mac80211/patches/nss/ath11k/999-336-0001-ath11k-idr-optimization.patch
 ac3ff4dd2f074935e20cfda1ea81da7e54fdd29bbc8b9def80810d92412d895e  package/kernel/mac80211/patches/nss/ath11k/999-336-0002-ath11k-Use-idr_replace.patch
 0d98f65a68ff281ab567da8199ed591379627d53d064fc47068144657fa88f62  package/kernel/mac80211/patches/nss/ath11k/999-374-ath11k-Check-skb_headroom-before-using-skb_push.patch
+d5d93d1bbd5ae77411d77f08685829df06bfabbf0650c8d865a06c46ef523f6c  package/kernel/mac80211/patches/nss/ath11k/999-800-ath11k-Add-threaded-napi.patch
 ea0ccffd99d654db0c44b81c9ecee5c635d6be80ff6f75eaf8f84bfff2c886ee  package/kernel/mac80211/patches/nss/ath11k/999-903-ath11k-use-ath11k_sta_to_arsta.patch
 1adb4e59556859bcfec397e954cfcf3002155a793cf21f07079c6af22f70a68e  package/kernel/mac80211/patches/nss/ath11k/999-904-ath11k-nss-use-wrapper-to-avoid-cast.patch
 cab6aa30c8d86af2ff8398150ee086453462ec03dbfe66993dd3860a346c865f  package/kernel/mac80211/patches/nss/ath11k/999-907-ath11k-Enable-NSS-for-ipq5018-qcn6122.patch
@@ -42,7 +44,8 @@ b2406698a34a741031e020161c0070ade51ca67c47258e0cbd5d4ba23d75a93c  package/kernel
 9c0e4703c4fa67c1ef7f984ea8dd02d9fb3f56575604da889b4855f5f1de037c  package/kernel/mac80211/patches/nss/subsys/235-001-mac80211-add-AP_VLAN-iftype-support-on-NSS-offload-case.patch
 dfa62ec141b1370b64b2b610f310ea3c132eb070f893c5aedf6546d3403ddd00  package/kernel/mac80211/patches/nss/subsys/236-001-mac80211-add-dynamic-VLAN-support-on-NSS-offload.patch
 2b45956c430efecf8df871cffcb4da3f19b2ebda6bc7ab0f35ee1404531ab8c9  package/kernel/mac80211/patches/nss/subsys/300-ath11k-nss-mesh-offload-support.patch
-0b8745dd131cdd6c913d650e858b3cd1ac6754bf3abf85cacfdb687efdbfada3  package/kernel/mac80211/patches/nss/subsys/657-mac80211-Avoid-encapsulation-of-EAPOL-frames-if-OFFL.patch
+111834ea6c06f2c05ae78696b7d9756857cea614d861cacffbad1efa2e618f7d  package/kernel/mac80211/patches/nss/subsys/335-0005-mac80211-simple-tx-for-AP-mode.patch
+584de071384549bb4da7a92d136c80edd17987657eb43d556ff9653556369fe8  package/kernel/mac80211/patches/nss/subsys/657-mac80211-Avoid-encapsulation-of-EAPOL-frames-if-OFFL.patch
 dc61f1887d5f61ea67fe00d2e62e10edfadf084cc3f196ed3369785f504cc902  package/kernel/mac80211/patches/nss/subsys/658-mac80211-free-status-frames-on-stopping-iface.patch
 d2fd2bcda2f3c295c15f7152f4c1ec965eb0df6df819be6c802705be18633793  package/kernel/mac80211/patches/nss/subsys/686-mac80211-fix-RCU-stall-in-mesh-fast-xmit-path.patch
 5feffbd72454972ae9b3b65829fe3684b400f42ca88898200a820f9006e13085  package/kernel/mac80211/patches/nss/subsys/751-mac80211-Get-valid-last_rate-for-rx_bitrate-from-cpu.patch

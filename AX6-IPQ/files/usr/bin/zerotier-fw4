@@ -83,23 +83,27 @@ while getopts "i:s" arg; do
 			continue
 		fi
 
-			drop_stale_port_rules "$FW_PATH/input.nft"
-			zerotier_info="$(zerotier-cli -j info 2>/dev/null | jsonfilter -qe '@.config.settings' 2>/dev/null)"
-			[ -n "$zerotier_info" ] || continue
-			port_mapping_enabled="$(printf '%s\n' "$zerotier_info" | jsonfilter -qe '@.portMappingEnabled' 2>/dev/null)"
-			port_names="primaryPort secondaryPort"
-			case "$port_mapping_enabled" in
-			true|1) port_names="$port_names tertiaryPort" ;;
-			esac
-			for port_name in $port_names; do
-				port="$(printf '%s\n' "$zerotier_info" | jsonfilter -qe "@.${port_name}" 2>/dev/null)"
-				[ -n "$port" ] || continue
-				protocols="udp"
+		drop_stale_port_rules "$FW_PATH/input.nft"
+		zerotier_info="$(zerotier-cli -j info 2>/dev/null | jsonfilter -qe '@.config.settings' 2>/dev/null)"
+		[ -n "$zerotier_info" ] || continue
+		port_mapping_enabled="$(printf '%s\n' "$zerotier_info" | jsonfilter -qe '@.portMappingEnabled' 2>/dev/null)"
+		port_names="primaryPort secondaryPort"
+		case "$port_mapping_enabled" in
+		true|1) port_names="$port_names tertiaryPort" ;;
+		esac
+		for port_name in $port_names; do
+			port="$(printf '%s\n' "$zerotier_info" | jsonfilter -qe "@.${port_name}" 2>/dev/null)"
+			[ -n "$port" ] || continue
+			protocols="udp"
 			[ "$port_name" = "primaryPort" ] && protocols="udp, tcp"
 			rule="meta l4proto { $protocols } th dport $port counter accept comment \"!fw4: Accept ZeroTier input $port ($port_name)\""
 			append_input_rule_once "$FW_PATH/input.nft" "$rule"
 		done
 		fw4 reload >/dev/null 2>&1 || true
+		if [ -x /usr/bin/ax6-openclash-zerotier-bypass ]; then
+			/usr/bin/ax6-openclash-zerotier-bypass ||
+				logger -t zerotier-fw4 "OpenClash self-proxy bypass update failed"
+		fi
 		;;
 	*)
 		echo "Usage: $0 -i <interface> | -s"

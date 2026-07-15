@@ -101,6 +101,40 @@ zerotier_input_ports_match() {
         ok "ZeroTier: nft input service ports match daemon settings"
 }
 
+openclash_zerotier_bypass_match() {
+    _oczt_ports=""
+    _oczt_port_names="primaryPort secondaryPort"
+    case "$(zerotier_port portMappingEnabled)" in
+        true|1) _oczt_port_names="$_oczt_port_names tertiaryPort" ;;
+    esac
+    for _oczt_port_name in $_oczt_port_names; do
+        _oczt_port="$(zerotier_port "$_oczt_port_name")"
+        case "$_oczt_port" in
+            ''|*[!0-9]*) continue ;;
+        esac
+        _oczt_ports="$_oczt_ports $_oczt_port"
+    done
+    [ -n "$_oczt_ports" ] || return 1
+
+    _oczt_checked=0
+    for _oczt_chain in \
+        openclash_output \
+        openclash_mangle_output \
+        openclash_output_v6 \
+        openclash_mangle_output_v6; do
+        _oczt_rules="$(nft -a list chain inet fw4 "$_oczt_chain" 2>/dev/null)" || continue
+        _oczt_rule="$(printf '%s\n' "$_oczt_rules" |
+            grep -F 'AX6 ZeroTier self bypass' | head -n 1)"
+        [ -n "$_oczt_rule" ] || return 1
+        _oczt_checked=$((_oczt_checked + 1))
+        for _oczt_port in $_oczt_ports; do
+            printf '%s\n' "$_oczt_rule" |
+                grep -Eq "(^|[^0-9])${_oczt_port}([^0-9]|$)" || return 1
+        done
+    done
+    [ "$_oczt_checked" -gt 0 ]
+}
+
 openclash_dns_servers() {
     uci -q show openclash 2>/dev/null |
         awk -F'[.=]' '/=dns_servers$/ { print $2 }'
@@ -406,6 +440,15 @@ if uci -q get openclash.config >/dev/null 2>&1; then
             ok "OpenClash: core process running"
         else
             fail "OpenClash: enabled but core process is not running"
+        fi
+        if [ "$(uci -q get zerotier.global.enabled)" = "1" ] &&
+           [ "$(uci -q get openclash.config.router_self_proxy)" = "1" ]; then
+            if [ -x /usr/bin/ax6-openclash-zerotier-bypass ] &&
+               openclash_zerotier_bypass_match; then
+                ok "OpenClash: ZeroTier dynamic self-proxy bypass matches daemon ports"
+            else
+                fail "OpenClash: router self proxy intercepts ZeroTier without a matching dynamic bypass"
+            fi
         fi
         case "$redirect_mode" in
             1)

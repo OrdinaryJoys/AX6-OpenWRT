@@ -35,6 +35,7 @@ jobs:
           sh tests/test-openclash-archive.sh
           sh tests/test-device-manifest.sh
           sh tests/test-zerotier-fw4.sh
+          sh tests/test-openclash-zerotier-bypass.sh
 
       - name: Actionlint
         run: actionlint -color .github/workflows/*.yml
@@ -77,6 +78,7 @@ jobs:
           grep -Fq 'xiaomi_stock_check_image_size' "$workflow"
           grep -Fq 'upload/upgrade/*' "$workflow"
           grep -Fq 'path: upload/recovery/*' "$workflow"
+          grep -Fq 'KMOD-ARCHIVE-SHA256.txt' "$workflow"
 
           if grep -Eq 'nand (erase|write).*rootfs|fastboot flash rootfs' \
             "$workflow" AX6-IPQ/HARDWARE.md; then
@@ -569,6 +571,8 @@ jobs:
             '/var/run/zerotier-one/_fw4/srcnat.nft' \
             'firewall.${_zt_section}.position' \
             'zerotier_input_ports_match' \
+            'openclash_zerotier_bypass_match' \
+            'router self proxy intercepts ZeroTier without a matching dynamic bypass' \
             'vlan_filtering=1 conflicts with qosmio NSS WiFi offload guidance' \
             'config bridge-vlan is present' \
             'openclash_dns_redirect' \
@@ -607,7 +611,12 @@ jobs:
           grep -Fq 'port_names="$port_names tertiaryPort"' "$zt_fw4"
           grep -Fq 'port_mapping_enabled' "$zt_fw4"
           grep -Fq 'drop_stale_port_rules' "$zt_fw4"
+          grep -Fq 'ax6-openclash-zerotier-bypass' "$zt_fw4"
           grep -Fq 'fw4 reload' "$zt_fw4"
+          test -x AX6-IPQ/files/usr/bin/ax6-openclash-zerotier-bypass
+          test -x .github/scripts/inject-openclash-zerotier-hook.sh
+          grep -Fq 'openclash_mangle_output_v6' AX6-IPQ/files/usr/bin/ax6-openclash-zerotier-bypass
+          grep -Fq 'inject-openclash-zerotier-hook.sh' AX6-IPQ/diy.sh
           for workflow in .github/workflows/build-AX6-NSS.yml .github/workflows/build-AX6-IPQ.yml; do
             grep -Fq "'usr/bin/zerotier-fw4'" "$workflow"
           done

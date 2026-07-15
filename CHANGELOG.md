@@ -14,6 +14,12 @@
 
 ### 变更
 
+- OpenClash 保留官方路由本机代理默认值,新增 ZeroTier 动态传输端口旁路；
+  OpenClash/firewall4 重载及 ZeroTier 端口变化后自动重建 IPv4/IPv6 output 规则，
+  不修改订阅、覆写或 custom 文件。
+- Linux 6.18 的 ath10k/ath11k threaded NAPI 调用改用官方枚举参数，mac80211
+  AP 快速发送 helper 收紧为文件内可见，消除对应编译告警。
+- kmod 离线归档新增独立 `KMOD-ARCHIVE-SHA256.txt`，补齐压缩包自身校验。
 - OpenClash 插件改为跟随官方 `master` 最新版, 不再把插件提交或版本写入
   `.github/ax6-nss-lock.env`。核心源码、feeds 与 Argon 仍使用完整 SHA 锁定。
 - `sync-check` 对 OpenClash 改为只报告当前 HEAD, 不因插件版本正常更新而阻断;

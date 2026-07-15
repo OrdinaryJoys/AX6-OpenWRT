@@ -117,11 +117,18 @@ OpenClash fake-ip 场景会额外审计官方 UCI DNS 生成路径:建议使用
 DNS 组和 `disable_ipv6=1` 的 IPv4 default DNS。不要把订阅 YAML 或自定义覆写脚本
 当作默认修复位置,订阅更新和插件生成流程可能覆盖或叠加这些文件。
 
+OpenClash 官方默认会代理路由器本机流量。固件保留该默认值,但在 OpenClash
+防火墙规则生成后调用 `ax6-openclash-zerotier-bypass`,按 ZeroTier 守护进程当前的
+primary/secondary/tertiary 端口，在 IPv4/IPv6 output 链中只旁路 ZeroTier 传输流量。
+端口映射关闭时不会加入 tertiary 端口；ZeroTier 端口变化和 firewall4 reload 后会
+重新生成规则。该集成不修改订阅、覆写或用户自定义规则。
+
 ## 配置所有权
 
 - Boot Guard 只纠正会直接冲突 NSS 数据路径的 packet steering/flow offload。
 - WiFi 首次启动脚本只设置 radio 级默认值，不覆盖 SSID 隔离、PMF、漫游或 IoT 策略。
-- VLAN、ZeroTier、UPnP 和 OpenClash 由管理员按网络拓扑配置，仓库工具只读审计。
+- VLAN、ZeroTier、UPnP 和 OpenClash 仍由管理员按网络拓扑配置；启动集成只维护
+  ZeroTier 动态服务端口及其 OpenClash 本机代理旁路，审计工具本身保持只读。
 - 主构建的源码、全部 feeds 和 Argon 固定到完整提交 SHA；OpenClash 插件跟随
   官方 `master` 最新版，构建时记录实际来源并做基础结构校验。
 - AX6-IPQ/IMM/LEDE 备用构建跟随移动分支或 feeds,只上传 7 天

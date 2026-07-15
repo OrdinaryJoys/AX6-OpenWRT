@@ -1,0 +1,86 @@
+#!/bin/sh
+
+COMMENT="AX6 ZeroTier self bypass"
+
+log_error() {
+	logger -t ax6-openclash-zerotier-bypass "$1" 2>/dev/null || true
+}
+
+remove_owned_rules() {
+	chain="$1"
+	nft -a list chain inet fw4 "$chain" 2>/dev/null |
+		awk -v tag="$COMMENT" '
+			index($0, tag) {
+				for (i = 1; i <= NF; i++) {
+					if ($i == "handle") print $(i + 1)
+				}
+			}
+		' |
+		while IFS= read -r handle; do
+			[ -n "$handle" ] || continue
+			nft delete rule inet fw4 "$chain" handle "$handle" 2>/dev/null || true
+		done
+}
+
+collect_ports() {
+	for port_name in $port_names; do
+		port="$(printf '%s\n' "$zerotier_info" |
+			jsonfilter -qe "@.${port_name}" 2>/dev/null)"
+		case "$port" in
+			''|*[!0-9]*) continue ;;
+		esac
+		[ "$port" -ge 1 ] && [ "$port" -le 65535 ] && printf '%s\n' "$port"
+	done
+}
+
+[ "$(uci -q get zerotier.global.enabled)" = "1" ] || exit 0
+[ "$(uci -q get openclash.config.enable)" = "1" ] || exit 0
+[ "$(uci -q get openclash.config.router_self_proxy)" = "1" ] || exit 0
+command -v zerotier-cli >/dev/null 2>&1 || exit 0
+command -v jsonfilter >/dev/null 2>&1 || exit 0
+command -v nft >/dev/null 2>&1 || exit 0
+
+zerotier_info="$(zerotier-cli -j info 2>/dev/null |
+	jsonfilter -qe '@.config.settings' 2>/dev/null)"
+[ -n "$zerotier_info" ] || {
+	log_error "cannot read ZeroTier daemon ports"
+	exit 1
+}
+
+port_names="primaryPort secondaryPort"
+case "$(printf '%s\n' "$zerotier_info" |
+	jsonfilter -qe '@.portMappingEnabled' 2>/dev/null)" in
+	true|1) port_names="$port_names tertiaryPort" ;;
+esac
+
+ports="$(collect_ports | sort -nu)"
+
+[ -n "$ports" ] || {
+	log_error "ZeroTier daemon returned no valid transport ports"
+	exit 1
+}
+
+port_set="$(printf '%s\n' "$ports" |
+	awk 'BEGIN { sep = "" } { printf "%s%s", sep, $1; sep = ", " } END { print "" }')"
+
+installed=0
+status=0
+for chain in \
+	openclash_output \
+	openclash_mangle_output \
+	openclash_output_v6 \
+	openclash_mangle_output_v6; do
+	nft list chain inet fw4 "$chain" >/dev/null 2>&1 || continue
+	remove_owned_rules "$chain"
+	if nft insert rule inet fw4 "$chain" position 0 \
+		meta l4proto \{ tcp, udp \} th sport \{ "$port_set" \} \
+		counter return comment "\"$COMMENT\""; then
+		installed=$((installed + 1))
+	else
+		log_error "failed to install bypass in $chain"
+		status=1
+	fi
+done
+
+[ "$installed" -gt 0 ] || exit 0
+exit "$status"
