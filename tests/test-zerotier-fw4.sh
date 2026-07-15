@@ -19,7 +19,7 @@ cat > "$TMP/bin/zerotier-cli" <<'EOF'
 #!/bin/sh
 case "$*" in
     info) exit 0 ;;
-    '-j info') printf '%s\n' '{"config":{"settings":{"primaryPort":9993,"secondaryPort":45678,"tertiaryPort":56789}}}' ;;
+    '-j info') printf '{"config":{"settings":{"primaryPort":9993,"secondaryPort":45678,"tertiaryPort":56789,"portMappingEnabled":%s}}}\n' "${ZT_PORT_MAPPING_ENABLED:-true}" ;;
     *) exit 1 ;;
 esac
 EOF
@@ -28,9 +28,16 @@ cat > "$TMP/bin/jsonfilter" <<'EOF'
 #!/bin/sh
 input=$(cat)
 case "$*" in
-    *'@.config.settings') printf '%s\n' '{"primaryPort":9993,"secondaryPort":45678,"tertiaryPort":56789}' ;;
+    *'@.config.settings') printf '%s\n' "$input" | sed -e 's/^{"config":{"settings"://' -e 's/}}$//' ;;
     *'@.primaryPort') printf '%s\n' 9993 ;;
     *'@.secondaryPort') printf '%s\n' 45678 ;;
+    *'@.tertiaryPort') printf '%s\n' 56789 ;;
+    *'@.portMappingEnabled')
+        case "$input" in
+            *'"portMappingEnabled":false'*) printf '%s\n' false ;;
+            *) printf '%s\n' true ;;
+        esac
+        ;;
     *) printf '%s\n' "$input" >/dev/null; exit 1 ;;
 esac
 EOF
@@ -51,13 +58,21 @@ run_helper() {
 run_helper
 grep -Fq 'meta l4proto { udp, tcp } th dport 9993' "$TMP/fw/input.nft"
 grep -Fq 'meta l4proto { udp } th dport 45678' "$TMP/fw/input.nft"
-if grep -Fq '56789' "$TMP/fw/input.nft"; then
-    echo 'tertiaryPort must not be added to the fw4 include' >&2
-    exit 1
-fi
+grep -Fq 'meta l4proto { udp } th dport 56789' "$TMP/fw/input.nft"
 
 run_helper
 [ "$(grep -Fc 'th dport 9993' "$TMP/fw/input.nft")" -eq 1 ]
 [ "$(grep -Fc 'th dport 45678' "$TMP/fw/input.nft")" -eq 1 ]
+[ "$(grep -Fc 'th dport 56789' "$TMP/fw/input.nft")" -eq 1 ]
+
+rm -f "$TMP/fw/input.nft"
+export ZT_PORT_MAPPING_ENABLED=false
+run_helper
+grep -Fq 'th dport 9993' "$TMP/fw/input.nft"
+grep -Fq 'th dport 45678' "$TMP/fw/input.nft"
+if grep -Fq '56789' "$TMP/fw/input.nft"; then
+    echo 'tertiaryPort must not be added when port mapping is disabled' >&2
+    exit 1
+fi
 
 echo 'zerotier fw4 service-port tests: PASS'

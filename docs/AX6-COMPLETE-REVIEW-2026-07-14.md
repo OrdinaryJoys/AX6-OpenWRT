@@ -7,15 +7,15 @@
 | 项目 | 最终证据 | 状态 |
 |---|---|---|
 | 源码主线基线 | `OrdinaryJoys/immortalwrt-nss@56807d9661dbe7df421d1fd31feba76677b5703d` | 已锁定 |
-| 源码候选 | `codex/ax6-upstream-gap-complete@991f215ffb3aeeaf65e3e4703d8e1fb696065faf` | 已推送，工作区干净 |
+| 源码候选 | `codex/ax6-upstream-gap-complete@3bb857e762d08d9d05690fd10580ba98fad601ae` | 补齐官方 AX6 USB/automount 排除项，待本轮云端复验 |
 | 构建仓主线 | `OrdinaryJoys/AX6-OpenWRT@099556aae4c0449a23e157fd95d061fc7537f59a` | 未修改 |
-| 构建候选代码提交 | `codex/ax6-upstream-gap-complete-build@a3d6d58669e767e5d7ae82787ddfe7615f5bf1ee` | 已推送；其后只追加本文档 |
-| 云端 Lint | Actions `29345426186`，提交 `a3d6d58` | 全部通过 |
-| 完整 STOCK 构建 | Actions `29345081914`，提交 `8505d7d` | 成功 |
-| 构建源码锁 | `991f215`，基线 `56807d9`，清单 SHA256 `d2ebf619...738c9` | 产物内一致 |
-| 发布/实机 | 未合并主分支、未发布、未 SSH、未刷写 | 保持安全边界 |
+| 构建候选 | `codex/ax6-upstream-gap-complete-build` | 已加入 Geo 审计等级和 ZeroTier 三端口修复，待本轮云端复验 |
+| 上一轮云端 Lint | Actions `29345426186`，提交 `a3d6d58` | 全部通过；不覆盖本轮增量 |
+| 上一轮完整 STOCK 构建 | Actions `29345081914`，提交 `8505d7d` | 成功；不覆盖本轮增量 |
+| 当前构建源码锁 | `3bb857e`，基线 `56807d9`，清单 SHA256 `ba5db9e9...3a7d0` | 本地来源验证通过，待写入新产物 |
+| 发布/实机 | 未合并主分支、未发布、未刷写；已只读 SSH 审查当前主线实机 | 候选固件仍未实机运行验证 |
 
-完整构建使用 `8505d7d`。其后的 `a3d6d58` 只把 Lint 中不可靠的 `A && B || C` 改成显式 `if`，不改变源码锁、配置、固件构成或编译路径；该提交已由独立云端 Lint 完整验证。
+上一轮完整构建使用 `8505d7d`。其后的 `a3d6d58` 只把 Lint 中不可靠的 `A && B || C` 改成显式 `if`，不改变当时的源码锁、配置、固件构成或编译路径。本轮增量必须重新通过 Lint 和完整 STOCK 构建后才能替代上一轮证据。
 
 ## 2. 本轮补齐的遗漏和错误
 
@@ -33,6 +33,9 @@
 | 构建溯源 | 只校验已列文件，不能证明清单覆盖全部 Git 差异 | 锁定基线提交，自动集合比对现存、删除和重命名路径 | 169 个现存变化 + 14 个旧路径完全一致；负向测试通过 |
 | absent 清单 | 只记录 9 个纯删除路径，遗漏 5 个重命名旧路径 | 将全部 5 个迁移源路径加入缺席门禁 | 故意删除一项时 verifier 正确失败 |
 | 云端 Lint | OpenClash 提交捕获顺序检查使用 `&& ... ||` | 改为显式 `if` | Actions `29345426186` 全部通过 |
+| AX6 设备 profile | 源码未显式排除官方定义中的 USB 控制器和 automount 包 | 对齐官方 `redmi_ax6` 负向包定义，并加入构建语义门禁 | 当前 STOCK manifest 本就无 USB 包；本轮来源锁本地验证通过 |
+| OpenClash Geo 审计 | 小于 64 MiB overlay 时把用户保留的自动更新误判为 FAIL | 保留低于 4 MiB 的真实失败门禁，将容量风险降为 WARN | 修改脚本在实机环境临时只读运行，Geo 项不再产生 FAIL |
+| ZeroTier fw4 | 旧规则只开放 primaryPort，候选此前仍遗漏映射使用的 tertiaryPort | 主端口开放 TCP/UDP，secondary 开放 UDP；`portMappingEnabled=true` 时再开放 tertiary UDP | 对照 ZeroTier 1.16.2 官方源码 `_ports[0..2]`/`PortMapper`；启用/禁用映射和重复执行测试通过 |
 
 ## 3. 上游交叉检查结果
 
@@ -140,7 +143,7 @@ rootfs 还通过以下边界：
 
 ## 8. 仍未消除的边界
 
-1. 本轮没有实机运行验证。编译不能证明冷/热重启、ath11k firmware recovery、长时 ECM、本机终结流量、VLAN、ZeroTier、OpenClash DNS failover 和 2.4 GHz IoT 在真实环境完全无故障。
+1. 已只读审查运行当前主线 `56807d9` / Linux 6.18.35 的 AX6：NSS 自检通过、接口短时计数无新增丢包，但捕获到与候选 `015-fix-fraglist-skb-truesize-underaccounting.patch` 根因完全匹配的 `skb_try_coalesce` WARN；ZeroTier 实际监听 primary/secondary/tertiary，旧 nft include 只开放 primary。候选 `3bb857e` / Linux 6.18.38 尚未刷写，不能据此证明这些修复在实机已生效，也不能替代冷/热重启、ath11k firmware recovery、长时 ECM、本机终结流量、VLAN、ZeroTier、OpenClash DNS failover 和 2.4 GHz IoT 验证。
 2. `act_nssmirred` create/replace/IDR/NSS/IFB 的全事务重构仍属于上游级工作；当前已修复已知 release 链表损坏，并保留 create-only 使用边界。
 3. 仅完成 AX6 STOCK 统一构建；EXPAND、其他官方配置和非 AX6 target 没有在本次 run 中逐一生成固件。
 4. OpenClash 按用户要求继续跟踪 master，不固定插件版本；可复现性由每次 BUILD-LOCK 记录实际插件/core/dashboard 提交和哈希保证。

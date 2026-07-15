@@ -64,7 +64,7 @@ zerotier_port() {
 zerotier_input_ports() {
     [ -r /var/run/zerotier-one/_fw4/input.nft ] || return 0
     awk '
-        /ZeroTier input.*(primaryPort|secondaryPort)/ && /th dport/ {
+        /ZeroTier input.*(primaryPort|secondaryPort|tertiaryPort)/ && /th dport/ {
             for (i = 1; i <= NF; i++) {
                 if ($i == "dport") {
                     print $(i + 1)
@@ -79,7 +79,11 @@ zerotier_input_ports_match() {
     _zt_input_ports="$(zerotier_input_ports)"
     _zt_bad=0
     _zt_checked=0
-    for _zt_port_name in primaryPort secondaryPort; do
+    _zt_port_names="primaryPort secondaryPort"
+    case "$(zerotier_port portMappingEnabled)" in
+        true|1) _zt_port_names="$_zt_port_names tertiaryPort" ;;
+    esac
+    for _zt_port_name in $_zt_port_names; do
         _zt_expected_port="$(zerotier_port "$_zt_port_name")"
         [ -n "$_zt_expected_port" ] || continue
         _zt_checked=$((_zt_checked + 1))
@@ -382,7 +386,7 @@ if uci -q get openclash.config >/dev/null 2>&1; then
     fi
     if [ -n "$oc_auto_geodata" ]; then
         if [ "$oc_overlay_total" -gt 0 ] && [ "$oc_overlay_total" -lt 65536 ]; then
-            fail "OpenClash: ${oc_auto_geodata} enabled on ${oc_overlay_total} KiB overlay can refill flash"
+            warn "OpenClash: ${oc_auto_geodata} enabled on ${oc_overlay_total} KiB overlay can refill flash"
         else
             warn "OpenClash: ${oc_auto_geodata} enabled; ensure overlay has enough free space"
         fi

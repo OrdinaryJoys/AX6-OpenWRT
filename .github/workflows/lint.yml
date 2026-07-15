@@ -585,6 +585,16 @@ jobs:
               exit 1
             }
           done
+          # shellcheck disable=SC2016 # Match the audit helper's literal policy line.
+          grep -Fq 'warn "OpenClash: ${oc_auto_geodata} enabled on ${oc_overlay_total} KiB overlay can refill flash"' "$audit" || {
+            echo "::error file=$audit::small-overlay Geo auto-update policy must remain a warning"
+            exit 1
+          }
+          # shellcheck disable=SC2016 # Reject the former literal failure policy line.
+          if grep -Fq 'fail "OpenClash: ${oc_auto_geodata} enabled on ${oc_overlay_total} KiB overlay can refill flash"' "$audit"; then
+            echo "::error file=$audit::small-overlay Geo auto-update policy must not be a failure"
+            exit 1
+          fi
           if grep -RqE \
             'upnpd\.config\.enabled=|zerotier\..*fw_allow_|openclash\.config\.|wireless\..*isolate=|=bridge-vlan|vlan_filtering' \
             AX6-IPQ/files/etc/init.d AX6-IPQ/files/etc/uci-defaults; then
@@ -592,7 +602,10 @@ jobs:
             exit 1
           fi
           grep -Fq "grep -q '=bridge-vlan'" "$vlan"
-          grep -Fq 'for port_name in primaryPort secondaryPort' "$zt_fw4"
+          grep -Fq 'port_names="primaryPort secondaryPort"' "$zt_fw4"
+          # shellcheck disable=SC2016 # Match the helper's literal variable append.
+          grep -Fq 'port_names="$port_names tertiaryPort"' "$zt_fw4"
+          grep -Fq 'port_mapping_enabled' "$zt_fw4"
           grep -Fq 'drop_stale_port_rules' "$zt_fw4"
           grep -Fq 'fw4 reload' "$zt_fw4"
           for workflow in .github/workflows/build-AX6-NSS.yml .github/workflows/build-AX6-IPQ.yml; do

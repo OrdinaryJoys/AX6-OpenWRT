@@ -52,15 +52,16 @@ Layer 4 (monitoring):   nss-check cron (每 30 分钟)                 ← 已�
 
 **问题:** 每次重启后 ZeroTier 端口规则丢失, 外部无法连接。
 
-**后续复核:** 锁定的 ImmortalWrt ZeroTier 包会跟踪 daemon 报告的
-`primaryPort` 与 `secondaryPort`，不跟踪 tertiary/listeningOn。仓库可靠性增强必须
-保持这一上游端口集合，不能简化为 primary-only。
+**后续复核:** ZeroTier 1.16.2 官方源码会绑定 daemon 报告的 `primaryPort` 与
+`secondaryPort`；启用 `portMappingEnabled` 时还会绑定 `tertiaryPort` 并交给
+UPnP/NAT-PMP `PortMapper`。仓库规则必须跟踪这三个实际本地端口，不能简化为
+primary-only，也不能从外部 `listeningOn`/surface address 推断端口。
 
 **修复 (`db2f339`):**
-- zerotier-fw4: 跟踪 primary + secondary，删除 tertiary/listeningOn 推断
+- zerotier-fw4: 跟踪 primary + secondary，并在端口映射启用时跟踪 tertiary
 - 增加 cli-ready guard (60s 等待 zerotier-cli 响应)
 - drop_stale + append_once 防重复规则
-- ax6-config-audit: 核对运行时 primary + secondary 与 nft include 一致
+- ax6-config-audit: 核对 daemon 实际启用的服务端口与 nft include 一致
 - 删除无效的 hotplug 脚本 (99-zerotier-fw4)
 
 **验证:**

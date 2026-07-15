@@ -155,6 +155,7 @@ bd34c6115540057aada210cbd6613447d6da2ca0a660f57f5a73b3eafcc736c8  target/linux/i
 aa1f7a31dc6854706c06a7b5f8f3e8b364775ee7e74f33c51cc29aad88608848  target/linux/mediatek/patches-6.18/901-arm-add-cmdline-override.patch
 ba2f0040e4d9d717c224b03ce89c7eeedb65acb46f2c8418bb28daad775f6aa2  target/linux/qualcommax/base-files/etc/init.d/set-irq-affinity
 feb92e1ae70a4ed6b231f9a7cd754ee307cda5f9c656e2269103412fee7ffc25  target/linux/qualcommax/dts/ipq8071-ax3600-stock.dts
+a891afc469ce64c8e75f98a2b17b4c30b2aed03ffc60bc05458f2bb507158f4c  target/linux/qualcommax/image/ipq807x.mk
 3a172f18744b94bb479040a1c5600d775775ca86bcea4550bfe5d1defc640789  target/linux/qualcommax/patches-6.18/0600-1-qca-nss-ecm-support-CORE.patch
 87fd23cac3031fb6673f86de29e58328067fc3a9da65af7b049d7d3879dee0c9  target/linux/qualcommax/patches-6.18/0603-1-qca-nss-clients-add-qdisc-support.patch
 3290f5df3c7e98458f4e3c1e2a2def3a9c637eecff4c257f0a163bef0e9b535e  target/linux/qualcommax/patches-6.18/0603-2-qca-nss-clients-add-l2tp-support.patch
