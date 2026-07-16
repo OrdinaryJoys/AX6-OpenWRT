@@ -15,6 +15,35 @@ if ! grep -Fq '+	u64 tx_packets, tx_bytes, tx_dropped;' "$patch_file"; then
 fi
 
 awk '
+    /^\+\+\+ b\/drivers\/net\/wireless\/ath\/ath11k\/nss\.c$/ {
+        in_nss_file = 1
+        next
+    }
+    in_nss_file && /^@@ -0,0 \+1,[0-9]+ @@$/ {
+        declared = $0
+        sub(/^.*\+1,/, "", declared)
+        sub(/ .*/, "", declared)
+        in_nss_hunk = 1
+        next
+    }
+    in_nss_hunk && /^--- / {
+        in_nss_hunk = 0
+        in_nss_file = 0
+        next
+    }
+    in_nss_hunk && /^\+/ && !/^\+\+\+/ {
+        added++
+        last_added = $0
+    }
+    END {
+        if (!declared || added != declared || last_added != "+}") {
+            print "ath11k NSS nss.c patch hunk length or closing brace is invalid" > "/dev/stderr"
+            exit 1
+        }
+    }
+' "$patch_file"
+
+awk '
     /^\+\tfor \(i = 0; i < stats->npeers; i\+\+\) \{/ {
         in_peer_loop = 1
         next

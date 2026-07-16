@@ -455,6 +455,7 @@ jobs:
           set -eo pipefail
           gate=AX6-IPQ/scripts/check-ath11k-nss-peer-stats.sh
           test -x "$gate"
+          grep -Fq 'nss.c patch hunk length or closing brace is invalid' "$gate"
           grep -Fq 'tx_dropped must reset before each peer drop sum' "$gate"
           grep -Fq 'check-ath11k-nss-peer-stats.sh' .github/workflows/build-AX6-NSS.yml
 
