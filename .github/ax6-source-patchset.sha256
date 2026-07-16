@@ -6,6 +6,7 @@ f3ced7492553c1c42d6583efcf2186da11ae39090c7c8b66f48deacab521d38f  package/kernel
 fcf1ff758f246508d126589349b43b356a0fb3e2b1d2ef42c46c00c40c27fd1b  package/kernel/mac80211/patches/ath9k/600-wifi-ath9k-Clear-DMA-descriptors-without-memset.patch
 88a957f6fc0a15df6332260f945423a1ea78c39ba1ed01f7056f5cea0c99cfcf  package/kernel/mac80211/patches/ath9k/601-wifi-ath9k-remove-TX99-power-array-zero-init.patch
 89ace2c3d3803f244efda288bfadf02ee48d3078203db8bb55f05b6d70cf7625  package/kernel/mac80211/patches/nss/ath10k/999-800-ath10k-Add-threaded-napi.patch
+92aa5d973f6fc748815fe4dff00e0cec9c4d828c1ef66e4904cfcf1c63673856  package/kernel/mac80211/patches/nss/ath11k/199-002-ath11k_nss-add-nss-driver-interface.patch
 97bf63c9f192d4707dee87bd760a44aabd1a5d3dfdccf11c540eeacf0f6b5370  package/kernel/mac80211/patches/nss/ath11k/237-006-ath11k-Allow-fast-rx-by-bypassing-stats-update.patch
 f7498ea6c09693514035019a64cd08f325362ecd27ae5408ce83d3f9b03a53a1  package/kernel/mac80211/patches/nss/ath11k/244-ath11k-dp-tx-perf.patch
 338c0f68ee76d0ceb485f456f808ddf1914e7088ddb90c1f022b8bb5f08698e3  package/kernel/mac80211/patches/nss/ath11k/300-ath11k-nss-mesh-offload-support.patch

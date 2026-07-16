@@ -307,10 +307,9 @@ case "$ecm_disable_flow_control" in
         ;;
 esac
 
-# br-lan = host-terminated traffic ingress, so the configured ECM helper must
-# leave its software-facing offloads disabled. Physical-port state is reported
-# as WARN only: it can vary with driver/netifd timing and needs packet-integrity
-# evidence before being classified as a fault.
+# qca-nss-ecm's official helper applies disable_offloads to physical netdevs.
+# ax6-network-invariants repeats it after qca-nss-dp/netifd startup and applies
+# the same policy to br-lan, so enabled features now indicate policy drift.
 # severity arg: $2 = "fail" (default) or "warn"
 check_offload_disabled() {
     _dev="$1"
@@ -346,10 +345,10 @@ check_offload_disabled() {
     fi
 }
 
-# br-lan must be off (host-traffic ingress); physical ports are report-only.
+# br-lan and physical NSS data-path ports must match disable_offloads=1.
 check_offload_disabled br-lan fail
 for _offload_dev in wan lan1 lan2 lan3; do
-    check_offload_disabled "$_offload_dev" warn
+    check_offload_disabled "$_offload_dev" fail
 done
 
 # ---- 16. ZRAM swap 实际启用 ----
@@ -532,7 +531,37 @@ else
     ok "IRQ/RPS 自动策略由上游 qualcommax 管理"
 fi
 
-# ---- 21. Overlay 空间检查 ----
+# ---- 21. IPv4 interface invariants ----
+ipv4_invariant_bad=""
+for directory in /proc/sys/net/ipv4/conf/*; do
+    [ -d "$directory" ] || continue
+    interface="${directory##*/}"
+    [ "$interface" != "lo" ] || continue
+
+    for expected in \
+        send_redirects:0 \
+        accept_redirects:0 \
+        arp_ignore:1; do
+        setting="${expected%%:*}"
+        value="${expected##*:}"
+        actual=$(cat "$directory/$setting" 2>/dev/null)
+        if [ "$actual" != "$value" ]; then
+            ipv4_invariant_bad="${ipv4_invariant_bad} ${interface}.${setting}=${actual:-unset}"
+        fi
+    done
+done
+if [ -n "$ipv4_invariant_bad" ]; then
+    fail "IPv4 interface invariant drift:${ipv4_invariant_bad}"
+else
+    ok "IPv4 interface redirect/ARP invariants applied"
+fi
+if [ -e /etc/rc.d/S95ax6-network-invariants ]; then
+    ok "IPv4 interface invariant service enabled"
+else
+    fail "Missing startup link: /etc/rc.d/S95ax6-network-invariants"
+fi
+
+# ---- 22. Overlay 空间检查 ----
 overlay_use=$(df /overlay 2>/dev/null | awk 'NR==2 {gsub(/%/,""); print $5}')
 if [ -n "$overlay_use" ] 2>/dev/null; then
     if [ "$overlay_use" -ge 90 ] 2>/dev/null; then

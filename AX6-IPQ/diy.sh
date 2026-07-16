@@ -290,6 +290,7 @@ done
 mkdir -p ./files/etc/rc.d
 ( cd ./files/etc/rc.d && ln -sf ../init.d/ax6-boot-guard S12ax6-boot-guard 2>/dev/null )
 ( cd ./files/etc/rc.d && ln -sf ../init.d/ax6-wifi-regdom S10ax6-wifi-regdom 2>/dev/null )
+( cd ./files/etc/rc.d && ln -sf ../init.d/ax6-network-invariants S95ax6-network-invariants 2>/dev/null )
 
 # ----------------------------------------------------
 # 移除空的 Plugins 菜单页（无实际插件, 仅显示空白开关）

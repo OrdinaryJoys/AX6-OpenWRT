@@ -1,0 +1,26 @@
+#!/bin/sh /etc/rc.common
+# Apply IPv4 router invariants after netifd has created the initial interfaces.
+
+# shellcheck disable=SC2034
+START=95
+
+start() {
+    /usr/sbin/ax6-network-invariants --all
+
+    # qca-nss-ecm applies this policy during its earlier startup, but qca-nss-dp
+    # and netifd can recreate or retune netdev features afterwards. Reapply the
+    # official helper after interfaces and NSS drivers have settled.
+    if [ -r /lib/netifd/offload/disable_offloads.sh ]; then
+        # shellcheck disable=SC1091
+        . /lib/netifd/offload/disable_offloads.sh
+        disable_offload
+        disable_offload br-lan
+    else
+        logger -t ax6-network-invariants -p user.error \
+            "missing /lib/netifd/offload/disable_offloads.sh"
+    fi
+}
+
+reload() {
+    start
+}

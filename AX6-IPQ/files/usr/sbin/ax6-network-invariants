@@ -1,0 +1,44 @@
+#!/bin/sh
+
+set -u
+
+IPV4_CONF_ROOT="${AX6_IPV4_CONF_ROOT:-/proc/sys/net/ipv4/conf}"
+
+apply_interface() {
+    interface="$1"
+    directory="$IPV4_CONF_ROOT/$interface"
+
+    [ "$interface" != "lo" ] || return 0
+    [ -d "$directory" ] || return 0
+
+    for setting in \
+        send_redirects:0 \
+        accept_redirects:0 \
+        arp_ignore:1; do
+        name="${setting%%:*}"
+        value="${setting##*:}"
+        file="$directory/$name"
+
+        [ -w "$file" ] || continue
+        current="$(cat "$file" 2>/dev/null)"
+        [ "$current" = "$value" ] || printf '%s\n' "$value" > "$file"
+    done
+}
+
+case "${1:-all}" in
+    all|--all)
+        for directory in "$IPV4_CONF_ROOT"/*; do
+            [ -d "$directory" ] || continue
+            apply_interface "${directory##*/}"
+        done
+        ;;
+    -*)
+        echo "usage: $0 [all|interface ...]" >&2
+        exit 64
+        ;;
+    *)
+        for interface in "$@"; do
+            apply_interface "$interface"
+        done
+        ;;
+esac

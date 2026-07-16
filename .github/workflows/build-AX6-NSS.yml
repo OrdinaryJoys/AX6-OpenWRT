@@ -309,6 +309,8 @@ jobs:
             echo "::error file=$ath_mk::ATH11K_NSS_SUPPORT must not force ATH11K_NSS_MESH_SUPPORT"
             exit 1
           fi
+          AX6-IPQ/scripts/check-ath11k-nss-peer-stats.sh \
+            openwrt/package/kernel/mac80211/patches/nss/ath11k/199-002-ath11k_nss-add-nss-driver-interface.patch
           platform_sh="openwrt/target/linux/qualcommax/ipq807x/base-files/lib/upgrade/platform.sh"
           grep -Fq 'xiaomi_stock_check_image_size' "$platform_sh" || {
             echo "::error file=$platform_sh::missing runtime MTD/image capacity preflight"
@@ -538,8 +540,11 @@ jobs:
             'etc/uci-defaults/95-ax6-zram-defaults' \
             'etc/uci-defaults/98-nss-tune' \
             'etc/uci-defaults/15_smp_affinity\.sh' \
+            'etc/sysctl\.d/99-ax6-tune\.conf' \
+            'etc/hotplug\.d/net/90-ax6-network-invariants' \
             'etc/hotplug\.d/net/99-disable_offloads' \
             'etc/hotplug\.d/net/100-disable_offloads_br_lan' \
+            'etc/init\.d/ax6-network-invariants' \
             'lib/netifd/offload/disable_offloads\.sh' \
             'usr/lib/sqm/nss-zk\.qos' \
             'usr/bin/zerotier-fw4' \
@@ -547,6 +552,7 @@ jobs:
             'sbin/nss-check' \
             'sbin/ax6-config-audit' \
             'etc/init\.d/ax6-wifi-regdom' \
+            'usr/sbin/ax6-network-invariants' \
             'usr/sbin/ax6-irq-affinity'; do
             grep -Eq "squashfs-root/${required}( ->|$)" image-verify/rootfs-files.txt || {
               echo "::error::Final rootfs is missing required path: $required"
@@ -593,6 +599,7 @@ jobs:
             'etc/rc\.d/S28qca-nss-drv' \
             'etc/rc\.d/S29qca-nss-netlink' \
             'etc/rc\.d/S93smp_affinity' \
+            'etc/rc\.d/S95ax6-network-invariants' \
             'etc/rc\.d/S99set-irq-affinity'; do
             grep -Eq "squashfs-root/${enabled}( ->|$)" image-verify/rootfs-files.txt || {
               echo "::error::Final rootfs is missing required startup link: $enabled"

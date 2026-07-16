@@ -1,0 +1,8 @@
+#!/bin/sh
+
+[ "$ACTION" = "add" ] || exit 0
+[ -n "$INTERFACE" ] || exit 0
+
+/usr/sbin/ax6-network-invariants "$INTERFACE"
+
+exit 0

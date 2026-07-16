@@ -171,7 +171,7 @@ jobs:
             echo "::error::SOURCE_PATCHSET_MANIFEST_SHA256 must be a 64-character lowercase SHA256"
             exit 1
           }
-          [ "$SOURCE_TRACKING_BRANCH" = codex/ax6-upstream-gap-complete ] || {
+          [ "$SOURCE_TRACKING_BRANCH" = codex/ax6-upstream-gap-peer-stats-fix ] || {
             echo "::error::unexpected source tracking branch: $SOURCE_TRACKING_BRANCH"
             exit 1
           }
@@ -443,6 +443,56 @@ jobs:
               'etc/hotplug\.d/net/99-disable_offloads' \
               'etc/hotplug\.d/net/100-disable_offloads_br_lan' \
               'lib/netifd/offload/disable_offloads\.sh'; do
+              grep -Fq "$required" "$workflow" || {
+                echo "::error file=$workflow::final rootfs validation is missing $required"
+                exit 1
+              }
+            done
+          done
+
+      - name: Ath11k NSS peer statistics gate check
+        run: |
+          set -eo pipefail
+          gate=AX6-IPQ/scripts/check-ath11k-nss-peer-stats.sh
+          test -x "$gate"
+          grep -Fq 'tx_dropped must reset before each peer drop sum' "$gate"
+          grep -Fq 'check-ath11k-nss-peer-stats.sh' .github/workflows/build-AX6-NSS.yml
+
+      - name: IPv4 interface invariant check
+        run: |
+          set -eo pipefail
+          sysctl_file=AX6-IPQ/files/etc/sysctl.d/99-ax6-tune.conf
+          helper=AX6-IPQ/files/usr/sbin/ax6-network-invariants
+          service=AX6-IPQ/files/etc/init.d/ax6-network-invariants
+          hotplug=AX6-IPQ/files/etc/hotplug.d/net/90-ax6-network-invariants
+          for file in "$helper" "$service" "$hotplug"; do
+            test -x "$file"
+          done
+          for setting in \
+            net.ipv4.conf.all.send_redirects=0 \
+            net.ipv4.conf.default.send_redirects=0 \
+            net.ipv4.conf.all.accept_redirects=0 \
+            net.ipv4.conf.default.accept_redirects=0 \
+            net.ipv4.conf.all.arp_ignore=1 \
+            net.ipv4.conf.default.arp_ignore=1; do
+            grep -Fqx "$setting" "$sysctl_file"
+          done
+          grep -Fq 'send_redirects:0' "$helper"
+          grep -Fq 'accept_redirects:0' "$helper"
+          grep -Fq 'arp_ignore:1' "$helper"
+          grep -Fq '/usr/sbin/ax6-network-invariants --all' "$service"
+          grep -Fq '. /lib/netifd/offload/disable_offloads.sh' "$service"
+          grep -Fqx '        disable_offload' "$service"
+          grep -Fqx '        disable_offload br-lan' "$service"
+          # shellcheck disable=SC2016 # Match the hotplug script's literal environment variable.
+          grep -Fq '/usr/sbin/ax6-network-invariants "$INTERFACE"' "$hotplug"
+          grep -Fq 'S95ax6-network-invariants' AX6-IPQ/diy.sh
+          for workflow in .github/workflows/build-AX6-NSS.yml .github/workflows/build-AX6-IPQ.yml; do
+            for required in \
+              'etc/init\.d/ax6-network-invariants' \
+              'etc/hotplug\.d/net/90-ax6-network-invariants' \
+              'usr/sbin/ax6-network-invariants' \
+              'etc/rc\.d/S95ax6-network-invariants'; do
               grep -Fq "$required" "$workflow" || {
                 echo "::error file=$workflow::final rootfs validation is missing $required"
                 exit 1
