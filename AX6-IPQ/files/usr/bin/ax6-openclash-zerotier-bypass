@@ -1,86 +1,231 @@
 #!/bin/sh
 
-COMMENT="AX6 ZeroTier self bypass"
+LOCK_FILE="${LOCK_FILE:-/var/lock/ax6-zerotier-reconcile.lock}"
+PRIMARY_COMMENT="AX6 ZeroTier primary self bypass"
+UDP_COMMENT="AX6 ZeroTier UDP self bypass"
+LEGACY_COMMENT="AX6 ZeroTier self bypass"
+DRY_RUN=0
+LOCK_HELD=0
+MODE=auto
+primary=
+secondary=
+tertiary=0
+transaction=
 
-log_error() {
+log_change() {
 	logger -t ax6-openclash-zerotier-bypass "$1" 2>/dev/null || true
 }
 
-remove_owned_rules() {
-	chain="$1"
-	nft -a list chain inet fw4 "$chain" 2>/dev/null |
-		awk -v tag="$COMMENT" '
-			index($0, tag) {
+log_error() {
+	logger -t ax6-openclash-zerotier-bypass -p user.error "$1" 2>/dev/null || true
+}
+
+valid_port() {
+	case "$1" in
+		''|*[!0-9]*) return 1 ;;
+	esac
+	[ "$1" -ge 1 ] && [ "$1" -le 65535 ]
+}
+
+acquire_lock() {
+	[ "${AX6_ZT_LOCK_HELD:-0}" = "1" ] && return 0
+	command -v lock >/dev/null 2>&1 || {
+		log_error "required /bin/lock utility is unavailable"
+		return 1
+	}
+	mkdir -p "$(dirname "$LOCK_FILE")" 2>/dev/null || return 1
+	lock "$LOCK_FILE" || return 1
+	LOCK_HELD=1
+}
+
+# shellcheck disable=SC2329 # Invoked by the EXIT trap.
+release_lock() {
+	[ "$LOCK_HELD" -eq 1 ] || return 0
+	lock -u "$LOCK_FILE" >/dev/null 2>&1 || true
+	LOCK_HELD=0
+}
+
+# shellcheck disable=SC2329 # Invoked by the EXIT trap.
+cleanup() {
+	[ -z "$transaction" ] || rm -f "$transaction"
+	release_lock
+}
+
+owned_rule_lines() {
+	printf '%s\n' "$1" |
+		grep -F -e "$PRIMARY_COMMENT" -e "$UDP_COMMENT" -e "$LEGACY_COMMENT" || true
+}
+
+owned_rule_handles() {
+	owned_rule_lines "$1" |
+		awk '{ for (i = 1; i <= NF; i++) if ($i == "handle") print $(i + 1) }'
+}
+
+udp_rule_ports() {
+	printf '%s\n' "$1" |
+		awk '
+			{
 				for (i = 1; i <= NF; i++) {
-					if ($i == "handle") print $(i + 1)
+					if ($i != "sport") continue
+					i++
+					if ($i == "{") i++
+					for (; i <= NF && $i != "}"; i++) {
+						gsub(/,/, "", $i)
+						if ($i ~ /^[0-9]+$/) print $i
+					}
+					exit
 				}
 			}
 		' |
-		while IFS= read -r handle; do
-			[ -n "$handle" ] || continue
-			nft delete rule inet fw4 "$chain" handle "$handle" 2>/dev/null || true
-		done
+		sort -n
 }
 
-collect_ports() {
-	for port_name in $port_names; do
-		port="$(printf '%s\n' "$zerotier_info" |
-			jsonfilter -qe "@.${port_name}" 2>/dev/null)"
-		case "$port" in
-			''|*[!0-9]*) continue ;;
-		esac
-		[ "$port" -ge 1 ] && [ "$port" -le 65535 ] && printf '%s\n' "$port"
+chain_exact() {
+	rules="$1"
+	owned="$(owned_rule_lines "$rules")"
+	[ "$(printf '%s\n' "$owned" | grep -c .)" -eq 2 ] || return 1
+	printf '%s\n' "$owned" | grep -Fq "$LEGACY_COMMENT" && return 1
+
+	primary_rule="$(printf '%s\n' "$owned" | grep -F "$PRIMARY_COMMENT" | head -n 1)"
+	printf '%s\n' "$primary_rule" | grep -q "sport $primary" || return 1
+	printf '%s\n' "$primary_rule" | grep -q 'tcp' || return 1
+	printf '%s\n' "$primary_rule" | grep -q 'udp' || return 1
+
+	udp_rule="$(printf '%s\n' "$owned" | grep -F "$UDP_COMMENT" | head -n 1)"
+	printf '%s\n' "$udp_rule" | grep -q 'udp sport' || return 1
+	printf '%s\n' "$udp_rule" | grep -q 'tcp' && return 1
+	for port in $udp_ports; do
+		printf '%s\n' "$udp_rule" |
+			grep -Eq "(^|[^0-9])${port}([^0-9]|$)" || return 1
 	done
+	actual_udp_ports="$(udp_rule_ports "$udp_rule")"
+	expected_udp_ports="$(printf '%s\n' "$udp_ports" | tr ' ' '\n' | sed '/^$/d' | sort -n)"
+	[ "$actual_udp_ports" = "$expected_udp_ports" ] || return 1
+	return 0
 }
 
-[ "$(uci -q get zerotier.global.enabled)" = "1" ] || exit 0
-[ "$(uci -q get openclash.config.enable)" = "1" ] || exit 0
-[ "$(uci -q get openclash.config.router_self_proxy)" = "1" ] || exit 0
-command -v zerotier-cli >/dev/null 2>&1 || exit 0
-command -v jsonfilter >/dev/null 2>&1 || exit 0
-command -v nft >/dev/null 2>&1 || exit 0
-
-zerotier_info="$(zerotier-cli -j info 2>/dev/null |
-	jsonfilter -qe '@.config.settings' 2>/dev/null)"
-[ -n "$zerotier_info" ] || {
-	log_error "cannot read ZeroTier daemon ports"
-	exit 1
+read_daemon_ports() {
+	info="$(zerotier-cli -j info 2>/dev/null |
+		jsonfilter -qe '@.config.settings' 2>/dev/null)"
+	[ -n "$info" ] || return 1
+	primary="$(printf '%s\n' "$info" | jsonfilter -qe '@.primaryPort' 2>/dev/null)"
+	secondary="$(printf '%s\n' "$info" | jsonfilter -qe '@.secondaryPort' 2>/dev/null)"
+	mapping="$(printf '%s\n' "$info" | jsonfilter -qe '@.portMappingEnabled' 2>/dev/null)"
+	valid_port "$primary" && valid_port "$secondary" || return 1
+	tertiary=0
+	case "$mapping" in
+		true|1)
+			tertiary="$(printf '%s\n' "$info" | jsonfilter -qe '@.tertiaryPort' 2>/dev/null)"
+			valid_port "$tertiary" || return 1
+			;;
+	esac
 }
 
-port_names="primaryPort secondaryPort"
-case "$(printf '%s\n' "$zerotier_info" |
-	jsonfilter -qe '@.portMappingEnabled' 2>/dev/null)" in
-	true|1) port_names="$port_names tertiaryPort" ;;
-esac
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+		--dry-run) DRY_RUN=1; shift ;;
+		--cleanup) MODE=cleanup; shift ;;
+		--sync)
+			[ "$#" -ge 3 ] || exit 64
+			MODE=sync
+			primary="$2"
+			secondary="$3"
+			tertiary="${4:-0}"
+			shift 3
+			[ "$#" -eq 0 ] || shift
+			;;
+		-h|--help)
+			echo "Usage: $0 [--dry-run] [--sync PRIMARY SECONDARY [TERTIARY]|--cleanup]"
+			exit 0
+			;;
+		*) exit 64 ;;
+	esac
+done
 
-ports="$(collect_ports | sort -nu)"
+if [ "$MODE" = "auto" ]; then
+	if [ "$(uci -q get zerotier.global.enabled)" != "1" ] ||
+	   [ "$(uci -q get openclash.config.enable)" != "1" ] ||
+	   [ "$(uci -q get openclash.config.router_self_proxy)" != "1" ]; then
+		MODE=cleanup
+	else
+		read_daemon_ports || {
+			log_error "cannot read ZeroTier daemon ports; retaining last valid bypass"
+			exit 1
+		}
+		MODE=sync
+	fi
+fi
 
-[ -n "$ports" ] || {
-	log_error "ZeroTier daemon returned no valid transport ports"
-	exit 1
-}
+if [ "$MODE" = "sync" ]; then
+	valid_port "$primary" && valid_port "$secondary" || exit 64
+	[ "$tertiary" = "0" ] || valid_port "$tertiary" || exit 64
+	if [ "$(uci -q get zerotier.global.enabled)" != "1" ] ||
+	   [ "$(uci -q get openclash.config.enable)" != "1" ] ||
+	   [ "$(uci -q get openclash.config.router_self_proxy)" != "1" ]; then
+		MODE=cleanup
+	fi
+fi
 
-port_set="$(printf '%s\n' "$ports" |
-	awk 'BEGIN { sep = "" } { printf "%s%s", sep, $1; sep = ", " } END { print "" }')"
+udp_ports="$secondary"
+[ "$tertiary" != "0" ] && udp_ports="$udp_ports $tertiary"
+udp_set="$(printf '%s\n' "$udp_ports" | tr ' ' '\n' |
+	awk 'BEGIN { sep="" } { printf "%s%s", sep, $1; sep=", " } END { print "" }')"
 
-installed=0
-status=0
+acquire_lock || exit 0
+trap cleanup EXIT
+trap 'exit 0' HUP INT TERM
+transaction="${TMPDIR:-/tmp}/ax6-zerotier-bypass.$$"
+: > "$transaction" || exit 1
+changed=0
+chains=0
+
 for chain in \
 	openclash_output \
 	openclash_mangle_output \
 	openclash_output_v6 \
 	openclash_mangle_output_v6; do
-	nft list chain inet fw4 "$chain" >/dev/null 2>&1 || continue
-	remove_owned_rules "$chain"
-	if nft insert rule inet fw4 "$chain" position 0 \
-		meta l4proto \{ tcp, udp \} th sport \{ "$port_set" \} \
-		counter return comment "\"$COMMENT\""; then
-		installed=$((installed + 1))
-	else
-		log_error "failed to install bypass in $chain"
-		status=1
+	rules="$(nft -a list chain inet fw4 "$chain" 2>/dev/null)" || continue
+	chains=$((chains + 1))
+	if [ "$MODE" = "sync" ] && chain_exact "$rules"; then
+		continue
+	fi
+	owned="$(owned_rule_lines "$rules")"
+	[ "$MODE" = "cleanup" ] && [ -z "$owned" ] && continue
+	changed=1
+	for handle in $(owned_rule_handles "$rules"); do
+		printf '%s\n' "delete rule inet fw4 $chain handle $handle" >> "$transaction"
+	done
+	if [ "$MODE" = "sync" ]; then
+		printf '%s\n' \
+			"insert rule inet fw4 $chain position 0 udp sport { $udp_set } counter return comment \"$UDP_COMMENT\"" \
+			"insert rule inet fw4 $chain position 0 meta l4proto { tcp, udp } th sport $primary counter return comment \"$PRIMARY_COMMENT\"" \
+			>> "$transaction"
 	fi
 done
 
-[ "$installed" -gt 0 ] || exit 0
-exit "$status"
+[ "$chains" -gt 0 ] || {
+	rm -f "$transaction"
+	exit 0
+}
+[ "$changed" -eq 1 ] || {
+	rm -f "$transaction"
+	exit 0
+}
+if [ "$DRY_RUN" -eq 1 ]; then
+	log_change "dry-run: OpenClash ZeroTier bypass requires reconciliation"
+	rm -f "$transaction"
+	exit 0
+fi
+nft -c -f "$transaction" >/dev/null 2>&1 || {
+	log_error "bypass nft transaction validation failed"
+	rm -f "$transaction"
+	exit 1
+}
+nft -f "$transaction" >/dev/null 2>&1 || {
+	log_error "bypass nft transaction failed"
+	rm -f "$transaction"
+	exit 1
+}
+rm -f "$transaction"
+log_change "reconciled OpenClash ZeroTier bypass without reloading services"
+exit 0

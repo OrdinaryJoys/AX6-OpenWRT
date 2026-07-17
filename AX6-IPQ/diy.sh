@@ -284,12 +284,13 @@ for dir in ./files/etc/uci-defaults ./files/etc/init.d ./files/sbin ./files/usr/
   find "$dir" -type f -exec chmod +x {} +
 done
 
-# 启用仅负责 NSS 数据路径冲突项的 Boot Guard，以及静态国家码服务。
+# 启用仅负责 NSS 数据路径冲突项的 Boot Guard、静态国家码服务和 ZeroTier 规则协调器。
 # IRQ/RPS 自动策略由上游 qualcommax 脚本统一管理;
 # /usr/sbin/ax6-irq-affinity 保留为手动基准测试工具,不在启动或 WiFi hotplug 时覆盖上游。
 mkdir -p ./files/etc/rc.d
 ( cd ./files/etc/rc.d && ln -sf ../init.d/ax6-boot-guard S12ax6-boot-guard 2>/dev/null )
 ( cd ./files/etc/rc.d && ln -sf ../init.d/ax6-wifi-regdom S10ax6-wifi-regdom 2>/dev/null )
+( cd ./files/etc/rc.d && ln -sf ../init.d/ax6-zerotier-reconcile S91ax6-zerotier-reconcile 2>/dev/null )
 ( cd ./files/etc/rc.d && ln -sf ../init.d/ax6-network-invariants S95ax6-network-invariants 2>/dev/null )
 
 # ----------------------------------------------------

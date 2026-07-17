@@ -1,78 +1,78 @@
 #!/bin/sh
 set -eu
 
-ROOT="$(cd -- "$(dirname -- "$0")/.." && pwd)"
-TMP="$(mktemp -d)"
+ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
+TMP="$(mktemp -d "${TMPDIR:-/tmp}/zerotier-fw4-test.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT HUP INT TERM
-
 mkdir -p "$TMP/bin" "$TMP/fw"
 
-cat > "$TMP/bin/uci" <<'EOF'
+cat > "$TMP/bin/lock" <<'EOF'
 #!/bin/sh
-case "$*" in
-    *zerotier.global.fw_allow_input*) printf '%s\n' 1 ;;
-    *) exit 1 ;;
-esac
+exit 0
 EOF
 
 cat > "$TMP/bin/zerotier-cli" <<'EOF'
 #!/bin/sh
 case "$*" in
-    info) exit 0 ;;
-    '-j info') printf '{"config":{"settings":{"primaryPort":9993,"secondaryPort":45678,"tertiaryPort":56789,"portMappingEnabled":%s}}}\n' "${ZT_PORT_MAPPING_ENABLED:-true}" ;;
+    '-j listnetworks') printf '%s\n' '[{"portDeviceName":"ztmock0","nwid":"abc123"}]' ;;
     *) exit 1 ;;
 esac
 EOF
 
 cat > "$TMP/bin/jsonfilter" <<'EOF'
 #!/bin/sh
-input=$(cat)
+cat >/dev/null
+printf '%s\n' abc123
+EOF
+
+cat > "$TMP/bin/uci" <<'EOF'
+#!/bin/sh
 case "$*" in
-    *'@.config.settings') printf '%s\n' "$input" | sed -e 's/^{"config":{"settings"://' -e 's/}}$//' ;;
-    *'@.primaryPort') printf '%s\n' 9993 ;;
-    *'@.secondaryPort') printf '%s\n' 45678 ;;
-    *'@.tertiaryPort') printf '%s\n' 56789 ;;
-    *'@.portMappingEnabled')
-        case "$input" in
-            *'"portMappingEnabled":false'*) printf '%s\n' false ;;
-            *) printf '%s\n' true ;;
-        esac
-        ;;
-    *) printf '%s\n' "$input" >/dev/null; exit 1 ;;
+    'show zerotier') printf '%s\n' "zerotier.net=network" "zerotier.net.id='abc123'" ;;
+    *zerotier.net.fw_allow_input*) printf '%s\n' 1 ;;
+    *zerotier.net.fw_allow_forward*) printf '%s\n' 1 ;;
+    *zerotier.net.fw_allow_masq*) printf '%s\n' 1 ;;
+    *zerotier.net.fw_forward_ifaces*|*zerotier.net.fw_masq_ifaces*) exit 1 ;;
+    *) exit 1 ;;
 esac
 EOF
 
-for command in nft fw4 logger; do
-    cat > "$TMP/bin/$command" <<'EOF'
+cat > "$TMP/bin/nft" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$*" >> "$NFT_LOG"
+exit 0
+EOF
+
+cat > "$TMP/bin/logger" <<'EOF'
 #!/bin/sh
 exit 0
 EOF
-done
+
+cat > "$TMP/bin/reconciler" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$*" > "$RECONCILER_LOG"
+EOF
+
 chmod +x "$TMP/bin/"*
+export NFT_LOG="$TMP/nft.log"
+export RECONCILER_LOG="$TMP/reconciler.log"
 
-run_helper() {
-    PATH="$TMP/bin:$PATH" FW_PATH="$TMP/fw" \
-        sh "$ROOT/AX6-IPQ/files/usr/bin/zerotier-fw4" -s
-}
+PATH="$TMP/bin:$PATH" FW_PATH="$TMP/fw" LOCK_FILE="$TMP/lock" \
+    sh "$ROOT/AX6-IPQ/files/usr/bin/zerotier-fw4" -i ztmock0
 
-run_helper
-grep -Fq 'meta l4proto { udp, tcp } th dport 9993' "$TMP/fw/input.nft"
-grep -Fq 'meta l4proto { udp } th dport 45678' "$TMP/fw/input.nft"
-grep -Fq 'meta l4proto { udp } th dport 56789' "$TMP/fw/input.nft"
+grep -Fq 'Accept ZeroTier input ztmock0' "$TMP/fw/input.nft"
+[ "$(grep -Fc 'forward ztmock0' "$TMP/fw/forward.nft")" -eq 2 ]
+grep -Fq 'Masquerade ZeroTier traffic ztmock0' "$TMP/fw/srcnat.nft"
 
-run_helper
-[ "$(grep -Fc 'th dport 9993' "$TMP/fw/input.nft")" -eq 1 ]
-[ "$(grep -Fc 'th dport 45678' "$TMP/fw/input.nft")" -eq 1 ]
-[ "$(grep -Fc 'th dport 56789' "$TMP/fw/input.nft")" -eq 1 ]
+# An existing input rule must not prevent missing forward/srcnat files from rebuilding.
+rm -f "$TMP/fw/forward.nft" "$TMP/fw/srcnat.nft"
+PATH="$TMP/bin:$PATH" FW_PATH="$TMP/fw" LOCK_FILE="$TMP/lock" \
+    sh "$ROOT/AX6-IPQ/files/usr/bin/zerotier-fw4" -i ztmock0
+[ "$(grep -Fc 'forward ztmock0' "$TMP/fw/forward.nft")" -eq 2 ]
+grep -Fq 'Masquerade ZeroTier traffic ztmock0' "$TMP/fw/srcnat.nft"
 
-rm -f "$TMP/fw/input.nft"
-export ZT_PORT_MAPPING_ENABLED=false
-run_helper
-grep -Fq 'th dport 9993' "$TMP/fw/input.nft"
-grep -Fq 'th dport 45678' "$TMP/fw/input.nft"
-if grep -Fq '56789' "$TMP/fw/input.nft"; then
-    echo 'tertiaryPort must not be added when port mapping is disabled' >&2
-    exit 1
-fi
+PATH="$TMP/bin:$PATH" FW_PATH="$TMP/fw" RECONCILER="$TMP/bin/reconciler" \
+    sh "$ROOT/AX6-IPQ/files/usr/bin/zerotier-fw4" -s
+grep -Fqx -- '--once' "$RECONCILER_LOG"
 
-echo 'zerotier fw4 service-port tests: PASS'
+echo 'test-zerotier-fw4: PASS'

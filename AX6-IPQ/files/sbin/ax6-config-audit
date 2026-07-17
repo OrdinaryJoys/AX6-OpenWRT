@@ -4,6 +4,7 @@
 
 VERBOSE=0
 QUIET=0
+ZT_FW_PATH="${ZT_FW_PATH:-/var/run/zerotier-one/_fw4}"
 
 case "${1:-}" in
     ""|"--") ;;
@@ -61,60 +62,98 @@ zerotier_port() {
         jsonfilter -qe "@.config.settings.${_zt_port_name}" 2>/dev/null
 }
 
-zerotier_input_ports() {
-    [ -r /var/run/zerotier-one/_fw4/input.nft ] || return 0
-    awk '
-        /ZeroTier input.*(primaryPort|secondaryPort|tertiaryPort)/ && /th dport/ {
-            for (i = 1; i <= NF; i++) {
-                if ($i == "dport") {
-                    print $(i + 1)
-                }
-            }
-        }
-    ' /var/run/zerotier-one/_fw4/input.nft |
-        awk '/^[0-9]+$/ && !seen[$0]++ { print }'
+zerotier_valid_port() {
+    case "$1" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    [ "$1" -ge 1 ] && [ "$1" -le 65535 ]
+}
+
+zerotier_owned_input_rules() {
+    printf '%s\n' "$1" |
+        grep -E 'Accept ZeroTier input [0-9]+ \((primaryPort|secondaryPort|tertiaryPort)\)' || true
+}
+
+zerotier_input_rule_set_match() {
+    _zt_rules="$1"
+    _zt_owned="$(zerotier_owned_input_rules "$_zt_rules")"
+    _zt_primary="$(zerotier_port primaryPort)"
+    _zt_secondary="$(zerotier_port secondaryPort)"
+    zerotier_valid_port "$_zt_primary" &&
+        zerotier_valid_port "$_zt_secondary" || return 1
+    _zt_expected_count=2
+    _zt_tertiary=0
+    case "$(zerotier_port portMappingEnabled)" in
+        true|1)
+            _zt_tertiary="$(zerotier_port tertiaryPort)"
+            zerotier_valid_port "$_zt_tertiary" || return 1
+            _zt_expected_count=3
+            ;;
+    esac
+    [ "$(printf '%s\n' "$_zt_owned" | grep -c .)" -eq "$_zt_expected_count" ] || return 1
+
+    _zt_rule="$(printf '%s\n' "$_zt_owned" |
+        grep -F "input $_zt_primary (primaryPort)" | head -n 1)"
+    printf '%s\n' "$_zt_rule" | grep -q "dport $_zt_primary" || return 1
+    printf '%s\n' "$_zt_rule" | grep -q tcp || return 1
+    printf '%s\n' "$_zt_rule" | grep -q udp || return 1
+
+    _zt_rule="$(printf '%s\n' "$_zt_owned" |
+        grep -F "input $_zt_secondary (secondaryPort)" | head -n 1)"
+    printf '%s\n' "$_zt_rule" | grep -Eq "(meta l4proto \{ udp \} th|udp) dport $_zt_secondary" || return 1
+    printf '%s\n' "$_zt_rule" | grep -q tcp && return 1
+
+    if [ "$_zt_tertiary" -gt 0 ]; then
+        _zt_rule="$(printf '%s\n' "$_zt_owned" |
+            grep -F "input $_zt_tertiary (tertiaryPort)" | head -n 1)"
+        printf '%s\n' "$_zt_rule" | grep -Eq "(meta l4proto \{ udp \} th|udp) dport $_zt_tertiary" || return 1
+        printf '%s\n' "$_zt_rule" | grep -q tcp && return 1
+    fi
+    return 0
 }
 
 zerotier_input_ports_match() {
-    _zt_input_ports="$(zerotier_input_ports)"
-    _zt_bad=0
-    _zt_checked=0
-    _zt_port_names="primaryPort secondaryPort"
-    case "$(zerotier_port portMappingEnabled)" in
-        true|1) _zt_port_names="$_zt_port_names tertiaryPort" ;;
-    esac
-    for _zt_port_name in $_zt_port_names; do
-        _zt_expected_port="$(zerotier_port "$_zt_port_name")"
-        [ -n "$_zt_expected_port" ] || continue
-        _zt_checked=$((_zt_checked + 1))
-        _zt_found=0
-        for _zt_actual_port in $_zt_input_ports; do
-            [ "$_zt_actual_port" = "$_zt_expected_port" ] && _zt_found=1
-        done
-        if [ "$_zt_found" -ne 1 ]; then
-            fail "ZeroTier: nft input include is missing $_zt_port_name $_zt_expected_port"
-            _zt_bad=1
-        fi
-    done
-    [ "$_zt_checked" -gt 0 ] || warn "ZeroTier: cannot read service ports"
-    [ "$_zt_bad" -eq 0 ] && [ "$_zt_checked" -gt 0 ] &&
-        ok "ZeroTier: nft input service ports match daemon settings"
+    _zt_include="$(cat "$ZT_FW_PATH/input.nft" 2>/dev/null)" || {
+        fail "ZeroTier: nft input include cannot be read"
+        return
+    }
+    if zerotier_input_rule_set_match "$_zt_include"; then
+        ok "ZeroTier: nft input include exactly matches daemon ports and protocols"
+    else
+        fail "ZeroTier: nft input include has missing, stale, or protocol-mismatched service ports"
+    fi
+
+    _zt_live="$(nft -a list chain inet fw4 input 2>/dev/null)" || {
+        fail "ZeroTier: live fw4 input chain cannot be read"
+        return
+    }
+    if zerotier_input_rule_set_match "$_zt_live"; then
+        ok "ZeroTier: live nft input rules exactly match daemon ports and protocols"
+    else
+        fail "ZeroTier: live nft input rules differ from daemon ports or include stale rules"
+    fi
+}
+
+zerotier_owned_input_absent() {
+    _zt_include="$(cat "$ZT_FW_PATH/input.nft" 2>/dev/null || true)"
+    _zt_live="$(nft -a list chain inet fw4 input 2>/dev/null || true)"
+    [ -z "$(zerotier_owned_input_rules "$_zt_include")" ] &&
+        [ -z "$(zerotier_owned_input_rules "$_zt_live")" ]
 }
 
 openclash_zerotier_bypass_match() {
-    _oczt_ports=""
-    _oczt_port_names="primaryPort secondaryPort"
+    _oczt_primary="$(zerotier_port primaryPort)"
+    _oczt_secondary="$(zerotier_port secondaryPort)"
+    zerotier_valid_port "$_oczt_primary" &&
+        zerotier_valid_port "$_oczt_secondary" || return 1
+    _oczt_udp_ports="$_oczt_secondary"
     case "$(zerotier_port portMappingEnabled)" in
-        true|1) _oczt_port_names="$_oczt_port_names tertiaryPort" ;;
+        true|1)
+            _oczt_tertiary="$(zerotier_port tertiaryPort)"
+            zerotier_valid_port "$_oczt_tertiary" || return 1
+            _oczt_udp_ports="$_oczt_udp_ports $_oczt_tertiary"
+            ;;
     esac
-    for _oczt_port_name in $_oczt_port_names; do
-        _oczt_port="$(zerotier_port "$_oczt_port_name")"
-        case "$_oczt_port" in
-            ''|*[!0-9]*) continue ;;
-        esac
-        _oczt_ports="$_oczt_ports $_oczt_port"
-    done
-    [ -n "$_oczt_ports" ] || return 1
 
     _oczt_checked=0
     for _oczt_chain in \
@@ -123,16 +162,61 @@ openclash_zerotier_bypass_match() {
         openclash_output_v6 \
         openclash_mangle_output_v6; do
         _oczt_rules="$(nft -a list chain inet fw4 "$_oczt_chain" 2>/dev/null)" || continue
-        _oczt_rule="$(printf '%s\n' "$_oczt_rules" |
-            grep -F 'AX6 ZeroTier self bypass' | head -n 1)"
-        [ -n "$_oczt_rule" ] || return 1
+        _oczt_owned="$(printf '%s\n' "$_oczt_rules" |
+            grep -F -e 'AX6 ZeroTier primary self bypass' \
+                -e 'AX6 ZeroTier UDP self bypass' \
+                -e 'AX6 ZeroTier self bypass' || true)"
+        [ "$(printf '%s\n' "$_oczt_owned" | grep -c .)" -eq 2 ] || return 1
+        printf '%s\n' "$_oczt_owned" | grep -Fq 'AX6 ZeroTier self bypass' && return 1
+
+        _oczt_rule="$(printf '%s\n' "$_oczt_owned" |
+            grep -F 'AX6 ZeroTier primary self bypass' | head -n 1)"
+        printf '%s\n' "$_oczt_rule" | grep -q "sport $_oczt_primary" || return 1
+        printf '%s\n' "$_oczt_rule" | grep -q tcp || return 1
+        printf '%s\n' "$_oczt_rule" | grep -q udp || return 1
+
+        _oczt_rule="$(printf '%s\n' "$_oczt_owned" |
+            grep -F 'AX6 ZeroTier UDP self bypass' | head -n 1)"
+        printf '%s\n' "$_oczt_rule" | grep -q 'udp sport' || return 1
+        printf '%s\n' "$_oczt_rule" | grep -q tcp && return 1
         _oczt_checked=$((_oczt_checked + 1))
-        for _oczt_port in $_oczt_ports; do
+        for _oczt_port in $_oczt_udp_ports; do
             printf '%s\n' "$_oczt_rule" |
                 grep -Eq "(^|[^0-9])${_oczt_port}([^0-9]|$)" || return 1
         done
+        _oczt_actual_ports="$(printf '%s\n' "$_oczt_rule" |
+            awk '
+                {
+                    for (i = 1; i <= NF; i++) {
+                        if ($i != "sport") continue
+                        i++
+                        if ($i == "{") i++
+                        for (; i <= NF && $i != "}"; i++) {
+                            gsub(/,/, "", $i)
+                            if ($i ~ /^[0-9]+$/) print $i
+                        }
+                        exit
+                    }
+                }
+            ' | sort -n)"
+        _oczt_expected_ports="$(printf '%s\n' "$_oczt_udp_ports" | tr ' ' '\n' | sed '/^$/d' | sort -n)"
+        [ "$_oczt_actual_ports" = "$_oczt_expected_ports" ] || return 1
     done
     [ "$_oczt_checked" -gt 0 ]
+}
+
+openclash_zerotier_bypass_absent() {
+    for _oczt_chain in \
+        openclash_output \
+        openclash_mangle_output \
+        openclash_output_v6 \
+        openclash_mangle_output_v6; do
+        nft -a list chain inet fw4 "$_oczt_chain" 2>/dev/null |
+            grep -F -e 'AX6 ZeroTier primary self bypass' \
+                -e 'AX6 ZeroTier UDP self bypass' \
+                -e 'AX6 ZeroTier self bypass' >/dev/null && return 1
+    done
+    return 0
 }
 
 openclash_dns_servers() {
@@ -306,8 +390,9 @@ if uci -q get zerotier.global >/dev/null 2>&1; then
         else
             warn "ZeroTier: enabled but no zt* interface is present"
         fi
-        zt_need_input=$(uci -q get zerotier.global.fw_allow_input)
-        [ "$zt_need_input" = "1" ] || zt_need_input=0
+        zt_need_service_input=$(uci -q get zerotier.global.fw_allow_input)
+        [ "$zt_need_service_input" = "1" ] || zt_need_service_input=0
+        zt_need_input=$zt_need_service_input
         zt_need_forward=0
         zt_need_srcnat=0
         for section in $(uci -q show zerotier 2>/dev/null | awk -F'[.=]' '/=network$/{print $2}'); do
@@ -336,23 +421,31 @@ if uci -q get zerotier.global >/dev/null 2>&1; then
                     ;;
             esac
         done
+        zt_input_include_ok=0
         if [ "$zt_need_input" = "1" ]; then
-            if zerotier_include_ok zerotier_input /var/run/zerotier-one/_fw4/input.nft input; then
+            if zerotier_include_ok zerotier_input "$ZT_FW_PATH/input.nft" input; then
                 ok "ZeroTier: dynamic nftables input include installed"
-                zerotier_input_ports_match
+                zt_input_include_ok=1
             else
                 fail "ZeroTier: input permission enabled but dynamic nftables include is missing or malformed"
             fi
         fi
+        if [ "$zt_need_service_input" = "1" ]; then
+            [ "$zt_input_include_ok" = "1" ] && zerotier_input_ports_match
+        elif zerotier_owned_input_absent; then
+            ok "ZeroTier: service-port input permission disabled and no service-port rules remain"
+        else
+            fail "ZeroTier: service-port input permission disabled but stale service-port rules remain"
+        fi
         if [ "$zt_need_forward" = "1" ]; then
-            if zerotier_include_ok zerotier_forward /var/run/zerotier-one/_fw4/forward.nft forward; then
+            if zerotier_include_ok zerotier_forward "$ZT_FW_PATH/forward.nft" forward; then
                 ok "ZeroTier: dynamic nftables forward include installed"
             else
                 fail "ZeroTier: forwarding enabled but dynamic nftables include is missing or malformed"
             fi
         fi
         if [ "$zt_need_srcnat" = "1" ]; then
-            if zerotier_include_ok zerotier_srcnat /var/run/zerotier-one/_fw4/srcnat.nft srcnat; then
+            if zerotier_include_ok zerotier_srcnat "$ZT_FW_PATH/srcnat.nft" srcnat; then
                 ok "ZeroTier: dynamic nftables srcnat include installed"
             else
                 fail "ZeroTier: masquerading enabled but dynamic nftables include is missing or malformed"
@@ -361,7 +454,11 @@ if uci -q get zerotier.global >/dev/null 2>&1; then
         [ "$zt_need_input$zt_need_forward$zt_need_srcnat" = "000" ] &&
             ok "ZeroTier: no package-managed firewall permissions requested"
     else
-        ok "ZeroTier: installed and disabled"
+        if zerotier_owned_input_absent && openclash_zerotier_bypass_absent; then
+            ok "ZeroTier: installed, disabled, and owned firewall rules are absent"
+        else
+            fail "ZeroTier: disabled but owned firewall or OpenClash bypass rules remain"
+        fi
     fi
 else
     ok "ZeroTier: not installed"
@@ -449,6 +546,10 @@ if uci -q get openclash.config >/dev/null 2>&1; then
             else
                 fail "OpenClash: router self proxy intercepts ZeroTier without a matching dynamic bypass"
             fi
+        elif openclash_zerotier_bypass_absent; then
+            ok "OpenClash: no stale ZeroTier self-proxy bypass rules"
+        else
+            fail "OpenClash: stale ZeroTier self-proxy bypass rules remain"
         fi
         case "$redirect_mode" in
             1)

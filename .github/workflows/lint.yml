@@ -35,7 +35,9 @@ jobs:
           sh tests/test-openclash-archive.sh
           sh tests/test-device-manifest.sh
           sh tests/test-zerotier-fw4.sh
+          sh tests/test-zerotier-reconcile.sh
           sh tests/test-openclash-zerotier-bypass.sh
+          sh tests/test-ax6-config-audit-zerotier.sh
 
       - name: Actionlint
         run: actionlint -color .github/workflows/*.yml
@@ -608,21 +610,34 @@ jobs:
           audit=AX6-IPQ/files/sbin/ax6-config-audit
           vlan=AX6-IPQ/files/sbin/vlan-add
           zt_fw4=AX6-IPQ/files/usr/bin/zerotier-fw4
+          zt_reconcile=AX6-IPQ/files/usr/sbin/ax6-zerotier-reconcile
+          zt_bypass=AX6-IPQ/files/usr/bin/ax6-openclash-zerotier-bypass
+          zt_init=AX6-IPQ/files/etc/init.d/ax6-zerotier-reconcile
           test -x "$audit"
           test -x "$vlan"
           test -x "$zt_fw4"
+          test -x "$zt_reconcile"
+          test -x "$zt_bypass"
+          test -x "$zt_init"
           if grep -Eq 'uci[[:space:]].*(set|delete|del|commit)|/etc/init\.d/.*(restart|reload)' "$audit"; then
             echo "::error file=$audit::scenario audit must remain read-only"
             exit 1
           fi
           # shellcheck disable=SC2016 # Match the audit helper's literal UCI expression.
           for required in \
-            '/var/run/zerotier-one/_fw4/input.nft' \
-            '/var/run/zerotier-one/_fw4/forward.nft' \
-            '/var/run/zerotier-one/_fw4/srcnat.nft' \
+            'ZT_FW_PATH="${ZT_FW_PATH:-/var/run/zerotier-one/_fw4}"' \
+            '"$ZT_FW_PATH/input.nft"' \
+            '"$ZT_FW_PATH/forward.nft"' \
+            '"$ZT_FW_PATH/srcnat.nft"' \
             'firewall.${_zt_section}.position' \
             'zerotier_input_ports_match' \
+            'zerotier_owned_input_absent' \
+            'nft input include exactly matches daemon ports and protocols' \
+            'live nft input rules exactly match daemon ports and protocols' \
             'openclash_zerotier_bypass_match' \
+            'openclash_zerotier_bypass_absent' \
+            'service-port input permission disabled but stale service-port rules remain' \
+            'stale ZeroTier self-proxy bypass rules remain' \
             'router self proxy intercepts ZeroTier without a matching dynamic bypass' \
             'vlan_filtering=1 conflicts with qosmio NSS WiFi offload guidance' \
             'config bridge-vlan is present' \
@@ -657,19 +672,34 @@ jobs:
             exit 1
           fi
           grep -Fq "grep -q '=bridge-vlan'" "$vlan"
-          grep -Fq 'port_names="primaryPort secondaryPort"' "$zt_fw4"
-          # shellcheck disable=SC2016 # Match the helper's literal variable append.
-          grep -Fq 'port_names="$port_names tertiaryPort"' "$zt_fw4"
-          grep -Fq 'port_mapping_enabled' "$zt_fw4"
-          grep -Fq 'drop_stale_port_rules' "$zt_fw4"
-          grep -Fq 'ax6-openclash-zerotier-bypass' "$zt_fw4"
-          grep -Fq 'fw4 reload' "$zt_fw4"
-          test -x AX6-IPQ/files/usr/bin/ax6-openclash-zerotier-bypass
+          grep -Fq 'RECONCILER=' "$zt_fw4"
+          # shellcheck disable=SC2016 # Match literal helper variables.
+          grep -Fq 'exec "$RECONCILER" --once' "$zt_fw4"
+          grep -Fq 'read_stable_settings' "$zt_reconcile"
+          grep -Fq 'STABLE_DELAY=' "$zt_reconcile"
+          # shellcheck disable=SC2016 # Match literal helper variables.
+          grep -Fq 'lock "$LOCK_FILE"' "$zt_reconcile"
+          # shellcheck disable=SC2016 # Match literal helper variables.
+          grep -Fq 'nft -c -f "$transaction"' "$zt_reconcile"
+          grep -Fq 'AX6 ZeroTier UDP self bypass' "$zt_bypass"
+          # shellcheck disable=SC2016 # Match the literal generated nft rule.
+          grep -Fq 'meta l4proto { tcp, udp } th sport $primary' "$zt_bypass"
+          if grep -Eq 'fw4[[:space:]]+reload|/etc/init\.d/(firewall|openclash|zerotier)[[:space:]]+(reload|restart)' \
+              "$zt_fw4" "$zt_reconcile" "$zt_bypass"; then
+            echo "::error::ZeroTier reconciliation must not reload firewall, OpenClash, or ZeroTier"
+            exit 1
+          fi
+          grep -Fqx 'START=91' "$zt_init"
+          # shellcheck disable=SC2016 # Match literal procd variables.
+          grep -Fq 'procd_set_param command "$PROG" --daemon' "$zt_init"
           test -x .github/scripts/inject-openclash-zerotier-hook.sh
-          grep -Fq 'openclash_mangle_output_v6' AX6-IPQ/files/usr/bin/ax6-openclash-zerotier-bypass
+          grep -Fq 'openclash_mangle_output_v6' "$zt_bypass"
           grep -Fq 'inject-openclash-zerotier-hook.sh' AX6-IPQ/diy.sh
+          grep -Fq 'S91ax6-zerotier-reconcile' AX6-IPQ/diy.sh
           for workflow in .github/workflows/build-AX6-NSS.yml .github/workflows/build-AX6-IPQ.yml; do
             grep -Fq "'usr/bin/zerotier-fw4'" "$workflow"
+            grep -Fq "'usr/sbin/ax6-zerotier-reconcile'" "$workflow"
+            grep -Fq "'etc/init\\.d/ax6-zerotier-reconcile'" "$workflow"
           done
           # shellcheck disable=SC2016 # Match vlan-add literal awk field reference.
           grep -Fq '/=zone$/{print $2}' "$vlan"

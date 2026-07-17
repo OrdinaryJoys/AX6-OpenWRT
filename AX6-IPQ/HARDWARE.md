@@ -270,11 +270,16 @@ OpenClash DNS 也遵循同样的所有权边界。固件不内置订阅配置,�
 OpenClash 官方 `router_self_proxy=1` 会覆盖路由器本机 output 流量,而 ZeroTier 的
 peer 传输并不只使用固定 UDP 9993。固件在 OpenClash 完成防火墙规则生成后读取
 ZeroTier daemon 的 `primaryPort`、`secondaryPort`，并在端口映射启用时读取
-`tertiaryPort`，将这些源端口精确旁路于 OpenClash 的 IPv4/IPv6 output 链。
-该规则不关闭 LAN 代理或 DNS 劫持，也不修改订阅 YAML、覆写和 custom 文件。
+`tertiaryPort`。primary 保持上游兼容的 TCP/UDP 规则，secondary/tertiary 仅按
+UDP 旁路于 OpenClash 的 IPv4/IPv6 output 链。`ax6-zerotier-reconcile` 以 30 秒
+间隔检查端口和规则，仅在变化时使用锁和 nft 事务同步 include 与 live 规则，不调用
+`fw4 reload`，也不重启 OpenClash 或 ZeroTier。CLI 暂时不可用时保留最后有效规则。
+该逻辑不固定随机端口，不修改 `local.conf`、LAN 代理、DNS 劫持、订阅 YAML、
+覆写和 custom 文件。
 
 `ax6-config-audit -v` 会只读检查以上配置边界；当两个服务同时启用且
-`router_self_proxy=1` 时，还会校验运行时旁路规则与 daemon 端口完全一致。
+`router_self_proxy=1` 时，会分别校验 include、live input 和 OpenClash 旁路规则，
+拒绝缺失端口、陈旧端口、错误协议及 include/live 不一致。
 
 ### 🛠️ 命令行助手 `vlan-add`
 

@@ -120,15 +120,20 @@ DNS 组和 `disable_ipv6=1` 的 IPv4 default DNS。不要把订阅 YAML 或自�
 OpenClash 官方默认会代理路由器本机流量。固件保留该默认值,但在 OpenClash
 防火墙规则生成后调用 `ax6-openclash-zerotier-bypass`,按 ZeroTier 守护进程当前的
 primary/secondary/tertiary 端口，在 IPv4/IPv6 output 链中只旁路 ZeroTier 传输流量。
-端口映射关闭时不会加入 tertiary 端口；ZeroTier 端口变化和 firewall4 reload 后会
-重新生成规则。该集成不修改订阅、覆写或用户自定义规则。
+primary 保持上游兼容的 TCP/UDP 规则，随机 secondary 与端口映射 tertiary 只匹配
+UDP。`ax6-zerotier-reconcile` 每 30 秒低频核对 daemon、持久 include 与 live nft；
+端口变化时连续读取两次确认稳定，再以同一把锁和 nft 事务仅更新本工具拥有的规则，
+不会重载 firewall4、OpenClash 或 ZeroTier。CLI 暂时不可用时保留最后有效规则。
+端口映射关闭时不会加入 tertiary 端口。该集成不修改 `local.conf`、订阅、覆写、
+身份文件或用户自定义规则。
 
 ## 配置所有权
 
 - Boot Guard 只纠正会直接冲突 NSS 数据路径的 packet steering/flow offload。
 - WiFi 首次启动脚本只设置 radio 级默认值，不覆盖 SSID 隔离、PMF、漫游或 IoT 策略。
 - VLAN、ZeroTier、UPnP 和 OpenClash 仍由管理员按网络拓扑配置；启动集成只维护
-  ZeroTier 动态服务端口及其 OpenClash 本机代理旁路，审计工具本身保持只读。
+  ZeroTier 动态服务端口及其 OpenClash 本机代理旁路；审计同时精确比较 include
+  与 live nft 的端口、协议和陈旧规则，工具本身保持只读。
 - 主构建的源码、全部 feeds 和 Argon 固定到完整提交 SHA；OpenClash 插件跟随
   官方 `master` 最新版，构建时记录实际来源并做基础结构校验。
 - AX6-IPQ/IMM/LEDE 备用构建跟随移动分支或 feeds,只上传 7 天

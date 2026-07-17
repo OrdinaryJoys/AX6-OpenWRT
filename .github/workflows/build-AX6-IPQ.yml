@@ -244,6 +244,8 @@ jobs:
             'usr/lib/sqm/nss-zk\.qos' \
             'usr/bin/zerotier-fw4' \
             'usr/bin/ax6-openclash-zerotier-bypass' \
+            'usr/sbin/ax6-zerotier-reconcile' \
+            'etc/init\.d/ax6-zerotier-reconcile' \
             'sbin/nss-check' \
             'sbin/ax6-config-audit' \
             'etc/init\.d/ax6-wifi-regdom' \
@@ -268,6 +270,7 @@ jobs:
             'etc/rc\.d/S19qca-nss-pbuf' \
             'etc/rc\.d/S28qca-nss-drv' \
             'etc/rc\.d/S29qca-nss-netlink' \
+            'etc/rc\.d/S91ax6-zerotier-reconcile' \
             'etc/rc\.d/S93smp_affinity' \
             'etc/rc\.d/S95ax6-network-invariants' \
             'etc/rc\.d/S99set-irq-affinity'; do
@@ -327,6 +330,22 @@ jobs:
               echo "::error::Final rootfs OpenClash init is missing the ZeroTier bypass hook"
               exit 1
             }
+          unsquashfs -cat "$rootfs" usr/sbin/ax6-zerotier-reconcile \
+            > image-verify/ax6-zerotier-reconcile
+          unsquashfs -cat "$rootfs" usr/bin/ax6-openclash-zerotier-bypass \
+            > image-verify/ax6-openclash-zerotier-bypass
+          unsquashfs -cat "$rootfs" etc/init.d/ax6-zerotier-reconcile \
+            > image-verify/ax6-zerotier-reconcile.init
+          grep -Fq 'read_stable_settings' image-verify/ax6-zerotier-reconcile
+          # shellcheck disable=SC2016 # Match the literal runtime transaction variable.
+          grep -Fq 'nft -c -f "$transaction"' image-verify/ax6-zerotier-reconcile
+          grep -Fq 'AX6 ZeroTier UDP self bypass' image-verify/ax6-openclash-zerotier-bypass
+          grep -Fqx 'START=91' image-verify/ax6-zerotier-reconcile.init
+          if grep -Eq 'fw4[[:space:]]+reload|/etc/init\.d/(firewall|openclash|zerotier)[[:space:]]+(reload|restart)' \
+              image-verify/ax6-zerotier-reconcile image-verify/ax6-openclash-zerotier-bypass; then
+            echo "::error::Final rootfs ZeroTier reconciliation reloads a network service"
+            exit 1
+          fi
 
           unsquashfs -cat "$rootfs" etc/init.d/qca-nss-pbuf \
             > image-verify/qca-nss-pbuf.init

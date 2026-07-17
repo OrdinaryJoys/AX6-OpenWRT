@@ -1,0 +1,322 @@
+#!/bin/sh
+
+FW_PATH="${FW_PATH:-/var/run/zerotier-one/_fw4}"
+INPUT_FILE="${INPUT_FILE:-$FW_PATH/input.nft}"
+STATE_FILE="${STATE_FILE:-/var/run/ax6-zerotier-reconcile.state}"
+LOCK_FILE="${LOCK_FILE:-/var/lock/ax6-zerotier-reconcile.lock}"
+BYPASS_HELPER="${BYPASS_HELPER:-/usr/bin/ax6-openclash-zerotier-bypass}"
+INTERVAL="${INTERVAL:-30}"
+STABLE_DELAY="${STABLE_DELAY:-2}"
+DRY_RUN=0
+LOCK_HELD=0
+desired=
+transaction=
+
+log_change() {
+	logger -t ax6-zerotier-reconcile "$1" 2>/dev/null || true
+}
+
+log_error() {
+	logger -t ax6-zerotier-reconcile -p user.error "$1" 2>/dev/null || true
+}
+
+valid_port() {
+	case "$1" in
+		''|*[!0-9]*) return 1 ;;
+	esac
+	[ "$1" -ge 1 ] && [ "$1" -le 65535 ]
+}
+
+read_settings() {
+	info="$(zerotier-cli -j info 2>/dev/null |
+		jsonfilter -qe '@.config.settings' 2>/dev/null)"
+	[ -n "$info" ] || return 1
+
+	primary="$(printf '%s\n' "$info" |
+		jsonfilter -qe '@.primaryPort' 2>/dev/null)"
+	secondary="$(printf '%s\n' "$info" |
+		jsonfilter -qe '@.secondaryPort' 2>/dev/null)"
+	mapping="$(printf '%s\n' "$info" |
+		jsonfilter -qe '@.portMappingEnabled' 2>/dev/null)"
+	valid_port "$primary" && valid_port "$secondary" || return 1
+
+	tertiary=0
+	case "$mapping" in
+		true|1)
+			tertiary="$(printf '%s\n' "$info" |
+				jsonfilter -qe '@.tertiaryPort' 2>/dev/null)"
+			valid_port "$tertiary" || return 1
+			;;
+	esac
+	printf '%s %s %s\n' "$primary" "$secondary" "$tertiary"
+}
+
+read_stable_settings() {
+	first="$(read_settings)" || return 1
+	previous="$(cat "$STATE_FILE" 2>/dev/null || true)"
+	if [ "$first" != "$previous" ]; then
+		sleep "$STABLE_DELAY"
+		second="$(read_settings)" || return 1
+		[ "$first" = "$second" ] || {
+			log_error "ZeroTier ports changed while being sampled; retaining last valid rules"
+			return 1
+		}
+	fi
+	printf '%s\n' "$first"
+}
+
+acquire_lock() {
+	[ "${AX6_ZT_LOCK_HELD:-0}" = "1" ] && return 0
+	command -v lock >/dev/null 2>&1 || {
+		log_error "required /bin/lock utility is unavailable"
+		return 1
+	}
+	mkdir -p "$(dirname "$LOCK_FILE")" 2>/dev/null || return 1
+	lock "$LOCK_FILE" || return 1
+	LOCK_HELD=1
+}
+
+release_lock() {
+	[ "$LOCK_HELD" -eq 1 ] || return 0
+	lock -u "$LOCK_FILE" >/dev/null 2>&1 || true
+	LOCK_HELD=0
+}
+
+cleanup() {
+	[ -z "$desired" ] || rm -f "$desired"
+	[ -z "$transaction" ] || rm -f "$transaction"
+	release_lock
+}
+
+clear_work_files() {
+	[ -z "$desired" ] || rm -f "$desired"
+	[ -z "$transaction" ] || rm -f "$transaction"
+	desired=
+	transaction=
+}
+
+install_desired_input() {
+	mv "$desired" "$INPUT_FILE" || {
+		log_error "cannot atomically replace the ZeroTier input include"
+		clear_work_files
+		return 1
+	}
+	desired=
+}
+
+trap cleanup EXIT
+trap 'exit 0' HUP INT TERM
+
+owned_input_rules() {
+	printf '%s\n' "$1" |
+		grep -E 'Accept ZeroTier input [0-9]+ \((primaryPort|secondaryPort|tertiaryPort)\)' || true
+}
+
+rule_handle_list() {
+	owned_input_rules "$1" |
+		awk '{ for (i = 1; i <= NF; i++) if ($i == "handle") print $(i + 1) }'
+}
+
+live_input_exact() {
+	rules="$1"
+	expect_input="$2"
+	primary="$3"
+	secondary="$4"
+	tertiary="$5"
+	owned="$(owned_input_rules "$rules")"
+
+	if [ "$expect_input" != "1" ]; then
+		[ -z "$owned" ]
+		return
+	fi
+
+	expected_count=2
+	[ "$tertiary" -gt 0 ] && expected_count=3
+	[ "$(printf '%s\n' "$owned" | grep -c .)" -eq "$expected_count" ] || return 1
+	primary_rule="$(printf '%s\n' "$owned" |
+		grep -F "input $primary (primaryPort)" | head -n 1)"
+	printf '%s\n' "$primary_rule" | grep -q "dport $primary" || return 1
+	printf '%s\n' "$primary_rule" | grep -q 'tcp' || return 1
+	printf '%s\n' "$primary_rule" | grep -q 'udp' || return 1
+
+	secondary_rule="$(printf '%s\n' "$owned" |
+		grep -F "input $secondary (secondaryPort)" | head -n 1)"
+	printf '%s\n' "$secondary_rule" | grep -q "udp dport $secondary" || return 1
+	printf '%s\n' "$secondary_rule" | grep -q 'tcp' && return 1
+
+	if [ "$tertiary" -gt 0 ]; then
+		tertiary_rule="$(printf '%s\n' "$owned" |
+			grep -F "input $tertiary (tertiaryPort)" | head -n 1)"
+		printf '%s\n' "$tertiary_rule" | grep -q "udp dport $tertiary" || return 1
+		printf '%s\n' "$tertiary_rule" | grep -q 'tcp' && return 1
+	fi
+	return 0
+}
+
+append_expected_input() {
+	file="$1"
+	primary="$2"
+	secondary="$3"
+	tertiary="$4"
+	printf '%s\n' \
+		"meta l4proto { udp, tcp } th dport $primary counter accept comment \"!fw4: Accept ZeroTier input $primary (primaryPort)\"" \
+		"meta l4proto { udp } th dport $secondary counter accept comment \"!fw4: Accept ZeroTier input $secondary (secondaryPort)\"" \
+		>> "$file"
+	[ "$tertiary" -gt 0 ] && printf '%s\n' \
+		"meta l4proto { udp } th dport $tertiary counter accept comment \"!fw4: Accept ZeroTier input $tertiary (tertiaryPort)\"" \
+		>> "$file"
+	return 0
+}
+
+append_live_input_transaction() {
+	file="$1"
+	primary="$2"
+	secondary="$3"
+	tertiary="$4"
+	printf '%s\n' \
+		"insert rule inet fw4 input position 0 meta l4proto { udp, tcp } th dport $primary counter accept comment \"!fw4: Accept ZeroTier input $primary (primaryPort)\"" \
+		"insert rule inet fw4 input position 0 udp dport $secondary counter accept comment \"!fw4: Accept ZeroTier input $secondary (secondaryPort)\"" \
+		>> "$file"
+	[ "$tertiary" -gt 0 ] && printf '%s\n' \
+		"insert rule inet fw4 input position 0 udp dport $tertiary counter accept comment \"!fw4: Accept ZeroTier input $tertiary (tertiaryPort)\"" \
+		>> "$file"
+	return 0
+}
+
+sync_input() {
+	expect_input="$1"
+	primary="$2"
+	secondary="$3"
+	tertiary="$4"
+	mkdir -p "$FW_PATH" || return 1
+	desired="${INPUT_FILE}.desired.$$"
+	transaction="${FW_PATH}/input.transaction.$$"
+
+	if [ -r "$INPUT_FILE" ]; then
+		awk '
+			!/Accept ZeroTier input [0-9]+ \((primaryPort|secondaryPort|tertiaryPort)\)/
+		' "$INPUT_FILE" > "$desired" || return 1
+	else
+		: > "$desired"
+	fi
+	[ "$expect_input" = "1" ] &&
+		append_expected_input "$desired" "$primary" "$secondary" "$tertiary"
+
+	file_changed=1
+	cmp -s "$desired" "$INPUT_FILE" 2>/dev/null && file_changed=0
+	live_rules="$(nft -a list chain inet fw4 input 2>/dev/null)" || {
+		if [ "$DRY_RUN" -eq 0 ] && [ "$file_changed" -eq 1 ]; then
+			install_desired_input || return 1
+		fi
+		clear_work_files
+		log_error "fw4 input chain is unavailable; live sync deferred"
+		return 1
+	}
+
+	if live_input_exact "$live_rules" "$expect_input" "$primary" "$secondary" "$tertiary"; then
+		if [ "$DRY_RUN" -eq 0 ] && [ "$file_changed" -eq 1 ]; then
+			install_desired_input || return 1
+			log_change "updated ZeroTier input include without reloading firewall"
+		elif [ "$DRY_RUN" -eq 1 ] && [ "$file_changed" -eq 1 ]; then
+			log_change "dry-run: ZeroTier input include requires reconciliation"
+		fi
+		clear_work_files
+		return 0
+	fi
+
+	: > "$transaction"
+	for handle in $(rule_handle_list "$live_rules"); do
+		printf '%s\n' "delete rule inet fw4 input handle $handle" >> "$transaction"
+	done
+	[ "$expect_input" = "1" ] &&
+		append_live_input_transaction "$transaction" "$primary" "$secondary" "$tertiary"
+
+	if [ "$DRY_RUN" -eq 1 ]; then
+		log_change "dry-run: ZeroTier input rules require reconciliation"
+		clear_work_files
+		return 0
+	fi
+	nft -c -f "$transaction" >/dev/null 2>&1 || {
+		log_error "ZeroTier input nft transaction validation failed"
+		clear_work_files
+		return 1
+	}
+	nft -f "$transaction" >/dev/null 2>&1 || {
+		log_error "ZeroTier input nft transaction failed"
+		clear_work_files
+		return 1
+	}
+	[ "$file_changed" -eq 0 ] || install_desired_input || return 1
+	clear_work_files
+	log_change "reconciled ZeroTier input ports without reloading firewall"
+	return 0
+}
+
+write_state() {
+	[ "$DRY_RUN" -eq 0 ] || return 0
+	tmp="${STATE_FILE}.tmp.$$"
+	printf '%s\n' "$1" > "$tmp" && mv "$tmp" "$STATE_FILE"
+}
+
+sync_bypass() {
+	[ -x "$BYPASS_HELPER" ] || return 0
+	if [ "$DRY_RUN" -eq 1 ]; then
+		AX6_ZT_LOCK_HELD=1 "$BYPASS_HELPER" --dry-run "$@"
+	else
+		AX6_ZT_LOCK_HELD=1 "$BYPASS_HELPER" "$@"
+	fi
+}
+
+reconcile_once() {
+	zt_enabled="$(uci -q get zerotier.global.enabled)"
+	if [ "$zt_enabled" != "1" ]; then
+		acquire_lock || return 0
+		status=0
+		sync_input 0 0 0 0 || status=1
+		sync_bypass --cleanup || status=1
+		[ "$DRY_RUN" -eq 1 ] || rm -f "$STATE_FILE"
+		release_lock
+		return "$status"
+	fi
+
+	settings="$(read_stable_settings)" || {
+		log_error "cannot read stable ZeroTier daemon ports; retaining last valid rules"
+		return 1
+	}
+	primary="${settings%% *}"
+	remainder="${settings#* }"
+	secondary="${remainder%% *}"
+	tertiary="${remainder#* }"
+	expect_input=0
+	[ "$(uci -q get zerotier.global.fw_allow_input)" = "1" ] && expect_input=1
+
+	acquire_lock || return 0
+	status=0
+	sync_input "$expect_input" "$primary" "$secondary" "$tertiary" || status=1
+	sync_bypass --sync "$primary" "$secondary" "$tertiary" || status=1
+	[ "$status" -ne 0 ] || write_state "$settings" || status=1
+	release_lock
+	return "$status"
+}
+
+usage() {
+	echo "Usage: $0 [--once|--daemon|--dry-run]"
+}
+
+mode=once
+case "${1:-}" in
+	""|--once) mode=once ;;
+	--daemon) mode=daemon ;;
+	--dry-run) DRY_RUN=1; mode=once ;;
+	-h|--help) usage; exit 0 ;;
+	*) usage >&2; exit 64 ;;
+esac
+
+if [ "$mode" = "daemon" ]; then
+	while :; do
+		reconcile_once || true
+		sleep "$INTERVAL"
+	done
+fi
+
+reconcile_once
