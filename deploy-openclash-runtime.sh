@@ -155,12 +155,15 @@ RESTORE_STARTED=1
 ssh "$TARGET" '
     /etc/init.d/openclash stop >/dev/null 2>&1 || true
     tar -xzf - -C /
-    [ -f /etc/openclash/custom/openclash_custom_overwrite.sh ] &&
+    if [ -f /etc/openclash/custom/openclash_custom_overwrite.sh ]; then
         chmod 0755 /etc/openclash/custom/openclash_custom_overwrite.sh
-    [ -f /etc/openclash/custom/openclash_custom_firewall_rules.sh ] &&
+    fi
+    if [ -f /etc/openclash/custom/openclash_custom_firewall_rules.sh ]; then
         chmod 0755 /etc/openclash/custom/openclash_custom_firewall_rules.sh
-    [ -f /usr/share/openclash/fix_dot.sh ] &&
+    fi
+    if [ -f /usr/share/openclash/fix_dot.sh ]; then
         chmod 0755 /usr/share/openclash/fix_dot.sh
+    fi
 ' < "$ARCHIVE"
 say "  [ok] runtime files restored"
 
