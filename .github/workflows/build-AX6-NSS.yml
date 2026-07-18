@@ -311,6 +311,7 @@ jobs:
           fi
           AX6-IPQ/scripts/check-ath11k-nss-peer-stats.sh \
             openwrt/package/kernel/mac80211/patches/nss/ath11k/199-002-ath11k_nss-add-nss-driver-interface.patch
+          AX6-IPQ/scripts/check-ax6-stock-smem-nvmem.sh openwrt
           platform_sh="openwrt/target/linux/qualcommax/ipq807x/base-files/lib/upgrade/platform.sh"
           grep -Fq 'xiaomi_stock_check_image_size' "$platform_sh" || {
             echo "::error file=$platform_sh::missing runtime MTD/image capacity preflight"
@@ -493,6 +494,19 @@ jobs:
           set -eo pipefail
           echo "$(nproc) thread compile"
           make -j"$(nproc)" V=s || make -j1 V=s
+
+      - name: Validate compiled AX6 stock device trees
+        if: env.VARIANT_TAG == 'STOCK'
+        run: |
+          set -eo pipefail
+          mapfile -d '' stock_dtbs < <(
+            find openwrt/build_dir -type f -name 'ipq8071-ax6-stock.dtb' -print0
+          )
+          if [ "${#stock_dtbs[@]}" -lt 1 ]; then
+            echo "::error::Compiled AX6 stock DTB was not found"
+            exit 1
+          fi
+          AX6-IPQ/scripts/check-ax6-stock-compiled-dtb.sh "${stock_dtbs[@]}"
 
       - name: Validate final rootfs contents
         run: |

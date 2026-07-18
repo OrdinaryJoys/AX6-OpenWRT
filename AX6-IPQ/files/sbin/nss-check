@@ -102,6 +102,12 @@ fi
 
 # ---- 4. NSS Core 启动 ----
 _dmesg=$(dmesg 2>/dev/null)
+if echo "$_dmesg" |
+    grep -qE 'OF: /soc@0/dp[2-5]@3a001[2468]00: could not find phandle'; then
+    fail "AX6 Ethernet DTS has dangling nvmem phandles after bootloader/SMEM fixup"
+else
+    ok "AX6 Ethernet DTS has no dangling nvmem phandles"
+fi
 if echo "$_dmesg" | grep -q "NSS core .* booted"; then
     cores=$(echo "$_dmesg" | grep -c "NSS core .* booted")
     ok "NSS Core(s) booted: $cores"

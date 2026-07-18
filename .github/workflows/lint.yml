@@ -175,7 +175,7 @@ jobs:
             echo "::error::SOURCE_PATCHSET_MANIFEST_SHA256 must be a 64-character lowercase SHA256"
             exit 1
           }
-          [ "$SOURCE_TRACKING_BRANCH" = codex/ax6-nss-peer-stats-semantics ] || {
+          [ "$SOURCE_TRACKING_BRANCH" = codex/ax6-stock-smem-nvmem-runtime-fix ] || {
             echo "::error::unexpected source tracking branch: $SOURCE_TRACKING_BRANCH"
             exit 1
           }
@@ -462,6 +462,20 @@ jobs:
           grep -Fq 'nss.c patch hunk length or closing brace is invalid' "$gate"
           grep -Fq 'peer drops and no-ACK failures must remain separate' "$gate"
           grep -Fq 'check-ath11k-nss-peer-stats.sh' .github/workflows/build-AX6-NSS.yml
+
+      - name: AX6 stock SMEM nvmem compatibility gate check
+        run: |
+          set -eo pipefail
+          gate=AX6-IPQ/scripts/check-ax6-stock-smem-nvmem.sh
+          dtb_gate=AX6-IPQ/scripts/check-ax6-stock-compiled-dtb.sh
+          health=AX6-IPQ/files/sbin/nss-check
+          test -x "$gate"
+          test -x "$dtb_gate"
+          grep -Fq 'bootloader-rewritten SMEM partitions' "$gate"
+          grep -Fq 'nvmem-cells' "$dtb_gate"
+          grep -Fq 'check-ax6-stock-smem-nvmem.sh openwrt' .github/workflows/build-AX6-NSS.yml
+          grep -Fq 'check-ax6-stock-compiled-dtb.sh' .github/workflows/build-AX6-NSS.yml
+          grep -Fq 'dangling nvmem phandles' "$health"
 
       - name: IPv4 interface invariant check
         run: |
@@ -759,6 +773,7 @@ jobs:
           grep -Fq 'previous OpenClash state restored' "$deploy"
           grep -Fq 'OpenClash core: disabled by restored configuration' "$deploy"
           grep -Fq 'The complete sysupgrade archive was not restored automatically.' "$deploy"
+          grep -Fq 'if [ -f /usr/share/openclash/fix_dot.sh ]; then' "$deploy"
           grep -Fq 'ax6-backup-*/' .gitignore
           if grep -Eq 'el1si7d_doggygosubs|head -[0-9]+ /etc/openclash/config' "$backup" "$deploy"; then
             echo "::error::router maintenance scripts must not hard-code a subscription filename or truncate backups"
