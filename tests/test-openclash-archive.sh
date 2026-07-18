@@ -3,7 +3,13 @@ set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/openclash-archive-test.XXXXXX")
-trap 'rm -rf "$TMP"' EXIT HUP INT TERM
+cleanup_test() {
+	status=$?
+	trap - EXIT HUP INT TERM
+	rm -rf "$TMP"
+	exit "$status"
+}
+trap cleanup_test EXIT HUP INT TERM
 
 mkdir -p "$TMP/payload/etc"
 printf 'not allowed\n' > "$TMP/payload/etc/passwd"

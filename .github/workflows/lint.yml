@@ -32,7 +32,9 @@ jobs:
           find . -type f \( -name "*.sh" -o -path "*/uci-defaults/*" -o -path "*/hotplug.d/*" -o -path "*/sbin/*" -o -path "*/usr/sbin/*" -o -path "*/usr/bin/*" \) ! -path "./.git/*" -print0 | \
             xargs -0 -P4 shellcheck -S error -f gcc
           sh tests/test-vlan-add.sh
+          sh tests/test-openvpn-defaults.sh
           sh tests/test-openclash-archive.sh
+          sh tests/test-openclash-runtime-contract.sh
           sh tests/test-device-manifest.sh
           sh tests/test-zerotier-fw4.sh
           sh tests/test-zerotier-reconcile.sh
@@ -173,7 +175,7 @@ jobs:
             echo "::error::SOURCE_PATCHSET_MANIFEST_SHA256 must be a 64-character lowercase SHA256"
             exit 1
           }
-          [ "$SOURCE_TRACKING_BRANCH" = codex/ax6-upstream-gap-peer-stats-fix ] || {
+          [ "$SOURCE_TRACKING_BRANCH" = codex/ax6-nss-peer-stats-semantics ] || {
             echo "::error::unexpected source tracking branch: $SOURCE_TRACKING_BRANCH"
             exit 1
           }
@@ -458,7 +460,7 @@ jobs:
           gate=AX6-IPQ/scripts/check-ath11k-nss-peer-stats.sh
           test -x "$gate"
           grep -Fq 'nss.c patch hunk length or closing brace is invalid' "$gate"
-          grep -Fq 'tx_dropped must reset before each peer drop sum' "$gate"
+          grep -Fq 'peer drops and no-ACK failures must remain separate' "$gate"
           grep -Fq 'check-ath11k-nss-peer-stats.sh' .github/workflows/build-AX6-NSS.yml
 
       - name: IPv4 interface invariant check
@@ -613,12 +615,14 @@ jobs:
           zt_reconcile=AX6-IPQ/files/usr/sbin/ax6-zerotier-reconcile
           zt_bypass=AX6-IPQ/files/usr/bin/ax6-openclash-zerotier-bypass
           zt_init=AX6-IPQ/files/etc/init.d/ax6-zerotier-reconcile
+          openclash_contract=AX6-IPQ/scripts/check-openclash-runtime-contract.sh
           test -x "$audit"
           test -x "$vlan"
           test -x "$zt_fw4"
           test -x "$zt_reconcile"
           test -x "$zt_bypass"
           test -x "$zt_init"
+          test -x "$openclash_contract"
           if grep -Eq 'uci[[:space:]].*(set|delete|del|commit)|/etc/init\.d/.*(restart|reload)' "$audit"; then
             echo "::error file=$audit::scenario audit must remain read-only"
             exit 1
@@ -630,6 +634,7 @@ jobs:
             '"$ZT_FW_PATH/forward.nft"' \
             '"$ZT_FW_PATH/srcnat.nft"' \
             'firewall.${_zt_section}.position' \
+            '[ -r "$_zt_expected_path" ]' \
             'zerotier_input_ports_match' \
             'zerotier_owned_input_absent' \
             'nft input include exactly matches daemon ports and protocols' \
@@ -639,6 +644,9 @@ jobs:
             'service-port input permission disabled but stale service-port rules remain' \
             'stale ZeroTier self-proxy bypass rules remain' \
             'router self proxy intercepts ZeroTier without a matching dynamic bypass' \
+            'all servers are disabled but WAN 1194 ACCEPT rule(s) remain active' \
+            'internet_access=1 exposes TCP/1688' \
+            'upstream uses auto_activate' \
             'vlan_filtering=1 conflicts with qosmio NSS WiFi offload guidance' \
             'config bridge-vlan is present' \
             'openclash_dns_redirect' \
@@ -680,7 +688,7 @@ jobs:
           # shellcheck disable=SC2016 # Match literal helper variables.
           grep -Fq 'lock "$LOCK_FILE"' "$zt_reconcile"
           # shellcheck disable=SC2016 # Match literal helper variables.
-          grep -Fq 'nft -c -f "$transaction"' "$zt_reconcile"
+          grep -Fq 'nft -c -f "$TRANSACTION"' "$zt_reconcile"
           grep -Fq 'AX6 ZeroTier UDP self bypass' "$zt_bypass"
           # shellcheck disable=SC2016 # Match the literal generated nft rule.
           grep -Fq 'meta l4proto { tcp, udp } th sport $primary' "$zt_bypass"
@@ -695,6 +703,9 @@ jobs:
           test -x .github/scripts/inject-openclash-zerotier-hook.sh
           grep -Fq 'openclash_mangle_output_v6' "$zt_bypass"
           grep -Fq 'inject-openclash-zerotier-hook.sh' AX6-IPQ/diy.sh
+          grep -Fq 'check-openclash-runtime-contract.sh' AX6-IPQ/diy.sh
+          grep -Fq 'disabled-mode residual redirect cleanup' "$openclash_contract"
+          grep -Fq 'fw4 DNS hijack family check' "$openclash_contract"
           grep -Fq 'S91ax6-zerotier-reconcile' AX6-IPQ/diy.sh
           for workflow in .github/workflows/build-AX6-NSS.yml .github/workflows/build-AX6-IPQ.yml; do
             grep -Fq "'usr/bin/zerotier-fw4'" "$workflow"

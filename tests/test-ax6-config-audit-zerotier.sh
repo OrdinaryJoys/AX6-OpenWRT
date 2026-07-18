@@ -3,7 +3,13 @@ set -eu
 
 ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/ax6-audit-zerotier-test.XXXXXX")"
-trap 'rm -rf "$TMP"' EXIT HUP INT TERM
+cleanup_test() {
+	status=$?
+	trap - EXIT HUP INT TERM
+	rm -rf "$TMP"
+	exit "$status"
+}
+trap cleanup_test EXIT HUP INT TERM
 mkdir -p "$TMP/bin" "$TMP/fw"
 
 cat > "$TMP/bin/uci" <<'EOF'
@@ -11,23 +17,60 @@ cat > "$TMP/bin/uci" <<'EOF'
 case "$*" in
     '-q show wireless') printf '%s\n' 'wireless.radio0=wifi-device' ;;
     '-q show network') exit 0 ;;
-    '-q show zerotier') printf '%s\n' "zerotier.net=network" "zerotier.net.id='abc123'" ;;
+    '-q show zerotier')
+        if [ "${UCI_SCHEMA:-current}" = legacy ]; then
+            printf '%s\n' "zerotier.legacy=zerotier" \
+                "zerotier.legacy.join='other123'" "zerotier.legacy.join='abc123'"
+        else
+            printf '%s\n' "zerotier.global=zerotier" "zerotier.net=network" \
+                "zerotier.net.id='abc123'"
+        fi
+        ;;
+    '-q show openvpn')
+        [ "${OPENVPN_INSTALLED:-0}" = 1 ] && printf '%s\n' 'openvpn.server=openvpn'
+        ;;
+    '-q show firewall')
+        [ "${OPENVPN_RULE:-0}" = 1 ] && printf '%s\n' 'firewall.ovpn=rule'
+        ;;
     '-q get wireless.radio0.band') echo 2g ;;
     '-q get wireless.radio0.htmode') echo HE40 ;;
     '-q get wireless.radio0.ht_coex') echo 1 ;;
     '-q get wireless.radio0.noscan') exit 1 ;;
-    '-q get zerotier.global') echo zerotier ;;
-    '-q get zerotier.global.enabled') echo 1 ;;
+    '-q get zerotier.global') [ "${UCI_SCHEMA:-current}" != legacy ] && echo zerotier ;;
+    '-q get zerotier.global.enabled') echo "${ZT_ENABLED:-1}" ;;
     '-q get zerotier.global.fw_allow_input') echo "${FW_ALLOW_INPUT:-1}" ;;
     '-q get zerotier.net.id') echo abc123 ;;
     '-q get zerotier.net.enabled') echo 1 ;;
     '-q get zerotier.net.fw_allow_input') echo "${NETWORK_ALLOW_INPUT:-0}" ;;
     '-q get zerotier.net.fw_allow_forward'|'-q get zerotier.net.fw_allow_masq') echo 0 ;;
     '-q get zerotier.net.allow_default'|'-q get zerotier.net.allow_global'|'-q get zerotier.net.allow_dns') echo 0 ;;
+    '-q get zerotier.legacy.id') exit 1 ;;
+    '-q get zerotier.legacy.join') echo 'other123 abc123' ;;
+    '-q get zerotier.legacy.enabled') echo "${ZT_ENABLED:-1}" ;;
+    '-q get zerotier.legacy.fw_allow_input') echo "${FW_ALLOW_INPUT:-1}" ;;
+    '-q get zerotier.legacy.fw_allow_forward'|'-q get zerotier.legacy.fw_allow_masq') echo 0 ;;
+    '-q get zerotier.legacy.allow_default') echo "${LEGACY_ALLOW_DEFAULT:-0}" ;;
+    '-q get zerotier.legacy.allow_global'|'-q get zerotier.legacy.allow_dns') echo 0 ;;
     '-q get firewall.zerotier_input.type') echo nftables ;;
     '-q get firewall.zerotier_input.path') echo "$ZT_FW_PATH/input.nft" ;;
     '-q get firewall.zerotier_input.position') echo chain-pre ;;
     '-q get firewall.zerotier_input.chain') echo input ;;
+    '-q get firewall.zerotier_forward.type'|'-q get firewall.zerotier_srcnat.type') echo nftables ;;
+    '-q get firewall.zerotier_forward.path') echo "$ZT_FW_PATH/forward.nft" ;;
+    '-q get firewall.zerotier_srcnat.path') echo "$ZT_FW_PATH/srcnat.nft" ;;
+    '-q get firewall.zerotier_forward.position'|'-q get firewall.zerotier_srcnat.position') echo chain-pre ;;
+    '-q get firewall.zerotier_forward.chain') echo forward ;;
+    '-q get firewall.zerotier_srcnat.chain') echo srcnat ;;
+    '-q get openvpn.server.enabled') echo "${OPENVPN_ENABLED:-0}" ;;
+    '-q get firewall.ovpn.src') echo wan ;;
+    '-q get firewall.ovpn.dest_port') echo 1194 ;;
+    '-q get firewall.ovpn.target') echo ACCEPT ;;
+    '-q get firewall.ovpn.enabled') echo "${OPENVPN_RULE_ENABLED:-1}" ;;
+    '-q get vlmcsd.config') [ "${VLMCS_INSTALLED:-0}" = 1 ] && echo vlmcsd ;;
+    '-q get vlmcsd.config.enabled') echo "${VLMCS_ENABLED:-0}" ;;
+    '-q get vlmcsd.config.internet_access') echo "${VLMCS_INTERNET:-0}" ;;
+    '-q get vlmcsd.config.auto_activate') echo "${VLMCS_AUTO_ACTIVATE:-0}" ;;
+    '-q get vlmcsd.config.autoactivate') [ "${VLMCS_LEGACY_OPTION:-0}" = 1 ] && echo 1 ;;
     '-q get upnpd.config'|'-q get openclash.config') exit 1 ;;
     *) exit 1 ;;
 esac
@@ -54,6 +97,8 @@ cat > "$TMP/bin/nft" <<'EOF'
 #!/bin/sh
 case "$*" in
     '-a list chain inet fw4 input') cat "$NFT_INPUT" ;;
+    '-a list chain inet fw4 forward') cat "$NFT_FORWARD" ;;
+    '-a list chain inet fw4 srcnat') cat "$NFT_SRCNAT" ;;
     '-a list chain inet fw4 openclash_'*) exit 1 ;;
     *) exit 1 ;;
 esac
@@ -61,7 +106,11 @@ EOF
 
 cat > "$TMP/bin/pidof" <<'EOF'
 #!/bin/sh
-[ "$1" = zerotier-one ] && echo 100
+case "$1" in
+    zerotier-one) echo 100 ;;
+    vlmcsd) [ "${VLMCS_RUNNING:-0}" = 1 ] && echo 101 ;;
+    *) exit 1 ;;
+esac
 EOF
 
 cat > "$TMP/bin/find" <<'EOF'
@@ -72,15 +121,21 @@ chmod +x "$TMP/bin/"*
 
 export ZT_FW_PATH="$TMP/fw"
 export NFT_INPUT="$TMP/nft-input"
+export NFT_FORWARD="$TMP/nft-forward"
+export NFT_SRCNAT="$TMP/nft-srcnat"
+: > "$NFT_FORWARD"
+: > "$NFT_SRCNAT"
+: > "$ZT_FW_PATH/forward.nft"
+: > "$ZT_FW_PATH/srcnat.nft"
 
 write_exact_rules() {
     cat > "$ZT_FW_PATH/input.nft" <<'EOF'
-meta l4proto { udp, tcp } th dport 9993 counter accept comment "!fw4: Accept ZeroTier input 9993 (primaryPort)"
+udp dport 9993 counter accept comment "!fw4: Accept ZeroTier input 9993 (primaryPort)"
 meta l4proto { udp } th dport 59120 counter accept comment "!fw4: Accept ZeroTier input 59120 (secondaryPort)"
 meta l4proto { udp } th dport 63542 counter accept comment "!fw4: Accept ZeroTier input 63542 (tertiaryPort)"
 EOF
     cat > "$NFT_INPUT" <<'EOF'
-meta l4proto { tcp, udp } th dport 9993 counter accept comment "!fw4: Accept ZeroTier input 9993 (primaryPort)" # handle 10
+udp dport 9993 counter accept comment "!fw4: Accept ZeroTier input 9993 (primaryPort)" # handle 10
 udp dport 59120 counter accept comment "!fw4: Accept ZeroTier input 59120 (secondaryPort)" # handle 11
 udp dport 63542 counter accept comment "!fw4: Accept ZeroTier input 63542 (tertiaryPort)" # handle 12
 EOF
@@ -91,10 +146,19 @@ run_audit() {
 }
 
 write_exact_rules
-run_audit > "$TMP/pass.log"
+if ! run_audit > "$TMP/pass.log"; then
+    cat "$TMP/pass.log" >&2
+    exit 1
+fi
 grep -Fq 'nft input include exactly matches daemon ports and protocols' "$TMP/pass.log"
 grep -Fq 'live nft input rules exactly match daemon ports and protocols' "$TMP/pass.log"
 grep -Fq 'FAIL=0' "$TMP/pass.log"
+
+export UCI_SCHEMA=legacy LEGACY_ALLOW_DEFAULT=1
+run_audit > "$TMP/legacy.log"
+grep -Fq 'ZeroTier legacy: remote network may install a default route' "$TMP/legacy.log"
+grep -Fq 'FAIL=0' "$TMP/legacy.log"
+export UCI_SCHEMA=current LEGACY_ALLOW_DEFAULT=0
 
 sed 's/59120/56064/g' "$ZT_FW_PATH/input.nft" > "$TMP/stale"
 mv "$TMP/stale" "$ZT_FW_PATH/input.nft"
@@ -126,8 +190,55 @@ cat > "$NFT_INPUT" <<'EOF'
 iifname ztmock0 counter accept comment "!fw4: Accept ZeroTier input ztmock0" # handle 30
 EOF
 FW_ALLOW_INPUT=0 NETWORK_ALLOW_INPUT=1 run_audit > "$TMP/network-input.log"
-grep -Fq 'dynamic nftables input include installed' "$TMP/network-input.log"
+grep -Fq 'dynamic nftables input include registered and readable' "$TMP/network-input.log"
 grep -Fq 'service-port input permission disabled and no service-port rules remain' "$TMP/network-input.log"
 grep -Fq 'FAIL=0' "$TMP/network-input.log"
+
+rm -f "$ZT_FW_PATH/srcnat.nft"
+if FW_ALLOW_INPUT=0 NETWORK_ALLOW_INPUT=1 run_audit > "$TMP/missing-include.log"; then
+    echo 'audit unexpectedly accepted an unreadable registered include' >&2
+    exit 1
+fi
+grep -Fq 'srcnat include is missing, unreadable, or malformed' "$TMP/missing-include.log"
+
+: > "$ZT_FW_PATH/srcnat.nft"
+if FW_ALLOW_INPUT=0 NETWORK_ALLOW_INPUT=1 OPENVPN_INSTALLED=1 OPENVPN_RULE=1 \
+    run_audit > "$TMP/openvpn-exposed.log"; then
+    echo 'audit unexpectedly accepted WAN OpenVPN exposure with all servers disabled' >&2
+    exit 1
+fi
+grep -Fq 'all servers are disabled but WAN 1194 ACCEPT rule(s) remain active' "$TMP/openvpn-exposed.log"
+
+FW_ALLOW_INPUT=0 NETWORK_ALLOW_INPUT=1 OPENVPN_INSTALLED=1 OPENVPN_RULE=1 \
+    OPENVPN_RULE_ENABLED=0 run_audit > "$TMP/openvpn-disabled.log"
+grep -Fq 'servers are disabled and no active WAN 1194 rule remains' "$TMP/openvpn-disabled.log"
+grep -Fq 'FAIL=0' "$TMP/openvpn-disabled.log"
+
+FW_ALLOW_INPUT=0 NETWORK_ALLOW_INPUT=1 VLMCS_INSTALLED=1 VLMCS_ENABLED=1 \
+    VLMCS_RUNNING=1 VLMCS_INTERNET=1 VLMCS_AUTO_ACTIVATE=1 \
+    run_audit > "$TMP/vlmcs.log"
+grep -Fq 'internet_access=1 exposes TCP/1688' "$TMP/vlmcs.log"
+grep -Fq 'upstream auto_activate option is enabled' "$TMP/vlmcs.log"
+grep -Fq 'FAIL=0' "$TMP/vlmcs.log"
+
+# Disabled ZeroTier must not leave per-network forward/NAT rules behind.
+: > "$ZT_FW_PATH/input.nft"
+: > "$ZT_FW_PATH/forward.nft"
+: > "$ZT_FW_PATH/srcnat.nft"
+: > "$NFT_INPUT"
+printf '%s\n' \
+    'iifname "ztold0" counter accept comment "!fw4: Accept ZeroTier input forward ztold0" # handle 40' \
+    > "$NFT_FORWARD"
+if ZT_ENABLED=0 run_audit > "$TMP/disabled-stale-forward.log"; then
+    echo 'audit unexpectedly accepted a stale disabled ZeroTier forward rule' >&2
+    exit 1
+fi
+grep -Fq 'disabled but owned firewall or OpenClash bypass rules remain' \
+    "$TMP/disabled-stale-forward.log"
+
+: > "$NFT_FORWARD"
+ZT_ENABLED=0 run_audit > "$TMP/disabled-clean.log"
+grep -Fq 'installed, disabled, and owned firewall rules are absent' "$TMP/disabled-clean.log"
+grep -Fq 'FAIL=0' "$TMP/disabled-clean.log"
 
 echo 'test-ax6-config-audit-zerotier: PASS'

@@ -3,7 +3,13 @@ set -eu
 
 ROOT="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/openclash-zerotier-test.XXXXXX")"
-trap 'rm -rf "$TMP"' EXIT HUP INT TERM
+cleanup_test() {
+	status=$?
+	trap - EXIT HUP INT TERM
+	rm -rf "$TMP"
+	exit "$status"
+}
+trap cleanup_test EXIT HUP INT TERM
 mkdir -p "$TMP/bin" "$TMP/nft-state"
 
 cat > "$TMP/bin/lock" <<'EOF'
@@ -80,6 +86,10 @@ run_helper --sync 9993 19993 29993
 [ "$(grep -Fc 'AX6 ZeroTier UDP self bypass' "$NFT_APPLY_LOG")" -eq 4 ]
 grep -Fq 'meta l4proto { tcp, udp } th sport 9993' "$NFT_APPLY_LOG"
 grep -Fq 'udp sport { 19993, 29993 }' "$NFT_APPLY_LOG"
+if grep -Fq ' position 0 ' "$NFT_APPLY_LOG"; then
+    echo 'bypass transaction used position 0 instead of a valid handle' >&2
+    exit 1
+fi
 if grep -E 'meta l4proto \{ tcp, udp \}.*(19993|29993)' "$NFT_APPLY_LOG"; then
     echo 'secondary/tertiary ports must not receive TCP bypass' >&2
     exit 1

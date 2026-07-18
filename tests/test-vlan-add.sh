@@ -4,7 +4,13 @@ set -eu
 ROOT=$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)
 SCRIPT="$ROOT/AX6-IPQ/files/sbin/vlan-add"
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/vlan-add-test.XXXXXX")
-trap 'rm -rf "$TMP"' EXIT HUP INT TERM
+cleanup_test() {
+	status=$?
+	trap - EXIT HUP INT TERM
+	rm -rf "$TMP"
+	exit "$status"
+}
+trap cleanup_test EXIT HUP INT TERM
 
 fail() {
     echo "test-vlan-add: $1" >&2

@@ -1,98 +1,30 @@
 #!/bin/sh
 
-FW_PATH="${FW_PATH:-/var/run/zerotier-one/_fw4}"
-LOCK_FILE="${LOCK_FILE:-/var/lock/ax6-zerotier-reconcile.lock}"
 RECONCILER="${RECONCILER:-/usr/sbin/ax6-zerotier-reconcile}"
-[ -d "$FW_PATH" ] || mkdir -p "$FW_PATH"
-
-lock_held=0
-
-acquire_lock() {
-	command -v lock >/dev/null 2>&1 || return 1
-	mkdir -p "$(dirname "$LOCK_FILE")" 2>/dev/null || return 1
-	lock "$LOCK_FILE" || return 1
-	lock_held=1
-}
-
-release_lock() {
-	[ "$lock_held" -eq 1 ] || return 0
-	lock -u "$LOCK_FILE" >/dev/null 2>&1 || true
-	lock_held=0
-}
-
-nft_iface_set() {
-	printf '%s\n' "$1" | awk '{$1=$1; gsub(/ /, ", "); print}'
-}
-
-append_rule_once() {
-	file="$1"
-	chain="$2"
-	rule="$3"
-	grep -Fqx "$rule" "$file" 2>/dev/null && return 0
-	echo "$rule" >> "$file"
-	nft insert rule inet fw4 "$chain $rule" 2>/dev/null ||
-		logger -t zerotier-fw4 "deferred live $chain rule for $file" 2>/dev/null || true
-}
+requested=0
 
 while getopts "i:s" arg; do
 	case "$arg" in
-	i)
-			iface="$OPTARG"
-			[ -n "$iface" ] || continue
-			acquire_lock || continue
-			trap 'release_lock' EXIT
-			trap 'exit 0' HUP INT TERM
-
-			network_id="$(zerotier-cli -j listnetworks | jsonfilter -qe "@[@.portDeviceName=\"$iface\"].nwid")"
-			if [ -z "$network_id" ]; then
-				release_lock
-				continue
-			fi
-
-			network_cfg="$(uci show "zerotier" | awk "/$network_id/ && !found {split(\$0, conf, /[.=]/); print conf[2]; found=1}")"
-			if [ -z "$network_cfg" ]; then
-				release_lock
-				continue
-			fi
-
-			if [ "$(uci -q get zerotier."$network_cfg".fw_allow_input)" = "1" ]; then
-				rule="iifname $iface counter accept comment \"!fw4: Accept ZeroTier input $iface\""
-				append_rule_once "$FW_PATH/input.nft" input "$rule"
-			fi
-
-			if [ "$(uci -q get zerotier."$network_cfg".fw_allow_forward)" = "1" ]; then
-				fwd_ifaces="$(uci -q get zerotier."$network_cfg".fw_forward_ifaces)"
-				fwd_iface_set="$(nft_iface_set "$fwd_ifaces")"
-				rule="iifname $iface counter accept comment \"!fw4: Accept ZeroTier input forward $iface\""
-				[ -n "$fwd_iface_set" ] && rule="oifname { $fwd_iface_set } $rule"
-				append_rule_once "$FW_PATH/forward.nft" forward "$rule"
-
-				rule="oifname $iface counter accept comment \"!fw4: Accept ZeroTier output forward $iface\""
-				[ -n "$fwd_iface_set" ] && rule="iifname { $fwd_iface_set } $rule"
-				append_rule_once "$FW_PATH/forward.nft" forward "$rule"
-			fi
-
-			if [ "$(uci -q get zerotier."$network_cfg".fw_allow_masq)" = "1" ]; then
-				masq_ifaces="$(uci -q get zerotier."$network_cfg".fw_masq_ifaces)"
-				masq_iface_set="$(nft_iface_set "$masq_ifaces")"
-				rule="oifname $iface counter masquerade comment \"!fw4: Masquerade ZeroTier traffic $iface\""
-				[ -n "$masq_iface_set" ] && rule="iifname { $masq_iface_set } $rule"
-				append_rule_once "$FW_PATH/srcnat.nft" srcnat "$rule"
-			fi
-			release_lock
+		i)
+			[ -n "$OPTARG" ] || continue
+			requested=1
 			;;
-		s)
-			if [ -x "$RECONCILER" ]; then
-				exec "$RECONCILER" --once
-			fi
-			logger -t zerotier-fw4 "missing $RECONCILER" 2>/dev/null || true
+		s) requested=1 ;;
+		*)
+			echo "Usage: $0 -i <interface> | -s"
 			exit 1
 			;;
-	*)
-		echo "Usage: $0 -i <interface> | -s"
-		echo "  -i <interface> : Generate rules for the specified interface"
-		echo "  -s             : Generate service-port rules"
-		exit 1
-		;;
 	esac
 done
+
+[ "$requested" -eq 1 ] || {
+	echo "Usage: $0 -i <interface> | -s"
+	exit 1
+}
+
+[ -x "$RECONCILER" ] || {
+	logger -t zerotier-fw4 "missing $RECONCILER" 2>/dev/null || true
+	exit 1
+}
+
+exec "$RECONCILER" --once

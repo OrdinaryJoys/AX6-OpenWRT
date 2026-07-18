@@ -6,7 +6,8 @@ f3ced7492553c1c42d6583efcf2186da11ae39090c7c8b66f48deacab521d38f  package/kernel
 fcf1ff758f246508d126589349b43b356a0fb3e2b1d2ef42c46c00c40c27fd1b  package/kernel/mac80211/patches/ath9k/600-wifi-ath9k-Clear-DMA-descriptors-without-memset.patch
 88a957f6fc0a15df6332260f945423a1ea78c39ba1ed01f7056f5cea0c99cfcf  package/kernel/mac80211/patches/ath9k/601-wifi-ath9k-remove-TX99-power-array-zero-init.patch
 89ace2c3d3803f244efda288bfadf02ee48d3078203db8bb55f05b6d70cf7625  package/kernel/mac80211/patches/nss/ath10k/999-800-ath10k-Add-threaded-napi.patch
-b35b870683fcd36292bc7fb78d0c99f004dfac80d60da5ff322f895086bce068  package/kernel/mac80211/patches/nss/ath11k/199-002-ath11k_nss-add-nss-driver-interface.patch
+3e9875809437088fa2b6a85e0d5fe09dceeeeb4d6696884fb20d31d0d2980a7b  package/kernel/mac80211/patches/nss/ath11k/199-002-ath11k_nss-add-nss-driver-interface.patch
+3aa0b1369066c9800f15bb5d515fa6a43d9868b58a7d82524ba091d87543b804  package/kernel/mac80211/patches/nss/ath11k/235-003-ath11k-add-AP_VLAN-vif-support-for-WDS-offload-in-NSS-offload.patch
 97bf63c9f192d4707dee87bd760a44aabd1a5d3dfdccf11c540eeacf0f6b5370  package/kernel/mac80211/patches/nss/ath11k/237-006-ath11k-Allow-fast-rx-by-bypassing-stats-update.patch
 f7498ea6c09693514035019a64cd08f325362ecd27ae5408ce83d3f9b03a53a1  package/kernel/mac80211/patches/nss/ath11k/244-ath11k-dp-tx-perf.patch
 338c0f68ee76d0ceb485f456f808ddf1914e7088ddb90c1f022b8bb5f08698e3  package/kernel/mac80211/patches/nss/ath11k/300-ath11k-nss-mesh-offload-support.patch
@@ -31,7 +32,7 @@ ea0ccffd99d654db0c44b81c9ecee5c635d6be80ff6f75eaf8f84bfff2c886ee  package/kernel
 1adb4e59556859bcfec397e954cfcf3002155a793cf21f07079c6af22f70a68e  package/kernel/mac80211/patches/nss/ath11k/999-904-ath11k-nss-use-wrapper-to-avoid-cast.patch
 cab6aa30c8d86af2ff8398150ee086453462ec03dbfe66993dd3860a346c865f  package/kernel/mac80211/patches/nss/ath11k/999-907-ath11k-Enable-NSS-for-ipq5018-qcn6122.patch
 bb111b3adff5c4b64cb4ec5d8bbe64ce315bb2991b766f0c145e07153d9dccca  package/kernel/mac80211/patches/nss/ath11k/999-920-ath11k-add-kernel-6_12.patch
-e11839016185c4772ccb384b7c9e507784fee1cb83a3cb7c0a642ba8008c4abc  package/kernel/mac80211/patches/nss/ath11k/999-921-ath11k-nss-expose-wifili-peer-stats-in-debugfs.patch
+1dddc34d96281d3a140dff80715089b80b732fcde719607ac14061b2437af7db  package/kernel/mac80211/patches/nss/ath11k/999-921-ath11k-nss-expose-wifili-peer-stats-in-debugfs.patch
 b994224d9a5e6449046cbdea9eda0c6767034c23aeea02c2238d410523c2c80f  package/kernel/mac80211/patches/nss/ath11k/999-922-ath11k-nss-fix-station-rate-reporting.patch
 c0358cf9fb30703ac55c747882b1f10e8dd5a04649792c84d61b443aa627c264  package/kernel/mac80211/patches/nss/ath11k/999-926-ath11k-skip-mon-status-reap-until-ring-initialized.patch
 7366bc7908e291d92969d3242e65e76753cc90a8f4d182529ccecb9335172831  package/kernel/mac80211/patches/nss/ath11k/999-927-ath11k-keep-ce-access-off-the-q6-while-it-is-down.patch

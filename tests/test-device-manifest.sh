@@ -5,7 +5,13 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 VERIFY="$ROOT/.github/scripts/verify-device-manifest.sh"
 TMP=$(mktemp -d)
-trap 'rm -rf "$TMP"' EXIT HUP INT TERM
+cleanup_test() {
+	status=$?
+	trap - EXIT HUP INT TERM
+	rm -rf "$TMP"
+	exit "$status"
+}
+trap cleanup_test EXIT HUP INT TERM
 
 cat > "$TMP/status" <<'EOF'
 Package: package-b

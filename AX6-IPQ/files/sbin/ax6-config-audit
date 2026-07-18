@@ -1,5 +1,6 @@
 #!/bin/sh
-# Read-only audit for scenario-dependent WiFi, NSS SQM, ZeroTier, UPnP and OpenClash config.
+# Read-only audit for scenario-dependent WiFi, NSS SQM, ZeroTier, UPnP,
+# OpenVPN, VLMCS and OpenClash config.
 # Usage: ax6-config-audit [-v|-q]
 
 VERBOSE=0
@@ -53,7 +54,75 @@ zerotier_include_ok() {
     [ "$(uci -q get "firewall.${_zt_section}.type")" = "nftables" ] &&
         [ "$(uci -q get "firewall.${_zt_section}.path")" = "$_zt_expected_path" ] &&
         [ "$(uci -q get "firewall.${_zt_section}.position")" = "chain-pre" ] &&
-        [ "$(uci -q get "firewall.${_zt_section}.chain")" = "$_zt_expected_chain" ]
+        [ "$(uci -q get "firewall.${_zt_section}.chain")" = "$_zt_expected_chain" ] &&
+        [ -r "$_zt_expected_path" ]
+}
+
+zerotier_config_present() {
+    uci -q show zerotier 2>/dev/null |
+        grep -Eq '^zerotier\.[^=]+=(network|zerotier)$'
+}
+
+zerotier_enabled() {
+    if uci -q get zerotier.global >/dev/null 2>&1; then
+        [ "$(uci -q get zerotier.global.enabled 2>/dev/null)" = "1" ]
+        return
+    fi
+
+    for _zt_section in $(uci -q show zerotier 2>/dev/null |
+        awk -F'[.=]' '/=zerotier$/ { print $2 }'); do
+        [ "$(uci -q get "zerotier.${_zt_section}.enabled" 2>/dev/null)" = "1" ] && return 0
+    done
+    return 1
+}
+
+zerotier_service_input_enabled() {
+    if uci -q get zerotier.global >/dev/null 2>&1; then
+        [ "$(uci -q get zerotier.global.fw_allow_input 2>/dev/null)" = "1" ]
+        return
+    fi
+
+    for _zt_section in $(uci -q show zerotier 2>/dev/null |
+        awk -F'[.=]' '/=zerotier$/ { print $2 }'); do
+        [ "$(uci -q get "zerotier.${_zt_section}.enabled" 2>/dev/null)" = "1" ] || continue
+        [ "$(uci -q get "zerotier.${_zt_section}.fw_allow_input" 2>/dev/null)" = "1" ] && return 0
+    done
+    return 1
+}
+
+zerotier_network_sections() {
+    uci -q show zerotier 2>/dev/null |
+        awk -F'[.=]' '/=network$/ { print $2 }'
+    for _zt_section in $(uci -q show zerotier 2>/dev/null |
+        awk -F'[.=]' '/=zerotier$/ { print $2 }'); do
+        [ "$_zt_section" = global ] && continue
+        _zt_id="$(uci -q get "zerotier.${_zt_section}.id" 2>/dev/null || true)"
+        _zt_join="$(uci -q get "zerotier.${_zt_section}.join" 2>/dev/null || true)"
+        [ -n "$_zt_id$_zt_join" ] && printf '%s\n' "$_zt_section"
+    done
+}
+
+openvpn_sections() {
+    uci -q show openvpn 2>/dev/null |
+        awk -F'[.=]' '/=openvpn$/ { print $2 }'
+}
+
+openvpn_any_server_enabled() {
+    for _ovpn_section in $(openvpn_sections); do
+        [ "$(uci -q get "openvpn.${_ovpn_section}.enabled")" = "1" ] && return 0
+    done
+    return 1
+}
+
+openvpn_active_wan_1194_rules() {
+    for _ovpn_rule in $(uci -q show firewall 2>/dev/null |
+        awk -F'[.=]' '/=rule$/ { print $2 }'); do
+        [ "$(uci -q get "firewall.${_ovpn_rule}.src")" = "wan" ] || continue
+        [ "$(uci -q get "firewall.${_ovpn_rule}.dest_port")" = "1194" ] || continue
+        [ "$(uci -q get "firewall.${_ovpn_rule}.target")" = "ACCEPT" ] || continue
+        [ "$(uci -q get "firewall.${_ovpn_rule}.enabled")" = "0" ] && continue
+        printf '%s\n' "$_ovpn_rule"
+    done
 }
 
 zerotier_port() {
@@ -72,6 +141,11 @@ zerotier_valid_port() {
 zerotier_owned_input_rules() {
     printf '%s\n' "$1" |
         grep -E 'Accept ZeroTier input [0-9]+ \((primaryPort|secondaryPort|tertiaryPort)\)' || true
+}
+
+zerotier_owned_rules() {
+    printf '%s\n' "$1" |
+        grep -E 'comment "!fw4: (Accept ZeroTier (input|output forward)|Masquerade ZeroTier traffic) ' || true
 }
 
 zerotier_input_rule_set_match() {
@@ -94,9 +168,8 @@ zerotier_input_rule_set_match() {
 
     _zt_rule="$(printf '%s\n' "$_zt_owned" |
         grep -F "input $_zt_primary (primaryPort)" | head -n 1)"
-    printf '%s\n' "$_zt_rule" | grep -q "dport $_zt_primary" || return 1
-    printf '%s\n' "$_zt_rule" | grep -q tcp || return 1
-    printf '%s\n' "$_zt_rule" | grep -q udp || return 1
+    printf '%s\n' "$_zt_rule" | grep -Eq "(meta l4proto \\{ udp \\} th|udp) dport $_zt_primary" || return 1
+    printf '%s\n' "$_zt_rule" | grep -q tcp && return 1
 
     _zt_rule="$(printf '%s\n' "$_zt_owned" |
         grep -F "input $_zt_secondary (secondaryPort)" | head -n 1)"
@@ -139,6 +212,21 @@ zerotier_owned_input_absent() {
     _zt_live="$(nft -a list chain inet fw4 input 2>/dev/null || true)"
     [ -z "$(zerotier_owned_input_rules "$_zt_include")" ] &&
         [ -z "$(zerotier_owned_input_rules "$_zt_live")" ]
+}
+
+zerotier_owned_firewall_absent() {
+    for _zt_path in \
+        "$ZT_FW_PATH/input.nft" \
+        "$ZT_FW_PATH/forward.nft" \
+        "$ZT_FW_PATH/srcnat.nft"; do
+        [ ! -r "$_zt_path" ] ||
+            [ -z "$(zerotier_owned_rules "$(cat "$_zt_path" 2>/dev/null)")" ] || return 1
+    done
+
+    for _zt_chain in input forward srcnat; do
+        _zt_live="$(nft -a list chain inet fw4 "$_zt_chain" 2>/dev/null)" || return 1
+        [ -z "$(zerotier_owned_rules "$_zt_live")" ] || return 1
+    done
 }
 
 openclash_zerotier_bypass_match() {
@@ -378,8 +466,8 @@ if [ -r /etc/config/sqm ]; then
 fi
 
 # ZeroTier: routing and trust policy is scenario-dependent.
-if uci -q get zerotier.global >/dev/null 2>&1; then
-    if [ "$(uci -q get zerotier.global.enabled)" = "1" ]; then
+if zerotier_config_present; then
+    if zerotier_enabled; then
         if pidof zerotier-one >/dev/null 2>&1; then
             ok "ZeroTier: daemon running"
         else
@@ -390,14 +478,16 @@ if uci -q get zerotier.global >/dev/null 2>&1; then
         else
             warn "ZeroTier: enabled but no zt* interface is present"
         fi
-        zt_need_service_input=$(uci -q get zerotier.global.fw_allow_input)
-        [ "$zt_need_service_input" = "1" ] || zt_need_service_input=0
+        zt_need_service_input=0
+        zerotier_service_input_enabled && zt_need_service_input=1
         zt_need_input=$zt_need_service_input
         zt_need_forward=0
         zt_need_srcnat=0
-        for section in $(uci -q show zerotier 2>/dev/null | awk -F'[.=]' '/=network$/{print $2}'); do
+        for section in $(zerotier_network_sections); do
             [ "$(uci -q get "zerotier.${section}.enabled")" = "0" ] && continue
-            [ -n "$(uci -q get "zerotier.${section}.id")" ] ||
+            zt_network_ids="$(uci -q get "zerotier.${section}.id" 2>/dev/null ||
+                uci -q get "zerotier.${section}.join" 2>/dev/null || true)"
+            [ -n "$zt_network_ids" ] ||
                 fail "ZeroTier $section: enabled network has no network id"
             [ "$(uci -q get "zerotier.${section}.allow_default")" = "1" ] &&
                 warn "ZeroTier $section: remote network may install a default route"
@@ -422,13 +512,21 @@ if uci -q get zerotier.global >/dev/null 2>&1; then
             esac
         done
         zt_input_include_ok=0
-        if [ "$zt_need_input" = "1" ]; then
-            if zerotier_include_ok zerotier_input "$ZT_FW_PATH/input.nft" input; then
-                ok "ZeroTier: dynamic nftables input include installed"
-                zt_input_include_ok=1
-            else
-                fail "ZeroTier: input permission enabled but dynamic nftables include is missing or malformed"
-            fi
+        if zerotier_include_ok zerotier_input "$ZT_FW_PATH/input.nft" input; then
+            ok "ZeroTier: dynamic nftables input include registered and readable"
+            zt_input_include_ok=1
+        else
+            fail "ZeroTier: dynamic nftables input include is missing, unreadable, or malformed"
+        fi
+        if zerotier_include_ok zerotier_forward "$ZT_FW_PATH/forward.nft" forward; then
+            ok "ZeroTier: dynamic nftables forward include registered and readable"
+        else
+            fail "ZeroTier: dynamic nftables forward include is missing, unreadable, or malformed"
+        fi
+        if zerotier_include_ok zerotier_srcnat "$ZT_FW_PATH/srcnat.nft" srcnat; then
+            ok "ZeroTier: dynamic nftables srcnat include registered and readable"
+        else
+            fail "ZeroTier: dynamic nftables srcnat include is missing, unreadable, or malformed"
         fi
         if [ "$zt_need_service_input" = "1" ]; then
             [ "$zt_input_include_ok" = "1" ] && zerotier_input_ports_match
@@ -437,24 +535,10 @@ if uci -q get zerotier.global >/dev/null 2>&1; then
         else
             fail "ZeroTier: service-port input permission disabled but stale service-port rules remain"
         fi
-        if [ "$zt_need_forward" = "1" ]; then
-            if zerotier_include_ok zerotier_forward "$ZT_FW_PATH/forward.nft" forward; then
-                ok "ZeroTier: dynamic nftables forward include installed"
-            else
-                fail "ZeroTier: forwarding enabled but dynamic nftables include is missing or malformed"
-            fi
-        fi
-        if [ "$zt_need_srcnat" = "1" ]; then
-            if zerotier_include_ok zerotier_srcnat "$ZT_FW_PATH/srcnat.nft" srcnat; then
-                ok "ZeroTier: dynamic nftables srcnat include installed"
-            else
-                fail "ZeroTier: masquerading enabled but dynamic nftables include is missing or malformed"
-            fi
-        fi
         [ "$zt_need_input$zt_need_forward$zt_need_srcnat" = "000" ] &&
             ok "ZeroTier: no package-managed firewall permissions requested"
     else
-        if zerotier_owned_input_absent && openclash_zerotier_bypass_absent; then
+        if zerotier_owned_firewall_absent && openclash_zerotier_bypass_absent; then
             ok "ZeroTier: installed, disabled, and owned firewall rules are absent"
         else
             fail "ZeroTier: disabled but owned firewall or OpenClash bypass rules remain"
@@ -501,6 +585,52 @@ else
     ok "UPnP: not installed"
 fi
 
+# OpenVPN: the package default server is disabled, so WAN exposure must follow
+# the actual service state rather than merely the package installation state.
+if uci -q show openvpn >/dev/null 2>&1; then
+    ovpn_active_rules="$(openvpn_active_wan_1194_rules)"
+    if openvpn_any_server_enabled; then
+        if [ -n "$ovpn_active_rules" ]; then
+            ok "OpenVPN: enabled server has an active WAN 1194 rule"
+        else
+            warn "OpenVPN: a server is enabled but no active WAN 1194 rule was found; verify its listen port and ingress policy"
+        fi
+    elif [ -n "$ovpn_active_rules" ]; then
+        fail "OpenVPN: all servers are disabled but WAN 1194 ACCEPT rule(s) remain active: $(echo "$ovpn_active_rules" | tr '\n' ' ')"
+    else
+        ok "OpenVPN: servers are disabled and no active WAN 1194 rule remains"
+    fi
+else
+    ok "OpenVPN: not installed"
+fi
+
+# ImmortalWrt's vlmcsd service listens on all local addresses. The upstream
+# internet_access option additionally creates a src='*' TCP/1688 accept rule.
+if uci -q get vlmcsd.config >/dev/null 2>&1; then
+    if [ "$(uci -q get vlmcsd.config.enabled)" = "1" ]; then
+        if pidof vlmcsd >/dev/null 2>&1; then
+            ok "VLMCS: service enabled and running"
+        else
+            fail "VLMCS: enabled but daemon is not running"
+        fi
+        if [ "$(uci -q get vlmcsd.config.internet_access)" = "1" ]; then
+            warn "VLMCS: internet_access=1 exposes TCP/1688 through the package's wildcard firewall rule"
+        else
+            ok "VLMCS: internet_access is disabled; no package-managed WAN exposure requested"
+        fi
+        if [ "$(uci -q get vlmcsd.config.auto_activate)" = "1" ]; then
+            ok "VLMCS: upstream auto_activate option is enabled"
+        fi
+    else
+        ok "VLMCS: disabled"
+    fi
+    if uci -q get vlmcsd.config.autoactivate >/dev/null 2>&1; then
+        warn "VLMCS: obsolete autoactivate option is present; upstream uses auto_activate"
+    fi
+else
+    ok "VLMCS: not installed"
+fi
+
 # OpenClash owns dnsmasq redirection while enabled and must revert it when stopped.
 if uci -q get openclash.config >/dev/null 2>&1; then
     oc_overlay_free=$(openclash_overlay_free_kb)
@@ -538,7 +668,7 @@ if uci -q get openclash.config >/dev/null 2>&1; then
         else
             fail "OpenClash: enabled but core process is not running"
         fi
-        if [ "$(uci -q get zerotier.global.enabled)" = "1" ] &&
+        if zerotier_enabled &&
            [ "$(uci -q get openclash.config.router_self_proxy)" = "1" ]; then
             if [ -x /usr/bin/ax6-openclash-zerotier-bypass ] &&
                openclash_zerotier_bypass_match; then
