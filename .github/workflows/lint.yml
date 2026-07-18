@@ -711,6 +711,8 @@ jobs:
             grep -Fq "'usr/bin/zerotier-fw4'" "$workflow"
             grep -Fq "'usr/sbin/ax6-zerotier-reconcile'" "$workflow"
             grep -Fq "'etc/init\\.d/ax6-zerotier-reconcile'" "$workflow"
+            # shellcheck disable=SC2016 # Match the rootfs gate's literal runtime variable.
+            grep -Fq 'nft -c -f "$TRANSACTION"' "$workflow"
           done
           # shellcheck disable=SC2016 # Match vlan-add literal awk field reference.
           grep -Fq '/=zone$/{print $2}' "$vlan"

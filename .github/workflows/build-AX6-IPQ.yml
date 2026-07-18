@@ -338,7 +338,10 @@ jobs:
             > image-verify/ax6-zerotier-reconcile.init
           grep -Fq 'read_stable_settings' image-verify/ax6-zerotier-reconcile
           # shellcheck disable=SC2016 # Match the literal runtime transaction variable.
-          grep -Fq 'nft -c -f "$transaction"' image-verify/ax6-zerotier-reconcile
+          grep -Fq 'nft -c -f "$TRANSACTION"' image-verify/ax6-zerotier-reconcile || {
+            echo "::error::Final rootfs ZeroTier reconciler is missing nft transaction validation"
+            exit 1
+          }
           grep -Fq 'AX6 ZeroTier UDP self bypass' image-verify/ax6-openclash-zerotier-bypass
           grep -Fqx 'START=91' image-verify/ax6-zerotier-reconcile.init
           if grep -Eq 'fw4[[:space:]]+reload|/etc/init\.d/(firewall|openclash|zerotier)[[:space:]]+(reload|restart)' \
