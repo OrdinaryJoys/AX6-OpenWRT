@@ -21,7 +21,7 @@ jobs:
         run: |
           set -eo pipefail
           sudo apt-get -qq update
-          sudo apt-get -qq install -y shellcheck yamllint
+          sudo apt-get -qq install -y device-tree-compiler shellcheck yamllint
           # actionlint
           bash <(curl --proto '=https' --tlsv1.2 -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) 1.7.0
           sudo mv actionlint /usr/local/bin/
@@ -40,6 +40,7 @@ jobs:
           sh tests/test-zerotier-reconcile.sh
           sh tests/test-openclash-zerotier-bypass.sh
           sh tests/test-ax6-config-audit-zerotier.sh
+          sh tests/test-ax6-stock-compiled-dtb.sh
 
       - name: Actionlint
         run: actionlint -color .github/workflows/*.yml
@@ -475,6 +476,8 @@ jobs:
           grep -Fq 'nvmem-cells' "$dtb_gate"
           grep -Fq 'check-ax6-stock-smem-nvmem.sh openwrt' .github/workflows/build-AX6-NSS.yml
           grep -Fq 'check-ax6-stock-compiled-dtb.sh' .github/workflows/build-AX6-NSS.yml
+          grep -Fq 'linux-qualcommax_ipq807x/image-ipq8071-ax6-stock.dtb' .github/workflows/build-AX6-NSS.yml
+          grep -Fq 'Expected exactly one compiled AX6 stock DTB' .github/workflows/build-AX6-NSS.yml
           grep -Fq 'dangling nvmem phandles' "$health"
 
       - name: IPv4 interface invariant check

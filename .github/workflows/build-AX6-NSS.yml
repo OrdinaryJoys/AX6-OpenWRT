@@ -500,10 +500,12 @@ jobs:
         run: |
           set -eo pipefail
           mapfile -d '' stock_dtbs < <(
-            find openwrt/build_dir -type f -name 'ipq8071-ax6-stock.dtb' -print0
+            find openwrt/build_dir -type f \
+              -path '*/linux-qualcommax_ipq807x/image-ipq8071-ax6-stock.dtb' \
+              -print0
           )
-          if [ "${#stock_dtbs[@]}" -lt 1 ]; then
-            echo "::error::Compiled AX6 stock DTB was not found"
+          if [ "${#stock_dtbs[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one compiled AX6 stock DTB, found ${#stock_dtbs[@]}"
             exit 1
           fi
           AX6-IPQ/scripts/check-ax6-stock-compiled-dtb.sh "${stock_dtbs[@]}"
