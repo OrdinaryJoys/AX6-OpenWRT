@@ -1,0 +1,15 @@
+package/kernel/mac80211/patches/nss/ath11k/909-ath11k-handle-htt-vendor-event-0x30.patch
+package/kernel/mac80211/patches/nss/ath11k/999-923-ath11k-fix-uninitialized-tx-status-flags.patch
+package/qca-nss/qca-nss-dp/patches/004-register-netdev-before-phy-connect.patch
+package/qca-nss/qca-nss-drv/patches/012-fix-keep-core-stats-with-autoscale-disabled.patch
+target/linux/generic/pending-6.18/331-MIPS-smp-report-dying-CPU-to-RCU-in-stop_this_cpu.patch
+target/linux/generic/pending-6.18/610-netfilter_match_bypass_default_checks.patch
+target/linux/generic/pending-6.18/611-netfilter_match_bypass_default_table.patch
+target/linux/generic/pending-6.18/612-netfilter_match_reduce_memory_access.patch
+target/linux/generic/pending-6.18/704-netfilter-flowtable-fix-offloaded-ct-timeout-never-b.patch
+target/linux/generic/pending-6.18/711-04-net-dsa-qca8k-merge-host-fdb-for-multi-cpu.patch
+target/linux/qualcommax/patches-6.18/0750-net-dsa-qca8k-add-support-for-force-mode-for-fixed-link-topology.patch
+target/linux/qualcommax/patches-6.18/0752-net-dsa-qca8k-support-PHY-to-PHY-CPU-link.patch
+target/linux/qualcommax/patches-6.18/0753-net-dsa-qca8k-fix-led-devicename-when-using-external-mdio-bus.patch
+target/linux/qualcommax/patches-6.18/0754-net-dsa-qca8k-use-correct-CPU-port-when-having-multi.patch
+target/linux/qualcommax/patches-6.18/0755-net-dsa-qca8k-implement-ds-ops-preferred_default_loc.patch
