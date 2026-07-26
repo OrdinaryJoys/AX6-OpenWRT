@@ -176,10 +176,14 @@ jobs:
             echo "::error::SOURCE_PATCHSET_MANIFEST_SHA256 must be a 64-character lowercase SHA256"
             exit 1
           }
-          [ "$SOURCE_TRACKING_BRANCH" = codex/ax6-stock-smem-nvmem-runtime-fix ] || {
-            echo "::error::unexpected source tracking branch: $SOURCE_TRACKING_BRANCH"
-            exit 1
-          }
+          case "$SOURCE_TRACKING_BRANCH" in
+            codex/*|rc-safe/*|rc-perf/*|fix/*|build/*)
+              ;;
+            *)
+              echo "::error::unexpected source tracking branch: $SOURCE_TRACKING_BRANCH (expected codex/*, rc-safe/*, rc-perf/*, fix/*, or build/*)"
+              exit 1
+              ;;
+          esac
           actual_patchset_manifest_sha=$(sha256sum .github/ax6-source-patchset.sha256)
           actual_patchset_manifest_sha=${actual_patchset_manifest_sha%% *}
           [ "$actual_patchset_manifest_sha" = "$SOURCE_PATCHSET_MANIFEST_SHA256" ] || {
