@@ -351,10 +351,20 @@ check_offload_disabled() {
     fi
 }
 
-# br-lan and physical NSS data-path ports must match disable_offloads=1.
+# br-lan: host-path → always FAIL if offloads are on (host-terminated traffic).
 check_offload_disabled br-lan fail
+
+# Physical ports: severity driven by UCI offload_physical_policy (P0-C, 2026-07-26).
+#   disable → FAIL (policy requires offloads off)
+#   report  → WARN (policy only logs; per-feature A/B pending)
+_offload_physical_policy=$(uci -q get ecm.general.offload_physical_policy)
+case "$_offload_physical_policy" in
+    disable) _offload_sev=fail ;;
+    report|"") _offload_sev=warn ;;
+    *) _offload_sev=warn ;;
+esac
 for _offload_dev in wan lan1 lan2 lan3; do
-    check_offload_disabled "$_offload_dev" fail
+    check_offload_disabled "$_offload_dev" "$_offload_sev"
 done
 
 # ---- 16. ZRAM swap 实际启用 ----
@@ -504,14 +514,23 @@ case "$pbuf_profile" in
             pbuf_extra=$(sysctl -n dev.nss.n2hcfg.extra_pbuf_core0 2>/dev/null)
             pbuf_high=$(sysctl -n dev.nss.n2hcfg.n2h_high_water_core0 2>/dev/null)
             pbuf_wifi=$(sysctl -n dev.nss.n2hcfg.n2h_wifi_pool_buf 2>/dev/null)
-            if [ "${pbuf_extra:-0}" -ge "$pbuf_expected_extra" ] 2>/dev/null &&
-               [ "${pbuf_high:-0}" -ge "$pbuf_expected_high" ] 2>/dev/null &&
-               [ "${pbuf_wifi:-0}" -ge "$pbuf_expected_wifi" ] 2>/dev/null; then
+
+            # Reject non-numeric / missing sysctl values — don't let
+            # arithmetic expressions silently swallow errors (P1 fixture).
+            case "${pbuf_extra:-x}" in ''|*[!0-9]*) pbuf_extra= ;; esac
+            case "${pbuf_high:-x}"  in ''|*[!0-9]*) pbuf_high=  ;; esac
+            case "${pbuf_wifi:-x}"  in ''|*[!0-9]*) pbuf_wifi=  ;; esac
+
+            if [ -z "${pbuf_extra:-}" ] || [ -z "${pbuf_high:-}" ] || [ -z "${pbuf_wifi:-}" ]; then
+                fail "NSS pbuf sysctl unavailable or non-numeric: extra=${pbuf_extra:-unset}, high=${pbuf_high:-unset}, wifi_pool=${pbuf_wifi:-unset}"
+            elif [ "${pbuf_extra}" -ge "$pbuf_expected_extra" ] &&
+                 [ "${pbuf_high}"  -ge "$pbuf_expected_high"  ] &&
+                 [ "${pbuf_wifi}"  -ge "$pbuf_expected_wifi"  ]; then
                 ok "NSS pbuf/N2H profile applied (${pbuf_label}: extra=${pbuf_extra}, high=${pbuf_high}, wifi_pool=${pbuf_wifi})"
-            elif [ "${pbuf_extra:-0}" -ge "$pbuf_expected_extra" ] 2>/dev/null &&
-                 [ "${pbuf_wifi:-0}" -ge "$pbuf_expected_wifi" ] 2>/dev/null &&
-                 [ $(( ${pbuf_high:-0} + ${pbuf_wifi:-0} )) -ge "$pbuf_expected_high" ] 2>/dev/null; then
-                warn "NSS pbuf/N2H firmware split budget (${pbuf_label}: extra=${pbuf_extra}, high=${pbuf_high}, wifi_pool=${pbuf_wifi}; total=$(( ${pbuf_high:-0} + ${pbuf_wifi:-0} )) >= ${pbuf_expected_high})"
+            elif [ "${pbuf_extra}" -ge "$pbuf_expected_extra" ] &&
+                 [ "${pbuf_wifi}"  -ge "$pbuf_expected_wifi"  ] &&
+                 [ $(( pbuf_high + pbuf_wifi )) -ge "$pbuf_expected_high" ]; then
+                warn "NSS pbuf/N2H firmware split budget (${pbuf_label}: extra=${pbuf_extra}, high=${pbuf_high}, wifi_pool=${pbuf_wifi}; total=$(( pbuf_high + pbuf_wifi )) >= ${pbuf_expected_high})"
             else
                 fail "NSS pbuf/N2H profile not applied: extra=${pbuf_extra:-unset}/${pbuf_expected_extra}, high=${pbuf_high:-unset}/${pbuf_expected_high}, wifi_pool=${pbuf_wifi:-unset}/${pbuf_expected_wifi}"
             fi
