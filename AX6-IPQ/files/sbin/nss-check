@@ -508,6 +508,10 @@ case "$pbuf_profile" in
                [ "${pbuf_high:-0}" -ge "$pbuf_expected_high" ] 2>/dev/null &&
                [ "${pbuf_wifi:-0}" -ge "$pbuf_expected_wifi" ] 2>/dev/null; then
                 ok "NSS pbuf/N2H profile applied (${pbuf_label}: extra=${pbuf_extra}, high=${pbuf_high}, wifi_pool=${pbuf_wifi})"
+            elif [ "${pbuf_extra:-0}" -ge "$pbuf_expected_extra" ] 2>/dev/null &&
+                 [ "${pbuf_wifi:-0}" -ge "$pbuf_expected_wifi" ] 2>/dev/null &&
+                 [ $(( ${pbuf_high:-0} + ${pbuf_wifi:-0} )) -ge "$pbuf_expected_high" ] 2>/dev/null; then
+                warn "NSS pbuf/N2H firmware split budget (${pbuf_label}: extra=${pbuf_extra}, high=${pbuf_high}, wifi_pool=${pbuf_wifi}; total=$(( ${pbuf_high:-0} + ${pbuf_wifi:-0} )) >= ${pbuf_expected_high})"
             else
                 fail "NSS pbuf/N2H profile not applied: extra=${pbuf_extra:-unset}/${pbuf_expected_extra}, high=${pbuf_high:-unset}/${pbuf_expected_high}, wifi_pool=${pbuf_wifi:-unset}/${pbuf_expected_wifi}"
             fi
