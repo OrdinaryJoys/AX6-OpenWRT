@@ -2,7 +2,6 @@ package/kernel/mac80211/patches/nss/ath11k/909-ath11k-handle-htt-vendor-event-0x
 package/kernel/mac80211/patches/nss/ath11k/999-923-ath11k-fix-uninitialized-tx-status-flags.patch
 package/qca-nss/qca-nss-dp/patches/004-register-netdev-before-phy-connect.patch
 package/qca-nss/qca-nss-drv/patches/012-fix-keep-core-stats-with-autoscale-disabled.patch
-package/qca-nss/qca-nss-drv/patches/017-fix-current-frequency-sysctl-read.patch
 target/linux/generic/pending-6.18/331-MIPS-smp-report-dying-CPU-to-RCU-in-stop_this_cpu.patch
 target/linux/generic/pending-6.18/610-netfilter_match_bypass_default_checks.patch
 target/linux/generic/pending-6.18/611-netfilter_match_bypass_default_table.patch
