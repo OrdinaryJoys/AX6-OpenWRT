@@ -1,3 +1,4 @@
+80587244b81f5303ce9479e21ef90c3a3b78b310ec63d0b814e26eb8f73733dd  package/kernel/mac80211/files/pbuf.uci
 b66d866d40cd5a6fc2e52912c3b31b3d6b4d1c1a62a085916798993e2c9e5ca4  package/kernel/mac80211/patches/ath11k/950-ath11k-add-6ghz-lpi-rule-to-world-regd.patch
 dd4ad38515ad746630d28dae3669cfef7be3ddb6dc1fd552586a0cf137d1c38a  package/kernel/mac80211/patches/ath11k/990-ath11k-clamp-reg-rule-bandwidth.patch
 32d138be4da4736535d62c0fc7ed4514be924dd6bae6de12a1a535641268e3e2  package/kernel/mac80211/patches/ath12k/104-wifi-ath12k-fix-regulatory-range-for-wideband-radios.patch
@@ -88,9 +89,16 @@ fc9f1630547033428f4bdf7200a3b9f90d2a3d4321681891010d8f71be13f1a9  package/networ
 a3450da6e7b815cc7b49edaf84c79749d7a0b09d619331ae9633d5c83d47cd96  package/qca-nss/qca-nss-clients/patches/012-nss_qdisc-guard-stats-attach-detach-against-noop-root.patch
 fe4144c5ebbcb41dfcb68bdb141dc319a6b5aa3cbf869bf69c00e5e1b4fd3f8f  package/qca-nss/qca-nss-clients/patches/013-netlink-require-admin-for-rule-injection.patch
 9cecc83ee00068a4179788e259cfbd94ad0b8a3a7cb9d4f84766323343c53b13  package/qca-nss/qca-nss-dp/patches/004-phydev-clear-on-connect-failure.patch
+87dc92f862f8fefe4bcdc35e65e04d7f2de9ea9526ce10f1dbd35a37873701f8  package/qca-nss/qca-nss-dp/patches/007-fix-tx-ring-modulo.patch
+883e5a15e50e586715913aaaa434bef4cd87a6c49a0375a7f148ea2907ce10ee  package/qca-nss/qca-nss-drv/files/skb_recycler.uci
+a65bb3d49039034afcf48c51dc1f417d2dbdacf9e444d03599827f587ee1e5f9  package/qca-nss/qca-nss-drv/patches/012-fix-autoscale-stats-and-current-freq-read.patch
 5242126dd65ac9b84518e24a3fc923916a19a6c3880f0d18a0f69062b6648c06  package/qca-nss/qca-nss-drv/patches/015-fix-fraglist-skb-truesize-underaccounting.patch
 136c11ed90d8870909fac6e1694caed61f1a03fb36538f4e919f284593c77b01  package/qca-nss/qca-nss-drv/patches/016-back-fw-empty-buffer-payloads-with-kmalloc.patch
+5ba4dab15aa37b2ca220d1419c0d7633b662ea6d2faa04d102067bc654cde7ca  package/qca-nss/qca-nss-drv/patches/018-fix-napi-request-irq-unwind.patch
+3c153fe095fe82dd1e3a5f5364f04c6d16254d980b3d4e7dc5b307eba120258a  package/qca-nss/qca-nss-drv/patches/019-fix-n2h-pool-dma-unwind.patch
 c183c86d749485edcd5031df40b51ff2a55c745b6772afab4e79c1f735215ff9  package/qca-nss/qca-nss-ecm/Makefile
+510a619f46258522c16f366a064366abbeb4224cb9abdf5c5f819edb296b66a5  package/qca-nss/qca-nss-ecm/files/disable_offloads.hotplug
+b403a902d1de625e9cd1ed012d385260e0ec47c7f2065e86a6f2657b95f6e342  package/qca-nss/qca-nss-ecm/files/qca-nss-ecm.init
 22b40538dcae6851ecdae4b8e1d96bc8a7a745672ab83177e38cf8f7345045a7  package/qca-nss/qca-nss-ecm/patches/026-frontends-nss-respect-bridge-port-vlan-tagging-for-vlan-over-bridge.patch
 ddb52cdf907a45761b7c3e394db4c29eeae5d268f3e00ed86e3eabf6fd641055  package/qca-nss/qca-ssdk/patches/009-feature-nss-dp-netdev-mac-sync.patch
 b187ecd16255a6386cf15dcb90c999d79ada51e5015d9d06df7a588ceb221932  package/system/ubus/Makefile
