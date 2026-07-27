@@ -123,6 +123,18 @@ else
     warn "NSS clock auto_scale = ${auto_scale:-unset}"
 fi
 
+# ---- 5b. NSS current_freq readability (C-01 fix validation) ----
+# 旧驱动读 current_freq 时清空返回长度, sysctl 显示空值。
+# 如果该值仍为空且修复补丁已声称回移, 表示 current_freq fix 未生效。
+current_freq=$(sysctl -n dev.nss.clock.current_freq 2>/dev/null)
+if [ -n "$current_freq" ] && [ "$current_freq" -gt 0 ] 2>/dev/null; then
+    ok "NSS current_freq readable: ${current_freq} Hz"
+elif [ -z "$current_freq" ]; then
+    warn "NSS current_freq read is empty — C-01 fix may not be active (old driver defect)"
+else
+    warn "NSS current_freq unexpected: ${current_freq}"
+fi
+
 # ---- 6. ath11k 加载 ----
 if lsmod | grep -q ath11k; then
     ok "ath11k driver loaded"
