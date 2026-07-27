@@ -274,7 +274,7 @@
 | video feed | `a951381b6c58b9b1eb087f09c9a20cff4ffe8063` |
 | Argon theme | `3c8dc64bca054be0c184dc1dc9847b249710a466` |
 | Argon config | `3e099a37c3f71d0de677f1b6b0f4bffd57d91dac` |
-| OpenClash | `0.47.097` / `a86fb847719815ff3ab1e94261d5b2bbeabdaef1` |
+| OpenClash | `0.47.133` / `a9e5d98c` (2026-07-27: running on router + latest CI build) |
 
 ## 8. 验证证据
 

@@ -33,17 +33,26 @@ start() {
 			;;
 	esac
 
-	# ---- RPS explicitly enabled: run the qualcommax default policy ----
+	# ---- RPS explicitly enabled: benchmark-only default policy ----
+	# WARNING: the all-CPU mask ("f") is a conservative fallback for
+	# A/B testing, NOT an empirically validated optimum.  NSS firmware
+	# RPS distributes N2H traffic at firmware level; Linux RPS on the
+	# same queues may add overhead.  Use ax6-irq-affinity for per-IRQ
+	# tuning and record before/after throughput and softirq counters.
 	local flow_cnt sock_flow_entries cpu_mask
 
 	flow_cnt=8192
 	sock_flow_entries=65535
-	cpu_mask="f"  # 4-core IPQ807x
+	cpu_mask="f"  # all 4 cores - benchmark default, not production optimum
 
 	for eth in $(jsonfilter -i "/etc/board.json" -e "@.network[*].device"); do
 		[ -d "/sys/class/net/$eth" ] || continue
 		for i in "/sys/class/net/$eth"/queues/rx-*/rps_cpus; do
-			[ -w "$i" ] && echo "$cpu_mask" > "$i"
+			if [ -w "$i" ]; then
+				old_mask=$(cat "$i" 2>/dev/null)
+				echo "$cpu_mask" > "$i"
+				logger -t set-irq-affinity "$eth $i: $old_mask → $cpu_mask"
+			fi
 		done
 		for i in "/sys/class/net/$eth"/queues/rx-*/rps_flow_cnt; do
 			[ -w "$i" ] && echo "$flow_cnt" > "$i"

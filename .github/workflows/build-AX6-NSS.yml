@@ -488,6 +488,20 @@ jobs:
           find dl -size -1024c -exec ls -l {} \;
           find dl -size -1024c -exec rm -f {} \;
 
+      - name: Fast gate — NSS patch prepare + module compile (P0-D.6)
+        working-directory: ./openwrt
+        run: |
+          set -eo pipefail
+          echo "=== qca-nss-dp prepare ==="
+          make package/qca-nss/qca-nss-dp/prepare V=s
+          echo "=== qca-nss-drv prepare ==="
+          make package/qca-nss/qca-nss-drv/prepare V=s
+          echo "=== qca-nss-dp module compile ==="
+          make package/qca-nss/qca-nss-dp/compile V=s
+          echo "=== qca-nss-drv module compile ==="
+          make package/qca-nss/qca-nss-drv/compile V=s
+          echo "All NSS packages prepared and compiled successfully."
+
       - name: Compile firmware
         working-directory: ./openwrt
         run: |
