@@ -502,6 +502,47 @@ jobs:
           make package/qca-nss/qca-nss-drv/compile V=s
           echo "All NSS packages prepared and compiled successfully."
 
+      - name: Regression assertions — 007, 012, 018/019 (P0-D.3-5)
+        working-directory: ./openwrt
+        run: |
+          set -eo pipefail
+          dp_src="build_dir/target-aarch64_cortex-a53_musl/linux-qualcommax_ipq807x/qca-nss-dp-*/"
+          drv_src="build_dir/target-aarch64_cortex-a53_musl/linux-qualcommax_ipq807x/qca-nss-drv-*/"
+
+          echo "=== P0-D.3: 007 TXmod — correct expression in prepared source ==="
+          grep -rq 'skbq % edma_hw\.txdesc_rings' $dp_src || {
+            echo "::error::007 TXmod: corrected modulo expression not found in prepared qca-nss-dp source"
+            exit 1
+          }
+          grep -r 'edma_hw\.txdesc_rings % skbq' $dp_src && {
+            echo "::error::007 TXmod: OLD (reversed) modulo expression still present in prepared source"
+            exit 1
+          }
+          echo "OK: 007 TXmod expression verified"
+
+          echo "=== P0-D.4: 012 fused — stats_enable=1 + read-path preserved ==="
+          grep -rq 'stats_enable = 1' $drv_src || {
+            echo "::error::012 fused: stats_enable=1 not found in prepared qca-nss-drv source"
+            exit 1
+          }
+          echo "OK: 012 fused stats_enable=1 verified"
+
+          echo "=== P0-D.5: 018 NAPI unwind ==="
+          grep -rq 'netif_napi_del' $drv_src || {
+            echo "::error::018: netif_napi_del not found in prepared qca-nss-drv source"
+            exit 1
+          }
+          echo "OK: 018 NAPI unwind verified"
+
+          echo "=== P0-D.5: 019 DMA mapping_error ==="
+          grep -rq 'dma_mapping_error' $drv_src || {
+            echo "::error::019: dma_mapping_error not found in prepared qca-nss-drv source"
+            exit 1
+          }
+          echo "OK: 019 DMA mapping_error verified"
+
+          echo "All regression assertions passed."
+
       - name: Compile firmware
         working-directory: ./openwrt
         run: |
