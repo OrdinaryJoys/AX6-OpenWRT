@@ -488,19 +488,16 @@ jobs:
           find dl -size -1024c -exec ls -l {} \;
           find dl -size -1024c -exec rm -f {} \;
 
-      - name: Fast gate — NSS patch prepare + module compile (P0-D.6)
+      - name: Fast gate — NSS patch prepare (P0-D.6)
         working-directory: ./openwrt
         run: |
           set -eo pipefail
-          echo "=== qca-nss-dp prepare ==="
+          echo "=== qca-nss-dp prepare (patch apply check) ==="
           make package/qca-nss/qca-nss-dp/prepare V=s
-          echo "=== qca-nss-drv prepare ==="
+          echo "=== qca-nss-drv prepare (patch apply check) ==="
           make package/qca-nss/qca-nss-drv/prepare V=s
-          echo "=== qca-nss-dp module compile ==="
-          make package/qca-nss/qca-nss-dp/compile V=s
-          echo "=== qca-nss-drv module compile ==="
-          make package/qca-nss/qca-nss-drv/compile V=s
-          echo "All NSS packages prepared and compiled successfully."
+          echo "All NSS patches applied successfully."
+          echo "(Module compile requires full toolchain — done in Compile firmware step.)"
 
       - name: Regression assertions — 007, 012, 018/019 (P0-D.3-5)
         working-directory: ./openwrt
