@@ -247,8 +247,8 @@ jobs:
           done
           ecm_mk="openwrt/package/qca-nss/qca-nss-ecm/Makefile"
           ecm_vlan_patch="openwrt/package/qca-nss/qca-nss-ecm/patches/026-frontends-nss-respect-bridge-port-vlan-tagging-for-vlan-over-bridge.patch"
-          grep -Fxq 'PKG_RELEASE:=8' "$ecm_mk" || {
-            echo "::error file=$ecm_mk::ECM VLAN fix release must be 8"
+          grep -Fxq 'PKG_RELEASE:=9' "$ecm_mk" || {
+            echo "::error file=$ecm_mk::ECM offload policy fix release must be 9"
             exit 1
           }
           grep -Fq 'ecm_interface_bridge_vlan_wire_tagged' "$ecm_vlan_patch" || {
@@ -327,6 +327,22 @@ jobs:
             exit 1
           }
           "$upgrade_test"
+          offload_helper="openwrt/package/qca-nss/qca-nss-ecm/files/disable_offloads.sh"
+          offload_test="openwrt/package/qca-nss/qca-nss-ecm/tests/test-disable-offloads.sh"
+          [ -x "$offload_helper" ] || {
+            echo "::error file=$offload_helper::locked ECM offload helper is missing or not executable"
+            exit 1
+          }
+          [ -x "$offload_test" ] || {
+            echo "::error file=$offload_test::locked ECM offload policy fixture is missing or not executable"
+            exit 1
+          }
+          sh -n "$offload_helper" "$offload_test"
+          sh "$offload_test" "$offload_helper"
+          pbuf_classifier="AX6-IPQ/files/usr/libexec/ax6-nss-pbuf-classify"
+          test -x "$pbuf_classifier"
+          sh -n "$pbuf_classifier" AX6-IPQ/files/sbin/nss-check tests/test-pbuf-fixture.sh
+          NSS_PBUF_CLASSIFIER="$pbuf_classifier" sh tests/test-pbuf-fixture.sh
 
       - name: Add NSS feed and prepare feeds
         run: |
@@ -503,36 +519,48 @@ jobs:
         working-directory: ./openwrt
         run: |
           set -eo pipefail
-          dp_src="build_dir/target-aarch64_cortex-a53_musl/linux-qualcommax_ipq807x/qca-nss-dp-*/"
-          drv_src="build_dir/target-aarch64_cortex-a53_musl/linux-qualcommax_ipq807x/qca-nss-drv-*/"
+          mapfile -d '' dp_dirs < <(
+            find build_dir/target-aarch64_cortex-a53_musl/linux-qualcommax_ipq807x \
+              -maxdepth 1 -type d -name 'qca-nss-dp-*' -print0
+          )
+          mapfile -d '' drv_dirs < <(
+            find build_dir/target-aarch64_cortex-a53_musl/linux-qualcommax_ipq807x \
+              -maxdepth 1 -type d -name 'qca-nss-drv-*' -print0
+          )
+          if [ "${#dp_dirs[@]}" -ne 1 ] || [ "${#drv_dirs[@]}" -ne 1 ]; then
+            echo "::error::Expected one prepared qca-nss-dp and qca-nss-drv directory; found dp=${#dp_dirs[@]} drv=${#drv_dirs[@]}"
+            exit 1
+          fi
+          dp_src=${dp_dirs[0]}
+          drv_src=${drv_dirs[0]}
 
           echo "=== P0-D.3: 007 TXmod — correct expression in prepared source ==="
-          grep -rq 'skbq % edma_hw\.txdesc_rings' $dp_src || {
+          grep -rq 'skbq % edma_hw\.txdesc_rings' "$dp_src" || {
             echo "::error::007 TXmod: corrected modulo expression not found in prepared qca-nss-dp source"
             exit 1
           }
-          grep -r 'edma_hw\.txdesc_rings % skbq' $dp_src && {
+          grep -r 'edma_hw\.txdesc_rings % skbq' "$dp_src" && {
             echo "::error::007 TXmod: OLD (reversed) modulo expression still present in prepared source"
             exit 1
           }
           echo "OK: 007 TXmod expression verified"
 
           echo "=== P0-D.4: 012 fused — stats_enable=1 + read-path preserved ==="
-          grep -rq 'stats_enable = 1' $drv_src || {
+          grep -rq 'stats_enable = 1' "$drv_src" || {
             echo "::error::012 fused: stats_enable=1 not found in prepared qca-nss-drv source"
             exit 1
           }
           echo "OK: 012 fused stats_enable=1 verified"
 
           echo "=== P0-D.5: 018 NAPI unwind ==="
-          grep -rq 'netif_napi_del' $drv_src || {
+          grep -rq 'netif_napi_del' "$drv_src" || {
             echo "::error::018: netif_napi_del not found in prepared qca-nss-drv source"
             exit 1
           }
           echo "OK: 018 NAPI unwind verified"
 
           echo "=== P0-D.5: 019 DMA mapping_error ==="
-          grep -rq 'dma_mapping_error' $drv_src || {
+          grep -rq 'dma_mapping_error' "$drv_src" || {
             echo "::error::019: dma_mapping_error not found in prepared qca-nss-drv source"
             exit 1
           }
@@ -620,6 +648,7 @@ jobs:
             'usr/sbin/ax6-zerotier-reconcile' \
             'etc/init\.d/ax6-zerotier-reconcile' \
             'sbin/nss-check' \
+            'usr/libexec/ax6-nss-pbuf-classify' \
             'sbin/ax6-config-audit' \
             'etc/init\.d/ax6-wifi-regdom' \
             'usr/sbin/ax6-network-invariants' \
@@ -686,6 +715,24 @@ jobs:
             echo "::error::Final rootfs contains unsupported ath11k rx_hash parameter"
             exit 1
           fi
+          unsquashfs -cat "$rootfs" lib/netifd/offload/disable_offloads.sh \
+            > image-verify/disable_offloads.sh
+          unsquashfs -cat "$rootfs" usr/libexec/ax6-nss-pbuf-classify \
+            > image-verify/ax6-nss-pbuf-classify
+          unsquashfs -cat "$rootfs" sbin/nss-check \
+            > image-verify/nss-check
+          chmod +x \
+            image-verify/disable_offloads.sh \
+            image-verify/ax6-nss-pbuf-classify \
+            image-verify/nss-check
+          sh -n \
+            image-verify/disable_offloads.sh \
+            image-verify/ax6-nss-pbuf-classify \
+            image-verify/nss-check
+          sh openwrt/package/qca-nss/qca-nss-ecm/tests/test-disable-offloads.sh \
+            image-verify/disable_offloads.sh
+          NSS_PBUF_CLASSIFIER=image-verify/ax6-nss-pbuf-classify \
+            sh tests/test-pbuf-fixture.sh
           unsquashfs -cat "$rootfs" usr/lib/opkg/status \
             > image-verify/opkg-status
           target_dir=$(dirname "${images[0]}")

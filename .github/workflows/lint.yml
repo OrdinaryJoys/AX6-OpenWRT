@@ -41,6 +41,8 @@ jobs:
           sh tests/test-openclash-zerotier-bypass.sh
           sh tests/test-ax6-config-audit-zerotier.sh
           sh tests/test-ax6-stock-compiled-dtb.sh
+          sh tests/test-pbuf-fixture.sh
+          sh tests/test-source-patchset-generator.sh
 
       - name: Actionlint
         run: actionlint -color .github/workflows/*.yml
@@ -196,6 +198,7 @@ jobs:
             'Linux 6.18.38 archive hash is missing or incorrect' \
             'missing hostapd 2026-1 security fix' \
             'missing bridge-port on-wire VLAN decision' \
+            'ECM offload policy fix release must be 9' \
             'missing NSS-DP MAC synchronization fix' \
             'missing outer EAP method mapping' \
             'wifi ucode helper lost its executable mode' \
@@ -835,6 +838,10 @@ jobs:
           set -eo pipefail
           diy=AX6-IPQ/diy.sh
           health=AX6-IPQ/files/sbin/nss-check
+          classifier=AX6-IPQ/files/usr/libexec/ax6-nss-pbuf-classify
+          test -x "$classifier"
+          sh -n "$classifier" "$health" tests/test-pbuf-fixture.sh
+          NSS_PBUF_CLASSIFIER="$classifier" sh tests/test-pbuf-fixture.sh
           if grep -Eq 'ath11k_sysfs_device_available|wait_for_ath11k_nss_offload|wait_for_nss_sysctls|qca-nss-pbuf.init: n2h sysctl order mismatch' "$diy"; then
             echo "::error file=$diy::qca-nss-pbuf must be fixed in SOURCE_COMMIT, not patched in diy.sh"
             exit 1
@@ -842,6 +849,7 @@ jobs:
           for required in \
             'NSS pbuf/N2H profile applied' \
             'NSS EDMA alloc-fail growth is stable' \
+            ax6-nss-pbuf-classify \
             edma_err_alloc_fail_cnt \
             n2h_wifi_pool_buf; do
             grep -Fq "$required" "$health" || {

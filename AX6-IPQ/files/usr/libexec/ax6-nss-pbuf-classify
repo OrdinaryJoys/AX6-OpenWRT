@@ -1,0 +1,88 @@
+#!/bin/sh
+
+# Classify the active NSS N2H/pbuf values against an OpenWrt memory profile.
+# Output is a single pipe-delimited record:
+#   status|label|expected_extra|expected_high|expected_wifi|observed_total
+
+profile=${1:-auto}
+memtotal=${2:-}
+extra=${3:-}
+high=${4:-}
+wifi=${5:-}
+
+case "$profile" in
+    off*|false*|disable*|0)
+        printf 'disabled|||||\n'
+        exit 0
+        ;;
+    auto)
+        case "$memtotal" in
+            ''|*[!0-9]*)
+                printf 'invalid-memory|||||\n'
+                exit 0
+                ;;
+        esac
+        if [ "$memtotal" -gt 512000 ]; then
+            expected_extra=10000000
+            expected_high=65536
+            expected_wifi=32768
+            label=1GB
+        elif [ "$memtotal" -le 256000 ]; then
+            expected_extra=4000000
+            expected_high=16384
+            expected_wifi=8192
+            label=256MB
+        else
+            expected_extra=8000000
+            expected_high=32768
+            expected_wifi=16384
+            label=512MB
+        fi
+        ;;
+    1024|1g*)
+        expected_extra=10000000
+        expected_high=65536
+        expected_wifi=32768
+        label=1GB
+        ;;
+    512|512m*)
+        expected_extra=8000000
+        expected_high=32768
+        expected_wifi=16384
+        label=512MB
+        ;;
+    256|256m*)
+        expected_extra=4000000
+        expected_high=16384
+        expected_wifi=8192
+        label=256MB
+        ;;
+    *)
+        printf 'invalid-profile|||||\n'
+        exit 0
+        ;;
+esac
+
+case "$extra:$high:$wifi" in
+    *[!0-9:]*|:*|*::*|*:)
+        printf 'invalid-values|%s|%s|%s|%s|\n' \
+            "$label" "$expected_extra" "$expected_high" "$expected_wifi"
+        exit 0
+        ;;
+esac
+
+total=$((high + wifi))
+if [ "$extra" -ge "$expected_extra" ] &&
+   [ "$high" -ge "$expected_high" ] &&
+   [ "$wifi" -ge "$expected_wifi" ]; then
+    status=ok
+elif [ "$extra" -ge "$expected_extra" ] &&
+     [ "$wifi" -ge "$expected_wifi" ] &&
+     [ "$total" -ge "$expected_high" ]; then
+    status=warn
+else
+    status=fail
+fi
+
+printf '%s|%s|%s|%s|%s|%s\n' \
+    "$status" "$label" "$expected_extra" "$expected_high" "$expected_wifi" "$total"

@@ -4,7 +4,7 @@ set -eu
 # Generate AX6 source patchset provenance manifest.
 #
 # Compares SOURCE_COMMIT against SOURCE_BASE_COMMIT and produces:
-#   1. ax6-source-patchset.sha256 — SHA256 of every tracked NSS-critical file
+#   1. ax6-source-patchset.sha256 — SHA256 of every present file in the diff
 #   2. ax6-source-patchset.absent  — files deleted/renamed since the base commit
 #   3. SOURCE_PATCHSET_MANIFEST_SHA256 (stdout) — SHA256 of the manifest itself
 #
@@ -25,49 +25,48 @@ target_commit="$3"
 manifest="${GITHUB_WORKSPACE:-.}/.github/ax6-source-patchset.sha256"
 absent="${GITHUB_WORKSPACE:-.}/.github/ax6-source-patchset.absent"
 
-# ---- File patterns that constitute the NSS-critical patchset ----
-# These match the set curated in the existing manifest.
-PATTERNS="
-    package/kernel/mac80211/patches/
-    package/kernel/mac80211/files/
-    package/libs/libubox/
-    package/network/config/netifd/
-    package/network/config/wifi-scripts/
-    package/network/services/hostapd/
-    package/qca-nss/
-    package/system/ubus/
-    target/linux/airoha/patches-6.18/
-    target/linux/armsr/
-    target/linux/generic/
-    target/linux/ipq40xx/patches-6.18/
-    target/linux/mediatek/patches-6.18/
-    target/linux/qualcommax/
-    target/linux/rockchip/
-    target/linux/starfive/patches-6.18/
-"
+tmp_dir=$(mktemp -d)
+trap 'rm -rf "$tmp_dir"' EXIT HUP INT TERM
 
-# ---- Generate present manifest (SHA256 of each tracked file) ----
+# Keep this in lockstep with verify-ax6-source-patchset.sh: provenance covers
+# the complete base-to-target source diff, not every file below broad package
+# directories. Rename sources are absent and rename destinations are present.
+: > "$tmp_dir/present"
+: > "$tmp_dir/absent"
+git -C "$source_root" diff --name-status -M "$base_commit" "$target_commit" |
+awk -F '\t' -v present="$tmp_dir/present" -v absent_out="$tmp_dir/absent" '
+    $1 == "D" { print $2 > absent_out; next }
+    $1 ~ /^R/ { print $2 > absent_out; print $3 > present; next }
+    $1 ~ /^C/ { print $3 > present; next }
+    { print $2 > present }
+'
+
+LC_ALL=C sort -u "$tmp_dir/present" > "$tmp_dir/present.sorted"
+LC_ALL=C sort -u "$tmp_dir/absent" > "$absent"
+
 > "$manifest"
-for pattern in $PATTERNS; do
-    # List files under this pattern at the target commit
-    git -C "$source_root" ls-tree -r --name-only "$target_commit" -- "$pattern" 2>/dev/null | while IFS= read -r f; do
-        # Only regular files that exist
-        [ -f "$source_root/$f" ] || continue
-        sha256sum "$source_root/$f" | awk '{print $1 "  " $2}' >> "$manifest"
-    done
-done
-
-# Sort for deterministic output
-sort -t' ' -k3 "$manifest" -o "$manifest"
-
-# ---- Generate absent list (deleted since base commit) ----
-> "$absent"
-for pattern in $PATTERNS; do
-    # Find files that existed at base but not at target
-    git -C "$source_root" diff --name-only --diff-filter=D "$base_commit".."$target_commit" -- "$pattern" 2>/dev/null >> "$absent"
-done
-
-sort "$absent" -o "$absent"
+while IFS= read -r f || [ -n "$f" ]; do
+    [ -n "$f" ] || continue
+    case "$f" in
+        *[[:space:]]*)
+            echo "ERROR: whitespace in source paths is unsupported by SHA256 manifests: $f" >&2
+            exit 2
+            ;;
+    esac
+    [ -f "$source_root/$f" ] || {
+        echo "ERROR: diff path is not a regular target file: $f" >&2
+        exit 2
+    }
+    if command -v sha256sum >/dev/null 2>&1; then
+        file_sha=$(sha256sum "$source_root/$f" | awk '{print $1}')
+    elif command -v shasum >/dev/null 2>&1; then
+        file_sha=$(shasum -a 256 "$source_root/$f" | awk '{print $1}')
+    else
+        echo "ERROR: no SHA256 implementation found" >&2
+        exit 2
+    fi
+    printf '%s  %s\n' "$file_sha" "$f" >> "$manifest"
+done < "$tmp_dir/present.sorted"
 
 # ---- Compute manifest SHA256 ----
 if command -v sha256sum >/dev/null 2>&1; then
