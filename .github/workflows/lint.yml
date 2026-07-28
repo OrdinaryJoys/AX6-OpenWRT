@@ -519,7 +519,10 @@ jobs:
           grep -Fq '/usr/sbin/ax6-network-invariants --all' "$service"
           grep -Fq '. /lib/netifd/offload/disable_offloads.sh' "$service"
           grep -Fqx '        disable_offload' "$service"
-          grep -Fqx '        disable_offload br-lan' "$service"
+          if grep -Eq '^[[:space:]]*disable_offload[[:space:]]+br-lan[[:space:]]*$' "$service"; then
+            echo "::error file=$service::parameterless helper already includes configured br-lan; do not process it twice"
+            exit 1
+          fi
           # shellcheck disable=SC2016 # Match the hotplug script's literal environment variable.
           grep -Fq '/usr/sbin/ax6-network-invariants "$INTERFACE"' "$hotplug"
           grep -Fq 'S95ax6-network-invariants' AX6-IPQ/diy.sh
