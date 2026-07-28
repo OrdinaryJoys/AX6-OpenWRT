@@ -99,9 +99,9 @@ a65bb3d49039034afcf48c51dc1f417d2dbdacf9e444d03599827f587ee1e5f9  package/qca-ns
 5ba4dab15aa37b2ca220d1419c0d7633b662ea6d2faa04d102067bc654cde7ca  package/qca-nss/qca-nss-drv/patches/018-fix-napi-request-irq-unwind.patch
 3c153fe095fe82dd1e3a5f5364f04c6d16254d980b3d4e7dc5b307eba120258a  package/qca-nss/qca-nss-drv/patches/019-fix-n2h-pool-dma-unwind.patch
 7a1d141b770f90b7efc075f5daf947412da28752234e5dc644e19810d364a2e6  package/qca-nss/qca-nss-ecm/Makefile
-845326a3c40ffe9e1693c5716ba04aeadfe6187f54d342d6dcd4e1cec22273b6  package/qca-nss/qca-nss-ecm/files/disable_offloads.hotplug
-7133000ba8a95c9aebf209bca4b7167c4796d21c794d3271618adada9f43a5a0  package/qca-nss/qca-nss-ecm/files/disable_offloads.sh
-c2058e11737613a6dac7aded1b818171a4fe199dfa1e0f7a8399629b70d0779e  package/qca-nss/qca-nss-ecm/files/qca-nss-ecm.init
+2438ccfa97b0fa4e6f3cb333de8d0c8fcb05c46b6bcfdca93f4f75ae390920d9  package/qca-nss/qca-nss-ecm/files/disable_offloads.hotplug
+b77c0e472c087bc23cd7a2baa1b7db1ad02fc09b709bf53ab2243ae79f3e2eb9  package/qca-nss/qca-nss-ecm/files/disable_offloads.sh
+f31aecc51e7bebffb73c9b9d700fc1cfdf5f4e1e5b2d04c9bc9bbc106dfa7bad  package/qca-nss/qca-nss-ecm/files/qca-nss-ecm.init
 22b40538dcae6851ecdae4b8e1d96bc8a7a745672ab83177e38cf8f7345045a7  package/qca-nss/qca-nss-ecm/patches/026-frontends-nss-respect-bridge-port-vlan-tagging-for-vlan-over-bridge.patch
 1eff77f431829640a3f68e7f85bf2b5258636285ec005a3c3368f0d9b4226a75  package/qca-nss/qca-nss-ecm/tests/test-disable-offloads.sh
 ddb52cdf907a45761b7c3e394db4c29eeae5d268f3e00ed86e3eabf6fd641055  package/qca-nss/qca-ssdk/patches/009-feature-nss-dp-netdev-mac-sync.patch

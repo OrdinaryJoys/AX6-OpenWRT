@@ -35,17 +35,25 @@ valid_iface() {
 	[ "${#1}" -le 15 ]
 }
 
-nft_iface_set() {
+nft_iface_predicate() {
+	keyword="$1"
+	iface_list="$2"
 	result=
-	for iface in $1; do
+	count=0
+	for iface in $iface_list; do
 		valid_iface "$iface" || return 1
+		count=$((count + 1))
 		if [ -n "$result" ]; then
 			result="$result, \"$iface\""
 		else
 			result="\"$iface\""
 		fi
 	done
-	printf '%s\n' "$result"
+	case "$count" in
+		0) ;;
+		1) printf '%s %s ' "$keyword" "$result" ;;
+		*) printf '%s { %s } ' "$keyword" "$result" ;;
+	esac
 }
 
 read_settings() {
@@ -219,14 +227,11 @@ append_network_rules() {
 
 		if [ "$(uci -q get "zerotier.${section}.fw_allow_forward" 2>/dev/null)" = 1 ]; then
 			fwd_ifaces="$(uci -q get "zerotier.${section}.fw_forward_ifaces" 2>/dev/null || true)"
-			fwd_set="$(nft_iface_set "$fwd_ifaces")" || return 1
-			prefix=
-			[ -z "$fwd_set" ] || prefix="oifname { $fwd_set } "
+			prefix="$(nft_iface_predicate oifname "$fwd_ifaces")" || return 1
 			printf '%s\n' \
 				"${prefix}iifname \"$iface\" counter accept comment \"!fw4: Accept ZeroTier input forward $iface\"" \
 				>> "$forward"
-			prefix=
-			[ -z "$fwd_set" ] || prefix="iifname { $fwd_set } "
+			prefix="$(nft_iface_predicate iifname "$fwd_ifaces")" || return 1
 			printf '%s\n' \
 				"${prefix}oifname \"$iface\" counter accept comment \"!fw4: Accept ZeroTier output forward $iface\"" \
 				>> "$forward"
@@ -234,9 +239,7 @@ append_network_rules() {
 
 		if [ "$(uci -q get "zerotier.${section}.fw_allow_masq" 2>/dev/null)" = 1 ]; then
 			masq_ifaces="$(uci -q get "zerotier.${section}.fw_masq_ifaces" 2>/dev/null || true)"
-			masq_set="$(nft_iface_set "$masq_ifaces")" || return 1
-			prefix=
-			[ -z "$masq_set" ] || prefix="iifname { $masq_set } "
+			prefix="$(nft_iface_predicate iifname "$masq_ifaces")" || return 1
 			printf '%s\n' \
 				"${prefix}oifname \"$iface\" counter masquerade comment \"!fw4: Masquerade ZeroTier traffic $iface\"" \
 				>> "$srcnat"

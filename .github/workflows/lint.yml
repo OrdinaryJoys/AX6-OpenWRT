@@ -40,6 +40,7 @@ jobs:
           sh tests/test-zerotier-reconcile.sh
           sh tests/test-openclash-zerotier-bypass.sh
           sh tests/test-ax6-config-audit-zerotier.sh
+          sh tests/test-ax6-boot-guard.sh
           sh tests/test-ax6-stock-compiled-dtb.sh
           sh tests/test-pbuf-fixture.sh
           sh tests/test-source-patchset-generator.sh
@@ -428,12 +429,17 @@ jobs:
           set -eo pipefail
           tune=AX6-IPQ/files/etc/uci-defaults/98-nss-tune
           health=AX6-IPQ/files/sbin/nss-check
+          boot_guard=AX6-IPQ/files/etc/init.d/ax6-boot-guard
           br_hotplug=AX6-IPQ/files/etc/hotplug.d/net/100-disable_offloads_br_lan
           test -x "$tune"
           test -x "$health"
           test -x "$br_hotplug"
           grep -Fq "ecm.general.disable_offloads='1'" "$tune"
           grep -Fq "ecm.general.disable_gro_list='1'" "$tune"
+          grep -Fq "ecm.general.offload_host_ifaces='br-lan'" "$tune"
+          grep -Fq "ecm.general.offload_physical_policy='report'" "$tune"
+          grep -Fq 'offload_host_ifaces:br-lan' "$boot_guard"
+          grep -Fq 'offload_physical_policy:report' "$boot_guard"
           if grep -Eq "ecm\.general\.disable_flow_control='1'|disable_flow_control[[:space:]]*'1'" "$tune" AX6-IPQ/files/etc/uci-defaults/* 2>/dev/null; then
             echo "::error::Do not force Ethernet flow-control changes in defaults; validate per-link before enabling"
             exit 1
@@ -446,6 +452,7 @@ jobs:
           grep -Fq 'tcp-segmentation-offload' "$health"
           grep -Fq 'rx-gro-list' "$health"
           grep -Fq 'br-lan' "$health"
+          grep -Fq 'offload_physical_policy is unset' "$health"
           grep -Fq 'disable_offloads.sh' "$br_hotplug"
           grep -Fq "disable_offload \"\$INTERFACE\"" "$br_hotplug"
           grep -Fq "[ \"\$INTERFACE\" = \"br-lan\" ]" "$br_hotplug"

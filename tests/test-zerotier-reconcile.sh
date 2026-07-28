@@ -305,4 +305,20 @@ if grep -Fq 'ZeroTier' "$TMP/fw/input.nft"; then exit 1; fi
 [ ! -s "$TMP/fw/srcnat.nft" ]
 grep -Fqx -- '--cleanup' "$BYPASS_LOG"
 
+# nft canonicalizes a singleton interface set to a scalar predicate. Render the
+# scalar form directly and prove that a second reconciliation is a true no-op.
+export ZT_ENABLED=1 ZT_CLI_FAIL=0 FORWARD_IFACES=br-lan
+run_reconcile
+grep -Fq 'oifname "br-lan" iifname "ztmock0"' "$TMP/fw/forward.nft"
+if grep -Fq 'oifname { "br-lan" }' "$TMP/fw/forward.nft"; then
+	echo 'singleton forward interface was rendered as a non-canonical nft set' >&2
+	exit 1
+fi
+sed 's/counter /counter packets 0 bytes 0 /; s/$/ # handle 80/' "$TMP/fw/input.nft" > "$TMP/nft-state/input"
+sed 's/counter /counter packets 0 bytes 0 /; s/$/ # handle 81/' "$TMP/fw/forward.nft" > "$TMP/nft-state/forward"
+sed 's/counter /counter packets 0 bytes 0 /; s/$/ # handle 82/' "$TMP/fw/srcnat.nft" > "$TMP/nft-state/srcnat"
+: > "$NFT_APPLY_LOG"
+run_reconcile
+[ ! -s "$NFT_APPLY_LOG" ]
+
 echo 'test-zerotier-reconcile: PASS'
