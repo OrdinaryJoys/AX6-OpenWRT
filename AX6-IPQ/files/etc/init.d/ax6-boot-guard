@@ -16,12 +16,15 @@ start() {
             uci -q set "firewall.@defaults[0].${option}=0" && FIREWALL_CHANGED=1
     done
 
-    # 3. ECM: IPQ807x has no hardware checksum — software offloads (GRO/GSO/
-    # checksum) on br-lan corrupt host-terminated traffic (LuCI, SSH, DNS).
-    # disable_offloads=1 keeps ECM loaded while NSS forwarding acceleration is
-    # fully preserved. disable_gro_list=1 is the upstream safe default (UDP
-    # fraglist → DNS/DHCP breakage).
-    for ecm_opt in disable_offloads:1 disable_gro_list:1; do
+    # 3. ECM: preserve a conservative router-host path without blanket-changing
+    # physical NSS data-plane ports. These four values are also a retained-config
+    # migration: older installs do not have the two per-interface policy keys.
+    # disable_gro_list=1 remains the package's conservative UDP/DHCP default.
+    for ecm_opt in \
+        disable_offloads:1 \
+        disable_gro_list:1 \
+        offload_host_ifaces:br-lan \
+        offload_physical_policy:report; do
         key="${ecm_opt%%:*}"
         expected="${ecm_opt##*:}"
         [ "$(uci -q get "ecm.general.${key}")" != "$expected" ] &&
@@ -49,6 +52,7 @@ start() {
     fi
     if [ "${ECM_CHANGED:-0}" = "1" ]; then
         uci commit ecm
-        logger -t ax6-boot-guard "Enforced ecm disable_offloads=1 + disable_gro_list=1 (IPQ807x HW checksum absent)"
+        logger -t ax6-boot-guard \
+            "Enforced AX6 ECM host-path policy and report-only physical-port policy"
     fi
 }

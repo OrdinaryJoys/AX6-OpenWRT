@@ -2,8 +2,8 @@
 # Keep the local bridge aligned with qca-nss-ecm's offload policy.
 #
 # qca-nss-ecm's bundled hotplug script intentionally handles physical devices.
-# br-lan is a virtual bridge, but LuCI/SSH/DNS local-termination traffic crosses
-# it, so apply the same official helper to br-lan only.
+# br-lan is a virtual bridge used by router-local LuCI/SSH/DNS traffic, so apply
+# the same packaged policy helper when that bridge is created.
 
 [ "$ACTION" = "add" ] || exit 0
 [ "$INTERFACE" = "br-lan" ] || exit 0

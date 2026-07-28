@@ -21,10 +21,11 @@ uci commit firewall
 
 # ===================================================================
 # Layer 3: ECM offload — layered host/physical policy (P0-C, 2026-07-26).
-#          EDMA v1 on IPQ807x does not implement hardware checksum,
-#          so Linux checksum/GSO/GRO offloads corrupt host-terminated
-#          traffic (LuCI/SSH/DNS) → packet loss → TCP retransmission →
-#          management UI unresponsiveness.
+#          EDMA v1 on IPQ807x does not advertise hardware checksum support.
+#          Linux GRO/GSO are software batching features and are not inherently
+#          corrupt, but router-local traffic showed retransmission and latency
+#          regressions with the broad policy. Keep the host path conservative
+#          while physical NSS data-plane ports remain report-only for A/B tests.
 #
 #          disable_offloads=1 enables the policy engine.
 #          offload_host_ifaces="br-lan"     → hard-disable offloads (host-path)

@@ -435,6 +435,29 @@ for iface in $(uci -q show wireless 2>/dev/null | awk -F'[.=]' '/=wifi-iface$/{p
     esac
 done
 
+# ECM: the AX6 profile must retain its host/physical policy after sysupgrade.
+ecm_policy_bad=0
+for ecm_setting in disable_offloads:1 disable_gro_list:1 offload_physical_policy:report; do
+    ecm_key="${ecm_setting%%:*}"
+    ecm_expected="${ecm_setting##*:}"
+    ecm_actual="$(uci -q get "ecm.general.${ecm_key}")"
+    if [ "$ecm_actual" = "$ecm_expected" ]; then
+        ok "ECM: ${ecm_key}=${ecm_expected}"
+    else
+        fail "ECM: ${ecm_key}=${ecm_actual:-unset}; expected ${ecm_expected}"
+        ecm_policy_bad=1
+    fi
+done
+ecm_host_ifaces="$(uci -q get ecm.general.offload_host_ifaces)"
+case " $ecm_host_ifaces " in
+    *" br-lan "*) ok "ECM: br-lan is covered by the host-path policy" ;;
+    *)
+        fail "ECM: offload_host_ifaces=${ecm_host_ifaces:-unset}; expected br-lan"
+        ecm_policy_bad=1
+        ;;
+esac
+[ "$ecm_policy_bad" -eq 0 ] && ok "ECM: AX6 layered offload policy is complete"
+
 # VLAN: qosmio upstream requires 802.1q subinterfaces for NSS WiFi offload.
 vlan_bad=0
 for device in $(uci -q show network 2>/dev/null | awk -F'[.=]' '/=device$/{print $2}'); do

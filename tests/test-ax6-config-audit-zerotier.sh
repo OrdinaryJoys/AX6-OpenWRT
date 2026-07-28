@@ -36,6 +36,15 @@ case "$*" in
     '-q get wireless.radio0.htmode') echo HE40 ;;
     '-q get wireless.radio0.ht_coex') echo 1 ;;
     '-q get wireless.radio0.noscan') exit 1 ;;
+    '-q get ecm.general.disable_offloads'|'-q get ecm.general.disable_gro_list')
+        [ "${ECM_POLICY_MISSING:-0}" = 0 ] && echo 1 || exit 1
+        ;;
+    '-q get ecm.general.offload_host_ifaces')
+        [ "${ECM_POLICY_MISSING:-0}" = 0 ] && echo br-lan || exit 1
+        ;;
+    '-q get ecm.general.offload_physical_policy')
+        [ "${ECM_POLICY_MISSING:-0}" = 0 ] && echo report || exit 1
+        ;;
     '-q get zerotier.global') [ "${UCI_SCHEMA:-current}" != legacy ] && echo zerotier ;;
     '-q get zerotier.global.enabled') echo "${ZT_ENABLED:-1}" ;;
     '-q get zerotier.global.fw_allow_input') echo "${FW_ALLOW_INPUT:-1}" ;;
@@ -240,5 +249,12 @@ grep -Fq 'disabled but owned firewall or OpenClash bypass rules remain' \
 ZT_ENABLED=0 run_audit > "$TMP/disabled-clean.log"
 grep -Fq 'installed, disabled, and owned firewall rules are absent' "$TMP/disabled-clean.log"
 grep -Fq 'FAIL=0' "$TMP/disabled-clean.log"
+
+if ZT_ENABLED=0 ECM_POLICY_MISSING=1 run_audit > "$TMP/ecm-missing.log"; then
+    echo 'audit unexpectedly accepted a missing AX6 ECM layered policy' >&2
+    exit 1
+fi
+grep -Fq 'offload_physical_policy=unset; expected report' "$TMP/ecm-missing.log"
+grep -Fq 'offload_host_ifaces=unset; expected br-lan' "$TMP/ecm-missing.log"
 
 echo 'test-ax6-config-audit-zerotier: PASS'
