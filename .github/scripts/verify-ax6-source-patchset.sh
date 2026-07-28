@@ -6,9 +6,15 @@ if [ "$#" -ne 5 ]; then
     exit 64
 fi
 
-source_root="$1"
-manifest="$2"
-absent_list="$3"
+source_root=$(cd "$1" && pwd)
+case "$2" in
+    /*) manifest="$2" ;;
+    *) manifest=$(cd "$(dirname "$2")" && pwd)/$(basename "$2") ;;
+esac
+case "$3" in
+    /*) absent_list="$3" ;;
+    *) absent_list=$(cd "$(dirname "$3")" && pwd)/$(basename "$3") ;;
+esac
 expected_manifest_sha="$4"
 source_base_commit="$5"
 

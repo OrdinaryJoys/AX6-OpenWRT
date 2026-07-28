@@ -98,11 +98,12 @@ a65bb3d49039034afcf48c51dc1f417d2dbdacf9e444d03599827f587ee1e5f9  package/qca-ns
 172d4ea76abe2c2e3573ddaf784dad8ab614a6ce1bef26beb101d212b78908c6  package/qca-nss/qca-nss-drv/patches/017-guard-auto-scale-against-uninit-core.patch
 5ba4dab15aa37b2ca220d1419c0d7633b662ea6d2faa04d102067bc654cde7ca  package/qca-nss/qca-nss-drv/patches/018-fix-napi-request-irq-unwind.patch
 3c153fe095fe82dd1e3a5f5364f04c6d16254d980b3d4e7dc5b307eba120258a  package/qca-nss/qca-nss-drv/patches/019-fix-n2h-pool-dma-unwind.patch
-c183c86d749485edcd5031df40b51ff2a55c745b6772afab4e79c1f735215ff9  package/qca-nss/qca-nss-ecm/Makefile
+7a1d141b770f90b7efc075f5daf947412da28752234e5dc644e19810d364a2e6  package/qca-nss/qca-nss-ecm/Makefile
 845326a3c40ffe9e1693c5716ba04aeadfe6187f54d342d6dcd4e1cec22273b6  package/qca-nss/qca-nss-ecm/files/disable_offloads.hotplug
-6006cf89988b896a0609512f3769cafa861312be8dd6a76411020814bceea774  package/qca-nss/qca-nss-ecm/files/disable_offloads.sh
+7133000ba8a95c9aebf209bca4b7167c4796d21c794d3271618adada9f43a5a0  package/qca-nss/qca-nss-ecm/files/disable_offloads.sh
 c2058e11737613a6dac7aded1b818171a4fe199dfa1e0f7a8399629b70d0779e  package/qca-nss/qca-nss-ecm/files/qca-nss-ecm.init
 22b40538dcae6851ecdae4b8e1d96bc8a7a745672ab83177e38cf8f7345045a7  package/qca-nss/qca-nss-ecm/patches/026-frontends-nss-respect-bridge-port-vlan-tagging-for-vlan-over-bridge.patch
+1eff77f431829640a3f68e7f85bf2b5258636285ec005a3c3368f0d9b4226a75  package/qca-nss/qca-nss-ecm/tests/test-disable-offloads.sh
 ddb52cdf907a45761b7c3e394db4c29eeae5d268f3e00ed86e3eabf6fd641055  package/qca-nss/qca-ssdk/patches/009-feature-nss-dp-netdev-mac-sync.patch
 b187ecd16255a6386cf15dcb90c999d79ada51e5015d9d06df7a588ceb221932  package/system/ubus/Makefile
 0ce26e852ca0b03f4450d00ec9e98d2e4387f288cf581524a664243f7896c79c  target/linux/airoha/patches-6.18/096-v6.19-net-airoha-Add-missing-stats-to-ethtool_eth_mac_stat.patch

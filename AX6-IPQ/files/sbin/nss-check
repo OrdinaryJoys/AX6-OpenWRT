@@ -473,82 +473,53 @@ esac
 # ---- 19. NSS pbuf/N2H profile actually applied ----
 pbuf_profile=$(uci -q get pbuf.opt.memory_profile)
 [ -n "$pbuf_profile" ] || pbuf_profile=auto
-case "$pbuf_profile" in
-    off*|false*|disable*|0)
+pbuf_memtotal=$(awk '/MemTotal/{print $2}' /proc/meminfo 2>/dev/null)
+pbuf_extra=$(sysctl -n dev.nss.n2hcfg.extra_pbuf_core0 2>/dev/null)
+pbuf_high=$(sysctl -n dev.nss.n2hcfg.n2h_high_water_core0 2>/dev/null)
+pbuf_wifi=$(sysctl -n dev.nss.n2hcfg.n2h_wifi_pool_buf 2>/dev/null)
+pbuf_classifier=${NSS_PBUF_CLASSIFIER:-/usr/libexec/ax6-nss-pbuf-classify}
+
+if [ ! -x "$pbuf_classifier" ]; then
+    fail "NSS pbuf classifier is missing or not executable: $pbuf_classifier"
+else
+    pbuf_result=$(
+        "$pbuf_classifier" \
+            "$pbuf_profile" "$pbuf_memtotal" \
+            "$pbuf_extra" "$pbuf_high" "$pbuf_wifi"
+    )
+    IFS='|' read -r \
+        pbuf_status pbuf_label pbuf_expected_extra pbuf_expected_high \
+        pbuf_expected_wifi pbuf_total <<EOF
+$pbuf_result
+EOF
+
+    case "$pbuf_status" in
+    disabled)
         warn "NSS pbuf memory_profile=$pbuf_profile (disabled)"
         ;;
-    *)
-        memtotal=$(awk '/MemTotal/{print $2}' /proc/meminfo 2>/dev/null)
-        case "$pbuf_profile" in
-            auto)
-                if [ -n "$memtotal" ] && [ "$memtotal" -gt 512000 ] 2>/dev/null; then
-                    pbuf_expected_extra=10000000
-                    pbuf_expected_high=65536
-                    pbuf_expected_wifi=32768
-                    pbuf_label=1GB
-                elif [ -n "$memtotal" ] && [ "$memtotal" -le 256000 ] 2>/dev/null; then
-                    pbuf_expected_extra=4000000
-                    pbuf_expected_high=16384
-                    pbuf_expected_wifi=8192
-                    pbuf_label=256MB
-                else
-                    pbuf_expected_extra=8000000
-                    pbuf_expected_high=32768
-                    pbuf_expected_wifi=16384
-                    pbuf_label=512MB
-                fi
-                ;;
-            1024|1g*)
-                pbuf_expected_extra=10000000
-                pbuf_expected_high=65536
-                pbuf_expected_wifi=32768
-                pbuf_label=1GB
-                ;;
-            512|512m*)
-                pbuf_expected_extra=8000000
-                pbuf_expected_high=32768
-                pbuf_expected_wifi=16384
-                pbuf_label=512MB
-                ;;
-            256|256m*)
-                pbuf_expected_extra=4000000
-                pbuf_expected_high=16384
-                pbuf_expected_wifi=8192
-                pbuf_label=256MB
-                ;;
-            *)
-                fail "NSS pbuf memory_profile=$pbuf_profile is invalid"
-                pbuf_expected_extra=
-                ;;
-        esac
-
-        if [ -n "${pbuf_expected_extra:-}" ]; then
-            pbuf_extra=$(sysctl -n dev.nss.n2hcfg.extra_pbuf_core0 2>/dev/null)
-            pbuf_high=$(sysctl -n dev.nss.n2hcfg.n2h_high_water_core0 2>/dev/null)
-            pbuf_wifi=$(sysctl -n dev.nss.n2hcfg.n2h_wifi_pool_buf 2>/dev/null)
-
-            # Reject non-numeric / missing sysctl values — don't let
-            # arithmetic expressions silently swallow errors (P1 fixture).
-            case "${pbuf_extra:-x}" in ''|*[!0-9]*) pbuf_extra= ;; esac
-            case "${pbuf_high:-x}"  in ''|*[!0-9]*) pbuf_high=  ;; esac
-            case "${pbuf_wifi:-x}"  in ''|*[!0-9]*) pbuf_wifi=  ;; esac
-
-            if [ -z "${pbuf_extra:-}" ] || [ -z "${pbuf_high:-}" ] || [ -z "${pbuf_wifi:-}" ]; then
-                fail "NSS pbuf sysctl unavailable or non-numeric: extra=${pbuf_extra:-unset}, high=${pbuf_high:-unset}, wifi_pool=${pbuf_wifi:-unset}"
-            elif [ "${pbuf_extra}" -ge "$pbuf_expected_extra" ] &&
-                 [ "${pbuf_high}"  -ge "$pbuf_expected_high"  ] &&
-                 [ "${pbuf_wifi}"  -ge "$pbuf_expected_wifi"  ]; then
-                ok "NSS pbuf/N2H profile applied (${pbuf_label}: extra=${pbuf_extra}, high=${pbuf_high}, wifi_pool=${pbuf_wifi})"
-            elif [ "${pbuf_extra}" -ge "$pbuf_expected_extra" ] &&
-                 [ "${pbuf_wifi}"  -ge "$pbuf_expected_wifi"  ] &&
-                 [ $(( pbuf_high + pbuf_wifi )) -ge "$pbuf_expected_high" ]; then
-                warn "NSS pbuf/N2H firmware split budget (${pbuf_label}: extra=${pbuf_extra}, high=${pbuf_high}, wifi_pool=${pbuf_wifi}; total=$(( pbuf_high + pbuf_wifi )) >= ${pbuf_expected_high})"
-            else
-                fail "NSS pbuf/N2H profile not applied: extra=${pbuf_extra:-unset}/${pbuf_expected_extra}, high=${pbuf_high:-unset}/${pbuf_expected_high}, wifi_pool=${pbuf_wifi:-unset}/${pbuf_expected_wifi}"
-            fi
-        fi
+    invalid-profile)
+        fail "NSS pbuf memory_profile=$pbuf_profile is invalid"
         ;;
-esac
+    invalid-memory)
+        fail "NSS pbuf MemTotal is unavailable or non-numeric: ${pbuf_memtotal:-unset}"
+        ;;
+    invalid-values)
+        fail "NSS pbuf sysctl unavailable or non-numeric: extra=${pbuf_extra:-unset}, high=${pbuf_high:-unset}, wifi_pool=${pbuf_wifi:-unset}"
+        ;;
+    ok)
+        ok "NSS pbuf/N2H profile applied (${pbuf_label}: extra=${pbuf_extra}, high=${pbuf_high}, wifi_pool=${pbuf_wifi})"
+        ;;
+    warn)
+        warn "NSS pbuf/N2H firmware split budget (${pbuf_label}: extra=${pbuf_extra}, high=${pbuf_high}, wifi_pool=${pbuf_wifi}; total=${pbuf_total} >= ${pbuf_expected_high})"
+        ;;
+    fail)
+        fail "NSS pbuf/N2H profile not applied: extra=${pbuf_extra:-unset}/${pbuf_expected_extra}, high=${pbuf_high:-unset}/${pbuf_expected_high}, wifi_pool=${pbuf_wifi:-unset}/${pbuf_expected_wifi}"
+        ;;
+    *)
+        fail "NSS pbuf classifier returned an invalid status: ${pbuf_status:-empty}"
+        ;;
+    esac
+fi
 
 edma_stats="/sys/kernel/debug/qca-nss-drv/stats/edma/err_stats"
 if [ -r "$edma_stats" ]; then
