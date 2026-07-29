@@ -105,10 +105,19 @@ IRQ 回滚、DMA 生命周期、描述符检查和 GRO 功能，必须拆开验�
 
 GRO 必须是第三个独立变量:
 
-- 初始 split-NAPI 候选保持当前功能状态，不默认启用 GRO。
+- 初始 split-NAPI 候选保持 `netif_receive_skb()` 接收交付路径，不调用
+  `napi_gro_receive()`，也不显式修改 GRO 特性位。
 - `br-lan` 始终执行主机路径关闭策略。
 - 只对物理 NSS 数据面端口做 GRO on/off A/B。
 - 每次测试 DNS、DHCP、UDP、LuCI、SSH 和本机终结流量。
+
+Linux 在 `register_netdevice()` 中把 `NETIF_F_SOFT_FEATURES` 加入活动特性，且该集合
+包含 GRO。因此，仅删除驱动内显式的 `NETIF_F_GRO` 赋值并不能证明 GRO 接收路径未
+启用。运行 30466547707 的编译、产物和内容门禁均通过，但其补丁仍调用
+`napi_gro_receive()`，同时改变了 split-NAPI 与 GRO 两个变量，不能作为 D2 单变量
+A/B 固件。修正后的 D2 源码锁为
+`41ef0348d3ffd34b64f6e0be9a10e8080e1c620f`，必须重新完成构建与产物审计；D3 继续
+保留为后续独立候选。
 
 ## 候选 E: nss_freq
 

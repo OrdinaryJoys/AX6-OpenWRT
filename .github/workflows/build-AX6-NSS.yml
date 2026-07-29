@@ -532,6 +532,11 @@ jobs:
           fi
           dp_src=${dp_dirs[0]}
           drv_src=${drv_dirs[0]}
+          edma_v1_src="$dp_src/hal/dp_ops/edma_dp/edma_v1"
+          [ -d "$edma_v1_src" ] || {
+            echo "::error::Prepared qca-nss-dp source has no EDMA v1 implementation"
+            exit 1
+          }
 
           echo "=== P0-D.3: 007 TXmod — correct expression in prepared source ==="
           grep -rq 'skbq % edma_hw\.txdesc_rings' "$dp_src" || {
@@ -544,28 +549,38 @@ jobs:
           }
           echo "OK: 007 TXmod expression verified"
 
-          echo "=== Candidate 008: split RX/TX NAPI without default GRO ==="
-          grep -rq 'netif_napi_add(netdev, &edma_hw\.rx_napi, edma_rx_napi)' "$dp_src" || {
+          echo "=== Candidate 008: split RX/TX NAPI with unchanged RX handoff ==="
+          grep -rq 'netif_napi_add(netdev, &edma_hw\.rx_napi, edma_rx_napi)' "$edma_v1_src" || {
             echo "::error::008: RX NAPI registration not found in prepared qca-nss-dp source"
             exit 1
           }
-          grep -rq 'netif_napi_add_tx(netdev, &edma_hw\.tx_napi, edma_tx_napi)' "$dp_src" || {
+          grep -rq 'netif_napi_add_tx(netdev, &edma_hw\.tx_napi, edma_tx_napi)' "$edma_v1_src" || {
             echo "::error::008: TX NAPI registration not found in prepared qca-nss-dp source"
             exit 1
           }
-          grep -rq 'edma_handle_tx_irq' "$dp_src" || {
+          grep -rq 'edma_handle_tx_irq' "$edma_v1_src" || {
             echo "::error::008: independent TX IRQ handler not found"
             exit 1
           }
-          grep -rq 'edma_handle_rx_irq' "$dp_src" || {
+          grep -rq 'edma_handle_rx_irq' "$edma_v1_src" || {
             echo "::error::008: independent RX IRQ handler not found"
             exit 1
           }
-          if grep -rEq '(hw_)?features[[:space:]]*\|=[[:space:]]*NETIF_F_GRO' "$dp_src"; then
-            echo "::error::008: split-NAPI candidate must not enable GRO by default"
+          if grep -rq 'napi_gro_receive' "$edma_v1_src" || \
+             grep -rEq '(hw_)?features[[:space:]]*\|=[[:space:]]*NETIF_F_GRO' "$edma_v1_src"; then
+            echo "::error::008: split-NAPI candidate must not change the GRO receive path"
             exit 1
           fi
-          txmod_count=$(grep -rhF 'skbq % edma_hw.txdesc_rings' "$dp_src" | wc -l)
+          rx_handoff_count=$(grep -rhF 'netif_receive_skb(skb);' "$edma_v1_src" | wc -l || true)
+          [ "$rx_handoff_count" -eq 2 ] || {
+            echo "::error::008: both PTP and regular netif_receive_skb handoffs must remain present"
+            exit 1
+          }
+          if grep -rq 'edma_if_set_features(dpc);' "$edma_v1_src"; then
+            echo "::error::008: redundant pre-registration feature callback found"
+            exit 1
+          fi
+          txmod_count=$(grep -rhF 'skbq % edma_hw.txdesc_rings' "$edma_v1_src" | wc -l)
           [ "$txmod_count" -eq 1 ] || {
             echo "::error::008: corrected TX modulo must have one prepared-source owner"
             exit 1
