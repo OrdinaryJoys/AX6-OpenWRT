@@ -515,7 +515,7 @@ jobs:
           echo "All NSS patches applied successfully."
           echo "(Module compile requires full toolchain — done in Compile firmware step.)"
 
-      - name: Regression assertions — 007, 012, 018/019 (P0-D.3-5)
+      - name: Regression assertions — 007/008, 012, 018/019 (P0-D.3-5)
         working-directory: ./openwrt
         run: |
           set -eo pipefail
@@ -544,6 +544,34 @@ jobs:
             exit 1
           }
           echo "OK: 007 TXmod expression verified"
+
+          echo "=== Candidate 008: split RX/TX NAPI without default GRO ==="
+          grep -rq 'netif_napi_add(netdev, &edma_hw\.rx_napi, edma_rx_napi)' "$dp_src" || {
+            echo "::error::008: RX NAPI registration not found in prepared qca-nss-dp source"
+            exit 1
+          }
+          grep -rq 'netif_napi_add_tx(netdev, &edma_hw\.tx_napi, edma_tx_napi)' "$dp_src" || {
+            echo "::error::008: TX NAPI registration not found in prepared qca-nss-dp source"
+            exit 1
+          }
+          grep -rq 'edma_handle_tx_irq' "$dp_src" || {
+            echo "::error::008: independent TX IRQ handler not found"
+            exit 1
+          }
+          grep -rq 'edma_handle_rx_irq' "$dp_src" || {
+            echo "::error::008: independent RX IRQ handler not found"
+            exit 1
+          }
+          if grep -rEq '(hw_)?features[[:space:]]*\|=[[:space:]]*NETIF_F_GRO' "$dp_src"; then
+            echo "::error::008: split-NAPI candidate must not enable GRO by default"
+            exit 1
+          fi
+          txmod_count=$(grep -rhF 'skbq % edma_hw.txdesc_rings' "$dp_src" | wc -l)
+          [ "$txmod_count" -eq 1 ] || {
+            echo "::error::008: corrected TX modulo must have one prepared-source owner"
+            exit 1
+          }
+          echo "OK: 008 split-NAPI candidate invariants verified"
 
           echo "=== P0-D.4: 012 fused — stats_enable=1 + read-path preserved ==="
           grep -rq 'stats_enable = 1' "$drv_src" || {
