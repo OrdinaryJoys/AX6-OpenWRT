@@ -149,7 +149,6 @@ jobs:
           sudo -E apt-get -qq -o Acquire::Retries=3 update
           sudo -E apt-get -qq -o Acquire::Retries=3 install -y --no-install-recommends "${PKGS[@]}"
           sudo -E apt-get -qq clean
-          sudo timedatectl set-timezone "$TZ"
           sudo chown -R "$USER":"$(id -gn)" "$GITHUB_WORKSPACE"
 
       - name: Load and verify build lock
