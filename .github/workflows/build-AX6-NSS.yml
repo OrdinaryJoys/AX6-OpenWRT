@@ -782,6 +782,14 @@ jobs:
           unsquashfs -cat "$rootfs" etc/init.d/ax6-zerotier-reconcile \
             > image-verify/ax6-zerotier-reconcile.init
           grep -Fq 'read_stable_settings' image-verify/ax6-zerotier-reconcile
+          grep -Fq 'nft_iface_predicate()' image-verify/ax6-zerotier-reconcile || {
+            echo "::error::Final rootfs ZeroTier reconciler is missing scalar interface predicates"
+            exit 1
+          }
+          if grep -Fq 'nft_iface_set()' image-verify/ax6-zerotier-reconcile; then
+            echo "::error::Final rootfs contains the obsolete ZeroTier interface-set renderer"
+            exit 1
+          fi
           # shellcheck disable=SC2016 # Match the literal runtime transaction variable.
           grep -Fq 'nft -c -f "$TRANSACTION"' image-verify/ax6-zerotier-reconcile || {
             echo "::error::Final rootfs ZeroTier reconciler is missing nft transaction validation"
@@ -794,6 +802,25 @@ jobs:
             echo "::error::Final rootfs ZeroTier reconciliation reloads a network service"
             exit 1
           fi
+
+          unsquashfs -cat "$rootfs" etc/init.d/ax6-boot-guard \
+            > image-verify/ax6-boot-guard.init
+          for required in \
+            'disable_offloads:1' \
+            'disable_gro_list:1' \
+            'offload_host_ifaces:br-lan' \
+            'offload_physical_policy:report'; do
+            grep -Fq "$required" image-verify/ax6-boot-guard.init || {
+              echo "::error::Final rootfs boot guard is missing ECM migration: $required"
+              exit 1
+            }
+          done
+          unsquashfs -cat "$rootfs" etc/init.d/ax6-network-invariants \
+            > image-verify/ax6-network-invariants.init
+          [ "$(grep -Ec '^[[:space:]]*disable_offload([[:space:]]|$)' image-verify/ax6-network-invariants.init)" -eq 1 ] || {
+            echo "::error::Final rootfs network invariants contains duplicate offload passes"
+            exit 1
+          }
 
           unsquashfs -cat "$rootfs" etc/init.d/qca-nss-pbuf \
             > image-verify/qca-nss-pbuf.init
