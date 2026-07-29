@@ -811,6 +811,11 @@ jobs:
             .github/workflows/build-LEDE.yml; do
             grep -Fq -- '--no-install-recommends' "$workflow"
             grep -Fq 'Acquire::Retries=3' "$workflow"
+            grep -Fq 'TZ: Asia/Shanghai' "$workflow"
+            if grep -Fq 'timedatectl' "$workflow"; then
+              echo "::error file=$workflow::use the workflow TZ environment; hosted runners may reject system timezone changes"
+              exit 1
+            fi
             if grep -Eq 'apt-get .*autoremove' "$workflow"; then
               echo "::error file=$workflow::do not autoremove runner packages after installing build dependencies"
               exit 1
