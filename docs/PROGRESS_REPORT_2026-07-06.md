@@ -44,9 +44,12 @@ Layer 3 (every boot):   ax6-boot-guard enforcement                  ← 9f399c4
 Layer 4 (monitoring):   nss-check cron (每 30 分钟)                 ← 已有
 ```
 
-**根因:** IPQ807x EDMA v1 无硬件校验和, ECM 默认的 offload(GRO/GSO/checksum) 会损坏
-路由器本机终结流量 (LuCI Web/SSH/DNS), 导致页面极端卡顿 (2.4MB 28s)。
-实测 disable_offloads=1: 慢请求率 35~87% → 0.3%, 吞吐 ~8 倍。
+**已验证回归边界:** 在当时的实机固件上，对路由器本机终结流量路径
+(LuCI Web/SSH/DNS) 应用 `disable_offloads=1` 后，慢请求率从 35~87% 降至
+0.3%，吞吐约提高 8 倍。EDMA v1 未公布硬件校验和能力并不能单独证明
+GRO/GSO/checksum 必然损坏数据；GRO/GSO 本身也是 Linux 软件聚合能力。
+因此当前策略只对 `br-lan` 主机路径强制关闭，物理 NSS 数据面端口保持
+`report`，真正机制仍需按接口和特性做受控 A/B 才能定论。
 
 ### 2.2 ZeroTier 防火墙修复
 

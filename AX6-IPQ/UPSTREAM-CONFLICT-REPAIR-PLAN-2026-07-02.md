@@ -6,7 +6,7 @@
 
 当前仓库修复不是单点补丁式修复,而是把实机确认的故障边界固化到源码、构建锁、CI rootfs 校验和运行审计工具里:
 
-1. NSS/ECM 的本机终结流量丢包根因已按 `ecm.general.disable_offloads=1`、`disable_gro_list=1`、`br-lan` hotplug 复用官方 helper 的路径修复。
+1. NSS/ECM 的本机终结流量回归已按 `ecm.general.disable_offloads=1`、`disable_gro_list=1`、`br-lan` hotplug 复用官方 helper 的路径缓解并经实机验证；该结果证明配置与故障相关，但不足以把 EDMA v1 无硬件校验和单独认定为普适根因。
 2. pbuf/N2H 已在源仓固定为 `S19qca-nss-pbuf`,并由最终 rootfs 校验防回归。
 3. VLAN 默认策略保持 qosmio 说明要求: 不使用 DSA bridge VLAN filtering,改用 802.1q 子接口。
 4. OpenClash 插件不再锁定固定提交或固定版本,构建时跟踪官方 `master`,同时不修改订阅文件和覆写文件。
@@ -66,7 +66,7 @@
 | 子系统 | 必须保持 | 原因 |
 |---|---|---|
 | NSS/ECM | `packet_steering=0`, `flow_offloading=0`, `flow_offloading_hw=0` | NSS ECM 接管加速路径,避免 OpenWrt 通用 offload 争用 |
-| ECM netdev offload | `ecm.general.disable_offloads=1`, `disable_gro_list=1` | IPQ807x 本机终结流量在 GRO/GSO/checksum 等 offload 开启时会丢包/重传 |
+| ECM netdev offload | `ecm.general.disable_offloads=1`, `disable_gro_list=1`; AX6 仅对 `br-lan` 强制关闭，物理 NSS 数据面端口保持 `report` | 实机已验证本机终结流量与该策略相关；GRO/GSO 是 Linux 软件聚合能力，不能仅由 EDMA v1 未公布硬件校验和能力推导出必然包损坏 |
 | ECM flow-control | `ecm.general.disable_flow_control=0` 或 unset | 不默认修改 Ethernet PAUSE/autoneg,避免把链路层流控和 NSS/SSDK/DP 问题混在一起 |
 | br-lan | `100-disable_offloads_br_lan` 调用 `/lib/netifd/offload/disable_offloads.sh` | 解决 LuCI/SSH/DNS 等本机终结流量经过 bridge 时的慢加载 |
 | pbuf/N2H | `S19qca-nss-pbuf`, `START=19` | 必须在 netifd 创建 ath11k AP 接口前应用 pbuf/N2H |
