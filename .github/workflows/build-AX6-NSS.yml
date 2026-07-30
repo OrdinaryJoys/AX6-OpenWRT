@@ -507,6 +507,7 @@ jobs:
         working-directory: ./openwrt
         run: |
           set -eo pipefail
+          sh tests/test-edma-split-napi-candidate.sh
           echo "=== qca-nss-dp prepare (patch apply check) ==="
           make package/qca-nss/qca-nss-dp/prepare V=s
           echo "=== qca-nss-drv prepare (patch apply check) ==="
@@ -514,7 +515,7 @@ jobs:
           echo "All NSS patches applied successfully."
           echo "(Module compile requires full toolchain — done in Compile firmware step.)"
 
-      - name: Regression assertions — 007/008, 012, 018/019 (P0-D.3-5)
+      - name: Regression assertions — 007/008/009, 012, 018/019 (P0-D.3-5)
         working-directory: ./openwrt
         run: |
           set -eo pipefail
@@ -549,43 +550,62 @@ jobs:
           }
           echo "OK: 007 TXmod expression verified"
 
-          echo "=== Candidate 008: split RX/TX NAPI with unchanged RX handoff ==="
+          echo "=== Candidate 008: EDMA v1 correctness prerequisites ==="
+          grep -rq 'dma_mapping_error' "$edma_v1_src" || {
+            echo "::error::008: DMA mapping error handling not found"
+            exit 1
+          }
+          grep -rq 'tx_dma_store' "$edma_v1_src" || {
+            echo "::error::008: exact TX DMA address tracking not found"
+            exit 1
+          }
+          grep -rq 'Invalid Rx skb index' "$edma_v1_src" || {
+            echo "::error::008: RX descriptor store-index guard not found"
+            exit 1
+          }
+          grep -rq 'tx_irqs = 0, rxfill_irqs = 0, rxdesc_irqs = 0' "$edma_v1_src" || {
+            echo "::error::008: requested-IRQ unwind counters not found"
+            exit 1
+          }
+          echo "OK: 008 EDMA correctness prerequisites verified"
+
+          echo "=== Candidate 009: split RX/TX NAPI with unchanged RX handoff ==="
           grep -rq 'netif_napi_add(netdev, &edma_hw\.rx_napi, edma_rx_napi)' "$edma_v1_src" || {
-            echo "::error::008: RX NAPI registration not found in prepared qca-nss-dp source"
+            echo "::error::009: RX NAPI registration not found in prepared qca-nss-dp source"
             exit 1
           }
           grep -rq 'netif_napi_add_tx(netdev, &edma_hw\.tx_napi, edma_tx_napi)' "$edma_v1_src" || {
-            echo "::error::008: TX NAPI registration not found in prepared qca-nss-dp source"
+            echo "::error::009: TX NAPI registration not found in prepared qca-nss-dp source"
             exit 1
           }
           grep -rq 'edma_handle_tx_irq' "$edma_v1_src" || {
-            echo "::error::008: independent TX IRQ handler not found"
+            echo "::error::009: independent TX IRQ handler not found"
             exit 1
           }
           grep -rq 'edma_handle_rx_irq' "$edma_v1_src" || {
-            echo "::error::008: independent RX IRQ handler not found"
+            echo "::error::009: independent RX IRQ handler not found"
             exit 1
           }
           if grep -rq 'napi_gro_receive' "$edma_v1_src" || \
              grep -rEq '(hw_)?features[[:space:]]*\|=[[:space:]]*NETIF_F_GRO' "$edma_v1_src"; then
-            echo "::error::008: split-NAPI candidate must not change the GRO receive path"
+            echo "::error::009: split-NAPI candidate must not change the GRO receive path"
             exit 1
           fi
           rx_handoff_count=$(grep -rhF 'netif_receive_skb(skb);' "$edma_v1_src" | wc -l || true)
           [ "$rx_handoff_count" -eq 2 ] || {
-            echo "::error::008: both PTP and regular netif_receive_skb handoffs must remain present"
+            echo "::error::009: both PTP and regular netif_receive_skb handoffs must remain present"
             exit 1
           }
           if grep -rq 'edma_if_set_features(dpc);' "$edma_v1_src"; then
-            echo "::error::008: redundant pre-registration feature callback found"
+            echo "::error::009: redundant pre-registration feature callback found"
             exit 1
           fi
           txmod_count=$(grep -rhF 'skbq % edma_hw.txdesc_rings' "$edma_v1_src" | wc -l)
           [ "$txmod_count" -eq 1 ] || {
-            echo "::error::008: corrected TX modulo must have one prepared-source owner"
+            echo "::error::009: corrected TX modulo must have one prepared-source owner"
             exit 1
           }
-          echo "OK: 008 split-NAPI candidate invariants verified"
+          echo "OK: 009 split-NAPI candidate invariants verified"
 
           echo "=== P0-D.4: 012 fused — stats_enable=1 + read-path preserved ==="
           grep -rq 'stats_enable = 1' "$drv_src" || {
