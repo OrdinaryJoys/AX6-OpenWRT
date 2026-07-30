@@ -507,6 +507,7 @@ jobs:
         working-directory: ./openwrt
         run: |
           set -eo pipefail
+          sh tests/test-edma-correctness-prerequisites.sh
           echo "=== qca-nss-dp prepare (patch apply check) ==="
           make package/qca-nss/qca-nss-dp/prepare V=s
           echo "=== qca-nss-drv prepare (patch apply check) ==="
@@ -514,7 +515,7 @@ jobs:
           echo "All NSS patches applied successfully."
           echo "(Module compile requires full toolchain — done in Compile firmware step.)"
 
-      - name: Regression assertions — 007, 012, 018/019 (P0-D.3-5)
+      - name: Regression assertions — 007/008, 012, 018/019 (P0-D.3-5)
         working-directory: ./openwrt
         run: |
           set -eo pipefail
@@ -532,6 +533,11 @@ jobs:
           fi
           dp_src=${dp_dirs[0]}
           drv_src=${drv_dirs[0]}
+          edma_v1_src="$dp_src/hal/dp_ops/edma_dp/edma_v1"
+          [ -d "$edma_v1_src" ] || {
+            echo "::error::Prepared qca-nss-dp source has no EDMA v1 implementation"
+            exit 1
+          }
 
           echo "=== P0-D.3: 007 TXmod — correct expression in prepared source ==="
           grep -rq 'skbq % edma_hw\.txdesc_rings' "$dp_src" || {
@@ -543,6 +549,27 @@ jobs:
             exit 1
           }
           echo "OK: 007 TXmod expression verified"
+
+          echo "=== Candidate 008: EDMA v1 correctness prerequisites only ==="
+          for required in \
+            'dma_mapping_error' \
+            'tx_dma_store' \
+            'Invalid Rx skb index' \
+            'tx_irqs = 0, rxfill_irqs = 0, rxdesc_irqs = 0'; do
+            grep -rq "$required" "$edma_v1_src" || {
+              echo "::error::008: missing EDMA correctness invariant: $required"
+              exit 1
+            }
+          done
+          grep -rq 'netif_napi_add(netdev, &edma_hw\.napi, edma_napi)' "$edma_v1_src" || {
+            echo "::error::008: D1 must preserve the original single-NAPI registration"
+            exit 1
+          }
+          if grep -rq 'edma_handle_rx_irq\|edma_handle_tx_irq\|napi_gro_receive\|NETIF_F_GRO' "$edma_v1_src"; then
+            echo "::error::008: D1 must not include split-NAPI or GRO variables"
+            exit 1
+          fi
+          echo "OK: 008 EDMA correctness-only invariants verified"
 
           echo "=== P0-D.4: 012 fused — stats_enable=1 + read-path preserved ==="
           grep -rq 'stats_enable = 1' "$drv_src" || {

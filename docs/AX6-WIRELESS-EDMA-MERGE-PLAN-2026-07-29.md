@@ -101,6 +101,10 @@ IRQ 回滚、DMA 生命周期、描述符检查和 GRO 功能，必须拆开验�
 中 EDMA IRQ 无增长，NSS queue0 和 NET_RX 主要分布在 CPU0/CPU3。因此 split-NAPI
 是高负载慢路径候选，不能仅凭空闲累计值认定为双向吞吐根因。
 
+D1-only 构建分支锁定源码
+`codex/ax6-edma-correctness-candidate-20260730@3f522894ef532281548d5d69d3267d3b98cc777d`，
+保留原单 NAPI 和 `netif_receive_skb()` 路径，作为 D2 实机 A/B 前的正确性基线。
+
 ### D3 GRO 部分
 
 GRO 必须是第三个独立变量:
