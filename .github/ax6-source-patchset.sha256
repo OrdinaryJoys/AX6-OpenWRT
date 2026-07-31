@@ -91,7 +91,7 @@ fe4144c5ebbcb41dfcb68bdb141dc319a6b5aa3cbf869bf69c00e5e1b4fd3f8f  package/qca-ns
 9cecc83ee00068a4179788e259cfbd94ad0b8a3a7cb9d4f84766323343c53b13  package/qca-nss/qca-nss-dp/patches/004-phydev-clear-on-connect-failure.patch
 9b3ae37671d339b623b8f1bcd2d098423027c18d13d227eaab5e4025a74a08f2  package/qca-nss/qca-nss-dp/patches/006-ratelimit-edma-warnings.patch
 b707f08756dc6da47ab9bfec313b13b901298ae15c2dd4a2757d710407496c47  package/qca-nss/qca-nss-dp/patches/007-fix-tx-ring-modulo.patch
-6c899b32e367a1570846fe7467c1da1cff78996b7ea479e78be4a76a885a0274  package/qca-nss/qca-nss-dp/patches/008-edma-v1-correctness-prerequisites.patch
+6bdf4372695d87cd3fce12bd21265f0e95cd7be299392243495bc0efbae6335c  package/qca-nss/qca-nss-dp/patches/008-edma-v1-correctness-prerequisites.patch
 883e5a15e50e586715913aaaa434bef4cd87a6c49a0375a7f148ea2907ce10ee  package/qca-nss/qca-nss-drv/files/skb_recycler.uci
 a65bb3d49039034afcf48c51dc1f417d2dbdacf9e444d03599827f587ee1e5f9  package/qca-nss/qca-nss-drv/patches/012-fix-autoscale-stats-and-current-freq-read.patch
 5242126dd65ac9b84518e24a3fc923916a19a6c3880f0d18a0f69062b6648c06  package/qca-nss/qca-nss-drv/patches/015-fix-fraglist-skb-truesize-underaccounting.patch
