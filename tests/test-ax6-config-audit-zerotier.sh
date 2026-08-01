@@ -16,7 +16,9 @@ cat > "$TMP/bin/uci" <<'EOF'
 #!/bin/sh
 case "$*" in
     '-q show wireless') printf '%s\n' 'wireless.radio0=wifi-device' ;;
-    '-q show network') exit 0 ;;
+    '-q show network')
+        [ "${OPENVPN_NETWORK:-0}" = 1 ] && printf '%s\n' 'network.legacyvpn=interface'
+        ;;
     '-q show zerotier')
         if [ "${UCI_SCHEMA:-current}" = legacy ]; then
             printf '%s\n' "zerotier.legacy=zerotier" \
@@ -71,10 +73,16 @@ case "$*" in
     '-q get firewall.zerotier_forward.chain') echo forward ;;
     '-q get firewall.zerotier_srcnat.chain') echo srcnat ;;
     '-q get openvpn.server.enabled') echo "${OPENVPN_ENABLED:-0}" ;;
+    '-q get network.legacyvpn.proto') echo openvpn ;;
+    '-q get network.legacyvpn.device'|'-q get network.legacyvpn.ifname'|'-q get network.legacyvpn.auto') exit 1 ;;
     '-q get firewall.ovpn.src') echo wan ;;
     '-q get firewall.ovpn.dest_port') echo 1194 ;;
     '-q get firewall.ovpn.target') echo ACCEPT ;;
     '-q get firewall.ovpn.enabled') echo "${OPENVPN_RULE_ENABLED:-1}" ;;
+    '-q get firewall.vpn') [ "${OPENVPN_LEGACY_FW:-0}" = 1 ] && echo zone || exit 1 ;;
+    '-q get firewall.vpn.name') echo vpn ;;
+    '-q get firewall.vpn.network') echo vpn0 ;;
+    '-q get firewall.vpntowan') [ "${OPENVPN_LEGACY_FW:-0}" = 1 ] && echo forwarding || exit 1 ;;
     '-q get vlmcsd.config') [ "${VLMCS_INSTALLED:-0}" = 1 ] && echo vlmcsd ;;
     '-q get vlmcsd.config.enabled') echo "${VLMCS_ENABLED:-0}" ;;
     '-q get vlmcsd.config.internet_access') echo "${VLMCS_INTERNET:-0}" ;;
@@ -117,9 +125,27 @@ cat > "$TMP/bin/pidof" <<'EOF'
 #!/bin/sh
 case "$1" in
     zerotier-one) echo 100 ;;
+    openvpn) [ "${OPENVPN_RUNNING:-0}" = 1 ] && echo 102 ;;
     vlmcsd) [ "${VLMCS_RUNNING:-0}" = 1 ] && echo 101 ;;
     *) exit 1 ;;
 esac
+EOF
+
+cat > "$TMP/bin/ip" <<'EOF'
+#!/bin/sh
+[ "${OPENVPN_TUN0:-0}" = 1 ] && [ "$*" = 'link show dev tun0' ] && exit 0
+exit 1
+EOF
+
+cat > "$TMP/bin/ss" <<'EOF'
+#!/bin/sh
+[ "${OPENVPN_LISTENER:-0}" = 1 ] && echo 'udp UNCONN 0 0 0.0.0.0:1194 0.0.0.0:*'
+exit 0
+EOF
+
+cat > "$TMP/zt-health" <<'EOF'
+#!/bin/sh
+exit "${ZT_HEALTH_RC:-0}"
 EOF
 
 cat > "$TMP/bin/find" <<'EOF'
@@ -127,11 +153,13 @@ cat > "$TMP/bin/find" <<'EOF'
 printf '%s\n' /sys/class/net/ztmock0
 EOF
 chmod +x "$TMP/bin/"*
+chmod +x "$TMP/zt-health"
 
 export ZT_FW_PATH="$TMP/fw"
 export NFT_INPUT="$TMP/nft-input"
 export NFT_FORWARD="$TMP/nft-forward"
 export NFT_SRCNAT="$TMP/nft-srcnat"
+export ZT_HEALTH="$TMP/zt-health"
 : > "$NFT_FORWARD"
 : > "$NFT_SRCNAT"
 : > "$ZT_FW_PATH/forward.nft"
@@ -220,9 +248,35 @@ grep -Fq 'all servers are disabled but WAN 1194 ACCEPT rule(s) remain active' "$
 
 FW_ALLOW_INPUT=0 NETWORK_ALLOW_INPUT=1 OPENVPN_INSTALLED=1 OPENVPN_RULE=1 \
     OPENVPN_RULE_ENABLED=0 run_audit > "$TMP/openvpn-disabled.log"
-grep -Fq 'servers are disabled and no active WAN 1194 rule remains' "$TMP/openvpn-disabled.log"
+grep -Fq 'disabled state has no active interface, process, listener, WAN rule, or legacy forwarding' \
+    "$TMP/openvpn-disabled.log"
 grep -Fq 'FAIL=0' "$TMP/openvpn-disabled.log"
 
+if FW_ALLOW_INPUT=0 NETWORK_ALLOW_INPUT=1 OPENVPN_INSTALLED=1 \
+    OPENVPN_NETWORK=1 run_audit > "$TMP/openvpn-network.log"; then
+    echo 'audit unexpectedly accepted a disabled OpenVPN netifd interface' >&2
+    exit 1
+fi
+grep -Fq 'active netifd interface declaration(s) remain: legacyvpn' "$TMP/openvpn-network.log"
+
+if FW_ALLOW_INPUT=0 NETWORK_ALLOW_INPUT=1 OPENVPN_INSTALLED=1 \
+    OPENVPN_RUNNING=1 run_audit > "$TMP/openvpn-runtime.log"; then
+    echo 'audit unexpectedly accepted a running disabled OpenVPN process' >&2
+    exit 1
+fi
+grep -Fq 'process, tun0, or port 1194 listener is active' "$TMP/openvpn-runtime.log"
+
+if FW_ALLOW_INPUT=0 NETWORK_ALLOW_INPUT=1 ZT_HEALTH_RC=1 \
+    run_audit > "$TMP/zerotier-l3.log"; then
+    echo 'audit unexpectedly accepted a missing ZeroTier managed address' >&2
+    exit 1
+fi
+grep -Fq 'controller owns a managed address that is missing' "$TMP/zerotier-l3.log"
+
+# Shells differ on whether assignments prefixed to a function call remain
+# visible after the function returns. Clear earlier fault injections so the
+# VLMCS scenario verifies only its own policy.
+export OPENVPN_NETWORK=0 OPENVPN_RUNNING=0 ZT_HEALTH_RC=0
 FW_ALLOW_INPUT=0 NETWORK_ALLOW_INPUT=1 VLMCS_INSTALLED=1 VLMCS_ENABLED=1 \
     VLMCS_RUNNING=1 VLMCS_INTERNET=1 VLMCS_AUTO_ACTIVATE=1 \
     run_audit > "$TMP/vlmcs.log"

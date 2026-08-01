@@ -53,6 +53,30 @@ resolve_branch_commit() {
 clone_locked "$ARGON_THEME_URL" "$ARGON_THEME_COMMIT" package/luci-theme-argon
 clone_locked "$ARGON_CONFIG_URL" "$ARGON_CONFIG_COMMIT" package/luci-app-argon-config
 
+# ZeroTier explicitly requests its UDP socket buffer, so changing the global
+# rmem_default cannot fix receive-queue overflow. Install an AX6-scoped package
+# patch whose hunk encodes the exact upstream 1 MiB constant. Patch application
+# will stop the build if a future upstream revision changes this contract.
+ZEROTIER_PACKAGE="feeds/packages/net/zerotier"
+ZEROTIER_BUFFER_PATCH="$REPO_ROOT/AX6-IPQ/package-patches/zerotier/100-openwrt-increase-udp-socket-buffer.patch"
+if grep -q '^CONFIG_PACKAGE_zerotier=y' .config 2>/dev/null; then
+  [ -f "$ZEROTIER_PACKAGE/Makefile" ] || {
+    echo "[diy.sh] ZeroTier package is selected but its locked feed source is missing" >&2
+    exit 2
+  }
+  [ -s "$ZEROTIER_BUFFER_PATCH" ] || {
+    echo "[diy.sh] ZeroTier UDP buffer patch is missing" >&2
+    exit 2
+  }
+  mkdir -p "$ZEROTIER_PACKAGE/patches"
+  cp "$ZEROTIER_BUFFER_PATCH" "$ZEROTIER_PACKAGE/patches/100-openwrt-increase-udp-socket-buffer.patch"
+  grep -Fq '#define ZT_UDP_DESIRED_BUF_SIZE 1048576' "$ZEROTIER_BUFFER_PATCH" || {
+    echo "[diy.sh] ZeroTier UDP patch no longer documents the expected upstream value" >&2
+    exit 2
+  }
+  echo "[diy.sh] Installed AX6 ZeroTier 4 MiB UDP socket-buffer patch"
+fi
+
 # Argon: 侧边栏 brand 字号从 1.8rem 调整为 1.7rem
 sed -i 's/font-size: 1.8rem/font-size: 1.7rem/' package/luci-theme-argon/htdocs/luci-static/argon/css/cascade.css 2>/dev/null || true
 
@@ -293,6 +317,8 @@ mkdir -p ./files/etc/rc.d
 ( cd ./files/etc/rc.d && ln -sf ../init.d/ax6-boot-guard S12ax6-boot-guard 2>/dev/null )
 ( cd ./files/etc/rc.d && ln -sf ../init.d/ax6-wifi-regdom S10ax6-wifi-regdom 2>/dev/null )
 ( cd ./files/etc/rc.d && ln -sf ../init.d/ax6-zerotier-reconcile S91ax6-zerotier-reconcile 2>/dev/null )
+( cd ./files/etc/rc.d && ln -sf ../init.d/ax6-openclash-dns-health S92ax6-openclash-dns-health 2>/dev/null )
+( cd ./files/etc/rc.d && ln -sf ../init.d/ax6-zerotier-health S93ax6-zerotier-health 2>/dev/null )
 ( cd ./files/etc/rc.d && ln -sf ../init.d/ax6-network-invariants S95ax6-network-invariants 2>/dev/null )
 
 # ----------------------------------------------------

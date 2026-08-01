@@ -24,6 +24,31 @@ for section in $(uci -q show network 2>/dev/null |
 	logger -t ax6-openvpn "Removed legacy anonymous OpenVPN interface skeleton"
 done
 
+# Remove the other exact legacy server scaffolding shipped by the old AX6
+# image only while its matching package-default server is disabled. These
+# predicates intentionally do not match a user-configured OpenVPN interface.
+if [ "$(uci -q get openvpn.myvpn.enabled 2>/dev/null || echo 0)" != 1 ]; then
+	if [ "$(uci -q get network.myvpn 2>/dev/null)" = interface ] &&
+	   [ "$(uci -q get network.myvpn.proto 2>/dev/null)" = openvpn ] &&
+	   [ "$(uci -q get network.myvpn.enabled 2>/dev/null)" = 0 ] &&
+	   [ "$(uci -q get network.myvpn.ovpnproto 2>/dev/null)" = tcp-server ] &&
+	   [ "$(uci -q get network.myvpn.port 2>/dev/null)" = 1194 ] &&
+	   [ "$(uci -q get network.myvpn.ddns 2>/dev/null)" = example.com ] &&
+	   [ "$(uci -q get network.myvpn.server 2>/dev/null)" = '10.8.0.0 255.255.255.0' ]; then
+		uci -q delete network.myvpn
+		network_changed=1
+		logger -t ax6-openvpn "Removed disabled legacy OpenVPN netifd server interface"
+	fi
+	if [ "$(uci -q get network.vpn0 2>/dev/null)" = interface ] &&
+	   [ "$(uci -q get network.vpn0.ifname 2>/dev/null)" = tun0 ] &&
+	   [ "$(uci -q get network.vpn0.proto 2>/dev/null)" = none ] &&
+	   [ "$(uci -q show network.vpn0 2>/dev/null | wc -l | tr -d ' ')" = 3 ]; then
+		uci -q delete network.vpn0
+		network_changed=1
+		logger -t ax6-openvpn "Removed disabled legacy vpn0 interface"
+	fi
+fi
+
 if ! uci -q get network.OpenVPN >/dev/null 2>&1; then
 	uci -q set network.OpenVPN='interface'
 	uci -q set network.OpenVPN.device='tun0'
@@ -76,6 +101,32 @@ for section in $(uci -q show firewall 2>/dev/null |
 	firewall_changed=1
 	logger -t ax6-openvpn "Removed legacy duplicate Allow-OpenVPN rule"
 done
+
+if [ "$(uci -q get openvpn.myvpn.enabled 2>/dev/null || echo 0)" != 1 ]; then
+	if [ "$(uci -q get firewall.vpn 2>/dev/null)" = zone ] &&
+	   [ "$(uci -q get firewall.vpn.name 2>/dev/null)" = vpn ] &&
+	   [ "$(uci -q get firewall.vpn.input 2>/dev/null)" = ACCEPT ] &&
+	   [ "$(uci -q get firewall.vpn.forward 2>/dev/null)" = ACCEPT ] &&
+	   [ "$(uci -q get firewall.vpn.output 2>/dev/null)" = ACCEPT ] &&
+	   [ "$(uci -q get firewall.vpn.masq 2>/dev/null)" = 1 ] &&
+	   [ "$(uci -q get firewall.vpn.network 2>/dev/null)" = vpn0 ]; then
+		uci -q delete firewall.vpn
+		firewall_changed=1
+		logger -t ax6-openvpn "Removed disabled legacy vpn0 firewall zone"
+	fi
+	for legacy in 'vpntowan:vpn:wan' 'vpntolan:vpn:lan' 'lantovpn:lan:vpn'; do
+		section="${legacy%%:*}"
+		rest="${legacy#*:}"
+		src="${rest%%:*}"
+		dest="${rest#*:}"
+		[ "$(uci -q get "firewall.${section}" 2>/dev/null)" = forwarding ] || continue
+		[ "$(uci -q get "firewall.${section}.src" 2>/dev/null)" = "$src" ] || continue
+		[ "$(uci -q get "firewall.${section}.dest" 2>/dev/null)" = "$dest" ] || continue
+		uci -q delete "firewall.${section}"
+		firewall_changed=1
+		logger -t ax6-openvpn "Removed disabled legacy ${section} forwarding"
+	done
+fi
 
 [ "$network_changed" -eq 0 ] || uci commit network
 [ "$firewall_changed" -eq 0 ] || uci commit firewall

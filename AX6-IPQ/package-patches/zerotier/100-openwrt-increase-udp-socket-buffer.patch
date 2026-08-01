@@ -1,0 +1,9 @@
+--- a/node/Constants.hpp
++++ b/node/Constants.hpp
+@@ -744 +744,5 @@
+-#define ZT_UDP_DESIRED_BUF_SIZE 1048576
++/*
++ * AX6 can sustain enough encrypted UDP traffic to overflow the upstream 1 MiB
++ * socket queue while zerotier-one is processing packets on the CPU path.
++ */
++#define ZT_UDP_DESIRED_BUF_SIZE 4194304

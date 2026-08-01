@@ -6,6 +6,8 @@
 VERBOSE=0
 QUIET=0
 ZT_FW_PATH="${ZT_FW_PATH:-/var/run/zerotier-one/_fw4}"
+ZT_HEALTH="${ZT_HEALTH:-/usr/sbin/ax6-zerotier-health}"
+OPENCLASH_DNS_HEALTH="${OPENCLASH_DNS_HEALTH:-/usr/sbin/ax6-openclash-dns-health}"
 
 case "${1:-}" in
     ""|"--") ;;
@@ -123,6 +125,33 @@ openvpn_active_wan_1194_rules() {
         [ "$(uci -q get "firewall.${_ovpn_rule}.enabled")" = "0" ] && continue
         printf '%s\n' "$_ovpn_rule"
     done
+}
+
+openvpn_active_network_interfaces() {
+    for _ovpn_net in $(uci -q show network 2>/dev/null |
+        awk -F'[.=]' '/=interface$/ { print $2 }'); do
+        _ovpn_proto="$(uci -q get "network.${_ovpn_net}.proto" 2>/dev/null || true)"
+        if [ "$_ovpn_proto" = openvpn ]; then
+            printf '%s\n' "$_ovpn_net"
+            continue
+        fi
+        [ "$_ovpn_net" = OpenVPN ] && continue
+        _ovpn_device="$(uci -q get "network.${_ovpn_net}.device" 2>/dev/null ||
+            uci -q get "network.${_ovpn_net}.ifname" 2>/dev/null || true)"
+        [ "$_ovpn_device" = tun0 ] || continue
+        [ "$(uci -q get "network.${_ovpn_net}.auto" 2>/dev/null || echo 1)" = 0 ] ||
+            printf '%s\n' "$_ovpn_net"
+    done
+}
+
+openvpn_legacy_firewall_present() {
+    [ "$(uci -q get firewall.vpn 2>/dev/null)" = zone ] &&
+        [ "$(uci -q get firewall.vpn.name 2>/dev/null)" = vpn ] &&
+        [ "$(uci -q get firewall.vpn.network 2>/dev/null)" = vpn0 ] && return 0
+    [ "$(uci -q get firewall.vpntowan 2>/dev/null)" = forwarding ] && return 0
+    [ "$(uci -q get firewall.vpntolan 2>/dev/null)" = forwarding ] && return 0
+    [ "$(uci -q get firewall.lantovpn 2>/dev/null)" = forwarding ] && return 0
+    return 1
 }
 
 zerotier_port() {
@@ -501,6 +530,17 @@ if zerotier_config_present; then
         else
             warn "ZeroTier: enabled but no zt* interface is present"
         fi
+        if [ -x "$ZT_HEALTH" ]; then
+            "$ZT_HEALTH" --probe >/dev/null 2>&1
+            zt_health_rc=$?
+            case "$zt_health_rc" in
+                0) ok "ZeroTier: controller-assigned addresses match kernel L3 state" ;;
+                1) fail "ZeroTier: controller owns a managed address that is missing from the kernel interface" ;;
+                *) warn "ZeroTier: control plane is not fully converged; managed L3 ownership cannot be verified yet" ;;
+            esac
+        else
+            warn "ZeroTier: managed L3 health helper is unavailable"
+        fi
         zt_need_service_input=0
         zerotier_service_input_enabled && zt_need_service_input=1
         zt_need_input=$zt_need_service_input
@@ -612,16 +652,35 @@ fi
 # the actual service state rather than merely the package installation state.
 if uci -q show openvpn >/dev/null 2>&1; then
     ovpn_active_rules="$(openvpn_active_wan_1194_rules)"
+    ovpn_active_networks="$(openvpn_active_network_interfaces)"
     if openvpn_any_server_enabled; then
         if [ -n "$ovpn_active_rules" ]; then
             ok "OpenVPN: enabled server has an active WAN 1194 rule"
         else
             warn "OpenVPN: a server is enabled but no active WAN 1194 rule was found; verify its listen port and ingress policy"
         fi
-    elif [ -n "$ovpn_active_rules" ]; then
-        fail "OpenVPN: all servers are disabled but WAN 1194 ACCEPT rule(s) remain active: $(echo "$ovpn_active_rules" | tr '\n' ' ')"
     else
-        ok "OpenVPN: servers are disabled and no active WAN 1194 rule remains"
+        ovpn_runtime_bad=0
+        if [ -n "$ovpn_active_rules" ]; then
+            fail "OpenVPN: all servers are disabled but WAN 1194 ACCEPT rule(s) remain active: $(echo "$ovpn_active_rules" | tr '\n' ' ')"
+            ovpn_runtime_bad=1
+        fi
+        if [ -n "$ovpn_active_networks" ]; then
+            fail "OpenVPN: all servers are disabled but active netifd interface declaration(s) remain: $(echo "$ovpn_active_networks" | tr '\n' ' ')"
+            ovpn_runtime_bad=1
+        fi
+        if pidof openvpn >/dev/null 2>&1 ||
+           ip link show dev tun0 >/dev/null 2>&1 ||
+           ss -lntu 2>/dev/null | grep -Eq '[:.]1194[[:space:]]'; then
+            fail "OpenVPN: all servers are disabled but a process, tun0, or port 1194 listener is active"
+            ovpn_runtime_bad=1
+        fi
+        if openvpn_legacy_firewall_present; then
+            fail "OpenVPN: legacy vpn0 zone or forwarding scaffolding remains"
+            ovpn_runtime_bad=1
+        fi
+        [ "$ovpn_runtime_bad" -eq 1 ] ||
+            ok "OpenVPN: disabled state has no active interface, process, listener, WAN rule, or legacy forwarding"
     fi
 else
     ok "OpenVPN: not installed"
@@ -691,6 +750,15 @@ if uci -q get openclash.config >/dev/null 2>&1; then
         else
             fail "OpenClash: enabled but core process is not running"
         fi
+        if [ -x "$OPENCLASH_DNS_HEALTH" ]; then
+            if "$OPENCLASH_DNS_HEALTH" --probe >/dev/null 2>&1; then
+                ok "OpenClash: core DNS answers a direct query on ${dns_port}"
+            else
+                fail "OpenClash: core process exists but direct DNS query on ${dns_port} failed"
+            fi
+        else
+            warn "OpenClash: direct core DNS health helper is unavailable"
+        fi
         if zerotier_enabled &&
            [ "$(uci -q get openclash.config.router_self_proxy)" = "1" ]; then
             if [ -x /usr/bin/ax6-openclash-zerotier-bypass ] &&
@@ -713,7 +781,11 @@ if uci -q get openclash.config >/dev/null 2>&1; then
                 fi
                 [ "$(uci -q get dhcp.@dnsmasq[0].noresolv)" = "1" ] ||
                     warn "OpenClash: Dnsmasq Redirect mode normally requires noresolv=1"
-                warn "OpenClash: Dnsmasq Redirect mode makes DNS depend on the local core; monitor core availability"
+                if [ -x "$OPENCLASH_DNS_HEALTH" ]; then
+                    ok "OpenClash: single local DNS owner is protected by direct health probing and controlled restart"
+                else
+                    warn "OpenClash: Dnsmasq Redirect mode makes DNS depend on the local core without a health helper"
+                fi
                 ;;
             2)
                 if nft list chain inet fw4 openclash_dns_redirect 2>/dev/null |

@@ -512,6 +512,25 @@ jobs:
           make package/qca-nss/qca-nss-dp/prepare V=s
           echo "=== qca-nss-drv prepare (patch apply check) ==="
           make package/qca-nss/qca-nss-drv/prepare V=s
+          echo "=== ZeroTier prepare (AX6 UDP buffer patch apply check) ==="
+          make package/feeds/packages/zerotier/prepare V=s
+          mapfile -d '' zerotier_dirs < <(
+            find build_dir -type d -name 'ZeroTierOne-*' -print0
+          )
+          if [ "${#zerotier_dirs[@]}" -ne 1 ]; then
+            echo "::error::Expected one prepared ZeroTier source directory; found ${#zerotier_dirs[@]}"
+            exit 1
+          fi
+          grep -Fqx '#define ZT_UDP_DESIRED_BUF_SIZE 4194304' \
+            "${zerotier_dirs[0]}/node/Constants.hpp" || {
+            echo "::error::Prepared ZeroTier source is missing the AX6 4 MiB UDP socket-buffer fix"
+            exit 1
+          }
+          if grep -Fqx '#define ZT_UDP_DESIRED_BUF_SIZE 1048576' \
+              "${zerotier_dirs[0]}/node/Constants.hpp"; then
+            echo "::error::Prepared ZeroTier source still uses the overflow-prone 1 MiB UDP buffer"
+            exit 1
+          fi
           echo "All NSS patches applied successfully."
           echo "(Module compile requires full toolchain — done in Compile firmware step.)"
 
@@ -672,7 +691,11 @@ jobs:
             'usr/bin/zerotier-fw4' \
             'usr/bin/ax6-openclash-zerotier-bypass' \
             'usr/sbin/ax6-zerotier-reconcile' \
+            'usr/sbin/ax6-zerotier-health' \
+            'usr/sbin/ax6-openclash-dns-health' \
             'etc/init\.d/ax6-zerotier-reconcile' \
+            'etc/init\.d/ax6-zerotier-health' \
+            'etc/init\.d/ax6-openclash-dns-health' \
             'sbin/nss-check' \
             'usr/libexec/ax6-nss-pbuf-classify' \
             'sbin/ax6-config-audit' \
@@ -724,6 +747,8 @@ jobs:
             'etc/rc\.d/S28qca-nss-drv' \
             'etc/rc\.d/S29qca-nss-netlink' \
             'etc/rc\.d/S91ax6-zerotier-reconcile' \
+            'etc/rc\.d/S92ax6-openclash-dns-health' \
+            'etc/rc\.d/S93ax6-zerotier-health' \
             'etc/rc\.d/S93smp_affinity' \
             'etc/rc\.d/S95ax6-network-invariants' \
             'etc/rc\.d/S99set-irq-affinity'; do
@@ -803,6 +828,10 @@ jobs:
             }
           unsquashfs -cat "$rootfs" usr/sbin/ax6-zerotier-reconcile \
             > image-verify/ax6-zerotier-reconcile
+          unsquashfs -cat "$rootfs" usr/sbin/ax6-zerotier-health \
+            > image-verify/ax6-zerotier-health
+          unsquashfs -cat "$rootfs" usr/sbin/ax6-openclash-dns-health \
+            > image-verify/ax6-openclash-dns-health
           unsquashfs -cat "$rootfs" usr/bin/ax6-openclash-zerotier-bypass \
             > image-verify/ax6-openclash-zerotier-bypass
           unsquashfs -cat "$rootfs" etc/init.d/ax6-zerotier-reconcile \
@@ -823,6 +852,11 @@ jobs:
           }
           grep -Fq 'AX6 ZeroTier UDP self bypass' image-verify/ax6-openclash-zerotier-bypass
           grep -Fqx 'START=91' image-verify/ax6-zerotier-reconcile.init
+          sh -n image-verify/ax6-zerotier-health image-verify/ax6-openclash-dns-health
+          grep -Fq 'FAILURE_THRESHOLD="${FAILURE_THRESHOLD:-3}"' image-verify/ax6-zerotier-health
+          grep -Fq 'RESTART_COOLDOWN="${RESTART_COOLDOWN:-300}"' image-verify/ax6-zerotier-health
+          grep -Fq 'FAILURE_THRESHOLD="${FAILURE_THRESHOLD:-3}"' image-verify/ax6-openclash-dns-health
+          grep -Fq 'RESTART_COOLDOWN="${RESTART_COOLDOWN:-300}"' image-verify/ax6-openclash-dns-health
           if grep -Eq 'fw4[[:space:]]+reload|/etc/init\.d/(firewall|openclash|zerotier)[[:space:]]+(reload|restart)' \
               image-verify/ax6-zerotier-reconcile image-verify/ax6-openclash-zerotier-bypass; then
             echo "::error::Final rootfs ZeroTier reconciliation reloads a network service"

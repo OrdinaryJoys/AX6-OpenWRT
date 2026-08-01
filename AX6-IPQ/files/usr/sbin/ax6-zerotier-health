@@ -1,0 +1,247 @@
+#!/bin/sh
+
+STATE_FILE="${STATE_FILE:-/var/run/ax6-zerotier-health.state}"
+ZEROTIER_INIT="${ZEROTIER_INIT:-/etc/init.d/zerotier}"
+ZT_CLI_BIN="${ZT_CLI_BIN:-/usr/bin/zerotier-cli}"
+IP_BIN="${IP_BIN:-/sbin/ip}"
+INTERVAL="${INTERVAL:-30}"
+STARTUP_GRACE="${STARTUP_GRACE:-30}"
+FAILURE_THRESHOLD="${FAILURE_THRESHOLD:-3}"
+RESTART_COOLDOWN="${RESTART_COOLDOWN:-300}"
+RESTART_VERIFY_ATTEMPTS="${RESTART_VERIFY_ATTEMPTS:-10}"
+RESTART_VERIFY_DELAY="${RESTART_VERIFY_DELAY:-1}"
+DRY_RUN=0
+MISSING_DETAIL=
+
+log_notice() {
+	logger -t ax6-zerotier-health "$1" 2>/dev/null || true
+}
+
+log_error() {
+	logger -t ax6-zerotier-health -p user.error "$1" 2>/dev/null || true
+}
+
+valid_uint() {
+	case "$1" in
+		''|*[!0-9]*) return 1 ;;
+	esac
+}
+
+valid_iface() {
+	case "$1" in
+		''|*[!A-Za-z0-9_.:-]*) return 1 ;;
+	esac
+	[ "${#1}" -le 15 ]
+}
+
+uptime_seconds() {
+	cut -d. -f1 /proc/uptime 2>/dev/null || printf '0\n'
+}
+
+read_state() {
+	set -- $(cat "$STATE_FILE" 2>/dev/null || true)
+	STATE_PID="${1:-0}"
+	STATE_FIRST_SEEN="${2:-0}"
+	STATE_FAILURES="${3:-0}"
+	STATE_LAST_RESTART="${4:-0}"
+	valid_uint "$STATE_PID" || STATE_PID=0
+	valid_uint "$STATE_FIRST_SEEN" || STATE_FIRST_SEEN=0
+	valid_uint "$STATE_FAILURES" || STATE_FAILURES=0
+	valid_uint "$STATE_LAST_RESTART" || STATE_LAST_RESTART=0
+}
+
+write_state() {
+	[ "$DRY_RUN" -eq 0 ] || return 0
+	mkdir -p "$(dirname "$STATE_FILE")" 2>/dev/null || return 1
+	tmp="${STATE_FILE}.tmp.$$"
+	printf '%s %s %s %s\n' "$1" "$2" "$3" "$4" > "$tmp" &&
+		mv "$tmp" "$STATE_FILE"
+}
+
+zerotier_enabled() {
+	if uci -q get zerotier.global >/dev/null 2>&1; then
+		[ "$(uci -q get zerotier.global.enabled 2>/dev/null)" = 1 ]
+		return
+	fi
+	for section in $(uci -q show zerotier 2>/dev/null |
+		awk -F'[.=]' '/=zerotier$/ { print $2 }'); do
+		[ "$(uci -q get "zerotier.${section}.enabled" 2>/dev/null)" = 1 ] && return 0
+	done
+	return 1
+}
+
+network_section() {
+	nwid="$1"
+	for candidate in $(uci -q show zerotier 2>/dev/null |
+		awk -F'[.=]' '/=(network|zerotier)$/ { print $2 }'); do
+		configured="$(uci -q get "zerotier.${candidate}.id" 2>/dev/null || true)"
+		[ "$configured" = "$nwid" ] && { printf '%s\n' "$candidate"; return 0; }
+		for configured in $(uci -q get "zerotier.${candidate}.join" 2>/dev/null || true); do
+			[ "$configured" = "$nwid" ] && { printf '%s\n' "$candidate"; return 0; }
+		done
+	done
+	return 1
+}
+
+address_present() {
+	iface="$1"
+	address="$2"
+	"$IP_BIN" -4 addr show dev "$iface" 2>/dev/null |
+		grep -Fq "inet ${address} "
+}
+
+probe_l3() {
+	info="$("$ZT_CLI_BIN" -j info 2>/dev/null)" || return 2
+	online="$(printf '%s\n' "$info" | jsonfilter -qe '@.online' 2>/dev/null || true)"
+	case "$online" in
+		true|1) ;;
+		*) return 2 ;;
+	esac
+
+	networks="$("$ZT_CLI_BIN" -j listnetworks 2>/dev/null)" || return 2
+	ifaces="$(printf '%s\n' "$networks" |
+		jsonfilter -qe '@[*].portDeviceName' 2>/dev/null || true)"
+	[ -n "$ifaces" ] || return 2
+
+	managed_seen=0
+	for iface in $ifaces; do
+		valid_iface "$iface" || return 2
+		nwid="$(printf '%s\n' "$networks" |
+			jsonfilter -qe "@[@.portDeviceName=\"$iface\"].nwid" 2>/dev/null || true)"
+		section="$(network_section "$nwid" 2>/dev/null || true)"
+		[ -n "$section" ] || continue
+		[ "$(uci -q get "zerotier.${section}.enabled" 2>/dev/null)" = 0 ] && continue
+		status="$(printf '%s\n' "$networks" |
+			jsonfilter -qe "@[@.portDeviceName=\"$iface\"].status" 2>/dev/null || true)"
+		allow_managed="$(printf '%s\n' "$networks" |
+			jsonfilter -qe "@[@.portDeviceName=\"$iface\"].allowManaged" 2>/dev/null || true)"
+		[ "$status" = OK ] || return 2
+		case "$allow_managed" in true|1) ;; *) continue ;; esac
+		addresses="$(printf '%s\n' "$networks" |
+			jsonfilter -qe "@[@.portDeviceName=\"$iface\"].assignedAddresses[*]" 2>/dev/null || true)"
+		[ -n "$addresses" ] || return 2
+		managed_seen=1
+		for address in $addresses; do
+			case "$address" in *:*) continue ;; esac
+			if ! address_present "$iface" "$address"; then
+				MISSING_DETAIL="${iface}:${address}"
+				return 1
+			fi
+		done
+	done
+	[ "$managed_seen" -eq 1 ] || return 2
+	return 0
+}
+
+restart_zerotier() {
+	old_pid="$1"
+	"$ZEROTIER_INIT" restart >/dev/null 2>&1 && return 0
+
+	# The upstream OpenWrt init may propagate a non-zero status from its
+	# service_started firewall hook after procd has already replaced the daemon.
+	# Confirm the actual lifecycle before reporting a restart failure.
+	attempt=0
+	while [ "$attempt" -lt "$RESTART_VERIFY_ATTEMPTS" ]; do
+		current_pid="$(pidof zerotier-one 2>/dev/null | awk '{ print $1 }')"
+		if valid_uint "$current_pid" && [ "$current_pid" != "$old_pid" ]; then
+			info="$("$ZT_CLI_BIN" -j info 2>/dev/null || true)"
+			online="$(printf '%s\n' "$info" |
+				jsonfilter -qe '@.online' 2>/dev/null || true)"
+			case "$online" in
+				true|1)
+					log_notice "ZeroTier restart returned non-zero but replacement daemon is ONLINE"
+					return 0
+					;;
+			esac
+		fi
+		attempt=$((attempt + 1))
+		[ "$attempt" -ge "$RESTART_VERIFY_ATTEMPTS" ] || sleep "$RESTART_VERIFY_DELAY"
+	done
+	return 1
+}
+
+health_once() {
+	if ! zerotier_enabled; then
+		[ "$DRY_RUN" -eq 1 ] || rm -f "$STATE_FILE"
+		return 0
+	fi
+
+	daemon_pid="$(pidof zerotier-one 2>/dev/null | awk '{ print $1 }')"
+	valid_uint "$daemon_pid" || return 0
+	now="$(uptime_seconds)"
+	valid_uint "$now" || now=0
+	read_state
+	if [ "$daemon_pid" != "$STATE_PID" ]; then
+		write_state "$daemon_pid" "$now" 0 "$STATE_LAST_RESTART"
+		[ "$STARTUP_GRACE" -eq 0 ] || return 0
+		STATE_FIRST_SEEN="$now"
+		STATE_FAILURES=0
+	fi
+
+	[ $((now - STATE_FIRST_SEEN)) -ge "$STARTUP_GRACE" ] || return 0
+	MISSING_DETAIL=
+	probe_l3
+	probe_status=$?
+	case "$probe_status" in
+		0)
+			[ "$STATE_FAILURES" -eq 0 ] ||
+				log_notice "ZeroTier managed L3 state recovered after ${STATE_FAILURES} failed probe(s)"
+			write_state "$daemon_pid" "$STATE_FIRST_SEEN" 0 "$STATE_LAST_RESTART"
+			return 0
+			;;
+		2)
+			# OFFLINE/REQUESTING/no assignment is a control-plane state. Do not
+			# turn it into a local restart loop.
+			write_state "$daemon_pid" "$STATE_FIRST_SEEN" 0 "$STATE_LAST_RESTART"
+			return 0
+			;;
+	esac
+
+	failures=$((STATE_FAILURES + 1))
+	write_state "$daemon_pid" "$STATE_FIRST_SEEN" "$failures" "$STATE_LAST_RESTART"
+	if [ "$failures" -lt "$FAILURE_THRESHOLD" ]; then
+		log_error "ZeroTier control plane owns ${MISSING_DETAIL:-a managed address}, but kernel L3 is missing (${failures}/${FAILURE_THRESHOLD})"
+		return 1
+	fi
+
+	if [ "$STATE_LAST_RESTART" -gt 0 ] &&
+	   [ $((now - STATE_LAST_RESTART)) -lt "$RESTART_COOLDOWN" ]; then
+		log_error "ZeroTier managed L3 state remains missing; restart cooldown is active"
+		return 1
+	fi
+	if [ "$DRY_RUN" -eq 1 ]; then
+		log_notice "dry-run: would restart ZeroTier after ${failures} managed L3 mismatches"
+		return 1
+	fi
+
+	log_error "restarting ZeroTier after ${failures} consecutive managed L3 mismatches (${MISSING_DETAIL:-unknown})"
+	write_state 0 "$now" 0 "$now"
+	restart_zerotier "$daemon_pid" || {
+		log_error "ZeroTier restart command failed"
+		return 1
+	}
+	return 0
+}
+
+usage() {
+	echo "Usage: $0 [--probe|--once|--daemon|--dry-run]"
+}
+
+mode=once
+case "${1:-}" in
+	''|--once) mode=once ;;
+	--probe) probe_l3; exit $? ;;
+	--daemon) mode=daemon ;;
+	--dry-run) DRY_RUN=1; mode=once ;;
+	-h|--help) usage; exit 0 ;;
+	*) usage >&2; exit 64 ;;
+esac
+
+if [ "$mode" = daemon ]; then
+	while :; do
+		health_once || true
+		sleep "$INTERVAL"
+	done
+fi
+
+health_once

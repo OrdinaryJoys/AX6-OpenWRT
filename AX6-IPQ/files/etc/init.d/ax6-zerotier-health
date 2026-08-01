@@ -1,0 +1,26 @@
+#!/bin/sh /etc/rc.common
+
+START=93
+STOP=17
+USE_PROCD=1
+
+PROG=/usr/sbin/ax6-zerotier-health
+
+start_service() {
+	[ -x "$PROG" ] || return 1
+	procd_open_instance
+	procd_set_param command "$PROG" --daemon
+	procd_set_param respawn 3600 5 5
+	procd_set_param stdout 0
+	procd_set_param stderr 1
+	procd_close_instance
+}
+
+service_triggers() {
+	procd_add_reload_trigger zerotier
+}
+
+reload_service() {
+	stop
+	start
+}
