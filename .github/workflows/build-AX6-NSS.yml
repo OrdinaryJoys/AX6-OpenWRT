@@ -853,10 +853,10 @@ jobs:
           grep -Fq 'AX6 ZeroTier UDP self bypass' image-verify/ax6-openclash-zerotier-bypass
           grep -Fqx 'START=91' image-verify/ax6-zerotier-reconcile.init
           sh -n image-verify/ax6-zerotier-health image-verify/ax6-openclash-dns-health
-          grep -Fq 'FAILURE_THRESHOLD="${FAILURE_THRESHOLD:-3}"' image-verify/ax6-zerotier-health
-          grep -Fq 'RESTART_COOLDOWN="${RESTART_COOLDOWN:-300}"' image-verify/ax6-zerotier-health
-          grep -Fq 'FAILURE_THRESHOLD="${FAILURE_THRESHOLD:-3}"' image-verify/ax6-openclash-dns-health
-          grep -Fq 'RESTART_COOLDOWN="${RESTART_COOLDOWN:-300}"' image-verify/ax6-openclash-dns-health
+          grep -Fq "FAILURE_THRESHOLD=\"\${FAILURE_THRESHOLD:-3}\"" image-verify/ax6-zerotier-health
+          grep -Fq "RESTART_COOLDOWN=\"\${RESTART_COOLDOWN:-300}\"" image-verify/ax6-zerotier-health
+          grep -Fq "FAILURE_THRESHOLD=\"\${FAILURE_THRESHOLD:-3}\"" image-verify/ax6-openclash-dns-health
+          grep -Fq "RESTART_COOLDOWN=\"\${RESTART_COOLDOWN:-300}\"" image-verify/ax6-openclash-dns-health
           if grep -Eq 'fw4[[:space:]]+reload|/etc/init\.d/(firewall|openclash|zerotier)[[:space:]]+(reload|restart)' \
               image-verify/ax6-zerotier-reconcile image-verify/ax6-openclash-zerotier-bypass; then
             echo "::error::Final rootfs ZeroTier reconciliation reloads a network service"
