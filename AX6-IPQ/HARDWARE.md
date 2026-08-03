@@ -327,6 +327,11 @@ vlan-add 50 office 192.168.50.1/24
 
 ### 🔬 验证 NSS VLAN offload 工作
 
+> **维护安全边界：** 只读取下列已经确认的精确 debugfs 节点。禁止对
+> `/sys/kernel/debug` 执行递归 `grep`/`cat`/内容采集。Linux 6.18 的
+> IPQ807x APCS regmap 暴露范围可能超过实际 MMIO 资源，读取
+> `regmap/b111000.mailbox/registers` 会触发内核 Oops/panic。
+
 ```bash
 # 1. VLAN manager 内核模块加载
 lsmod | grep qca_nss_vlan
