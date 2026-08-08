@@ -21,7 +21,11 @@ echo ""
 # ── Test 1: Syntax validity ───────────────────────────────────────────────
 echo "--- Test 1: Syntax ---"
 if bash -n "$SCRIPT_UNDER_TEST" 2>&1; then ok "bash -n"; else bad "bash -n"; fi
-if sh -n "$SCRIPT_UNDER_TEST" 2>&1; then ok "sh -n"; else bad "sh -n"; fi
+if head -1 "$SCRIPT_UNDER_TEST" | grep -Eq '^#!/usr/bin/env bash$|^#!/bin/bash$'; then
+  ok "Bash shebang"
+else
+  bad "Bash-only script must declare a Bash shebang"
+fi
 
 # ── Test 2: No killall iperf3 ──────────────────────────────────────────────
 echo "--- Test 2: No killall iperf3 (§3.1.6) ---"
