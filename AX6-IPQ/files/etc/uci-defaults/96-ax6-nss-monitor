@@ -1,13 +1,20 @@
 #!/bin/sh
 # 装一个 cron 任务:每 30 分钟跑 nss-check,失败时写 syslog
-# 失败可在 LuCI System Log 看到
+# 正常检查保持静默;失败时立即补采一次完整快照,避免只留下退出码。
 
-mkdir -p /etc/crontabs
-LINE='*/30 * * * * /sbin/nss-check -q; rc=$?; [ "$rc" -eq 0 ] || logger -t nss-monitor "nss-check failed (exit=$rc)"'
-if ! grep -qF '/sbin/nss-check' /etc/crontabs/root 2>/dev/null; then
-    echo "$LINE" >> /etc/crontabs/root
-fi
-/etc/init.d/cron enable >/dev/null 2>&1
-/etc/init.d/cron restart >/dev/null 2>&1
+CRONTAB_ROOT="${CRONTAB_ROOT:-/etc/crontabs/root}"
+CRON_INIT="${CRON_INIT:-/etc/init.d/cron}"
+
+mkdir -p "$(dirname "$CRONTAB_ROOT")"
+LINE='*/30 * * * * /sbin/nss-check -q; rc=$?; [ "$rc" -eq 0 ] || { logger -t nss-monitor "nss-check failed (exit=$rc), collecting verbose snapshot"; /sbin/nss-check 2>&1 | logger -t nss-monitor; }'
+touch "$CRONTAB_ROOT"
+# Replace only the line managed by this package. Keep unrelated user probes.
+TMP_CRONTAB="${CRONTAB_ROOT}.tmp.$$"
+sed '\|/sbin/nss-check -q.*logger -t nss-monitor|d' "$CRONTAB_ROOT" > "$TMP_CRONTAB"
+echo "$LINE" >> "$TMP_CRONTAB"
+chmod 600 "$TMP_CRONTAB"
+mv "$TMP_CRONTAB" "$CRONTAB_ROOT"
+"$CRON_INIT" enable >/dev/null 2>&1
+"$CRON_INIT" restart >/dev/null 2>&1
 
 exit 0

@@ -1,82 +1,218 @@
 #!/bin/sh
-# AX6 UDP 空闲基线 + socket inode 采集 — AX6_NEXT_PROGRESS_AND_TEST_PLAN_2026-08-03.md §5.1
-# 只读检查: 不修改任何持久配置、不重启服务
-# 方法: 60 秒 × 10 秒采样 (7 点), 记录 UDP InErrors/RcvbufErrors 差分、
-#       ZeroTier/Clash 端口 socket inode 与 drops、softnet、端口错误
-# 通过门槛: 无主动压力时所有计数器差分 = 0
+# AX6 UDP idle baseline and socket ownership capture.
+# Read-only: no persistent configuration changes and no service restarts.
 
-FW="r0-0ea8486"        # source revision (immortalwrt-nss 0ea84864 构建)
-BUILD="84fc0f2"        # build repo commit
-ZTPORTS="2709|5f95|c3e6|1ec2|1ecf"   # hex: 9993|24469|50150|7874|7895
+set -u
+
+PROC_ROOT="${AX6_PROC_ROOT:-/proc}"
+NET_CLASS="${AX6_NET_CLASS:-/sys/class/net}"
+INTERVAL="${AX6_BASELINE_INTERVAL:-10}"
+SAMPLES="${AX6_BASELINE_SAMPLES:-7}"
+BUILD_REPO_COMMIT="${AX6_BUILD_COMMIT:-}"
+SOURCE_REVISION="${AX6_SOURCE_REVISION:-}"
+NSS_CHECK="${AX6_NSS_CHECK:-nss-check}"
+CONFIG_AUDIT="${AX6_CONFIG_AUDIT:-ax6-config-audit}"
+
+if [ -z "$SOURCE_REVISION" ] && [ -r /etc/openwrt_release ]; then
+    SOURCE_REVISION=$(grep '^DISTRIB_REVISION=' /etc/openwrt_release 2>/dev/null |
+        cut -d= -f2- | tr -d "'\"")
+fi
+SOURCE_REVISION="${SOURCE_REVISION:-unknown}"
+
+fail_setup() {
+    echo "ax6-udp-baseline: INCOMPLETE: $*" >&2
+    exit 2
+}
+
+case "$INTERVAL:$SAMPLES" in
+    *[!0-9:]*|:*) fail_setup "interval and sample count must be integers" ;;
+esac
+[ "$SAMPLES" -ge 2 ] || fail_setup "at least two samples are required"
+[ -n "$BUILD_REPO_COMMIT" ] ||
+    fail_setup "set AX6_BUILD_COMMIT to the exact build repository commit"
+[ -r "$PROC_ROOT/net/snmp" ] || fail_setup "missing $PROC_ROOT/net/snmp"
+
+udp_values() {
+    # shellcheck disable=SC2046 # Split the selected SNMP value row into fields.
+    set -- $(grep '^Udp:' "$PROC_ROOT/net/snmp" | tail -1)
+    [ "$#" -ge 6 ] || return 1
+    printf '%s %s\n' "$4" "$6"
+}
+
+softnet_drops() {
+    total=0
+    while read -r _processed dropped _rest; do
+        value=$(printf '%d' "0x${dropped:-0}" 2>/dev/null) || value=0
+        total=$((total + value))
+    done < "$PROC_ROOT/net/softnet_stat"
+    echo "$total"
+}
+
+socket_inodes() {
+    for pid in "$@"; do
+        [ -d "$PROC_ROOT/$pid/fd" ] || continue
+        for fd in "$PROC_ROOT/$pid/fd/"*; do
+            [ -L "$fd" ] || continue
+            readlink "$fd" 2>/dev/null |
+                sed -n 's/^socket:\[\([0-9][0-9]*\)\]$/\1/p'
+        done
+    done | sort -u | tr '\n' ' '
+}
+
+process_pids() {
+    if [ "$1" = zerotier-one ] && [ -n "${AX6_ZT_PIDS:-}" ]; then
+        printf '%s\n' "$AX6_ZT_PIDS"
+        return
+    fi
+    if [ "$1" = clash ] && [ -n "${AX6_CLASH_PIDS:-}" ]; then
+        printf '%s\n' "$AX6_CLASH_PIDS"
+        return
+    fi
+    pidof "$1" 2>/dev/null | tr ' ' '\n' | sort -n | tr '\n' ' '
+}
+
+socket_drop_sum() {
+    inodes="$1"
+    [ -n "$inodes" ] || {
+        echo 0
+        return
+    }
+    total=0
+    for table in "$PROC_ROOT/net/udp" "$PROC_ROOT/net/udp6"; do
+        [ -r "$table" ] || continue
+        value=$(awk -v list=" $inodes" '
+            NR > 1 && index(list, " " $10 " ") { sum += $13 }
+            END { print sum + 0 }
+        ' "$table")
+        total=$((total + value))
+    done
+    echo "$total"
+}
+
+show_owned_sockets() {
+    owner="$1"
+    inodes="$2"
+    [ -n "$inodes" ] || {
+        echo "  owner=$owner sockets=none"
+        return
+    }
+    for table in "$PROC_ROOT/net/udp" "$PROC_ROOT/net/udp6"; do
+        [ -r "$table" ] || continue
+        proto=${table##*/}
+        awk -v list=" $inodes" -v owner="$owner" -v proto="$proto" '
+            NR > 1 && index(list, " " $10 " ") {
+                print "  owner=" owner, "proto=" proto, "local=" $2,
+                    "rxq=" $5, "drops=" $13, "inode=" $10
+            }
+        ' "$table"
+    done
+}
+
+port_stats() {
+    for iface in wan lan1 lan2 lan3 br-lan; do
+        base="$NET_CLASS/$iface/statistics"
+        [ -d "$base" ] || continue
+        printf '%s:rx_err=%s,tx_err=%s,rx_drop=%s,tx_drop=%s ' \
+            "$iface" \
+            "$(cat "$base/rx_errors" 2>/dev/null)" \
+            "$(cat "$base/tx_errors" 2>/dev/null)" \
+            "$(cat "$base/rx_dropped" 2>/dev/null)" \
+            "$(cat "$base/tx_dropped" 2>/dev/null)"
+    done
+    echo
+}
+
+snapshot_processes() {
+    ZT_PIDS=$(process_pids zerotier-one)
+    CLASH_PIDS=$(process_pids clash)
+    # shellcheck disable=SC2086 # Split the normalized PID list intentionally.
+    ZT_INODES=$(socket_inodes $ZT_PIDS)
+    # shellcheck disable=SC2086 # Split the normalized PID list intentionally.
+    CLASH_INODES=$(socket_inodes $CLASH_PIDS)
+}
+
+BOOT0=$(cat "$PROC_ROOT/sys/kernel/random/boot_id" 2>/dev/null) ||
+    fail_setup "cannot read boot ID"
+read -r INERR0 RCVBUF0 <<EOF
+$(udp_values)
+EOF
+SOFT0=$(softnet_drops)
+snapshot_processes
+ZT_PIDS0=$ZT_PIDS
+CLASH_PIDS0=$CLASH_PIDS
+ZT_INODES0=$ZT_INODES
+CLASH_INODES0=$CLASH_INODES
+ZT_DROP0=$(socket_drop_sum "$ZT_INODES0")
+CLASH_DROP0=$(socket_drop_sum "$CLASH_INODES0")
+PORTS0=$(port_stats)
 
 echo "=== AX6 UDP IDLE BASELINE $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
-echo "firmware=$FW build=$BUILD"
-echo "boot_id=$(cat /proc/sys/kernel/random/boot_id 2>/dev/null)"
-echo "uptime=$(cut -d' ' -f1 /proc/uptime)"
-echo ""
+echo "source_revision=$SOURCE_REVISION"
+echo "build_repo_commit=$BUILD_REPO_COMMIT"
+echo "boot_id=$BOOT0"
+echo "zerotier_pids=${ZT_PIDS0:-none} inodes=${ZT_INODES0:-none}"
+echo "clash_pids=${CLASH_PIDS0:-none} inodes=${CLASH_INODES0:-none}"
+echo "start InErrors=$INERR0 RcvbufErrors=$RCVBUF0 softnet=$SOFT0 zt_drops=$ZT_DROP0 clash_drops=$CLASH_DROP0"
 
-# ── 起始快照 ───────────────────────────────────────────────────────────────
-U0=$(grep '^Udp:' /proc/net/snmp | tail -1)
-I0=$(echo "$U0" | awk '{print $4}')
-R0=$(echo "$U0" | awk '{print $6}')
-S0=$(awk '{d+=$2} END{print d}' /proc/net/softnet_stat 2>/dev/null)
-P0=$(awk 'NR>2 {printf "%s:%s,%s,%s,%s ", $1, $4, $5, $12, $13}' /proc/net/dev)
-ZT0=$(awk -v p="$ZTPORTS" 'NR>1 {split($2,a,":"); if (a[2] ~ "("p")") s+=$13} END{print s+0}' /proc/net/udp)
-ZT6_0=$(awk -v p="$ZTPORTS" 'NR>1 {split($2,a,":"); if (a[2] ~ "("p")") s+=$13} END{print s+0}' /proc/net/udp6)
-echo "起始: InErrors=$I0 RcvbufErrors=$R0 softnet=$S0 ZT_drops4=$ZT0 ZT_drops6=$ZT6_0"
-
-# ── 7 次采样 ───────────────────────────────────────────────────────────────
-SAMP=0
-while [ $SAMP -lt 7 ]; do
-  SAMP=$((SAMP+1))
-  TS=$(date +%H:%M:%S)
-  U=$(grep '^Udp:' /proc/net/snmp | tail -1)
-  INERR=$(echo "$U" | awk '{print $4}')
-  RCVBUF=$(echo "$U" | awk '{print $6}')
-  SOFT=$(awk '{d+=$2} END{print d}' /proc/net/softnet_stat 2>/dev/null)
-  echo "== #$SAMP $TS InErrors=$INERR RcvbufErrors=$RCVBUF softnet=$SOFT =="
-  echo "  [非零 drops 的 UDP socket: proto local rxq drops inode]"
-  awk 'NR>1 && $13+0>0 {print "  "$1, $2, "rxq="$5, "drops="$13, "inode="$11}' /proc/net/udp
-  awk 'NR>1 && $13+0>0 {print "  "$1, $2, "rxq="$5, "drops="$13, "inode="$11}' /proc/net/udp6
-  echo "  [关键端口 9993/24469/50150/7874/7895: local rxq drops inode]"
-  awk -v p="$ZTPORTS" 'NR>1 {split($2,a,":"); if (a[2] ~ "("p")") print "  "$1, $2, "rxq="$5, "drops="$13, "inode="$11}' /proc/net/udp
-  awk -v p="$ZTPORTS" 'NR>1 {split($2,a,":"); if (a[2] ~ "("p")") print "  "$1, $2, "rxq="$5, "drops="$13, "inode="$11}' /proc/net/udp6
-  [ $SAMP -lt 7 ] && sleep 10
+sample=1
+while [ "$sample" -le "$SAMPLES" ]; do
+    read -r inerr rcvbuf <<EOF
+$(udp_values)
+EOF
+    soft=$(softnet_drops)
+    snapshot_processes
+    zt_drop=$(socket_drop_sum "$ZT_INODES")
+    clash_drop=$(socket_drop_sum "$CLASH_INODES")
+    echo "sample=$sample time=$(date +%H:%M:%S) InErrors=$inerr RcvbufErrors=$rcvbuf softnet=$soft zt_drops=$zt_drop clash_drops=$clash_drop"
+    show_owned_sockets zerotier "$ZT_INODES"
+    show_owned_sockets clash "$CLASH_INODES"
+    [ "$sample" -eq "$SAMPLES" ] || sleep "$INTERVAL"
+    sample=$((sample + 1))
 done
 
-# ── 进程→socket inode 映射 (ZeroTier/Clash) ───────────────────────────────
-echo "== 进程 socket inode 映射 =="
-for p in $(pgrep -f "zerotier" 2>/dev/null) $(pgrep -f "clash" 2>/dev/null); do
-  CMD=$(tr '\0' ' ' < /proc/$p/cmdline 2>/dev/null | cut -c1-60)
-  for fd in /proc/$p/fd/*; do
-    ino=$(readlink "$fd" 2>/dev/null | sed -n 's/socket:\[\([0-9]*\)\]/\1/p')
-    [ -n "$ino" ] && echo "  pid=$p inode=$ino fd=${fd##*/} $CMD"
-  done
-done
+BOOT1=$(cat "$PROC_ROOT/sys/kernel/random/boot_id" 2>/dev/null)
+read -r INERR1 RCVBUF1 <<EOF
+$(udp_values)
+EOF
+SOFT1=$(softnet_drops)
+snapshot_processes
+ZT_DROP1=$(socket_drop_sum "$ZT_INODES")
+CLASH_DROP1=$(socket_drop_sum "$CLASH_INODES")
+PORTS1=$(port_stats)
 
-# ── 结束快照与差分 ─────────────────────────────────────────────────────────
-U1=$(grep '^Udp:' /proc/net/snmp | tail -1)
-I1=$(echo "$U1" | awk '{print $4}')
-R1=$(echo "$U1" | awk '{print $6}')
-S1=$(awk '{d+=$2} END{print d}' /proc/net/softnet_stat 2>/dev/null)
-P1=$(awk 'NR>2 {printf "%s:%s,%s,%s,%s ", $1, $4, $5, $12, $13}' /proc/net/dev)
-ZT1=$(awk -v p="$ZTPORTS" 'NR>1 {split($2,a,":"); if (a[2] ~ "("p")") s+=$13} END{print s+0}' /proc/net/udp)
-ZT6_1=$(awk -v p="$ZTPORTS" 'NR>1 {split($2,a,":"); if (a[2] ~ "("p")") s+=$13} END{print s+0}' /proc/net/udp6)
-echo ""
-echo "== 差分 (60s 窗口) =="
-echo "UDP InErrors:      $I0 -> $I1  (Δ=$((I1-I0)))"
-echo "UDP RcvbufErrors:  $R0 -> $R1  (Δ=$((R1-R0)))"
-echo "softnet drops:     $S0 -> $S1  (Δ=$((S1-S0)))"
-echo "ZT 端口 drops(v4): $ZT0 -> $ZT1  (Δ=$((ZT1-ZT0)))"
-echo "ZT 端口 drops(v6): $ZT6_0 -> $ZT6_1  (Δ=$((ZT6_1-ZT6_0)))"
-echo "端口错误:"
-echo "  起始: $P0"
-echo "  结束: $P1"
-echo ""
-echo "== 服务状态 =="
-zerotier-cli info 2>/dev/null | head -1
-zerotier-cli listnetworks 2>/dev/null | tail -n +2 | head -2
-echo "== nss-check -q (EDMA alloc-fail 增长检查) =="
-nss-check -q 2>/dev/null
-echo "rc=$?"
-echo "=== BASELINE COMPLETE ==="
+NSS_RC=127
+AUDIT_RC=127
+if command -v "$NSS_CHECK" >/dev/null 2>&1; then
+    "$NSS_CHECK" -q >/dev/null 2>&1
+    NSS_RC=$?
+fi
+if command -v "$CONFIG_AUDIT" >/dev/null 2>&1; then
+    "$CONFIG_AUDIT" -q >/dev/null 2>&1
+    AUDIT_RC=$?
+fi
+
+echo "delta InErrors=$((INERR1 - INERR0)) RcvbufErrors=$((RCVBUF1 - RCVBUF0)) softnet=$((SOFT1 - SOFT0)) zt_drops=$((ZT_DROP1 - ZT_DROP0)) clash_drops=$((CLASH_DROP1 - CLASH_DROP0))"
+echo "ports_start=$PORTS0"
+echo "ports_end=$PORTS1"
+echo "nss_rc=$NSS_RC audit_rc=$AUDIT_RC boot_end=$BOOT1"
+echo "socket_set_changed zerotier=$([ "$ZT_INODES0" = "$ZT_INODES" ] && echo 0 || echo 1) clash=$([ "$CLASH_INODES0" = "$CLASH_INODES" ] && echo 0 || echo 1)"
+
+RESULT=PASS
+REASON=none
+EXIT_RC=0
+if [ "$BOOT0" != "$BOOT1" ] || [ "$ZT_PIDS0" != "$ZT_PIDS" ] ||
+   [ "$CLASH_PIDS0" != "$CLASH_PIDS" ] || [ "$ZT_INODES0" != "$ZT_INODES" ]; then
+    RESULT=INCOMPLETE
+    REASON=boot_or_socket_owner_changed
+    EXIT_RC=2
+elif [ "$INERR1" -ne "$INERR0" ] || [ "$RCVBUF1" -ne "$RCVBUF0" ] ||
+     [ "$SOFT1" -ne "$SOFT0" ] || [ "$ZT_DROP1" -gt "$ZT_DROP0" ] ||
+     [ "$CLASH_DROP1" -gt "$CLASH_DROP0" ] || [ "$NSS_RC" -ne 0 ] ||
+     [ "$AUDIT_RC" -ne 0 ]; then
+    RESULT=FAIL
+    REASON=counter_or_health_gate_changed
+    EXIT_RC=1
+fi
+
+echo "result=$RESULT reason=$REASON"
+exit "$EXIT_RC"

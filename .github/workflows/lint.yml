@@ -46,7 +46,11 @@ jobs:
           sh tests/test-ax6-boot-guard.sh
           sh tests/test-ax6-stock-compiled-dtb.sh
           sh tests/test-pbuf-fixture.sh
+          sh tests/test-nss-monitor.sh
           sh tests/test-source-patchset-generator.sh
+          bash AX6-IPQ/tests/test-ax6-perf-fixture.sh
+          sh AX6-IPQ/tests/test-ax6-reload-matrix-validate.sh
+          sh AX6-IPQ/tests/test-ax6-udp-baseline-fixture.sh
 
       - name: Actionlint
         run: actionlint -color .github/workflows/*.yml
