@@ -70,13 +70,16 @@ socket 集发生变化；这是进程正常创建和关闭 socket，不能当成
 | 构建仓库 main | `099556aae4c0` |
 | 已验证构建候选 | `8c722a14e6af` |
 | 当前集成分支 | `codex/ax6-postvalidation-integration-20260809` |
+| 当前候选提交 | `193e5fbc276e` |
 | 锁定源码候选 | `be691ad79541` |
 | 源码 main | `56807d9661db` |
-| 最新完整 build | Actions `30788913582`，success |
-| 最新 sync check | `30784359160`，因锁定依赖漂移失败 |
+| 当前 lint | Actions `31315671414`，全部通过 |
+| 当前 STOCK build | Actions `31315718824`，已通过 defconfig/下载/快速 NSS 门禁，正在正式编译 |
+| 前一失败 build | Actions `31281669689`，packages HEAD 引入全局 Kconfig 递归依赖 |
 
-2026-08-03 后没有新的云端构建。旧 build success 只能证明 `8c722a14`，不能证明
-本文新增的监控、证据脚本或 feed 更新已经通过完整构建。
+旧 build success 只证明 `8c722a14`。当前候选的静态门禁、feed 生成、DIY、
+OpenClash/cgi-io 溯源、`make defconfig`、源包下载、NSS-DP/NSS-DRV/ZeroTier prepare
+和补丁回归断言已经通过；完整编译、rootfs 和产物审查仍在进行。
 
 ## 4. 本轮重新检出的确定问题
 
@@ -118,19 +121,28 @@ socket 集发生变化；这是进程正常创建和关闭 socket，不能当成
 候选修复保持正常路径静默，只在失败时立即追加完整 `nss-check` 快照；升级时
 只替换本包托管行，保留用户自定义探针，并使用原子 crontab 替换。
 
-### P1/P2：依赖锁已漂移
+### P0：直接同步 packages HEAD 会破坏全局 Kconfig
 
 | 依赖 | 锁定 | 最新 | 影响分析 |
 |---|---|---|---|
-| packages | `4db836e` | `1ae9a383` | 174 commits；当前 manifest 直接命中 `cgi-io` 修复 |
-| routing | `c787243` | `b40e628` | 仅 bird2/bird3；当前固件未安装 |
-| Argon | `8344bc9`/2.4.3 | `e2935dc`/2.4.6 | 含 OpenClash 布局修复和资源重构 |
+| packages | 兼容锁 `4db836e` | `1ae9a383` | HEAD 不能直接用于当前 6.18/NSS 核心树 |
+| routing | `b40e628` | `b40e628` | 已同步；仅 bird2/bird3，当前固件未安装 |
+| Argon | `e2935dc`/2.4.6 | `e2935dc`/2.4.6 | 已同步，Lint 已通过 |
 | OpenClash | master | `a9e5d98`/0.47.133 | 实机和最新仓库版本一致 |
 
-`cgi-io` 最新提交修复 malformed POST decoding 的 use-after-free，属于应进入下一
-次候选构建的安全更新。Argon 2.4.6 与当前 LuCI/OpenClash 的 UI 相关，必须与
-核心驱动提交分开，并做 LuCI/OpenClash 页面回归。routing 更新不进入 rootfs，
-仅用于解除可复现构建锁漂移。
+`31281669689` 的准确日志显示两个独立递归依赖：
+
+1. `trafficshaper` 提交 `2e945de2` 用已选 nftables variant 决定是否依赖虚拟包
+   `nftables`；默认 provider 又回选 `nftables-nojson`，生成自选择。
+2. `freeradius3` 提交 `71223e9e` 新增条件 `libopenssl-legacy` 依赖，与
+   `freeradius3-common` 控制的 SSL choice 形成递归链。
+
+两者即使未进入固件，也会在 `feeds install -a` 后被全局 Kconfig 解析，因此不能
+靠“没有选择该插件”规避。当前方案恢复最后一次完整构建通过的 packages 锁，
+只回移植官方 packages 提交 `50dec501`：把 `cgi-io` 锁到
+`31cb3c89f02d918d7f17bf62a80c852fc38a1ca1`，修复 malformed POST decoding 的
+authenticated use-after-free。回移植脚本严格拒绝混合、未知和部分更新状态；
+当前云端 `defconfig` 已证明该组合不再产生上述递归依赖。
 
 ## 5. 核心上游拆解
 
@@ -177,13 +189,17 @@ ImmortalWRT 和 VIKINGYFY 已继续推进内核、hostapd、wifi-scripts 和 qua
 4. 新增 UDP fixture，禁止旧版本、旧构建和动态端口常量回归。
 5. 新增 reload evidence validator；缺字段、缺健康门禁或缺显式 PASS 一律失败。
 6. 把 Phase-0 性能 fixture、UDP fixture、reload fixture 接入 lint。
+7. 撤销不兼容的 packages HEAD 整体同步，保留 routing 和 Argon 的已审查更新。
+8. 新增带来源提交、上游源码提交和 mirror hash 的 `cgi-io` 安全回移植。
+9. 新增回移植幂等/混合状态/未知漂移 fixture、BUILD-LOCK 溯源和云端源码门禁。
 
 当前本地 fixture：UDP baseline PASS、reload validator PASS、性能框架 21/21、
-NSS monitor PASS；ShellCheck warning 门槛和 `git diff --check` 通过。
+NSS monitor PASS、cgi-io backport PASS；云端 ShellCheck、Actionlint、Yamllint、
+DTB 夹具和全部 lint 门禁通过。
 
 ## 7. 分步推进方案
 
-### 阶段 A：完成证据链修复（当前阶段）
+### 阶段 A：完成证据链修复（已完成）
 
 1. 将 monitor、UDP 归因、reload validator 和 rootfs 门禁作为一个测试正确性提交。
 2. 跑仓库全部 shell fixture、Actionlint/YAML、ShellCheck 和 diff gate。
@@ -191,17 +207,17 @@ NSS monitor PASS；ShellCheck warning 门槛和 `git diff --check` 通过。
 
 完成条件：本地全部门禁通过，旧 reload 日志被正确拒绝，实机只读 baseline PASS。
 
-### 阶段 B：独立依赖同步提交
+### 阶段 B：兼容依赖同步和安全回移植（已完成）
 
-1. packages 锁更新到 `1ae9a383`，验证 cgi-io UAF 修复进入 manifest。
-2. routing 锁更新到 `b40e628`，确认 bird 未进入 rootfs。
-3. Argon 更新到 `e2935dc`/2.4.6，保留 OpenClash master 动态解析和 provenance。
-4. 不修改 NSS/ECM/EDMA/ath11k/SSDK 源码或配置。
+1. packages 保持 `4db836e2` 兼容锁，拒绝当前 HEAD 的全局 Kconfig 回归。
+2. 单独回移植 `cgi-io` 官方安全提交并记录 source/hash/provenance。
+3. routing 更新到 `b40e628`；Argon 更新到 `e2935dc`/2.4.6。
+4. 不修改 NSS/ECM/EDMA/ath11k/SSDK 源码或运行配置。
 
-完成条件：sync gate 无漂移，配置 diff 不出现额外 proxy core、flow offload、SQM、
-WireGuard 或 VLAN 依赖。
+完成条件：兼容锁被明确标记，安全回移植门禁通过，配置不出现额外 proxy core、
+flow offload、SQM、WireGuard 或 VLAN 依赖。当前已满足。
 
-### 阶段 C：云端 lint 和统一 stock 构建
+### 阶段 C：云端 lint 和统一 stock 构建（进行中）
 
 按顺序执行：
 
@@ -250,7 +266,7 @@ VIKINGYFY IRQ/EDMA CPU 固定方案只在双端吞吐能够稳定复现问题、
 
 | 项目 | 状态 | 关闭条件 |
 |---|---|---|
-| 本轮仓库修复完整构建 | 未执行 | 阶段 C/D 全通过 |
+| 本轮仓库修复完整构建 | `31315718824` 正在编译 | 阶段 C/D 全通过 |
 | 当前实机 monitor 详细快照 | 固件尚未包含 | 新固件经用户授权刷入后观察 |
 | reload 80 次 | 旧证据作废 | 新格式、每场景 20/20 严格 PASS |
 | 冷启动 x10 | 未完成 | 用户物理断电 10 轮 |
