@@ -4,7 +4,7 @@
 
 本文基于以下四类证据更新 2026-08-03/08 的旧结论：
 
-1. 2026-08-09 06:06-06:15 CST 的 AX6 实机 SSH 只读快照。
+1. 2026-08-09 06:06-06:15、22:34-22:35 CST 的 AX6 实机 SSH 只读快照。
 2. `OrdinaryJoys/AX6-OpenWRT` 本地、远端分支和 GitHub Actions 状态。
 3. `OrdinaryJoys/immortalwrt-nss`、`VIKINGYFY/immortalwrt`、
    `qosmio/openwrt-ipq`、ImmortalWRT 及插件 feed 的最新远端提交。
@@ -22,9 +22,9 @@
 | 固件 | `r0-be691ad`，Linux `6.18.38` | 与成功构建 `8c722a14` 匹配 |
 | 设备 | Redmi AX6 stock layout | 正确 |
 | boot ID | `d56c39e9-4141-4108-8dc7-19fa492a3657` | 与 08-08 基线一致 |
-| 运行时间 | 1 天 5 小时 20 分 | 无非预期重启证据 |
-| `nss-check -q` | 0 | PASS |
-| `ax6-config-audit -q` | 0 | PASS |
+| 运行时间 | 1 天 21 小时 48 分 | boot ID 未变，无非预期重启证据 |
+| `nss-check -v` | PASS=45、WARN=4、FAIL=0 | PASS；4 项均为物理口 report-only offload 提示 |
+| `ax6-config-audit -v` | PASS=29、WARN=2、FAIL=0 | PASS；2 项均为 OpenClash overlay 更新空间提示 |
 | OpenClash | 进程在线 | 正常 |
 | ZeroTier | 1.16.2、ONLINE、network OK | 正常 |
 | 内核日志 | 无新 panic/Oops/watchdog/ath11k fatal/EDMA fatal | 正常 |
@@ -33,16 +33,16 @@
 
 | 项目 | 实测 | 判断 |
 |---|---:|---|
-| RAM available | 约 479 MiB | 正常 |
+| RAM available | 约 471 MiB | 正常 |
 | ZRAM | 256 MiB，使用 0 | 正常，无交换压力 |
-| Overlay | 25.4/41.0 MiB，65%，剩余 13.5 MiB | 可用，继续观察更新峰值 |
+| Overlay | 25.5/41.0 MiB，66%，剩余 13.3 MiB | 可用，继续观察更新峰值 |
 | WAN/LAN1/LAN2 | 1000 Mbps/full/up | 正常 |
 | LAN3 | no carrier | 未接线，不是驱动故障 |
 | WAN/LAN2 error/drop | 0 | 正常 |
-| LAN1 | rx_drop=116、tx_drop=3，error=0 | 历史累计；复核窗口内不增长 |
+| LAN1 | rx_drop=185、tx_drop=3，error=0 | 历史累计；15 秒复核窗口内不增长 |
 
-LAN1 的累计 drop 在前后快照间从 115 到 116，但进入定点 10 秒窗口后保持
-`116/3` 不变，且没有 CRC/FCS/frame/FIFO error 或速率下降。它仍是观察项，
+LAN1 的累计 drop 在长时间运行中缓慢增加，但进入 22:35 定点 15 秒窗口后保持
+`185/3` 不变，且没有 CRC/FCS/frame/FIFO error 或速率下降。它仍是观察项，
 不能据单个累计值修改交换、PAUSE、IRQ 或 NSS 配置。
 
 ### 2.3 UDP/socket 定点复核
@@ -63,6 +63,24 @@ ZeroTier PID 和 socket inode 集保持稳定。Clash PID 保持稳定，但临�
 socket 集发生变化；这是进程正常创建和关闭 socket，不能当成服务重启。当前没有
 持续 UDP 丢包、softnet 丢包或 ZeroTier socket drop 证据。
 
+### 2.4 22:34 核心驱动与链路复核
+
+| 检查 | 实测 | 结论 |
+|---|---|---|
+| NSS/SSDK/ECM/ath11k | 两个 NSS core、NSS-DP、SSDK、ECM、ath11k NSS offload 均在线 | 无缺失模块或初始化失败 |
+| NSS 频率 | `auto_scale=0`、`current_freq=748800000` | 与 VIKINGYFY/qosmio 默认固定中频一致，不是已确认故障 |
+| ECM host path | `disable_offloads=1`、`disable_gro_list=1`、`br-lan` 覆盖完整 | 本机终结流量保护生效 |
+| OpenWrt flow offload | software=0、hardware=0 | 未与 NSS ECM 重复接管 |
+| 物理端口 | WAN/LAN1/LAN2 均 1000/full；CRC/FCS=0；qdisc drop=0 | 当前链路健康 |
+| 15 秒计数器差分 | UDP InErrors/RcvbufErrors、softnet、端口 drop 均不增长；TCP RetransSegs +1 | 无持续丢包证据，单次重传不足以定性 |
+| Mac 到路由器 | 20/20，0% loss，平均 0.854 ms | 本地链路稳定 |
+| 路由器到公共 DNS | 223.5.5.5 与 119.29.29.29 均 0% loss，约 7-8 ms | WAN 短窗口稳定 |
+| ZeroTier/OpenClash | reconcile、动态 nft 端口、DNS 7874 与 dnsmasq redirect 全部通过 | 未复现服务故障 |
+| 内核日志 | 无 panic/Oops/watchdog/NSS/EDMA/ath11k fatal | 无新增核心异常 |
+
+本轮没有执行 reload、吞吐压测、服务重启或任何持久写入。短窗口健康不能替代
+双端点满载测试，但已经排除“空闲或普通业务时持续发生核心驱动丢包”的判断。
+
 ## 3. 仓库和 CI 当前状态
 
 | 项目 | 当前状态 |
@@ -70,7 +88,7 @@ socket 集发生变化；这是进程正常创建和关闭 socket，不能当成
 | 构建仓库 main | `099556aae4c0` |
 | 已验证构建候选 | `8c722a14e6af` |
 | 当前集成分支 | `codex/ax6-postvalidation-integration-20260809` |
-| 当前候选提交 | `193e5fbc276e` |
+| 当前分支 HEAD | `7cf84c7fa810`（代码候选 `193e5fbc276e`） |
 | 锁定源码候选 | `be691ad79541` |
 | 源码 main | `56807d9661db` |
 | 当前 lint | Actions `31315671414`，全部通过 |
@@ -148,17 +166,22 @@ authenticated use-after-free。回移植脚本严格拒绝混合、未知和部�
 
 ### 5.1 VIKINGYFY/immortalwrt
 
-从此前审计基线 `0bad8929` 到 `3fd1e27a` 有 488 个提交。与 AX6 直接相关的组：
+远端已在 22:13 CST 更新到 `5cc85e6c534d`。从此前审计基线 `0bad8929` 到
+该提交的 AX6 相关变化按语义拆解如下：
 
 | 上游组 | 当前候选覆盖 | 处理 |
 |---|---|---|
 | NSS/EDMA startup hardening | auto-scale core guard、IRQ/N2H unwind、current_freq 等已有等价修复 | 不重复移植 |
+| `nss_freq` 管理工具 | 新增 `mid/high/status` 和 UCI 持久化；默认仍是 `mid=748.8 MHz`，pbuf 仍写 `auto_scale=0` | 仅作为可观测性/后续 A/B 候选，不改当前默认 |
+| vendor qca-nss-dp split NAPI | 上游新增 Rx/Tx 独立 NAPI 并默认 GRO；本仓无 GRO 默认的独立候选已完整构建通过 | 缺少 AX6 实机双端点回归，不合入当前修复链 |
 | Linux 6.18 threaded NAPI | 当前 ath11k 候选已有 `cedce1dc` 等价适配 | 保持现状 |
 | qca_edma split NAPI/GRO | 属上游主线 qca_edma 路径；当前 AX6 使用 qca-nss-dp vendor EDMA | 不直接合并 |
 | 专用 CPU 固定 EDMA IRQ | 与当前上游 smp_affinity + NSS RPS 策略可能冲突 | 单独 A/B，不默认合并 |
 | DSA conduit 固定 MAC | 针对 qca_edma/DSA 路径 | 当前 stock qca-nss-dp 不直接适用 |
-| kernel 6.18.39-41 | 大范围内核迁移 | 建立独立源码升级候选，不与本轮证据修复混合 |
+| kernel 6.18.40 与 patch refresh | 大范围内核/patch offset 迁移 | 建立独立源码升级候选，不与本轮证据修复混合 |
 | hostapd/wifi-scripts 更新 | 大量 MLD/CSA/STA 修复 | 单独 Wi-Fi 回归分支，不整包覆盖 NSS patch stack |
+| AX6 stock ART/nvmem 恢复 | 最新 DTS 再次声明 `partition-0-art` 和 MAC cells | 与当前 custom U-Boot/SMEM 运行边界冲突，不覆盖已验证的悬空 phandle 修复 |
+| QCA8084/QCA81xx PHY 修复 | 2.5G EEE、10G PHY 互操作修复 | AX6 的 QCA8075 千兆端口不命中 |
 
 当前 `be691ad` 已包含针对 AX6 实际 vendor NSS 路径验证过的 EDMA correctness、
 NSS drv unwind、current_freq、auto-scale guard、ECM host-path 保护和 APCS resource
@@ -178,7 +201,7 @@ qca-nss-dp `d8f802f0`、SSDK `d9a19649` 的已验证组合。
 
 ImmortalWRT 和 VIKINGYFY 已继续推进内核、hostapd、wifi-scripts 和 qualcommax。
 这些变化的优先级低于当前已验证固件的证据闭环。先完成本轮 stock 构建，再开
-独立“6.18.41 + Wi-Fi”候选，避免无法区分驱动回归和常规包更新。
+独立“6.18.40+ + Wi-Fi”候选，避免无法区分驱动回归和常规包更新。
 
 ## 6. 已完成的仓库修复
 
@@ -194,8 +217,9 @@ ImmortalWRT 和 VIKINGYFY 已继续推进内核、hostapd、wifi-scripts 和 qua
 9. 新增回移植幂等/混合状态/未知漂移 fixture、BUILD-LOCK 溯源和云端源码门禁。
 
 当前本地 fixture：UDP baseline PASS、reload validator PASS、性能框架 21/21、
-NSS monitor PASS、cgi-io backport PASS；云端 ShellCheck、Actionlint、Yamllint、
-DTB 夹具和全部 lint 门禁通过。
+NSS monitor、pbuf、ZeroTier reconcile/health/fw4/buffer、OpenClash DNS/runtime/bypass
+和 cgi-io backport 均 PASS；云端 ShellCheck、Actionlint、Yamllint、DTB 夹具和全部
+lint 门禁通过。
 
 ## 7. 分步推进方案
 
@@ -254,13 +278,32 @@ rootfs 路径。
 
 ### 阶段 F：核心上游升级候选
 
-在本轮候选完整构建通过后，另开两个互不混合的源码分支：
+在本轮候选完整构建通过后，另开四个互不混合的源码分支：
 
-1. Linux 6.18.41/qualcommax 核心迁移。
+1. Linux 6.18.40+ / qualcommax 核心迁移。
 2. hostapd/wifi-scripts 更新和 2.4G IoT/5G HE80 回归。
+3. NSS 固定中频与固定高频单变量 A/B；不把 `auto_scale=1` 和 split-NAPI 混入同轮。
+4. vendor qca-nss-dp split-NAPI（保持 GRO 默认不变）独立 A/B。
 
 VIKINGYFY IRQ/EDMA CPU 固定方案只在双端吞吐能够稳定复现问题、且驱动计数显示
 调度瓶颈后做单变量 A/B；当前不作为默认优化合并。
+
+#### 阶段 F 的单变量 A/B 规则
+
+1. NSS 频率测试必须使用会经过三层转发和 ECM/NSS 的 WAN-LAN 双端点；LAN-LAN
+   同网段桥接结果不能用于判断 NSS core 频率。
+2. 第一轮只比较当前固定中频 748.8 MHz 与固定高频 1689.6 MHz；两组均保持
+   当前 IRQ、GRO、ECM、Wi-Fi、SQM 和 flow-offload 配置不变。
+3. `auto_scale=1` 是另一个变量，只有固定频率 A/B 证明频率确为瓶颈后才单独测试。
+4. split-NAPI 使用已完整构建的无 GRO 默认变更候选，保持固定中频；不得同时合入
+   VIKINGYFY 的 GRO 默认、专用 IRQ 或新内核。
+5. 每组至少 3 轮，逐方向记录吞吐、P95 延迟、TCP retrans、UDP loss/jitter、
+   EDMA/softnet/端口 drop、ECM accelerated、NSS core load、CPU 和温度。
+6. 只有三轮结果稳定改善超过测量噪声，且 reload、冷启动、ZeroTier、OpenClash、
+   2.4G/5G 和 24 小时观察均无回归，才进入默认配置候选。
+
+任何临时频率写入、主动满载测试或候选固件刷写都需要用户再次确认；本文不授权
+在当前实机执行这些操作。
 
 ## 8. 仍未关闭的项目
 
@@ -271,9 +314,11 @@ VIKINGYFY IRQ/EDMA CPU 固定方案只在双端吞吐能够稳定复现问题、
 | reload 80 次 | 旧证据作废 | 新格式、每场景 20/20 严格 PASS |
 | 冷启动 x10 | 未完成 | 用户物理断电 10 轮 |
 | 双端转发吞吐 | 未完成 | 两台 Linux 同版 iperf3 完整矩阵 |
-| LAN1 drops | 观察 | 长窗口差分和错误子类持续为 0 |
-| Overlay 65% | 观察 | Geo/订阅更新峰值后仍保留安全余量 |
-| 6.18.41/Wi-Fi 上游 | 尚未移植 | 独立候选、独立构建和回归 |
+| LAN1 drops | 观察；15 秒窗口 `185/3` 不变 | 长窗口差分和错误子类持续为 0 |
+| NSS 固定中频 | 上游默认一致，未证明为瓶颈 | 双端点固定中频/高频 A/B，驱动计数和温度同时通过 |
+| split-NAPI | 独立候选已完整构建，未实机验证 | 两台 Linux 单向/反向/双向与 reload/长稳均通过 |
+| Overlay 66% | 观察 | Geo/订阅更新峰值后仍保留安全余量 |
+| 6.18.40+/Wi-Fi 上游 | 尚未移植 | 独立候选、独立构建和回归 |
 
 因此当前可以确认“正常业务运行态健康”，但不能声称“所有故障已完全关闭”。
 最优推进路径是先关闭测试证据错误，再同步低风险依赖并统一构建，最后才进行
