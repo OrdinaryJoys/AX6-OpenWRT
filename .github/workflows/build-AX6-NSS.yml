@@ -163,7 +163,8 @@ jobs:
             SOURCE_PATCHSET_MANIFEST_SHA256 \
             SQM_SCRIPTS_NSS_URL SQM_SCRIPTS_NSS_COMMIT \
             LUCI_FEED_URL LUCI_FEED_COMMIT \
-            PACKAGES_FEED_URL PACKAGES_FEED_COMMIT \
+            PACKAGES_FEED_URL PACKAGES_FEED_COMMIT PACKAGES_FEED_POLICY \
+            CGI_IO_SECURITY_BACKPORT_COMMIT \
             ROUTING_FEED_URL ROUTING_FEED_COMMIT \
             TELEPHONY_FEED_URL TELEPHONY_FEED_COMMIT \
             VIDEO_FEED_URL VIDEO_FEED_COMMIT \
@@ -179,7 +180,8 @@ jobs:
           done
           for name in \
             SOURCE_BASE_COMMIT SOURCE_COMMIT SQM_SCRIPTS_NSS_COMMIT LUCI_FEED_COMMIT \
-            PACKAGES_FEED_COMMIT ROUTING_FEED_COMMIT TELEPHONY_FEED_COMMIT \
+            PACKAGES_FEED_COMMIT CGI_IO_SECURITY_BACKPORT_COMMIT \
+            ROUTING_FEED_COMMIT TELEPHONY_FEED_COMMIT \
             VIDEO_FEED_COMMIT ARGON_THEME_COMMIT ARGON_CONFIG_COMMIT; do
             value="${!name}"
             if ! [[ "$value" =~ ^[0-9a-f]{40}$ ]]; then
@@ -380,6 +382,18 @@ jobs:
           fi
           chmod +x "$DIY_SH"
           ( cd openwrt && "$GITHUB_WORKSPACE/$DIY_SH" )
+
+      - name: Verify compatible package security backport
+        run: |
+          set -eo pipefail
+          cgi_makefile=openwrt/feeds/packages/net/cgi-io/Makefile
+          grep -Fqx 'PKG_SOURCE_DATE:=2026-07-21' "$cgi_makefile"
+          grep -Fqx 'PKG_SOURCE_VERSION:=31cb3c89f02d918d7f17bf62a80c852fc38a1ca1' "$cgi_makefile"
+          grep -Fqx 'PKG_MIRROR_HASH:=ecb2ce93b5f62d9fa35ca2b514faa5ef14e462d782bc1dd0de0e4b2ecabcec71' "$cgi_makefile"
+          if grep -Fq '7314451cb99692c0862a70c3307ee08bd2fbd9c0' "$cgi_makefile"; then
+            echo "::error file=$cgi_makefile::obsolete cgi-io source remains after security backport"
+            exit 1
+          fi
 
       - name: Verify tracked OpenClash inputs
         run: |
@@ -988,6 +1002,8 @@ jobs:
             echo "LUCI_FEED_COMMIT=$LUCI_FEED_COMMIT"
             echo "PACKAGES_FEED_URL=$PACKAGES_FEED_URL"
             echo "PACKAGES_FEED_COMMIT=$PACKAGES_FEED_COMMIT"
+            echo "PACKAGES_FEED_POLICY=$PACKAGES_FEED_POLICY"
+            echo "CGI_IO_SECURITY_BACKPORT_COMMIT=$CGI_IO_SECURITY_BACKPORT_COMMIT"
             echo "ROUTING_FEED_URL=$ROUTING_FEED_URL"
             echo "ROUTING_FEED_COMMIT=$ROUTING_FEED_COMMIT"
             echo "TELEPHONY_FEED_URL=$TELEPHONY_FEED_URL"

@@ -53,6 +53,18 @@ resolve_branch_commit() {
 clone_locked "$ARGON_THEME_URL" "$ARGON_THEME_COMMIT" package/luci-theme-argon
 clone_locked "$ARGON_CONFIG_URL" "$ARGON_CONFIG_COMMIT" package/luci-app-argon-config
 
+# Keep the packages feed at its last validated 6.18/NSS-compatible revision,
+# then import the official cgi-io security source lock independently. The
+# helper refuses mixed or unknown metadata, so a future feed change cannot
+# silently receive an obsolete or partially applied backport.
+CGI_IO_BACKPORT_HELPER="$REPO_ROOT/AX6-IPQ/scripts/apply-cgi-io-security-backport.sh"
+CGI_IO_BACKPORT_PATCH="$REPO_ROOT/AX6-IPQ/package-patches/cgi-io/100-fix-malformed-post-use-after-free.patch"
+[ -x "$CGI_IO_BACKPORT_HELPER" ] || {
+  echo "[diy.sh] cgi-io security backport helper is missing or not executable" >&2
+  exit 2
+}
+"$CGI_IO_BACKPORT_HELPER" feeds/packages "$CGI_IO_BACKPORT_PATCH"
+
 # ZeroTier explicitly requests its UDP socket buffer, so changing the global
 # rmem_default cannot fix receive-queue overflow. Install an AX6-scoped package
 # patch whose hunk encodes the exact upstream 1 MiB constant. Patch application

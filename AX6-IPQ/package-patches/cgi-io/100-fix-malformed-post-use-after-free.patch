@@ -1,0 +1,18 @@
+# Backport of immortalwrt/packages commit
+# 50dec501ab1bc86f844de2e40d4e4d0aaa613d20.
+#
+# It selects openwrt/cgi-io 31cb3c89f02d918d7f17bf62a80c852fc38a1ca1,
+# which fixes an authenticated use-after-free while decoding malformed POST
+# fields. Zero-context diff is intentional: the helper verifies all three old
+# metadata values before applying it and rejects mixed or unknown revisions.
+diff --git a/net/cgi-io/Makefile b/net/cgi-io/Makefile
+index e8b6d2fc8..62c00aa8d 100644
+--- a/net/cgi-io/Makefile
++++ b/net/cgi-io/Makefile
+@@ -15,3 +15,3 @@
+-PKG_SOURCE_DATE:=2026-06-28
+-PKG_SOURCE_VERSION:=7314451cb99692c0862a70c3307ee08bd2fbd9c0
+-PKG_MIRROR_HASH:=dbee2e121906bf93631f288c94ebee61f812929a03bc948c84ccea6fc4c8e333
++PKG_SOURCE_DATE:=2026-07-21
++PKG_SOURCE_VERSION:=31cb3c89f02d918d7f17bf62a80c852fc38a1ca1
++PKG_MIRROR_HASH:=ecb2ce93b5f62d9fa35ca2b514faa5ef14e462d782bc1dd0de0e4b2ecabcec71

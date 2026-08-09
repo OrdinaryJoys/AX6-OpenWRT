@@ -26,6 +26,7 @@ jobs:
 
           failures=0
           drift=0
+          compatible_pins=0
 
           probe() {
             git ls-remote "$1" "$2" 2>/dev/null | awk 'NR == 1 { print $1 }' || true
@@ -36,6 +37,7 @@ jobs:
             url="$2"
             ref="$3"
             locked="$4"
+            policy="${5:-current}"
             remote="$(probe "$url" "$ref")"
             if [ -z "$remote" ]; then
               echo "| $label | \`$locked\` | unreachable |" >> "$GITHUB_STEP_SUMMARY"
@@ -44,9 +46,15 @@ jobs:
             elif [ "$remote" = "$locked" ]; then
               echo "| $label | \`$locked\` | current |" >> "$GITHUB_STEP_SUMMARY"
             else
-              echo "| $label | \`$locked\` | drift: \`$remote\` |" >> "$GITHUB_STEP_SUMMARY"
-              echo "::warning::$label moved from $locked to $remote"
-              drift=$((drift + 1))
+              if [ "$policy" = compatible-security-backport ]; then
+                echo "| $label | \`$locked\` | compatibility pin; HEAD: \`$remote\` |" >> "$GITHUB_STEP_SUMMARY"
+                echo "::warning::$label intentionally remains at validated compatibility lock $locked; current HEAD is $remote"
+                compatible_pins=$((compatible_pins + 1))
+              else
+                echo "| $label | \`$locked\` | drift: \`$remote\` |" >> "$GITHUB_STEP_SUMMARY"
+                echo "::warning::$label moved from $locked to $remote"
+                drift=$((drift + 1))
+              fi
             fi
           }
 
@@ -74,7 +82,7 @@ jobs:
           check_locked "OrdinaryJoys/immortalwrt-nss $SOURCE_TRACKING_BRANCH" "$SOURCE_REPO" "refs/heads/$SOURCE_TRACKING_BRANCH" "$SOURCE_COMMIT"
           check_locked "qosmio/sqm-scripts-nss main" "$SQM_SCRIPTS_NSS_URL" refs/heads/main "$SQM_SCRIPTS_NSS_COMMIT"
           check_locked "OrdinaryJoys/luci master" "$LUCI_FEED_URL" refs/heads/master "$LUCI_FEED_COMMIT"
-          check_locked "immortalwrt/packages HEAD" "$PACKAGES_FEED_URL" HEAD "$PACKAGES_FEED_COMMIT"
+          check_locked "immortalwrt/packages HEAD" "$PACKAGES_FEED_URL" HEAD "$PACKAGES_FEED_COMMIT" "$PACKAGES_FEED_POLICY"
           check_locked "openwrt/routing HEAD" "$ROUTING_FEED_URL" HEAD "$ROUTING_FEED_COMMIT"
           check_locked "openwrt/telephony HEAD" "$TELEPHONY_FEED_URL" HEAD "$TELEPHONY_FEED_COMMIT"
           check_locked "openwrt/video HEAD" "$VIDEO_FEED_URL" HEAD "$VIDEO_FEED_COMMIT"
@@ -91,6 +99,6 @@ jobs:
 
           {
             echo ""
-            echo "Locked drift: $drift; unreachable: $failures"
+            echo "Locked drift: $drift; compatibility pins: $compatible_pins; unreachable: $failures"
           } >> "$GITHUB_STEP_SUMMARY"
           [ "$failures" -eq 0 ] && [ "$drift" -eq 0 ]

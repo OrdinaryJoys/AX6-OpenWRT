@@ -41,6 +41,7 @@ jobs:
           sh tests/test-zerotier-reconcile.sh
           sh tests/test-zerotier-health.sh
           sh tests/test-zerotier-buffer-patch.sh
+          sh tests/test-cgi-io-security-backport.sh
           sh tests/test-openclash-zerotier-bypass.sh
           sh tests/test-ax6-config-audit-zerotier.sh
           sh tests/test-ax6-boot-guard.sh
@@ -159,7 +160,8 @@ jobs:
             SOURCE_PATCHSET_MANIFEST_SHA256 \
             SQM_SCRIPTS_NSS_URL SQM_SCRIPTS_NSS_COMMIT \
             LUCI_FEED_URL LUCI_FEED_COMMIT \
-            PACKAGES_FEED_URL PACKAGES_FEED_COMMIT \
+            PACKAGES_FEED_URL PACKAGES_FEED_COMMIT PACKAGES_FEED_POLICY \
+            CGI_IO_SECURITY_BACKPORT_COMMIT \
             ROUTING_FEED_URL ROUTING_FEED_COMMIT \
             TELEPHONY_FEED_URL TELEPHONY_FEED_COMMIT \
             VIDEO_FEED_URL VIDEO_FEED_COMMIT \
@@ -174,7 +176,8 @@ jobs:
           done
           for name in \
             SOURCE_BASE_COMMIT SOURCE_COMMIT SQM_SCRIPTS_NSS_COMMIT LUCI_FEED_COMMIT \
-            PACKAGES_FEED_COMMIT ROUTING_FEED_COMMIT TELEPHONY_FEED_COMMIT \
+            PACKAGES_FEED_COMMIT CGI_IO_SECURITY_BACKPORT_COMMIT \
+            ROUTING_FEED_COMMIT TELEPHONY_FEED_COMMIT \
             VIDEO_FEED_COMMIT ARGON_THEME_COMMIT ARGON_CONFIG_COMMIT; do
             value="${!name}"
             [[ "$value" =~ ^[0-9a-f]{40}$ ]] || {
@@ -184,6 +187,23 @@ jobs:
           done
           [[ "$SOURCE_PATCHSET_MANIFEST_SHA256" =~ ^[0-9a-f]{64}$ ]] || {
             echo "::error::SOURCE_PATCHSET_MANIFEST_SHA256 must be a 64-character lowercase SHA256"
+            exit 1
+          }
+          [ "$PACKAGES_FEED_POLICY" = compatible-security-backport ] || {
+            echo "::error::unexpected packages feed policy: $PACKAGES_FEED_POLICY"
+            exit 1
+          }
+          [ "$PACKAGES_FEED_COMMIT" = 4db836e2d929b5f0d858000f99aa55bb0ab85100 ] || {
+            echo "::error::packages compatibility lock changed without a reviewed defconfig result"
+            exit 1
+          }
+          backport=AX6-IPQ/package-patches/cgi-io/100-fix-malformed-post-use-after-free.patch
+          grep -Fq "$CGI_IO_SECURITY_BACKPORT_COMMIT" "$backport" || {
+            echo "::error file=$backport::cgi-io package backport provenance does not match the build lock"
+            exit 1
+          }
+          grep -Fq '31cb3c89f02d918d7f17bf62a80c852fc38a1ca1' "$backport" || {
+            echo "::error file=$backport::fixed cgi-io source revision is missing"
             exit 1
           }
           case "$SOURCE_TRACKING_BRANCH" in
