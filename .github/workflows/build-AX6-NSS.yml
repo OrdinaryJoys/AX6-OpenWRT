@@ -670,6 +670,23 @@ jobs:
           }
           unsquashfs -ll "$rootfs" > image-verify/rootfs-files.txt
 
+          unsquashfs -cat "$rootfs" lib/upgrade/keep.d/luci-app-openclash \
+            > image-verify/openclash-keep
+          cmp -s AX6-IPQ/files/lib/upgrade/keep.d/luci-app-openclash \
+            image-verify/openclash-keep || {
+              echo "::error::Final rootfs OpenClash keep policy is not config/custom/overwrite"
+              diff -u AX6-IPQ/files/lib/upgrade/keep.d/luci-app-openclash \
+                image-verify/openclash-keep || true
+              exit 1
+            }
+          unsquashfs -cat "$rootfs" etc/sysupgrade.conf \
+            > image-verify/sysupgrade.conf
+          cmp -s AX6-IPQ/files/etc/sysupgrade.conf image-verify/sysupgrade.conf || {
+            echo "::error::Final rootfs sysupgrade policy differs from the reviewed AX6 policy"
+            diff -u AX6-IPQ/files/etc/sysupgrade.conf image-verify/sysupgrade.conf || true
+            exit 1
+          }
+
           for required in \
             'lib/modules/.*/qca-ssdk\.ko' \
             'lib/modules/.*/qca-nss-dp\.ko' \
@@ -690,6 +707,8 @@ jobs:
             'etc/init\.d/smp_affinity' \
             'etc/init\.d/zram' \
             'etc/openclash/core/clash_meta' \
+            'lib/upgrade/keep\.d/luci-app-openclash' \
+            'etc/sysupgrade\.conf' \
             'usr/share/openclash/ui/metacubexd/index\.html' \
             'usr/share/openclash/ui/zashboard/index\.html' \
             'etc/modprobe\.d/nss-no-flow\.conf' \

@@ -720,6 +720,31 @@ if uci -q get openclash.config >/dev/null 2>&1; then
     oc_geodata_kb=$(openclash_geodata_kb)
     oc_auto_geodata=$(openclash_auto_geodata_enabled)
     oc_ui_overlay_kb=$(openclash_path_kb /overlay/upper/usr/share/openclash/ui)
+    oc_keep_file=/lib/upgrade/keep.d/luci-app-openclash
+    if [ ! -f "$oc_keep_file" ]; then
+        warn "OpenClash: sysupgrade keep policy is missing"
+    elif printf '%s\n' \
+        /etc/openclash/config/ \
+        /etc/openclash/custom/ \
+        /etc/openclash/overwrite/ | cmp -s - "$oc_keep_file"; then
+        ok "OpenClash: sysupgrade keeps only config/custom/overwrite"
+    elif grep -Fqx '/etc/openclash/' "$oc_keep_file"; then
+        warn "OpenClash: legacy sysupgrade policy keeps core/Geo/cache and can duplicate ROM files in overlay"
+    else
+        warn "OpenClash: sysupgrade keep policy differs from config/custom/overwrite"
+    fi
+    if [ -f /rom/etc/openclash/core/clash_meta ] &&
+       [ -f /overlay/upper/etc/openclash/core/clash_meta ]; then
+        oc_upper_core_kb=$(openclash_path_kb /overlay/upper/etc/openclash/core/clash_meta)
+        if cmp -s /rom/etc/openclash/core/clash_meta \
+            /overlay/upper/etc/openclash/core/clash_meta; then
+            warn "OpenClash: overlay contains a redundant ${oc_upper_core_kb} KiB core identical to ROM"
+        else
+            ok "OpenClash: overlay core differs from ROM (runtime update, not a duplicate)"
+        fi
+    else
+        ok "OpenClash: no ROM-identical core duplicate in overlay"
+    fi
     if [ "$oc_geodata_kb" -gt 0 ]; then
         if [ "$oc_overlay_free" -lt 4096 ]; then
             fail "OpenClash: GeoIP/GeoSite/ASN/CHNR data use ${oc_geodata_kb} KiB and overlay free is only ${oc_overlay_free} KiB"

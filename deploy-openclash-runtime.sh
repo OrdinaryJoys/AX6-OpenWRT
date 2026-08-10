@@ -11,6 +11,7 @@ umask 077
 
 ROUTER="${1:-192.168.5.1}"
 TARGET="root@$ROUTER"
+SSH_KEY="${SSH_KEY:-$HOME/.ssh/ax6_check}"
 PRE_RESTORE=
 PRE_CRONTAB=
 RESTORE_STARTED=0
@@ -19,6 +20,7 @@ RESTORE_COMPLETE=0
 if [ "$#" -ge 2 ]; then
     BACKUP_DIR="$2"
 else
+    # shellcheck disable=SC2012 # Backup directory timestamps are controlled by this script.
     BACKUP_DIR="$(ls -dt ./ax6-backup-* 2>/dev/null | head -n 1 || true)"
 fi
 
@@ -35,10 +37,10 @@ ARCHIVE="$BACKUP_DIR/openclash-runtime.tar.gz"
 
 if ! tar -tzf "$ARCHIVE" | awk '
     /^\.\// { sub(/^\.\//, "") }
+    /^\// { sub(/^\/+/, "") }
     /(^|\/)\.\.(\/|$)/ { bad=1; print "unsafe archive path: " $0 > "/dev/stderr"; next }
     /^etc\/config\/openclash$/ { next }
-    /^etc\/openclash\/(custom|config|proxy_provider|rule_provider)(\/|$)/ { next }
-    /^usr\/share\/openclash\/fix_dot\.sh$/ { next }
+    /^etc\/openclash\/(custom|config|overwrite)(\/|$)/ { next }
     { bad=1; print "unexpected archive path: " $0 > "/dev/stderr" }
     END { exit bad }
 '; then
@@ -64,6 +66,14 @@ say() {
     printf '%s\n' "$*"
 }
 
+remote() {
+    if [ -r "$SSH_KEY" ]; then
+        ssh -i "$SSH_KEY" -o BatchMode=yes -o ConnectTimeout=8 "$TARGET" "$@"
+    else
+        ssh -o BatchMode=yes -o ConnectTimeout=8 "$TARGET" "$@"
+    fi
+}
+
 rollback_on_error() {
     rc=$?
     trap - EXIT HUP INT TERM
@@ -73,18 +83,16 @@ rollback_on_error() {
        [ -s "$PRE_RESTORE" ]; then
         say ""
         say "[rollback] Restore failed; reverting OpenClash files and crontab"
-        if ssh "$TARGET" '
+        if remote '
             /etc/init.d/openclash stop >/dev/null 2>&1 || true
             rm -rf \
                 /etc/config/openclash \
                 /etc/openclash/custom \
                 /etc/openclash/config \
-                /etc/openclash/proxy_provider \
-                /etc/openclash/rule_provider \
-                /usr/share/openclash/fix_dot.sh
+                /etc/openclash/overwrite
             tar -xzf - -C /
         ' < "$PRE_RESTORE" &&
-           ssh "$TARGET" '
+           remote '
                crontab -
                /etc/init.d/cron restart
                /etc/init.d/openclash restart
@@ -108,7 +116,8 @@ say "Backup: $BACKUP_DIR"
 say ""
 
 say "[1/5] Verify target and OpenClash installation"
-ssh "$TARGET" '
+# shellcheck disable=SC2016 # This single-quoted block is evaluated by the router shell.
+remote '
     test -x /etc/init.d/openclash
     test -d /etc/openclash
     test ! -L /etc/openclash
@@ -116,26 +125,42 @@ ssh "$TARGET" '
         /etc/config/openclash \
         /etc/openclash/custom \
         /etc/openclash/config \
-        /etc/openclash/proxy_provider \
-        /etc/openclash/rule_provider \
-        /usr/share/openclash/fix_dot.sh; do
+        /etc/openclash/overwrite; do
         test ! -L "$path"
     done
+    keep=/lib/upgrade/keep.d/luci-app-openclash
+    if [ ! -f "$keep" ]; then
+        echo "error: target firmware is missing the reviewed OpenClash keep policy" >&2
+        exit 5
+    fi
+    if ! printf "%s\n" \
+        /etc/openclash/config/ \
+        /etc/openclash/custom/ \
+        /etc/openclash/overwrite/ | cmp -s - "$keep"; then
+        echo "error: target firmware still keeps the complete OpenClash runtime tree" >&2
+        exit 5
+    fi
+    if [ -f /rom/etc/openclash/core/clash_meta ] &&
+       [ -f /overlay/upper/etc/openclash/core/clash_meta ] &&
+       cmp -s /rom/etc/openclash/core/clash_meta \
+           /overlay/upper/etc/openclash/core/clash_meta; then
+        echo "error: redundant OpenClash core already exists in overlay; use a clean flash or controlled cleanup before restore" >&2
+        exit 6
+    fi
 '
 say "  [ok] OpenClash is installed"
 
 say "[2/5] Save current target state for rollback"
 PRE_RESTORE="$BACKUP_DIR/openclash-pre-restore-$(date +%Y%m%d-%H%M%S).tar.gz"
 PRE_CRONTAB="${PRE_RESTORE%.tar.gz}.crontab"
-ssh "$TARGET" '
+# shellcheck disable=SC2016 # This single-quoted block is evaluated by the router shell.
+remote '
     set --
     for path in \
         /etc/config/openclash \
         /etc/openclash/custom \
         /etc/openclash/config \
-        /etc/openclash/proxy_provider \
-        /etc/openclash/rule_provider \
-        /usr/share/openclash/fix_dot.sh; do
+        /etc/openclash/overwrite; do
         [ -e "$path" ] && set -- "$@" "$path"
     done
     [ "$#" -gt 0 ] || exit 3
@@ -145,15 +170,20 @@ ssh "$TARGET" '
     say "  [error] pre-restore archive is empty"
     exit 3
 }
-ssh "$TARGET" 'crontab -l 2>/dev/null || true' > "$PRE_CRONTAB"
+remote 'crontab -l 2>/dev/null || true' > "$PRE_CRONTAB"
 say "  [ok] $(basename "$PRE_RESTORE")"
 
 say "[3/5] Restore archived OpenClash runtime files"
 trap rollback_on_error EXIT
 trap abort_restore HUP INT TERM
 RESTORE_STARTED=1
-ssh "$TARGET" '
+remote '
     /etc/init.d/openclash stop >/dev/null 2>&1 || true
+    rm -rf \
+        /etc/config/openclash \
+        /etc/openclash/custom \
+        /etc/openclash/config \
+        /etc/openclash/overwrite
     tar -xzf - -C /
     if [ -f /etc/openclash/custom/openclash_custom_overwrite.sh ]; then
         chmod 0755 /etc/openclash/custom/openclash_custom_overwrite.sh
@@ -161,20 +191,18 @@ ssh "$TARGET" '
     if [ -f /etc/openclash/custom/openclash_custom_firewall_rules.sh ]; then
         chmod 0755 /etc/openclash/custom/openclash_custom_firewall_rules.sh
     fi
-    if [ -f /usr/share/openclash/fix_dot.sh ]; then
-        chmod 0755 /usr/share/openclash/fix_dot.sh
-    fi
 ' < "$ARCHIVE"
 say "  [ok] runtime files restored"
 
 if [ -s "$BACKUP_DIR/crontab.txt" ]; then
-    awk '/openclash|fix_dot/' "$BACKUP_DIR/crontab.txt" |
-        ssh "$TARGET" '
+    # shellcheck disable=SC2016 # The remote half of this pipeline runs on the router.
+    awk '/openclash/' "$BACKUP_DIR/crontab.txt" |
+        remote '
             tmp=/tmp/openclash-cron.restore
             cat > "$tmp"
             if [ -s "$tmp" ]; then
                 (
-                    crontab -l 2>/dev/null | grep -v -E "openclash|fix_dot" || true
+                    crontab -l 2>/dev/null | grep -v "openclash" || true
                     cat "$tmp"
                 ) | awk "!seen[\$0]++" | crontab -
             fi
@@ -184,7 +212,7 @@ if [ -s "$BACKUP_DIR/crontab.txt" ]; then
 fi
 
 say "[4/5] Restart OpenClash"
-ssh "$TARGET" '
+remote '
     uci -q commit openclash
     /etc/init.d/cron restart
     /etc/init.d/openclash restart
@@ -192,7 +220,8 @@ ssh "$TARGET" '
 say "  [ok] restart command completed"
 
 say "[5/5] Verify restored state"
-ssh "$TARGET" '
+# shellcheck disable=SC2016 # This single-quoted block is evaluated by the router shell.
+remote '
     set -e
     test -s /etc/config/openclash
     config_count=$(find /etc/openclash/config -maxdepth 1 -type f -name "*.yaml" 2>/dev/null | wc -l)

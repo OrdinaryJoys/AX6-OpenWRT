@@ -8,16 +8,25 @@ umask 077
 ROUTER="${1:-192.168.5.1}"
 BACKUP_DIR="${2:-./ax6-backup-$(date +%Y%m%d-%H%M%S)}"
 TARGET="root@$ROUTER"
-REMOTE_TMP="/tmp/ax6-sysupgrade-backup-$$.tar.gz"
+SAFE_SYSUPGRADE_ARCHIVE="$BACKUP_DIR/sysupgrade-config-restore-safe.tar.gz"
+SSH_KEY="${SSH_KEY:-$HOME/.ssh/ax6_check}"
 
 say() {
     printf '%s\n' "$*"
 }
 
+remote() {
+    if [ -r "$SSH_KEY" ]; then
+        ssh -i "$SSH_KEY" -o BatchMode=yes -o ConnectTimeout=8 "$TARGET" "$@"
+    else
+        ssh -o BatchMode=yes -o ConnectTimeout=8 "$TARGET" "$@"
+    fi
+}
+
 capture() {
     name="$1"
     shift
-    if ssh "$TARGET" "$*" > "$BACKUP_DIR/$name" 2> "$BACKUP_DIR/$name.stderr"; then
+    if remote "$*" > "$BACKUP_DIR/$name" 2> "$BACKUP_DIR/$name.stderr"; then
         rm -f "$BACKUP_DIR/$name.stderr"
         say "  [ok] $name"
     else
@@ -33,29 +42,77 @@ say ""
 mkdir -p "$BACKUP_DIR"
 
 say "[1/6] Verify SSH access"
-ssh "$TARGET" 'uname -a; ubus call system board 2>/dev/null || true' \
+remote 'uname -a; ubus call system board 2>/dev/null || true' \
     > "$BACKUP_DIR/router-system.txt"
 say "  [ok] SSH connection"
 
-say "[2/6] Create complete OpenWrt sysupgrade configuration archive"
-ssh "$TARGET" "sysupgrade -b '$REMOTE_TMP' >/dev/null && cat '$REMOTE_TMP'; rc=\$?; rm -f '$REMOTE_TMP'; exit \$rc" \
-    > "$BACKUP_DIR/sysupgrade-config-backup.tar.gz"
-[ -s "$BACKUP_DIR/sysupgrade-config-backup.tar.gz" ] || {
-    say "  [error] sysupgrade backup is empty"
+say "[2/6] Create restore-safe OpenWrt configuration archive"
+# shellcheck disable=SC2016 # This single-quoted block is evaluated by the router shell.
+remote '
+    list="/tmp/ax6-sysupgrade-list.$$"
+    trap '\''rm -f "$list"'\'' EXIT HUP INT TERM
+    sysupgrade -l 2>/dev/null | while IFS= read -r path; do
+        case "$path" in
+            /etc/shadow|/etc/shadow-)
+                ;;
+            /etc/openclash/*)
+                case "$path" in
+                    /etc/openclash/config|/etc/openclash/config/*|\
+                    /etc/openclash/custom|/etc/openclash/custom/*|\
+                    /etc/openclash/overwrite|/etc/openclash/overwrite/*)
+                        printf "%s\n" "$path"
+                        ;;
+                esac
+                ;;
+            *)
+                printf "%s\n" "$path"
+                ;;
+        esac
+    done > "$list"
+    test -s "$list"
+    tar -czf - -T "$list"
+' > "$SAFE_SYSUPGRADE_ARCHIVE"
+[ -s "$SAFE_SYSUPGRADE_ARCHIVE" ] || {
+    say "  [error] restore-safe sysupgrade backup is empty"
     exit 2
 }
-say "  [ok] sysupgrade-config-backup.tar.gz"
+if ! tar -tzf "$SAFE_SYSUPGRADE_ARCHIVE" | awk '
+    /^\.\// { sub(/^\.\//, "") }
+    /^\// { sub(/^\/+/, "") }
+    /(^|\/)etc\/shadow-?$/ { bad=1; print "login password leaked into archive: " $0 > "/dev/stderr"; next }
+    /^etc\/openclash\// && $0 !~ /^etc\/openclash\/(config|custom|overwrite)(\/|$)/ {
+        bad=1
+        print "generated OpenClash data leaked into archive: " $0 > "/dev/stderr"
+    }
+    END { exit bad }
+'; then
+    say "  [error] restore-safe sysupgrade archive crossed its allowlist"
+    exit 2
+fi
+if ! tar -tvzf "$SAFE_SYSUPGRADE_ARCHIVE" | awk '
+    {
+        type = substr($1, 1, 1)
+        if (type != "-" && type != "d") {
+            bad=1
+            print "unsafe restore-safe member type: " $0 > "/dev/stderr"
+        }
+    }
+    END { exit bad }
+'; then
+    say "  [error] restore-safe sysupgrade archive contains links or special files"
+    exit 2
+fi
+say "  [ok] sysupgrade-config-restore-safe.tar.gz"
 
-say "[3/6] Archive OpenClash runtime configuration"
-if ssh "$TARGET" '
+say "[3/6] Archive OpenClash persistent configuration"
+# shellcheck disable=SC2016 # This single-quoted block is evaluated by the router shell.
+if remote '
     set --
     for path in \
         /etc/config/openclash \
         /etc/openclash/custom \
         /etc/openclash/config \
-        /etc/openclash/proxy_provider \
-        /etc/openclash/rule_provider \
-        /usr/share/openclash/fix_dot.sh; do
+        /etc/openclash/overwrite; do
         [ -e "$path" ] && set -- "$@" "$path"
     done
     [ "$#" -gt 0 ] || exit 3
@@ -83,13 +140,14 @@ capture "ax6-config-audit.txt" "ax6-config-audit -v 2>&1"
 capture "packages.txt" "opkg list-installed"
 capture "mtd.txt" "cat /proc/mtd"
 capture "mounts.txt" "mount"
-capture "network-status.json" "ubus call network status"
+capture "network-interface-dump.json" "ubus call network.interface dump"
 
 say "[6/6] Write manifest and checksums"
 {
     echo "BACKUP_CREATED=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     echo "ROUTER=$ROUTER"
-    echo "CONTENTS=sysupgrade-config-backup.tar.gz openclash-runtime.tar.gz UCI exports diagnostics"
+    echo "CONTENTS=sysupgrade-config-restore-safe.tar.gz openclash-runtime.tar.gz UCI exports diagnostics"
+    echo "EXCLUDED=/etc/shadow OpenClash core Geo cache history proxy_provider rule_provider package scripts"
     echo "RESTORE_POLICY=Do not restore the whole sysupgrade archive automatically after changing firmware branches."
 } > "$BACKUP_DIR/MANIFEST.txt"
 
@@ -105,5 +163,6 @@ fi
 say ""
 say "=== Backup complete: $BACKUP_DIR ==="
 say "Keep this directory private: it contains WiFi keys, VPN credentials and proxy subscriptions."
+say "The router login password hash and generated OpenClash data were not archived."
 say "After manual firmware installation, restore only OpenClash runtime data with:"
 say "  ./deploy-openclash-runtime.sh '$ROUTER' '$BACKUP_DIR'"

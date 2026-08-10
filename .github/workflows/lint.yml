@@ -35,6 +35,7 @@ jobs:
           sh tests/test-openvpn-defaults.sh
           sh tests/test-openclash-dns-health.sh
           sh tests/test-openclash-archive.sh
+          sh tests/test-router-backup.sh
           sh tests/test-openclash-runtime-contract.sh
           sh tests/test-device-manifest.sh
           sh tests/test-zerotier-fw4.sh
@@ -247,6 +248,20 @@ jobs:
             echo "::error::OpenClash plugin must track upstream ref, not a pinned plugin version"
             exit 1
           fi
+          expected_openclash_keep=$(printf '%s\n' \
+            /etc/openclash/config/ \
+            /etc/openclash/custom/ \
+            /etc/openclash/overwrite/)
+          actual_openclash_keep=$(cat AX6-IPQ/files/lib/upgrade/keep.d/luci-app-openclash)
+          if [ "$actual_openclash_keep" != "$expected_openclash_keep" ]; then
+            echo "::error::OpenClash sysupgrade keep policy must be exactly config/custom/overwrite"
+            exit 1
+          fi
+          grep -Fqx '/etc/openclash/config/' AX6-IPQ/files/etc/sysupgrade.conf
+          if grep -Fqx '/etc/openclash/' AX6-IPQ/files/etc/sysupgrade.conf; then
+            echo "::error::AX6 sysupgrade policy must not retain the complete OpenClash runtime tree"
+            exit 1
+          fi
           # shellcheck disable=SC2016 # Match the literal command substitution in diy.sh.
           capture_line=$(grep -nF 'OPENCLASH_ACTUAL_COMMIT=$(git -C package/luci-app-openclash-source rev-parse HEAD)' AX6-IPQ/diy.sh | cut -d: -f1)
           move_line=$(grep -nF 'mv package/luci-app-openclash-source/luci-app-openclash package/luci-app-openclash' AX6-IPQ/diy.sh | cut -d: -f1)
@@ -274,6 +289,9 @@ jobs:
               'ZASHBOARD_COMMIT' \
               'ZASHBOARD_ARCHIVE_SHA256' \
               'etc/openclash/core/clash_meta' \
+              'lib/upgrade/keep.d/luci-app-openclash' \
+              'Final rootfs OpenClash keep policy is not config/custom/overwrite' \
+              'Final rootfs sysupgrade policy differs from the reviewed AX6 policy' \
               'usr/share/openclash/ui/metacubexd/index\.html' \
               'usr/share/openclash/ui/zashboard/index\.html' \
               'verify-device-manifest.sh' \
@@ -813,17 +831,32 @@ jobs:
           deploy="deploy-openclash-runtime.sh"
           test -x "$backup"
           test -x "$deploy"
-          grep -Fq 'sysupgrade-config-backup.tar.gz' "$backup"
+          grep -Fq 'sysupgrade-config-restore-safe.tar.gz' "$backup"
+          grep -Fq '/etc/shadow' "$backup"
+          grep -Fq '/etc/shadow-' "$backup"
+          grep -Fq 'generated OpenClash data leaked into archive' "$backup"
+          grep -Fq 'restore-safe sysupgrade archive contains links or special files' "$backup"
           grep -Fq 'openclash-runtime.tar.gz' "$backup"
           grep -Fq 'openclash-runtime.tar.gz' "$deploy"
+          grep -Fq '/etc/openclash/overwrite' "$backup"
+          grep -Fq '/etc/openclash/overwrite' "$deploy"
           grep -Fq 'OpenClash archive contains paths outside the restore allowlist' "$deploy"
           grep -Fq 'OpenClash archive contains links or special files' "$deploy"
           grep -Fq 'rollback_on_error' "$deploy"
           grep -Fq 'previous OpenClash state restored' "$deploy"
+          grep -Fq 'rm -rf \' "$deploy"
           grep -Fq 'OpenClash core: disabled by restored configuration' "$deploy"
           grep -Fq 'The complete sysupgrade archive was not restored automatically.' "$deploy"
-          grep -Fq 'if [ -f /usr/share/openclash/fix_dot.sh ]; then' "$deploy"
+          grep -Fq 'redundant OpenClash core already exists in overlay' "$deploy"
+          grep -Fq 'overlay contains a redundant' AX6-IPQ/files/sbin/ax6-config-audit
+          grep -Fq 'legacy sysupgrade policy keeps core/Geo/cache' AX6-IPQ/files/sbin/ax6-config-audit
           grep -Fq 'ax6-backup-*/' .gitignore
+          if grep -Fq '        /etc/openclash/proxy_provider' "$backup" "$deploy" ||
+             grep -Fq '        /etc/openclash/rule_provider' "$backup" "$deploy" ||
+             grep -Fq '        /usr/share/openclash/fix_dot.sh' "$backup" "$deploy"; then
+            echo "::error::OpenClash restore scope must exclude generated providers and package scripts"
+            exit 1
+          fi
           if grep -Eq 'el1si7d_doggygosubs|head -[0-9]+ /etc/openclash/config' "$backup" "$deploy"; then
             echo "::error::router maintenance scripts must not hard-code a subscription filename or truncate backups"
             exit 1
