@@ -17,45 +17,48 @@
 - `OrdinaryJoys/AX6-OpenWRT` 的 `main@099556a` 是集成分支的祖先；固件构建验证头
   `d8d9bd9` 前进 66 个提交，测试工具头 `e66dd45` 前进 68 个提交。
 - GitHub Actions `31315718824` 已在构建提交 `193e5fb`、源码 `be691ad` 上完整
-  成功。它证明旧锁定组合可构建，不证明当前仍在构建的新锁 `4e350435`。
+  成功，现只作为旧锁历史对照；新锁证据由 `31351445144` 取代。
 - 当前未发现应立即修改实机配置的新 P0 故障。本轮不刷写、不重载服务、不修改
   UCI、OpenClash 订阅或覆写。
 - 源码分支 `4e350435` 与构建分支 `d8d9bd9` 已推送；lint
   [31351390852](https://github.com/OrdinaryJoys/AX6-OpenWRT/actions/runs/31351390852)
   完整通过。STOCK build
   [31351445144](https://github.com/OrdinaryJoys/AX6-OpenWRT/actions/runs/31351445144)
-  正在运行，尚未形成新产物结论。
+  已完整成功，产物也已独立下载复核通过。
 - 后续测试工具提交 `e66dd45` 的 lint
   [31352053415](https://github.com/OrdinaryJoys/AX6-OpenWRT/actions/runs/31352053415)
   也已通过；它不改变 `d8d9bd9` 正在编译的固件目标内容。
 
-因此可以推进“候选分支完善和重新构建”，但还不能直接宣布新头已满足主线合并
-门禁，也不能把性能候选作为默认配置发布。
+因此 `4e350435 + d8d9bd9` 已满足 AX6 stock 候选的静态、编译和产物门禁，可以进入
+用户确认后的实机测试；它仍不满足源码全局主线合并门禁，也不能把性能候选作为默认
+配置发布。
 
 ## 2. 已独立验证的构建证据
 
 ### 2.1 Actions 运行
 
-成功运行：[31315718824](https://github.com/OrdinaryJoys/AX6-OpenWRT/actions/runs/31315718824)
+当前成功运行：[31351445144](https://github.com/OrdinaryJoys/AX6-OpenWRT/actions/runs/31351445144)
 
 以下步骤全部成功：源码锁、feed 锁、NSS patch prepare、回归断言、完整固件编译、
 stock DTB、最终 rootfs、sysupgrade/recovery/kmod、manifest 和 SHA256。Release 步骤
-在候选分支正确跳过。
+在候选分支正确跳过。构建头为 `d8d9bd9`，源码锁为 `4e350435`；前一成功运行
+`31315718824` 仅保留为 `be691ad` 旧锁历史证据。
 
 ### 2.2 独立下载后的结果
 
 | 项目 | 结果 |
 |---|---|
-| sysupgrade | 53,177,122 字节；SHA256 `22eccc670a65...e873629f` |
-| initramfs ITB | 52,667,140 字节；SHA256 `83b6d3777cbc...ea34af5` |
-| factory UBI | 55,181,312 字节；SHA256 `8429a5df2876...869cdb` |
-| rootfs | SquashFS/XZ，47,339,072 字节 |
+| sysupgrade | 53,187,362 字节；SHA256 `a78cf65a9668...bf585fa` |
+| initramfs ITB | 52,666,180 字节；SHA256 `db582bf4d851...93de24b8` |
+| factory UBI | 55,181,312 字节；SHA256 `e9660ca3b686...b5112045` |
+| sysupgrade 内 rootfs | SquashFS/XZ，47,341,568 字节；SHA256 `158469ef7405...b6b0461` |
 | 设备 manifest | 恰好 391 项 |
 | rootfs opkg status | 恰好 391 项，与 manifest 排序后逐项一致 |
 | OpenClash | 插件 `0.47.133`，Meta core SHA256 与 BUILD-LOCK 完全一致 |
-| AX6 管理脚本 | 从 SquashFS 单独读取后，SHA256 与仓库源文件完全一致 |
+| AX6 运行文件 | 从 SquashFS 单独读取 36 个文件，SHA256 与仓库源文件全部一致 |
 | recovery/sysupgrade | BUILD-LOCK 与设备 manifest 分别字节一致 |
-| kmod | 单包、Packages 元数据、归档和全部 SHA256 均通过 |
+| kmod | 143 个 ipk、Packages 元数据、归档和全部 SHA256 均通过 |
+| source patchset | 193 个存在项、15 个缺席项；manifest SHA256 `a161d445...10a031` |
 
 macOS `unsquashfs` 全量解包会因内核模块硬链接重复和 `/dev/console` 创建设备节点
 失败；使用 `unsquashfs -cat/-ll` 的逐文件验证通过，Linux CI 的完整 rootfs 门禁也
@@ -366,8 +369,8 @@ bash AX6-IPQ/scripts/ax6-routed-perf-test.sh run --confirm-load-test
 | 1 | 完成新工具、锁定和文档本地审查 | 已完成；TCP/UDP/路径/频率 fixture 通过 |
 | 2 | 推送源码测试头 `4e350435` | 已完成 |
 | 3 | 提交并推送构建候选门禁和测试工具 | `d8d9bd9`/`e66dd45` 已完成 |
-| 4 | 云端 lint + 完整 STOCK build | 两轮 lint 已通过；build `31351445144` 编译中 |
-| 5 | 独立下载和产物复核 | 等待新构建 |
+| 4 | 云端 lint + 完整 STOCK build | 两轮 lint 及 build `31351445144` 全部通过 |
+| 5 | 独立下载和产物复核 | 已完成；外层、rootfs、manifest、OpenClash、kmod 闭环 |
 | 6 | 建立审查 PR | build 仓库可建 draft；源码只能建阻断标注的 tracking PR |
 | 7 | 经用户确认执行 F1 频率 A/B | 未授权 |
 | 8 | 重建当前基线上的 F2 split-NAPI 候选 | M0-M3 后执行 |
