@@ -844,7 +844,7 @@ jobs:
           grep -Fq 'OpenClash archive contains links or special files' "$deploy"
           grep -Fq 'rollback_on_error' "$deploy"
           grep -Fq 'previous OpenClash state restored' "$deploy"
-          grep -Fq 'rm -rf \' "$deploy"
+          grep -Fq '    rm -rf' "$deploy"
           grep -Fq 'OpenClash core: disabled by restored configuration' "$deploy"
           grep -Fq 'The complete sysupgrade archive was not restored automatically.' "$deploy"
           grep -Fq 'redundant OpenClash core already exists in overlay' "$deploy"
