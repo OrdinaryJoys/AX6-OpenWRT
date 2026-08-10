@@ -11,6 +11,9 @@ grep -Fq 'ip route get' "$SCRIPT"
 grep -Fq 'lan_to_wan' "$SCRIPT"
 grep -Fq 'wan_to_lan' "$SCRIPT"
 grep -Fq 'bidirectional' "$SCRIPT"
+grep -Fq 'AX6_PROTOCOL' "$SCRIPT"
+grep -Fq 'AX6_UDP_RATE' "$SCRIPT"
+grep -Fq 'LAN-client route does not use AX6 as gateway' "$SCRIPT"
 grep -Fq 'args+=(-R)' "$SCRIPT"
 grep -Fq 'args+=(--bidir)' "$SCRIPT"
 grep -Fq 'nss-check -q' "$SCRIPT"
@@ -44,9 +47,14 @@ case " ${*} " in
     *' --help '*) echo '  --bidir test in both directions'; exit 0 ;;
     *' --version '*) echo 'iperf 3.fixture'; exit 0 ;;
 esac
+[ -z "${AX6_FAKE_IPERF_ARGS:-}" ] || printf '%s\n' "$*" >> "$AX6_FAKE_IPERF_ARGS"
 cat <<'JSON'
-{"start":{"version":"iperf 3.fixture"},"end":{"sum_sent":{"bits_per_second":900000000,"retransmits":0},"sum_received":{"bits_per_second":895000000},"sum_sent_bidir_reverse":{"bits_per_second":880000000,"retransmits":1},"sum_received_bidir_reverse":{"bits_per_second":875000000}}}
+{"start":{"version":"iperf 3.fixture"},"end":{"sum_sent":{"bits_per_second":900000000,"retransmits":0},"sum_received":{"bits_per_second":895000000,"lost_packets":2,"packets":100002,"lost_percent":0.002,"jitter_ms":0.15},"sum_sent_bidir_reverse":{"bits_per_second":880000000,"retransmits":1},"sum_received_bidir_reverse":{"bits_per_second":875000000,"lost_packets":3,"packets":100003,"lost_percent":0.003,"jitter_ms":0.16}}}
 JSON
+EOF
+cat > "$TMP/bin/ip" <<'EOF'
+#!/bin/sh
+echo '203.0.113.2 via 192.168.5.1 dev eth0 src 192.168.5.2'
 EOF
 cat > "$TMP/bin/ping" <<'EOF'
 #!/bin/sh
@@ -57,7 +65,7 @@ cat > "$TMP/bin/nc" <<'EOF'
 #!/bin/sh
 exit 0
 EOF
-chmod +x "$TMP/bin/ssh" "$TMP/bin/iperf3" "$TMP/bin/ping" "$TMP/bin/nc"
+chmod +x "$TMP/bin/ssh" "$TMP/bin/iperf3" "$TMP/bin/ping" "$TMP/bin/nc" "$TMP/bin/ip"
 
 PATH="$TMP/bin:$PATH" \
 AX6_IPERF_TARGET=203.0.113.2 \
@@ -81,6 +89,21 @@ bash "$SCRIPT" run --confirm-load-test > "$TMP/run"
 SUMMARY=$(find "$TMP/results" -name summary.tsv -type f | head -n 1)
 RESULT=$(find "$TMP/results" -name result.txt -type f | head -n 1)
 [ "$(wc -l < "$SUMMARY" | tr -d ' ')" -eq 4 ]
-awk -F '\t' '$1 == "bidirectional" && $6 == "880.000" && $7 == "875.000" && $8 == "1" && $9 == "iperf 3.fixture" { found=1 } END { exit !found }' "$SUMMARY"
+awk -F '\t' '$1 == "tcp" && $3 == "bidirectional" && $8 == "880.000" && $9 == "875.000" && $10 == "1" && $15 == "3" && $17 == "0.003000" && $19 == "iperf 3.fixture" { found=1 } END { exit !found }' "$SUMMARY"
 grep -Fq 'result=COMPLETE boot_id=fixture-boot-id' "$RESULT"
+
+PATH="$TMP/bin:$PATH" \
+AX6_IPERF_TARGET=203.0.113.2 \
+AX6_BUILD_COMMIT=193e5fbc276e \
+AX6_EXPECTED_SOURCE_REVISION=r0-test \
+AX6_EXPECT_WAN_DEVICE=wan \
+AX6_SSH_KEY="$TMP/key" \
+AX6_RUNS=1 AX6_DURATION=10 AX6_RESULT_DIR="$TMP/udp-results" \
+AX6_PROTOCOL=udp AX6_UDP_RATE=500M AX6_FAKE_IPERF_ARGS="$TMP/iperf-args" \
+bash "$SCRIPT" run --confirm-load-test > "$TMP/udp-run"
+grep -Fq -- '-u' "$TMP/iperf-args"
+grep -Fq -- '-b 500M' "$TMP/iperf-args"
+grep -Fq -- '--udp-counters-64bit' "$TMP/iperf-args"
+UDP_SUMMARY=$(find "$TMP/udp-results" -name summary.tsv -type f | head -n 1)
+awk -F '\t' '$1 == "udp" && $2 == "500M" && $11 == "2" && $13 == "0.002000" && $14 == "0.150000" { found=1 } END { exit !found }' "$UDP_SUMMARY"
 echo "test-ax6-routed-perf-fixture: PASS"

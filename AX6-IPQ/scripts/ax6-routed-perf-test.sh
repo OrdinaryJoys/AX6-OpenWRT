@@ -25,7 +25,8 @@ Recommended environment:
 
 Optional environment:
   AX6_ROUTER_IP, AX6_SSH_KEY, AX6_IPERF_PORT, AX6_RUNS,
-  AX6_DURATION, AX6_PARALLEL, AX6_RESULT_DIR
+  AX6_DURATION, AX6_PARALLEL, AX6_RESULT_DIR,
+  AX6_PROTOCOL=tcp|udp, AX6_UDP_RATE=100M|300M|500M|700M|900M
 
 The script never changes router configuration and never starts an iperf3
 server on the router. Start the server on the WAN-side endpoint first.
@@ -44,12 +45,14 @@ IPERF_PORT="${AX6_IPERF_PORT:-15211}"
 RUNS="${AX6_RUNS:-3}"
 DURATION="${AX6_DURATION:-60}"
 PARALLEL="${AX6_PARALLEL:-1}"
+PROTOCOL="${AX6_PROTOCOL:-tcp}"
+UDP_RATE="${AX6_UDP_RATE:-}"
 BUILD_COMMIT="${AX6_BUILD_COMMIT:-}"
 EXPECTED_SOURCE_REVISION="${AX6_EXPECTED_SOURCE_REVISION:-}"
 EXPECTED_WAN_DEVICE="${AX6_EXPECT_WAN_DEVICE:-}"
 RESULT_DIR="${AX6_RESULT_DIR:-$PWD/ax6-routed-results}"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-RUN_DIR="$RESULT_DIR/$TIMESTAMP"
+RUN_DIR="$RESULT_DIR/$TIMESTAMP-$PROTOCOL${UDP_RATE:+-$UDP_RATE}"
 SUMMARY="$RUN_DIR/summary.tsv"
 
 SSH=(ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i "$SSH_KEY" "root@$ROUTER_IP")
@@ -98,6 +101,14 @@ validate_inputs() {
         [[ "$EXPECTED_WAN_DEVICE" =~ ^[a-zA-Z0-9_.:-]+$ ]] ||
             die "AX6_EXPECTED_WAN_DEVICE contains invalid characters"
     fi
+    case "$PROTOCOL" in
+        tcp) [ -z "$UDP_RATE" ] || die "AX6_UDP_RATE is only valid with AX6_PROTOCOL=udp" ;;
+        udp)
+            [[ "$UDP_RATE" =~ ^[1-9][0-9]*[KMG]$ ]] ||
+                die "UDP mode requires AX6_UDP_RATE such as 500M"
+            ;;
+        *) die "AX6_PROTOCOL must be tcp or udp" ;;
+    esac
     for value in "$IPERF_PORT" "$RUNS" "$DURATION" "$PARALLEL"; do
         is_uint "$value" || die "numeric test settings must be unsigned integers"
     done
@@ -127,10 +138,22 @@ router_route() {
     router_cmd "ip route get '$IPERF_TARGET' 2>/dev/null | head -n 1"
 }
 
+client_route() {
+    if command -v ip >/dev/null 2>&1; then
+        ip route get "$IPERF_TARGET" 2>/dev/null | head -n 1
+    elif command -v route >/dev/null 2>&1; then
+        route -n get "$IPERF_TARGET" 2>/dev/null |
+            awk '/^[[:space:]]*gateway:/{print "gateway " $2; exit}'
+    else
+        die "LAN client needs iproute2 or route to prove the test path"
+    fi
+}
+
 preflight() {
-    local revision route
+    local revision route local_route
     revision=$(router_revision) || die "router SSH/revision check failed"
     route=$(router_route) || die "router has no route to $IPERF_TARGET"
+    local_route=$(client_route) || die "LAN client has no route to $IPERF_TARGET"
 
     if [ -n "$EXPECTED_SOURCE_REVISION" ] &&
        [ "$revision" != "$EXPECTED_SOURCE_REVISION" ]; then
@@ -145,6 +168,10 @@ preflight() {
        ! grep -Eq "(^| )dev ${EXPECTED_WAN_DEVICE}( |$)" <<<"$route"; then
         die "target route does not use expected device $EXPECTED_WAN_DEVICE: $route"
     fi
+    case "$local_route" in
+        *" via $ROUTER_IP "*|*" via $ROUTER_IP"|"gateway $ROUTER_IP") ;;
+        *) die "LAN-client route does not use AX6 as gateway: $local_route" ;;
+    esac
 
     echo "mode=$MODE"
     echo "router=$ROUTER_IP"
@@ -152,6 +179,8 @@ preflight() {
     echo "build_repo_commit=$BUILD_COMMIT"
     echo "iperf_target=$IPERF_TARGET:$IPERF_PORT"
     echo "router_route=$route"
+    echo "client_route=$local_route"
+    echo "protocol=$PROTOCOL udp_rate=${UDP_RATE:-not_applicable}"
     echo "runs=$RUNS duration=$DURATION parallel=$PARALLEL"
     iperf3 --version 2>&1 | head -n 1 | sed 's/^/iperf_client_version=/'
 
@@ -216,21 +245,33 @@ stop_last_ping() {
 record_result() {
     local direction="$1" repetition="$2" json="$3"
     local sent received retrans reverse_sent reverse_received reverse_retrans version
+    local lost packets lost_percent jitter reverse_lost reverse_packets reverse_lost_percent reverse_jitter
     sent=$(jq -r '(.end.sum_sent.bits_per_second // 0) / 1000000' "$json")
     received=$(jq -r '(.end.sum_received.bits_per_second // 0) / 1000000' "$json")
     retrans=$(jq -r '.end.sum_sent.retransmits // 0' "$json")
     reverse_sent=$(jq -r '(.end.sum_sent_bidir_reverse.bits_per_second // 0) / 1000000' "$json")
     reverse_received=$(jq -r '(.end.sum_received_bidir_reverse.bits_per_second // 0) / 1000000' "$json")
     reverse_retrans=$(jq -r '.end.sum_sent_bidir_reverse.retransmits // 0' "$json")
+    lost=$(jq -r '.end.sum_received.lost_packets // 0' "$json")
+    packets=$(jq -r '.end.sum_received.packets // 0' "$json")
+    lost_percent=$(jq -r '.end.sum_received.lost_percent // 0' "$json")
+    jitter=$(jq -r '.end.sum_received.jitter_ms // 0' "$json")
+    reverse_lost=$(jq -r '.end.sum_received_bidir_reverse.lost_packets // 0' "$json")
+    reverse_packets=$(jq -r '.end.sum_received_bidir_reverse.packets // 0' "$json")
+    reverse_lost_percent=$(jq -r '.end.sum_received_bidir_reverse.lost_percent // 0' "$json")
+    reverse_jitter=$(jq -r '.end.sum_received_bidir_reverse.jitter_ms // 0' "$json")
     version=$(jq -r '.start.version // "unknown"' "$json")
     if [ "$direction" = bidirectional ] &&
        { [ "$reverse_sent" = 0 ] || [ "$reverse_received" = 0 ]; }; then
         echo "INCOMPLETE: iperf3 JSON lacks bidirectional reverse-channel summaries" >&2
         return 1
     fi
-    printf '%s\t%s\t%.3f\t%.3f\t%s\t%.3f\t%.3f\t%s\t%s\t%s\n' \
-        "$direction" "$repetition" "$sent" "$received" "$retrans" \
-        "$reverse_sent" "$reverse_received" "$reverse_retrans" "$version" "$json" >> "$SUMMARY"
+    printf '%s\t%s\t%s\t%s\t%.3f\t%.3f\t%s\t%.3f\t%.3f\t%s\t%s\t%s\t%.6f\t%.6f\t%s\t%s\t%.6f\t%.6f\t%s\t%s\n' \
+        "$PROTOCOL" "${UDP_RATE:-none}" "$direction" "$repetition" \
+        "$sent" "$received" "$retrans" "$reverse_sent" "$reverse_received" "$reverse_retrans" \
+        "$lost" "$packets" "$lost_percent" "$jitter" \
+        "$reverse_lost" "$reverse_packets" "$reverse_lost_percent" "$reverse_jitter" \
+        "$version" "$json" >> "$SUMMARY"
 }
 
 run_one() {
@@ -238,6 +279,10 @@ run_one() {
     local label="${direction}-${repetition}"
     local json="$RUN_DIR/iperf-${label}.json"
     local -a args=(-c "$IPERF_TARGET" -p "$IPERF_PORT" -t "$DURATION" -P "$PARALLEL" -J)
+
+    if [ "$PROTOCOL" = udp ]; then
+        args+=(-u -b "$UDP_RATE" --udp-counters-64bit)
+    fi
 
     case "$direction" in
         lan_to_wan) ;;
@@ -268,7 +313,7 @@ run_suite() {
         die "run mode requires AX6_EXPECTED_SOURCE_REVISION"
 
     mkdir -p "$RUN_DIR"
-    printf 'direction\trepetition\tsent_mbps\treceived_mbps\tretransmits\treverse_sent_mbps\treverse_received_mbps\treverse_retransmits\tiperf_version\tjson\n' > "$SUMMARY"
+    printf 'protocol\tudp_rate\tdirection\trepetition\tsent_mbps\treceived_mbps\tretransmits\treverse_sent_mbps\treverse_received_mbps\treverse_retransmits\tlost_packets\tpackets\tlost_percent\tjitter_ms\treverse_lost_packets\treverse_packets\treverse_lost_percent\treverse_jitter_ms\tiperf_version\tjson\n' > "$SUMMARY"
     preflight | tee "$RUN_DIR/preflight.txt"
     boot_start=$(router_boot_id)
     collect_router_snapshot before
