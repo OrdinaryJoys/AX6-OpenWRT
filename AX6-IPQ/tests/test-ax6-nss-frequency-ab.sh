@@ -10,6 +10,8 @@ grep -Fq '1689600000' "$SCRIPT"
 grep -Fq 'auto_scale)" = 0' "$SCRIPT"
 grep -Fq 'previous_freq=' "$SCRIPT"
 grep -Fq 'router rebooted; do not restore' "$SCRIPT"
+grep -Fq 'state source revision does not match' "$SCRIPT"
+grep -Fq 'state build commit does not match' "$SCRIPT"
 grep -Fq '/proc/sys/dev/nss/clock/current_freq' "$SCRIPT"
 if grep -Eq 'uci([[:space:]]+-q)?[[:space:]]+(set|commit)|/etc/config/' "$SCRIPT"; then
     echo "frequency A/B helper must not persist router configuration" >&2
@@ -54,6 +56,16 @@ PATH="$TMP/bin:$PATH" AX6_FAKE_FREQ_FILE="$TMP/frequency" \
 AX6_SSH_KEY="$TMP/key" AX6_EXPECTED_SOURCE_REVISION=r0-test \
 AX6_BUILD_COMMIT=193e5fbc276e AX6_FREQ_STATE_FILE="$TMP/state" \
 bash "$SCRIPT" set high --confirm-runtime-write > "$TMP/high"
+[ "$(cat "$TMP/frequency")" = 1689600000 ]
+
+if PATH="$TMP/bin:$PATH" AX6_FAKE_FREQ_FILE="$TMP/frequency" \
+    AX6_SSH_KEY="$TMP/key" AX6_EXPECTED_SOURCE_REVISION=r0-test \
+    AX6_BUILD_COMMIT=deadbeef AX6_FREQ_STATE_FILE="$TMP/state" \
+    bash "$SCRIPT" restore --confirm-runtime-write > "$TMP/wrong-restore" 2>&1; then
+    echo "restore accepted a state file from a different build identity" >&2
+    exit 1
+fi
+grep -Fq 'state build commit does not match' "$TMP/wrong-restore"
 [ "$(cat "$TMP/frequency")" = 1689600000 ]
 
 PATH="$TMP/bin:$PATH" AX6_FAKE_FREQ_FILE="$TMP/frequency" \

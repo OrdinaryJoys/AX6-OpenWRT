@@ -40,8 +40,12 @@ esac
 EOF
 cat > "$TMP/bin/iperf3" <<'EOF'
 #!/bin/sh
+case " ${*} " in
+    *' --help '*) echo '  --bidir test in both directions'; exit 0 ;;
+    *' --version '*) echo 'iperf 3.fixture'; exit 0 ;;
+esac
 cat <<'JSON'
-{"end":{"sum_sent":{"bits_per_second":900000000,"retransmits":0},"sum_received":{"bits_per_second":895000000}}}
+{"start":{"version":"iperf 3.fixture"},"end":{"sum_sent":{"bits_per_second":900000000,"retransmits":0},"sum_received":{"bits_per_second":895000000},"sum_sent_bidir_reverse":{"bits_per_second":880000000,"retransmits":1},"sum_received_bidir_reverse":{"bits_per_second":875000000}}}
 JSON
 EOF
 cat > "$TMP/bin/ping" <<'EOF'
@@ -77,5 +81,6 @@ bash "$SCRIPT" run --confirm-load-test > "$TMP/run"
 SUMMARY=$(find "$TMP/results" -name summary.tsv -type f | head -n 1)
 RESULT=$(find "$TMP/results" -name result.txt -type f | head -n 1)
 [ "$(wc -l < "$SUMMARY" | tr -d ' ')" -eq 4 ]
+awk -F '\t' '$1 == "bidirectional" && $6 == "880.000" && $7 == "875.000" && $8 == "1" && $9 == "iperf 3.fixture" { found=1 } END { exit !found }' "$SUMMARY"
 grep -Fq 'result=COMPLETE boot_id=fixture-boot-id' "$RESULT"
 echo "test-ax6-routed-perf-fixture: PASS"

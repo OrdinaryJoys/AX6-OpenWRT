@@ -94,6 +94,10 @@ validate_inputs() {
     [ -n "$BUILD_COMMIT" ] || die "set AX6_BUILD_COMMIT"
     [[ "$BUILD_COMMIT" =~ ^[0-9a-f]{7,40}$ ]] ||
         die "AX6_BUILD_COMMIT must be a Git commit ID"
+    if [ -n "$EXPECTED_WAN_DEVICE" ]; then
+        [[ "$EXPECTED_WAN_DEVICE" =~ ^[a-zA-Z0-9_.:-]+$ ]] ||
+            die "AX6_EXPECTED_WAN_DEVICE contains invalid characters"
+    fi
     for value in "$IPERF_PORT" "$RUNS" "$DURATION" "$PARALLEL"; do
         is_uint "$value" || die "numeric test settings must be unsigned integers"
     done
@@ -107,6 +111,8 @@ validate_inputs() {
     [ -r "$SSH_KEY" ] || die "SSH key is not readable: $SSH_KEY"
     command -v iperf3 >/dev/null || die "iperf3 is required on the LAN client"
     command -v jq >/dev/null || die "jq is required on the LAN client"
+    iperf3 --help 2>&1 | grep -q -- '--bidir' ||
+        die "LAN-client iperf3 does not support --bidir"
 }
 
 router_revision() {
@@ -147,6 +153,7 @@ preflight() {
     echo "iperf_target=$IPERF_TARGET:$IPERF_PORT"
     echo "router_route=$route"
     echo "runs=$RUNS duration=$DURATION parallel=$PARALLEL"
+    iperf3 --version 2>&1 | head -n 1 | sed 's/^/iperf_client_version=/'
 
     if command -v nc >/dev/null 2>&1; then
         nc -z -w 3 "$IPERF_TARGET" "$IPERF_PORT" ||
@@ -208,12 +215,22 @@ stop_last_ping() {
 
 record_result() {
     local direction="$1" repetition="$2" json="$3"
-    local sent received retrans
+    local sent received retrans reverse_sent reverse_received reverse_retrans version
     sent=$(jq -r '(.end.sum_sent.bits_per_second // 0) / 1000000' "$json")
     received=$(jq -r '(.end.sum_received.bits_per_second // 0) / 1000000' "$json")
     retrans=$(jq -r '.end.sum_sent.retransmits // 0' "$json")
-    printf '%s\t%s\t%.3f\t%.3f\t%s\t%s\n' \
-        "$direction" "$repetition" "$sent" "$received" "$retrans" "$json" >> "$SUMMARY"
+    reverse_sent=$(jq -r '(.end.sum_sent_bidir_reverse.bits_per_second // 0) / 1000000' "$json")
+    reverse_received=$(jq -r '(.end.sum_received_bidir_reverse.bits_per_second // 0) / 1000000' "$json")
+    reverse_retrans=$(jq -r '.end.sum_sent_bidir_reverse.retransmits // 0' "$json")
+    version=$(jq -r '.start.version // "unknown"' "$json")
+    if [ "$direction" = bidirectional ] &&
+       { [ "$reverse_sent" = 0 ] || [ "$reverse_received" = 0 ]; }; then
+        echo "INCOMPLETE: iperf3 JSON lacks bidirectional reverse-channel summaries" >&2
+        return 1
+    fi
+    printf '%s\t%s\t%.3f\t%.3f\t%s\t%.3f\t%.3f\t%s\t%s\t%s\n' \
+        "$direction" "$repetition" "$sent" "$received" "$retrans" \
+        "$reverse_sent" "$reverse_received" "$reverse_retrans" "$version" "$json" >> "$SUMMARY"
 }
 
 run_one() {
@@ -240,7 +257,7 @@ run_one() {
         echo "INCOMPLETE: iperf3 reported an error for $label" >&2
         return 1
     fi
-    record_result "$direction" "$repetition" "$json"
+    record_result "$direction" "$repetition" "$json" || return 1
 }
 
 run_suite() {
@@ -251,7 +268,7 @@ run_suite() {
         die "run mode requires AX6_EXPECTED_SOURCE_REVISION"
 
     mkdir -p "$RUN_DIR"
-    printf 'direction\trepetition\tsent_mbps\treceived_mbps\tretransmits\tjson\n' > "$SUMMARY"
+    printf 'direction\trepetition\tsent_mbps\treceived_mbps\tretransmits\treverse_sent_mbps\treverse_received_mbps\treverse_retransmits\tiperf_version\tjson\n' > "$SUMMARY"
     preflight | tee "$RUN_DIR/preflight.txt"
     boot_start=$(router_boot_id)
     collect_router_snapshot before

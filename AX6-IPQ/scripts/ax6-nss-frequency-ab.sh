@@ -109,14 +109,21 @@ state_value() {
 }
 
 restore() {
-    local state_boot current_boot previous applied
+    local state_boot current_boot previous applied state_revision state_build
     [ "$CONFIRMED" -eq 1 ] ||
         die "restore requires --confirm-runtime-write"
     [ -r "$STATE_FILE" ] || die "state file is missing: $STATE_FILE"
+    require_test_identity
     applied=$(state_value applied)
     [ "$applied" = 1 ] || die "state file does not record a completed write"
     state_boot=$(state_value boot_id)
+    state_revision=$(state_value source_revision)
+    state_build=$(state_value build_repo_commit)
     previous=$(state_value previous_freq)
+    [ "$state_revision" = "$EXPECTED_SOURCE_REVISION" ] ||
+        die "state source revision does not match the requested test identity"
+    [ "$state_build" = "$BUILD_COMMIT" ] ||
+        die "state build commit does not match the requested test identity"
     current_boot=$(router_cmd "cat /proc/sys/kernel/random/boot_id")
     [ "$state_boot" = "$current_boot" ] ||
         die "router rebooted; do not restore a value from the previous boot"
