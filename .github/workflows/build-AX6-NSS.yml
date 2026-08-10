@@ -522,6 +522,7 @@ jobs:
         run: |
           set -eo pipefail
           sh tests/test-edma-correctness-prerequisites.sh
+          sh tests/test-apcs-regmap-boundary.sh
           echo "=== qca-nss-dp prepare (patch apply check) ==="
           make package/qca-nss/qca-nss-dp/prepare V=s
           echo "=== qca-nss-drv prepare (patch apply check) ==="
