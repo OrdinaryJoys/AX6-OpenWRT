@@ -223,6 +223,10 @@ jobs:
                 image-verify/openclash-keep || true
               exit 1
             }
+          unsquashfs -cat "$rootfs" etc/uci-defaults/luci-openclash \
+            > image-verify/luci-openclash-defaults
+          .github/scripts/enforce-openclash-keep-policy.sh check \
+            image-verify/luci-openclash-defaults
           unsquashfs -cat "$rootfs" etc/sysupgrade.conf \
             > image-verify/sysupgrade.conf
           cmp -s AX6-IPQ/files/etc/sysupgrade.conf image-verify/sysupgrade.conf || {

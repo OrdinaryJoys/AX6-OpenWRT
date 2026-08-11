@@ -37,6 +37,7 @@ jobs:
           sh tests/test-openclash-archive.sh
           sh tests/test-router-backup.sh
           sh tests/test-openclash-runtime-contract.sh
+          sh tests/test-openclash-keep-policy.sh
           sh tests/test-device-manifest.sh
           sh tests/test-zerotier-fw4.sh
           sh tests/test-zerotier-reconcile.sh
@@ -296,6 +297,7 @@ jobs:
               'etc/openclash/core/clash_meta' \
               'lib/upgrade/keep.d/luci-app-openclash' \
               'Final rootfs OpenClash keep policy is not config/custom/overwrite' \
+              'enforce-openclash-keep-policy.sh check' \
               'Final rootfs sysupgrade policy differs from the reviewed AX6 policy' \
               'usr/share/openclash/ui/metacubexd/index\.html' \
               'usr/share/openclash/ui/zashboard/index\.html' \

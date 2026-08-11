@@ -168,6 +168,8 @@ OPENCLASH_ACTUAL_VERSION=$(sed -n 's/^PKG_VERSION:=//p' \
   package/luci-app-openclash-source/luci-app-openclash/Makefile | head -1)
 mv package/luci-app-openclash-source/luci-app-openclash package/luci-app-openclash
 rm -rf package/luci-app-openclash-source
+"$REPO_ROOT/.github/scripts/enforce-openclash-keep-policy.sh" apply \
+  package/luci-app-openclash/root/etc/uci-defaults/luci-openclash
 "$REPO_ROOT/.github/scripts/inject-openclash-zerotier-hook.sh" \
   package/luci-app-openclash/root/etc/init.d/openclash
 "$REPO_ROOT/AX6-IPQ/scripts/check-openclash-runtime-contract.sh" \
