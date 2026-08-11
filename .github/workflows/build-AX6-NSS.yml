@@ -162,7 +162,7 @@ jobs:
             SOURCE_REPO SOURCE_TRACKING_BRANCH SOURCE_BASE_COMMIT SOURCE_COMMIT \
             SOURCE_PATCHSET_MANIFEST_SHA256 \
             SQM_SCRIPTS_NSS_URL SQM_SCRIPTS_NSS_COMMIT \
-            LUCI_FEED_URL LUCI_FEED_COMMIT \
+            LUCI_FEED_URL LUCI_FEED_TRACKING_BRANCH LUCI_FEED_COMMIT \
             PACKAGES_FEED_URL PACKAGES_FEED_COMMIT PACKAGES_FEED_POLICY \
             CGI_IO_SECURITY_BACKPORT_COMMIT \
             ROUTING_FEED_URL ROUTING_FEED_COMMIT \
@@ -409,13 +409,18 @@ jobs:
           set +a
           printf '%s\n' "$OPENCLASH_ACTUAL_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'
           for name in \
-            OPENCLASH_ACTUAL_COMMIT OPENCLASH_CORE_COMMIT \
+            OPENCLASH_RESOLVED_COMMIT OPENCLASH_ACTUAL_COMMIT \
+            OPENCLASH_CORE_COMMIT \
             METACUBEXD_COMMIT ZASHBOARD_COMMIT; do
             printf '%s\n' "${!name}" | grep -Eq '^[0-9a-f]{40}$' || {
               echo "::error::$name is not a full commit SHA"
               exit 1
             }
           done
+          [ "$OPENCLASH_ACTUAL_COMMIT" = "$OPENCLASH_RESOLVED_COMMIT" ] || {
+            echo "::error::OpenClash checked-out commit differs from the build-time resolved ref"
+            exit 1
+          }
           for name in \
             OPENCLASH_CORE_SHA256 METACUBEXD_ARCHIVE_SHA256 \
             ZASHBOARD_ARCHIVE_SHA256; do
@@ -425,7 +430,8 @@ jobs:
             }
           done
           for name in \
-            OPENCLASH_ACTUAL_VERSION OPENCLASH_ACTUAL_COMMIT \
+            OPENCLASH_ACTUAL_VERSION OPENCLASH_RESOLVED_COMMIT \
+            OPENCLASH_ACTUAL_COMMIT \
             OPENCLASH_CORE_COMMIT OPENCLASH_CORE_URL OPENCLASH_CORE_SHA256 \
             METACUBEXD_REPO METACUBEXD_REF METACUBEXD_COMMIT \
             METACUBEXD_ARCHIVE_SHA256 ZASHBOARD_REPO ZASHBOARD_REF \
@@ -1019,6 +1025,7 @@ jobs:
             echo "SQM_SCRIPTS_NSS_URL=$SQM_SCRIPTS_NSS_URL"
             echo "SQM_SCRIPTS_NSS_COMMIT=$SQM_SCRIPTS_NSS_COMMIT"
             echo "LUCI_FEED_URL=$LUCI_FEED_URL"
+            echo "LUCI_FEED_TRACKING_BRANCH=$LUCI_FEED_TRACKING_BRANCH"
             echo "LUCI_FEED_COMMIT=$LUCI_FEED_COMMIT"
             echo "PACKAGES_FEED_URL=$PACKAGES_FEED_URL"
             echo "PACKAGES_FEED_COMMIT=$PACKAGES_FEED_COMMIT"
@@ -1037,6 +1044,7 @@ jobs:
             echo "OPENCLASH_URL=$OPENCLASH_URL"
             echo "OPENCLASH_REF=$OPENCLASH_REF"
             echo "OPENCLASH_ACTUAL_VERSION=$OPENCLASH_ACTUAL_VERSION"
+            echo "OPENCLASH_RESOLVED_COMMIT=$OPENCLASH_RESOLVED_COMMIT"
             echo "OPENCLASH_ACTUAL_COMMIT=$OPENCLASH_ACTUAL_COMMIT"
             echo "OPENCLASH_CORE_COMMIT=$OPENCLASH_CORE_COMMIT"
             echo "OPENCLASH_CORE_URL=$OPENCLASH_CORE_URL"

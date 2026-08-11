@@ -162,7 +162,7 @@ jobs:
             SOURCE_REPO SOURCE_TRACKING_BRANCH SOURCE_BASE_COMMIT SOURCE_COMMIT \
             SOURCE_PATCHSET_MANIFEST_SHA256 \
             SQM_SCRIPTS_NSS_URL SQM_SCRIPTS_NSS_COMMIT \
-            LUCI_FEED_URL LUCI_FEED_COMMIT \
+            LUCI_FEED_URL LUCI_FEED_TRACKING_BRANCH LUCI_FEED_COMMIT \
             PACKAGES_FEED_URL PACKAGES_FEED_COMMIT PACKAGES_FEED_POLICY \
             CGI_IO_SECURITY_BACKPORT_COMMIT \
             ROUTING_FEED_URL ROUTING_FEED_COMMIT \
@@ -242,8 +242,10 @@ jobs:
           grep -Fq 'CONFIG_ATH11K_NSS_MESH_SUPPORT) += ATH11K_NSS_MESH_SUPPORT' "$workflow"
           grep -Fq 'CONFIG_ATH11K_NSS_SUPPORT) += ATH11K_NSS_SUPPORT' "$workflow"
           grep -Fq 'ATH11K_NSS_SUPPORT must not force ATH11K_NSS_MESH_SUPPORT' "$workflow"
-          # shellcheck disable=SC2016 # Match the literal tracking-source expression in diy.sh.
-          grep -Fq 'clone_tracking "$OPENCLASH_URL" "${OPENCLASH_REF:-master}"' AX6-IPQ/diy.sh
+          # shellcheck disable=SC2016 # Match literal build-time OpenClash resolution.
+          grep -Fq 'OPENCLASH_RESOLVED_COMMIT=$(resolve_branch_commit "$OPENCLASH_URL" "${OPENCLASH_REF:-master}")' AX6-IPQ/diy.sh
+          grep -Fq 'clone_locked "$OPENCLASH_URL" "$OPENCLASH_RESOLVED_COMMIT" package/luci-app-openclash-source' AX6-IPQ/diy.sh
+          grep -Fq '[ "$OPENCLASH_ACTUAL_COMMIT" = "$OPENCLASH_RESOLVED_COMMIT" ]' AX6-IPQ/diy.sh
           if grep -Eq 'OPENCLASH_(COMMIT|VERSION)' .github/ax6-nss-lock.env AX6-IPQ/diy.sh; then
             echo "::error::OpenClash plugin must track upstream ref, not a pinned plugin version"
             exit 1
@@ -277,6 +279,7 @@ jobs:
             for required in \
               'Verify tracked OpenClash inputs' \
               'OPENCLASH_ACTUAL_VERSION' \
+              'OPENCLASH_RESOLVED_COMMIT' \
               'OPENCLASH_ACTUAL_COMMIT' \
               'OPENCLASH_CORE_COMMIT' \
               'OPENCLASH_CORE_SHA256' \

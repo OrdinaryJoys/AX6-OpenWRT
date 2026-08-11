@@ -24,21 +24,6 @@ clone_locked() {
   }
 }
 
-clone_tracking() {
-  url="$1"
-  ref="$2"
-  destination="$3"
-  [ -n "$url" ] && [ -n "$ref" ] || {
-    echo "[diy.sh] missing tracked source for $destination" >&2
-    exit 2
-  }
-  rm -rf "$destination"
-  git init -q "$destination"
-  git -C "$destination" remote add origin "$url"
-  git -C "$destination" fetch -q --depth 1 origin "$ref"
-  git -C "$destination" checkout -q --detach FETCH_HEAD
-}
-
 resolve_branch_commit() {
   repo="$1"
   branch="$2"
@@ -168,12 +153,17 @@ for dash in \
 	echo "[diy.sh] $name dashboard installed"
 done
 
-# The locked LuCI feed may lag OpenClash. Track the official upstream package
-# ref so rebuilds receive the latest plugin while driver/kernel inputs remain
-# fixed and reviewable.
+# Track the official OpenClash branch without pinning a plugin version in the
+# repository. Resolve it once per build, then fetch that immutable commit so a
+# moving branch cannot mix two plugin revisions within one artifact.
 rm -rf package/feeds/luci/luci-app-openclash
-clone_tracking "$OPENCLASH_URL" "${OPENCLASH_REF:-master}" package/luci-app-openclash-source
+OPENCLASH_RESOLVED_COMMIT=$(resolve_branch_commit "$OPENCLASH_URL" "${OPENCLASH_REF:-master}")
+clone_locked "$OPENCLASH_URL" "$OPENCLASH_RESOLVED_COMMIT" package/luci-app-openclash-source
 OPENCLASH_ACTUAL_COMMIT=$(git -C package/luci-app-openclash-source rev-parse HEAD)
+[ "$OPENCLASH_ACTUAL_COMMIT" = "$OPENCLASH_RESOLVED_COMMIT" ] || {
+  echo "[diy.sh] OpenClash resolved/checked-out commit mismatch" >&2
+  exit 2
+}
 OPENCLASH_ACTUAL_VERSION=$(sed -n 's/^PKG_VERSION:=//p' \
   package/luci-app-openclash-source/luci-app-openclash/Makefile | head -1)
 mv package/luci-app-openclash-source/luci-app-openclash package/luci-app-openclash
@@ -192,6 +182,7 @@ printf '%s\n' "$OPENCLASH_ACTUAL_COMMIT" | grep -Eq '^[0-9a-f]{40}$' || {
 }
 {
   echo "OPENCLASH_ACTUAL_VERSION=$OPENCLASH_ACTUAL_VERSION"
+  echo "OPENCLASH_RESOLVED_COMMIT=$OPENCLASH_RESOLVED_COMMIT"
   echo "OPENCLASH_ACTUAL_COMMIT=$OPENCLASH_ACTUAL_COMMIT"
   echo "OPENCLASH_CORE_COMMIT=$OPENCLASH_CORE_COMMIT"
   echo "OPENCLASH_CORE_URL=$CORE_URL"

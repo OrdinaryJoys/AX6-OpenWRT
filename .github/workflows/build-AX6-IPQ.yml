@@ -111,13 +111,18 @@ jobs:
           set +a
           printf '%s\n' "$OPENCLASH_ACTUAL_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'
           for name in \
-            OPENCLASH_ACTUAL_COMMIT OPENCLASH_CORE_COMMIT \
+            OPENCLASH_RESOLVED_COMMIT OPENCLASH_ACTUAL_COMMIT \
+            OPENCLASH_CORE_COMMIT \
             METACUBEXD_COMMIT ZASHBOARD_COMMIT; do
             printf '%s\n' "${!name}" | grep -Eq '^[0-9a-f]{40}$' || {
               echo "::error::$name is not a full commit SHA"
               exit 1
             }
           done
+          [ "$OPENCLASH_ACTUAL_COMMIT" = "$OPENCLASH_RESOLVED_COMMIT" ] || {
+            echo "::error::OpenClash checked-out commit differs from the build-time resolved ref"
+            exit 1
+          }
           for name in \
             OPENCLASH_CORE_SHA256 METACUBEXD_ARCHIVE_SHA256 \
             ZASHBOARD_ARCHIVE_SHA256; do
@@ -127,7 +132,8 @@ jobs:
             }
           done
           for name in \
-            OPENCLASH_ACTUAL_VERSION OPENCLASH_ACTUAL_COMMIT \
+            OPENCLASH_ACTUAL_VERSION OPENCLASH_RESOLVED_COMMIT \
+            OPENCLASH_ACTUAL_COMMIT \
             OPENCLASH_CORE_COMMIT OPENCLASH_CORE_URL OPENCLASH_CORE_SHA256 \
             METACUBEXD_REPO METACUBEXD_REF METACUBEXD_COMMIT \
             METACUBEXD_ARCHIVE_SHA256 ZASHBOARD_REPO ZASHBOARD_REF \
@@ -449,6 +455,7 @@ jobs:
             echo "OPENCLASH_URL=$OPENCLASH_URL"
             echo "OPENCLASH_REF=$OPENCLASH_REF"
             echo "OPENCLASH_ACTUAL_VERSION=$OPENCLASH_ACTUAL_VERSION"
+            echo "OPENCLASH_RESOLVED_COMMIT=$OPENCLASH_RESOLVED_COMMIT"
             echo "OPENCLASH_ACTUAL_COMMIT=$OPENCLASH_ACTUAL_COMMIT"
             echo "OPENCLASH_CORE_COMMIT=$OPENCLASH_CORE_COMMIT"
             echo "OPENCLASH_CORE_URL=$OPENCLASH_CORE_URL"
