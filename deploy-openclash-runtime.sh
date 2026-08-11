@@ -119,6 +119,8 @@ say "[1/5] Verify target and OpenClash installation"
 # shellcheck disable=SC2016 # This single-quoted block is evaluated by the router shell.
 remote '
     test -x /etc/init.d/openclash
+    test -x /sbin/ax6-config-audit
+    test -x /usr/sbin/ax6-openclash-dns-health
     test -d /etc/openclash
     test ! -L /etc/openclash
     for path in \
@@ -231,21 +233,34 @@ remote '
     enabled=$(uci -q get openclash.config.enable || echo 0)
     printf "OpenClash enabled: %s\n" "$enabled"
     if [ "$enabled" = "1" ]; then
-        retries=30
-        while ! pidof clash >/dev/null 2>&1 && [ "$retries" -gt 0 ]; do
+        retries=60
+        ready=0
+        while [ "$retries" -gt 0 ]; do
+            if pidof clash >/dev/null 2>&1; then
+                if [ -x /usr/bin/ax6-openclash-zerotier-bypass ]; then
+                    /usr/bin/ax6-openclash-zerotier-bypass >/dev/null 2>&1 || true
+                fi
+                if /usr/sbin/ax6-openclash-dns-health --probe >/dev/null 2>&1 &&
+                   /sbin/ax6-config-audit -q >/dev/null 2>&1; then
+                    ready=1
+                    break
+                fi
+            fi
             sleep 1
             retries=$((retries - 1))
         done
-        if pidof clash >/dev/null 2>&1; then
-            echo "OpenClash core: running"
+        if [ "$ready" -eq 1 ]; then
+            echo "OpenClash core, DNS and firewall contract: ready"
         else
-            echo "OpenClash core: not running after 30 seconds; inspect /tmp/openclash.log" >&2
+            echo "OpenClash did not reach a fully audited state after 60 seconds" >&2
+            /sbin/ax6-config-audit -v >&2 || true
+            tail -n 80 /tmp/openclash.log >&2 2>/dev/null || true
             exit 4
         fi
     else
         echo "OpenClash core: disabled by restored configuration"
     fi
-    [ ! -x /sbin/ax6-config-audit ] || ax6-config-audit -v || true
+    /sbin/ax6-config-audit -v
 '
 
 RESTORE_COMPLETE=1

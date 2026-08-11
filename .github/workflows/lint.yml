@@ -37,6 +37,7 @@ jobs:
           sh tests/test-openclash-archive.sh
           sh tests/test-router-backup.sh
           sh tests/test-openclash-runtime-contract.sh
+          sh tests/test-openclash-rom-core-guard.sh
           sh tests/test-openclash-keep-policy.sh
           sh tests/test-device-manifest.sh
           sh tests/test-zerotier-fw4.sh
@@ -704,6 +705,7 @@ jobs:
           zt_bypass=AX6-IPQ/files/usr/bin/ax6-openclash-zerotier-bypass
           zt_init=AX6-IPQ/files/etc/init.d/ax6-zerotier-reconcile
           openclash_contract=AX6-IPQ/scripts/check-openclash-runtime-contract.sh
+          openclash_core_guard=.github/scripts/inject-openclash-rom-core-guard.sh
           test -x "$audit"
           test -x "$vlan"
           test -x "$zt_fw4"
@@ -711,6 +713,7 @@ jobs:
           test -x "$zt_bypass"
           test -x "$zt_init"
           test -x "$openclash_contract"
+          test -x "$openclash_core_guard"
           if grep -Eq 'uci[[:space:]].*(set|delete|del|commit)|/etc/init\.d/.*(restart|reload)' "$audit"; then
             echo "::error file=$audit::scenario audit must remain read-only"
             exit 1
@@ -791,7 +794,9 @@ jobs:
           test -x .github/scripts/inject-openclash-zerotier-hook.sh
           grep -Fq 'openclash_mangle_output_v6' "$zt_bypass"
           grep -Fq 'inject-openclash-zerotier-hook.sh' AX6-IPQ/diy.sh
+          grep -Fq 'inject-openclash-rom-core-guard.sh" apply' AX6-IPQ/diy.sh
           grep -Fq 'check-openclash-runtime-contract.sh' AX6-IPQ/diy.sh
+          grep -Fq 'unconditional start_run_core chown' "$openclash_contract"
           grep -Fq 'disabled-mode residual redirect cleanup' "$openclash_contract"
           grep -Fq 'fw4 DNS hijack family check' "$openclash_contract"
           grep -Fq 'S91ax6-zerotier-reconcile' AX6-IPQ/diy.sh
@@ -801,6 +806,8 @@ jobs:
             grep -Fq "'etc/init\\.d/ax6-zerotier-reconcile'" "$workflow"
             # shellcheck disable=SC2016 # Match the rootfs gate's literal runtime variable.
             grep -Fq 'nft -c -f "$TRANSACTION"' "$workflow"
+            grep -Fq 'inject-openclash-rom-core-guard.sh check' "$workflow"
+            grep -Fq 'check-openclash-runtime-contract.sh' "$workflow"
           done
           # shellcheck disable=SC2016 # Match vlan-add literal awk field reference.
           grep -Fq '/=zone$/{print $2}' "$vlan"
@@ -853,6 +860,13 @@ jobs:
           grep -Fq 'previous OpenClash state restored' "$deploy"
           grep -Fq '    rm -rf' "$deploy"
           grep -Fq 'OpenClash core: disabled by restored configuration' "$deploy"
+          grep -Fq 'OpenClash core, DNS and firewall contract: ready' "$deploy"
+          grep -Fq '/sbin/ax6-config-audit -q' "$deploy"
+          grep -Fq '/sbin/ax6-config-audit -v' "$deploy"
+          if grep -Fq 'ax6-config-audit -v || true' "$deploy"; then
+            echo "::error file=$deploy::restore must not ignore final configuration audit failures"
+            exit 1
+          fi
           grep -Fq 'The complete sysupgrade archive was not restored automatically.' "$deploy"
           grep -Fq 'redundant OpenClash core already exists in overlay' "$deploy"
           grep -Fq 'overlay contains a redundant' AX6-IPQ/files/sbin/ax6-config-audit

@@ -689,6 +689,12 @@ jobs:
             > image-verify/luci-openclash-defaults
           .github/scripts/enforce-openclash-keep-policy.sh check \
             image-verify/luci-openclash-defaults
+          unsquashfs -cat "$rootfs" etc/init.d/openclash \
+            > image-verify/openclash-init
+          .github/scripts/inject-openclash-rom-core-guard.sh check \
+            image-verify/openclash-init
+          AX6-IPQ/scripts/check-openclash-runtime-contract.sh \
+            image-verify/openclash-init
           unsquashfs -cat "$rootfs" etc/sysupgrade.conf \
             > image-verify/sysupgrade.conf
           cmp -s AX6-IPQ/files/etc/sysupgrade.conf image-verify/sysupgrade.conf || {

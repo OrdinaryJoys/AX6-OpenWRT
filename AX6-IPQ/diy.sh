@@ -172,6 +172,8 @@ rm -rf package/luci-app-openclash-source
   package/luci-app-openclash/root/etc/uci-defaults/luci-openclash
 "$REPO_ROOT/.github/scripts/inject-openclash-zerotier-hook.sh" \
   package/luci-app-openclash/root/etc/init.d/openclash
+"$REPO_ROOT/.github/scripts/inject-openclash-rom-core-guard.sh" apply \
+  package/luci-app-openclash/root/etc/init.d/openclash
 "$REPO_ROOT/AX6-IPQ/scripts/check-openclash-runtime-contract.sh" \
   package/luci-app-openclash/root/etc/init.d/openclash
 printf '%s\n' "$OPENCLASH_ACTUAL_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || {
