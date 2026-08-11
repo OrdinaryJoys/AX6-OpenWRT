@@ -244,7 +244,9 @@ jobs:
           grep -Fq 'ATH11K_NSS_SUPPORT must not force ATH11K_NSS_MESH_SUPPORT' "$workflow"
           # shellcheck disable=SC2016 # Match literal build-time OpenClash resolution.
           grep -Fq 'OPENCLASH_RESOLVED_COMMIT=$(resolve_branch_commit "$OPENCLASH_URL" "${OPENCLASH_REF:-master}")' AX6-IPQ/diy.sh
+          # shellcheck disable=SC2016 # Match literal immutable checkout command.
           grep -Fq 'clone_locked "$OPENCLASH_URL" "$OPENCLASH_RESOLVED_COMMIT" package/luci-app-openclash-source' AX6-IPQ/diy.sh
+          # shellcheck disable=SC2016 # Match literal resolved/actual equality gate.
           grep -Fq '[ "$OPENCLASH_ACTUAL_COMMIT" = "$OPENCLASH_RESOLVED_COMMIT" ]' AX6-IPQ/diy.sh
           if grep -Eq 'OPENCLASH_(COMMIT|VERSION)' .github/ax6-nss-lock.env AX6-IPQ/diy.sh; then
             echo "::error::OpenClash plugin must track upstream ref, not a pinned plugin version"
