@@ -290,6 +290,24 @@ jobs:
               exit 1
             }
           done
+          unsquashfs -cat "$rootfs" etc/init.d/set-irq-affinity \
+            > image-verify/set-irq-affinity
+          for required in \
+            'rps_cpus' \
+            'rps_flow_cnt' \
+            'xps_cpus' \
+            '@.network[*].ports[*]' \
+            'sock_flow_entries=65535'; do
+            grep -Fq "$required" image-verify/set-irq-affinity || {
+              echo "::error::Final rootfs set-irq-affinity is missing: $required"
+              exit 1
+            }
+          done
+          if grep -Eq 'network\.globals\.rps|RPS/XPS skipped' \
+            image-verify/set-irq-affinity; then
+            echo "::error::Final rootfs contains the retired AX6 RPS opt-in gate"
+            exit 1
+          fi
           if grep -Eq \
             'squashfs-root/etc/(init\.d/ax6-irq-affinity|rc\.d/[SK][0-9]+ax6-irq-affinity)( ->|$)' \
             image-verify/rootfs-files.txt; then

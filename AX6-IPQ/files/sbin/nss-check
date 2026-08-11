@@ -485,6 +485,50 @@ case "$nss_hash_bitmap" in
         ;;
 esac
 
+# NSS firmware RPS and Linux RPS/RFS are different layers. The former
+# distributes NSS-to-host queues; qca-nss-dp still needs the Linux flow table
+# for multi-core host-terminated traffic. The qualcommax startup script owns
+# this policy and configures every physical board device.
+linux_rps_global=$(cat /proc/sys/net/core/rps_sock_flow_entries 2>/dev/null)
+linux_rps_devices=0
+linux_rps_bad=""
+for dev in $(
+    jsonfilter -i /etc/board.json \
+        -e '@.network[*].device' \
+        -e '@.network[*].ports[*]' 2>/dev/null | sort -u
+); do
+    [ -d "/sys/class/net/$dev" ] || continue
+    linux_rps_devices=$((linux_rps_devices + 1))
+
+    rps_mask=$(cat "/sys/class/net/$dev/queues/rx-0/rps_cpus" 2>/dev/null)
+    rps_flow=$(cat "/sys/class/net/$dev/queues/rx-0/rps_flow_cnt" 2>/dev/null)
+    xps_mask=$(cat "/sys/class/net/$dev/queues/tx-0/xps_cpus" 2>/dev/null)
+
+    case "$rps_mask" in
+        *[1-9a-fA-F]*) ;;
+        *) linux_rps_bad="$linux_rps_bad $dev:rps=${rps_mask:-unset}" ;;
+    esac
+    case "$rps_flow" in
+        ''|*[!0-9]*|0) linux_rps_bad="$linux_rps_bad $dev:flow=${rps_flow:-unset}" ;;
+    esac
+    case "$xps_mask" in
+        *[1-9a-fA-F]*) ;;
+        *) linux_rps_bad="$linux_rps_bad $dev:xps=${xps_mask:-unset}" ;;
+    esac
+done
+
+case "$linux_rps_global" in
+    ''|*[!0-9]*|0)
+        linux_rps_bad="$linux_rps_bad global_flows=${linux_rps_global:-unset}"
+        ;;
+esac
+
+if [ "$linux_rps_devices" -gt 0 ] && [ -z "$linux_rps_bad" ]; then
+    ok "Linux RPS/RFS/XPS active on $linux_rps_devices NSS data-plane devices"
+else
+    fail "Linux RPS/RFS/XPS incomplete:${linux_rps_bad:- no board data-plane devices}"
+fi
+
 # ---- 19. NSS pbuf/N2H profile actually applied ----
 pbuf_profile=$(uci -q get pbuf.opt.memory_profile)
 [ -n "$pbuf_profile" ] || pbuf_profile=auto

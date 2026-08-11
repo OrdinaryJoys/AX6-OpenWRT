@@ -929,6 +929,21 @@ jobs:
             echo "::error::custom AX6 IRQ policy must remain manual and must not override upstream"
             exit 1
           fi
+          if [ -e AX6-IPQ/files/etc/init.d/set-irq-affinity ]; then
+            echo "::error::AX6 overlay must not replace the locked qualcommax set-irq-affinity policy"
+            exit 1
+          fi
+          for required in \
+            'Linux RPS/RFS/XPS active' \
+            'rps_sock_flow_entries' \
+            'rps_flow_cnt' \
+            '@.network[*].ports[*]' \
+            'xps_cpus'; do
+            grep -Fq "$required" "$health" || {
+              echo "::error file=$health::runtime health check is missing Linux RPS/RFS gate: $required"
+              exit 1
+            }
+          done
           test -x AX6-IPQ/files/usr/sbin/ax6-irq-affinity
 
       - name: NSS pbuf runtime application check
