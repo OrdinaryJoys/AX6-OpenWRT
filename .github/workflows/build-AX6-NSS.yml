@@ -532,6 +532,7 @@ jobs:
           sh tests/test-qcom-hwspinlock-regmap-boundary.sh
           sh tests/test-qca-nss-pbuf-readback.sh
           sh tests/test-nss-targeted-backports.sh
+          sh tests/test-nss-drv-sysctl-log-level.sh
           echo "=== qca-nss-dp prepare (patch apply check) ==="
           make package/qca-nss/qca-nss-dp/prepare V=s
           echo "=== qca-nss-drv prepare (patch apply check) ==="
