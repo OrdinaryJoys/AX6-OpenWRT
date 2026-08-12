@@ -170,7 +170,9 @@ jobs:
             VIDEO_FEED_URL VIDEO_FEED_COMMIT \
             ARGON_THEME_URL ARGON_THEME_COMMIT \
             ARGON_CONFIG_URL ARGON_CONFIG_COMMIT \
-            OPENCLASH_URL OPENCLASH_REF; do
+            OPENCLASH_URL OPENCLASH_REF \
+            SOURCE_HOSTAPD_PKG_RELEASE SOURCE_QCA_NSS_DRV_PKG_RELEASE \
+            SOURCE_QCA_NSS_ECM_PKG_RELEASE; do
             value="${!name:-}"
             if [ -z "$value" ]; then
               echo "::error::$name is missing from $BUILD_LOCK"
@@ -213,6 +215,8 @@ jobs:
             "$GITHUB_WORKSPACE/.github/ax6-source-patchset.absent" \
             "$SOURCE_PATCHSET_MANIFEST_SHA256" \
             "$SOURCE_BASE_COMMIT"
+          .github/scripts/verify-ax6-source-semantics.sh \
+            openwrt "$GITHUB_WORKSPACE/$BUILD_LOCK"
           kernel_mk="openwrt/target/linux/generic/kernel-6.18"
           grep -Fxq 'LINUX_VERSION-6.18 = .38' "$kernel_mk" || {
             echo "::error file=$kernel_mk::AX6 source must use Linux 6.18.38"
@@ -228,10 +232,6 @@ jobs:
             exit 1
           }
           hostapd_dir="openwrt/package/network/services/hostapd"
-          grep -Fxq 'PKG_RELEASE:=2' "$hostapd_dir/Makefile" || {
-            echo "::error file=$hostapd_dir/Makefile::hostapd security patchset release must be 2"
-            exit 1
-          }
           for security_patch in \
             001-AP-MLD-Fix-link-ID-validation-in-Basic-MLE-parsing.patch \
             002-BSS-Add-bounds-check-for-link_id-in-Basic-MLE-parsin.patch \
@@ -246,12 +246,7 @@ jobs:
               exit 1
             }
           done
-          ecm_mk="openwrt/package/qca-nss/qca-nss-ecm/Makefile"
           ecm_vlan_patch="openwrt/package/qca-nss/qca-nss-ecm/patches/026-frontends-nss-respect-bridge-port-vlan-tagging-for-vlan-over-bridge.patch"
-          grep -Fxq 'PKG_RELEASE:=10' "$ecm_mk" || {
-            echo "::error file=$ecm_mk::ECM offload policy fix release must be 10"
-            exit 1
-          }
           grep -Fq 'ecm_interface_bridge_vlan_wire_tagged' "$ecm_vlan_patch" || {
             echo "::error file=$ecm_vlan_patch::missing bridge-port on-wire VLAN decision"
             exit 1
