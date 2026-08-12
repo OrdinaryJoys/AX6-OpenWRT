@@ -94,7 +94,7 @@ fe4144c5ebbcb41dfcb68bdb141dc319a6b5aa3cbf869bf69c00e5e1b4fd3f8f  package/qca-ns
 9b3ae37671d339b623b8f1bcd2d098423027c18d13d227eaab5e4025a74a08f2  package/qca-nss/qca-nss-dp/patches/006-ratelimit-edma-warnings.patch
 b707f08756dc6da47ab9bfec313b13b901298ae15c2dd4a2757d710407496c47  package/qca-nss/qca-nss-dp/patches/007-fix-tx-ring-modulo.patch
 6bdf4372695d87cd3fce12bd21265f0e95cd7be299392243495bc0efbae6335c  package/qca-nss/qca-nss-dp/patches/008-edma-v1-correctness-prerequisites.patch
-173b05a806f3b4e6a354128421b8dbc9b40f765657b780197c71f8d966c4ae7a  package/qca-nss/qca-nss-drv/Makefile
+42bcc6e105994d05391463e4069c656e7f53d95e3e4fb329e61ae68e74279d03  package/qca-nss/qca-nss-drv/Makefile
 883e5a15e50e586715913aaaa434bef4cd87a6c49a0375a7f148ea2907ce10ee  package/qca-nss/qca-nss-drv/files/skb_recycler.uci
 a65bb3d49039034afcf48c51dc1f417d2dbdacf9e444d03599827f587ee1e5f9  package/qca-nss/qca-nss-drv/patches/012-fix-autoscale-stats-and-current-freq-read.patch
 5242126dd65ac9b84518e24a3fc923916a19a6c3880f0d18a0f69062b6648c06  package/qca-nss/qca-nss-drv/patches/015-fix-fraglist-skb-truesize-underaccounting.patch
@@ -102,6 +102,7 @@ a65bb3d49039034afcf48c51dc1f417d2dbdacf9e444d03599827f587ee1e5f9  package/qca-ns
 32022fb45481296e6d095abb79494e8f6cbc688f81d5f06505911a566e505c96  package/qca-nss/qca-nss-drv/patches/017-guard-auto-scale-against-uninit-core.patch
 5ba4dab15aa37b2ca220d1419c0d7633b662ea6d2faa04d102067bc654cde7ca  package/qca-nss/qca-nss-drv/patches/018-fix-napi-request-irq-unwind.patch
 3c153fe095fe82dd1e3a5f5364f04c6d16254d980b3d4e7dc5b307eba120258a  package/qca-nss/qca-nss-drv/patches/019-fix-n2h-pool-dma-unwind.patch
+3455b7338980f2464407859e7510fd5ae456ccaae3970559e4cbdae751bd1b7a  package/qca-nss/qca-nss-drv/patches/022-lower-sysctl-read-log-level.patch
 e0c260fef401a3a57b251854554ebe99cab370ecf26b6883c09ea81354dc115a  package/qca-nss/qca-nss-ecm/Makefile
 2438ccfa97b0fa4e6f3cb333de8d0c8fcb05c46b6bcfdca93f4f75ae390920d9  package/qca-nss/qca-nss-ecm/files/disable_offloads.hotplug
 b77c0e472c087bc23cd7a2baa1b7db1ad02fc09b709bf53ab2243ae79f3e2eb9  package/qca-nss/qca-nss-ecm/files/disable_offloads.sh
@@ -197,6 +198,7 @@ a1377638524e3422a8000dc3085866e61731e66637490c96adf1a44d3b21ebe9  tests/fixtures
 91077e1684b94c3143693ce5d760c3dfaeaba1b1bcc621765ee8805275006343  tests/fixtures/qcom-hwspinlock-probe-mmio-v6.18.c
 d168a3176e2c6694f7b17ed4696dcaa5057635e6120c9659bb2a0ff1d6ba9c12  tests/test-apcs-regmap-boundary.sh
 95fd90143506de7cb941a7c9fb1429944b69e148b6f807358913416250724266  tests/test-edma-correctness-prerequisites.sh
+ebf0dfc23432f67e5a1de0402f5fd44b4687e1186e4856453ed8536d2cef9e76  tests/test-nss-drv-sysctl-log-level.sh
 601785e8b74d008be87c89df99d0abab07e5d5a4903adaec4eba492c9d1e788b  tests/test-nss-targeted-backports.sh
 e7274b0518045b5a3d58f697f1fb74902dda6d9757694b178a0ec51b97d0d518  tests/test-qca-nss-pbuf-readback.sh
 94cd3d9e1ee2180182209066e162ccbbae4d8bc930c829f77ebe494e0427ee47  tests/test-qcom-hwspinlock-regmap-boundary.sh
