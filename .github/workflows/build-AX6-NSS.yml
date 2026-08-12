@@ -960,7 +960,7 @@ jobs:
             ath11k_sysfs_device_available \
             wait_for_ath11k_nss_offload \
             wait_for_nss_sysctls \
-            'confirming dev.nss.n2hcfg.n2h_high_water_core0'; do
+            'write_sysctl_exact dev.nss.n2hcfg.n2h_high_water_core0'; do
             grep -Fq "$required" image-verify/qca-nss-pbuf.init || {
               echo "::error::Final rootfs qca-nss-pbuf is missing source fix: $required"
               exit 1
