@@ -248,8 +248,8 @@ jobs:
           done
           ecm_mk="openwrt/package/qca-nss/qca-nss-ecm/Makefile"
           ecm_vlan_patch="openwrt/package/qca-nss/qca-nss-ecm/patches/026-frontends-nss-respect-bridge-port-vlan-tagging-for-vlan-over-bridge.patch"
-          grep -Fxq 'PKG_RELEASE:=9' "$ecm_mk" || {
-            echo "::error file=$ecm_mk::ECM offload policy fix release must be 9"
+          grep -Fxq 'PKG_RELEASE:=10' "$ecm_mk" || {
+            echo "::error file=$ecm_mk::ECM offload policy fix release must be 10"
             exit 1
           }
           grep -Fq 'ecm_interface_bridge_vlan_wire_tagged' "$ecm_vlan_patch" || {
