@@ -13,10 +13,20 @@ done
 
 ROUTER_IP="${AX6_ROUTER_IP:-192.168.5.1}"
 SSH_KEY="${AX6_SSH_KEY:-${HOME}/.ssh/ax6_check}"
+KNOWN_HOSTS="${AX6_KNOWN_HOSTS:-${HOME}/.ssh/known_hosts}"
 EXPECTED_SOURCE_REVISION="${AX6_EXPECTED_SOURCE_REVISION:-}"
 BUILD_COMMIT="${AX6_BUILD_COMMIT:-}"
 STATE_FILE="${AX6_FREQ_STATE_FILE:-$PWD/.ax6-nss-frequency-ab.state}"
-SSH=(ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i "$SSH_KEY" "root@$ROUTER_IP")
+SSH=(
+    ssh
+    -o BatchMode=yes
+    -o IdentitiesOnly=yes
+    -o StrictHostKeyChecking=yes
+    -o "UserKnownHostsFile=$KNOWN_HOSTS"
+    -o ConnectTimeout=10
+    -i "$SSH_KEY"
+    "root@$ROUTER_IP"
+)
 
 die() {
     echo "ax6-nss-frequency-ab: $*" >&2
@@ -32,6 +42,8 @@ router_revision() {
 }
 
 status() {
+    # The quoted program is expanded by the router shell, not by this client.
+    # shellcheck disable=SC2016
     router_cmd '
         printf "compatible="
         tr "\000" " " < /proc/device-tree/compatible
@@ -70,6 +82,8 @@ set_level() {
 
     boot=$(router_cmd "cat /proc/sys/kernel/random/boot_id")
     revision=$(router_revision)
+    # The quoted program is expanded by the router shell, not by this client.
+    # shellcheck disable=SC2016
     previous=$(router_cmd '
         grep -q "qcom,ipq8074" /proc/device-tree/compatible || exit 20
         [ "$(cat /proc/sys/dev/nss/clock/auto_scale)" = 0 ] || exit 21

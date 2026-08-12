@@ -13,6 +13,13 @@ grep -Fq 'router rebooted; do not restore' "$SCRIPT"
 grep -Fq 'state source revision does not match' "$SCRIPT"
 grep -Fq 'state build commit does not match' "$SCRIPT"
 grep -Fq '/proc/sys/dev/nss/clock/current_freq' "$SCRIPT"
+grep -Fq 'IdentitiesOnly=yes' "$SCRIPT"
+grep -Fq 'StrictHostKeyChecking=yes' "$SCRIPT"
+grep -Fq 'UserKnownHostsFile=' "$SCRIPT"
+if grep -Fq 'StrictHostKeyChecking=no' "$SCRIPT"; then
+    echo "frequency A/B helper must verify the router host key" >&2
+    exit 1
+fi
 if grep -Eq 'uci([[:space:]]+-q)?[[:space:]]+(set|commit)|/etc/config/' "$SCRIPT"; then
     echo "frequency A/B helper must not persist router configuration" >&2
     exit 1
@@ -22,6 +29,7 @@ TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT HUP INT TERM
 mkdir -p "$TMP/bin"
 : > "$TMP/key"
+: > "$TMP/known_hosts"
 echo 748800000 > "$TMP/frequency"
 
 cat > "$TMP/bin/ssh" <<'EOF'
@@ -49,17 +57,20 @@ EOF
 chmod +x "$TMP/bin/ssh"
 
 PATH="$TMP/bin:$PATH" AX6_FAKE_FREQ_FILE="$TMP/frequency" \
-AX6_SSH_KEY="$TMP/key" bash "$SCRIPT" status > "$TMP/status"
+AX6_SSH_KEY="$TMP/key" AX6_KNOWN_HOSTS="$TMP/known_hosts" \
+bash "$SCRIPT" status > "$TMP/status"
 grep -Fq 'current_freq=748800000' "$TMP/status"
 
 PATH="$TMP/bin:$PATH" AX6_FAKE_FREQ_FILE="$TMP/frequency" \
 AX6_SSH_KEY="$TMP/key" AX6_EXPECTED_SOURCE_REVISION=r0-test \
+AX6_KNOWN_HOSTS="$TMP/known_hosts" \
 AX6_BUILD_COMMIT=193e5fbc276e AX6_FREQ_STATE_FILE="$TMP/state" \
 bash "$SCRIPT" set high --confirm-runtime-write > "$TMP/high"
 [ "$(cat "$TMP/frequency")" = 1689600000 ]
 
 if PATH="$TMP/bin:$PATH" AX6_FAKE_FREQ_FILE="$TMP/frequency" \
     AX6_SSH_KEY="$TMP/key" AX6_EXPECTED_SOURCE_REVISION=r0-test \
+    AX6_KNOWN_HOSTS="$TMP/known_hosts" \
     AX6_BUILD_COMMIT=deadbeef AX6_FREQ_STATE_FILE="$TMP/state" \
     bash "$SCRIPT" restore --confirm-runtime-write > "$TMP/wrong-restore" 2>&1; then
     echo "restore accepted a state file from a different build identity" >&2
@@ -70,6 +81,7 @@ grep -Fq 'state build commit does not match' "$TMP/wrong-restore"
 
 PATH="$TMP/bin:$PATH" AX6_FAKE_FREQ_FILE="$TMP/frequency" \
 AX6_SSH_KEY="$TMP/key" AX6_EXPECTED_SOURCE_REVISION=r0-test \
+AX6_KNOWN_HOSTS="$TMP/known_hosts" \
 AX6_BUILD_COMMIT=193e5fbc276e AX6_FREQ_STATE_FILE="$TMP/state" \
 bash "$SCRIPT" restore --confirm-runtime-write > "$TMP/restore"
 [ "$(cat "$TMP/frequency")" = 748800000 ]

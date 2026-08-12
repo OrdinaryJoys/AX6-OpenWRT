@@ -19,7 +19,17 @@ set -o pipefail
 # ── Configuration ──────────────────────────────────────────────────────────
 ROUTER_IP="${AX6_ROUTER_IP:-192.168.5.1}"
 SSH_KEY="${AX6_SSH_KEY:-${HOME}/.ssh/ax6_check}"
-SSH_CMD="ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i ${SSH_KEY} root@${ROUTER_IP}"
+KNOWN_HOSTS="${AX6_KNOWN_HOSTS:-${HOME}/.ssh/known_hosts}"
+SSH=(
+  ssh
+  -o BatchMode=yes
+  -o IdentitiesOnly=yes
+  -o StrictHostKeyChecking=yes
+  -o "UserKnownHostsFile=$KNOWN_HOSTS"
+  -o ConnectTimeout=10
+  -i "$SSH_KEY"
+  "root@$ROUTER_IP"
+)
 
 # Two separate revision fields — per §3.1(4)
 SOURCE_REVISION="${AX6_SOURCE_REVISION:-r0-0ea8486}"
@@ -99,7 +109,7 @@ log_raw() {
 # ── SSH helpers ────────────────────────────────────────────────────────────
 router_cmd() {
   # Run a command on the router, return output. Failures logged but not fatal.
-  $SSH_CMD "$@" 2>>"${LOG_FILE}.ssh-err" || {
+  "${SSH[@]}" "$@" 2>>"${LOG_FILE}.ssh-err" || {
     log "WARN" "SSH failed: $*"
     return 1
   }
@@ -221,7 +231,7 @@ collect_snapshot() {
 
   # EDMA err_stats (only if available — no recursive debugfs)
   log_raw "--- edma_err ---"
-  router_cmd "cat /sys/kernel/debug/qca-nss-dp/edma/err_stats 2>/dev/null || echo 'n/a'" 2>/dev/null | tee -a "$LOG_FILE"
+  router_cmd "cat /sys/kernel/debug/qca-nss-drv/stats/edma/err_stats 2>/dev/null || echo 'n/a'" 2>/dev/null | tee -a "$LOG_FILE"
 
   # Load and memory
   log_raw "--- system ---"

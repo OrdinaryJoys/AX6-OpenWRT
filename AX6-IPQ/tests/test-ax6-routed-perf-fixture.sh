@@ -21,6 +21,13 @@ grep -Fq 'ax6-config-audit -q' "$SCRIPT"
 grep -Fq 'connection_count_simple' "$SCRIPT"
 grep -Fq 'qca-nss-drv/stats/edma/err_stats' "$SCRIPT"
 grep -Fq 'boot_start' "$SCRIPT"
+grep -Fq 'IdentitiesOnly=yes' "$SCRIPT"
+grep -Fq 'StrictHostKeyChecking=yes' "$SCRIPT"
+grep -Fq 'UserKnownHostsFile=' "$SCRIPT"
+if grep -Fq 'StrictHostKeyChecking=no' "$SCRIPT"; then
+    echo "routed performance test must verify the router host key" >&2
+    exit 1
+fi
 if grep -Eq 'router_cmd .*iperf3|killall[[:space:]]+iperf3' "$SCRIPT"; then
     echo "routed performance test must not terminate flow on the router or use killall" >&2
     exit 1
@@ -30,6 +37,7 @@ TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT HUP INT TERM
 mkdir -p "$TMP/bin" "$TMP/results"
 : > "$TMP/key"
+: > "$TMP/known_hosts"
 
 cat > "$TMP/bin/ssh" <<'EOF'
 #!/bin/sh
@@ -73,6 +81,7 @@ AX6_BUILD_COMMIT=193e5fbc276e \
 AX6_EXPECTED_SOURCE_REVISION=r0-test \
 AX6_EXPECT_WAN_DEVICE=wan \
 AX6_SSH_KEY="$TMP/key" \
+AX6_KNOWN_HOSTS="$TMP/known_hosts" \
 AX6_RUNS=1 AX6_DURATION=10 AX6_RESULT_DIR="$TMP/results" \
 bash "$SCRIPT" preflight > "$TMP/preflight"
 grep -Fq 'iperf_server=reachable' "$TMP/preflight"
@@ -83,6 +92,7 @@ AX6_BUILD_COMMIT=193e5fbc276e \
 AX6_EXPECTED_SOURCE_REVISION=r0-test \
 AX6_EXPECT_WAN_DEVICE=wan \
 AX6_SSH_KEY="$TMP/key" \
+AX6_KNOWN_HOSTS="$TMP/known_hosts" \
 AX6_RUNS=1 AX6_DURATION=10 AX6_RESULT_DIR="$TMP/results" \
 bash "$SCRIPT" run --confirm-load-test > "$TMP/run"
 
@@ -98,6 +108,7 @@ AX6_BUILD_COMMIT=193e5fbc276e \
 AX6_EXPECTED_SOURCE_REVISION=r0-test \
 AX6_EXPECT_WAN_DEVICE=wan \
 AX6_SSH_KEY="$TMP/key" \
+AX6_KNOWN_HOSTS="$TMP/known_hosts" \
 AX6_RUNS=1 AX6_DURATION=10 AX6_RESULT_DIR="$TMP/udp-results" \
 AX6_PROTOCOL=udp AX6_UDP_RATE=500M AX6_FAKE_IPERF_ARGS="$TMP/iperf-args" \
 bash "$SCRIPT" run --confirm-load-test > "$TMP/udp-run"

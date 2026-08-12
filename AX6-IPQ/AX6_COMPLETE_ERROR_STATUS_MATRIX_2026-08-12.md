@@ -16,7 +16,7 @@
 和构建分支 `codex/ax6-regmap-pbuf-build-validation-20260812` 为当前对象。没有合并主线、
 没有生成本轮新固件，也没有用本轮候选修改实机。
 
-当前共归类 73 个故障/风险条目：A=31、B=6、C=2、D=14、E=16、N=4；另列
+当前共归类 75 个故障/风险条目：A=32、B=6、C=3、D=14、E=16、N=4；另列
 15 个尚未完成的验证和发布动作。14 个 D 项中，10 个是已经封存、无法补救的旧测试
 证据错误；当前产品/仓库真正明确未修的 4 项是 EDMA portable DMA、EDMA invalid
 store 清理、NSS 调试日志级别和 OpenClash 重复 overlay core。
@@ -87,8 +87,8 @@ store 清理、NSS 调试日志级别和 OpenClash 重复 overlay core。
 | W-02 | 运行时从 HE40 降到 20 MHz | N | 已确认是 20/40 coexistence 正常行为 | 不应据此改驱动 |
 | W-03 | 个别 IoT 高 `tx failed`/低速或断流 | E | 未见持续 deauth/disassoc，不能归咎 HE40 | 按设备 MAC、芯片、RSSI、关联/DHCP/DNS 长稳矩阵 |
 | W-04 | 5G `wifili_wbm_src_reo_code_inv` 随负载增长 | E/P2 | 未与用户可见丢包、crash 或端口错误同步 | 时间关联采样后再决定是否驱动修复 |
-| W-05 | LAN-LAN 原生双向不公平，约 946/325 Mbps | E | 单向均约 948-949；PAUSE A/B 无改善，未发现物理错误 | 两台 Linux 同版 iperf3、两端 CPU/NIC/队列/重传复测 |
-| W-06 | WAN-LAN/LAN-LAN NSS routed 双向上限未验证 | E/阻塞 | 新 routed-perf 工具和 fixture PASS | 第二个受控有线端点，真实流量穿越路由器 |
+| W-05 | LAN-LAN 原生双向不公平，Windows 接收方向约 159-490 Mbps、反向约 944-947 Mbps | C/端点侧高疑 | 18 组 TCP、12 组单向 UDP、路由器本机对照和 PAUSE 计数完成；低速始终跟随 Windows 接收方向，所有阶段接口/softnet/qdisc/EDMA 活动错误增量为 0 | Windows NIC 驱动/固件、EEE/Green Ethernet、Flow Control、RSS/RSC/LSO/校验和、端口互换和第二个 Linux 端点逐项 A/B；尚未关闭用户可见现象 |
+| W-06 | WAN-LAN NSS/ECM routed 双向上限未验证 | E/阻塞 | 新 routed-perf 工具和 fixture PASS；本轮 LAN1-LAN2 仅覆盖 SSDK/PPE 二层交换，不冒充 routed/NAT/NSS 测试 | 在 WAN 上游网络增加受控 iperf3 端点，确认路由、ECM connection delta 和 wan 计数后执行完整矩阵 |
 | W-07 | NSS 固定中频是否是吞吐瓶颈 | E | 非持久中/高频 A/B 工具 fixture PASS | routed 双端点三轮 A/B；不能与 IRQ/GRO/内核同时改 |
 | W-08 | split-NAPI 是否改善双向调度 | E/独立候选 | 只允许无 GRO 默认候选 | 双端点、reload、冷启动和长稳通过前不合入 |
 | W-09 | AP_VLAN 在 ath11k NSS 路径为已知故障 | N/不支持 | 当前不启用、不宣称支持 | 只有上游明确修复和独立矩阵后再评估 |
@@ -115,13 +115,15 @@ store 清理、NSS 调试日志级别和 OpenClash 重复 overlay core。
 | T-11 | 后补 S5/P2/W1/W1R 无前后 snapshot | D（旧数据无法补齐） |
 | T-12 | softnet 十六进制字段直接 awk 累加，出现 339→33 不可能回退 | A（新工具保存原始/正确快照；旧汇总作废） |
 | T-13 | UDP 900 Mbps 丢 52.59%，950 Mbps 又只丢 2.30%，单轮断崖不可复现 | E |
-| T-14 | SSH 未固定 `IdentitiesOnly`、严格主机密钥和 known_hosts | D（旧脚本）；后续测试必须使用确认密钥/host fingerprint |
+| T-14 | SSH 未固定 `IdentitiesOnly`、严格主机密钥和 known_hosts | D（旧脚本）；当前 routed-perf 已在工作区修复并通过 fixture，提交/CI 前保持 B |
 | T-15 | `server.log` 只有 `Address in use`，没有 PID/版本归属 | D（旧 server 证据不完整） |
 | T-16 | 目录无 SHA256/inventory，覆盖后不可验证完整性 | D（旧目录）；新测试必须生成 inventory |
 | T-17 | P4 丢弃 stderr 且不检查每轮返回码 | D（40/40 只能作为有限参考） |
 | T-18 | BB 对路由器本机压测，不能评价 WAN/SQM bufferbloat | E（需 WAN 端点重测） |
 | T-19 | hwspinlock 草稿补丁尾部混入说明，`git apply` 在 line 87 损坏 | A（草稿废弃，使用源码提交 `3854ea2`） |
 | T-20 | hwspinlock 草稿在 pointer 返回函数中使用裸 `return -EINVAL` | A（正式补丁使用 `ERR_PTR(-EINVAL)`） |
+| T-21 | 本轮一次性 UDP 采集脚本和旧 `ax6-perf-test.sh` 使用了不存在的 EDMA 路径，阶段快照不能表示 EDMA 为 0 | A（明确标记一次性 UDP 阶段未采样；使用正确 `/sys/kernel/debug/qca-nss-drv/stats/edma/err_stats` 补采末态并生成 SHA256；仓库 routed-perf 原本即正确，旧 perf 工具已统一修复并增加 fixture） |
+| T-22 | Windows iperf3 双向 UDP 在首轮报 `Resource temporarily unavailable` | E（工具/端点会话限制高疑；单向 12 轮有效，不把失败归因于 AX6，也不盲目重跑） |
 
 ## 7. 尚未完成的验证与发布动作
 
@@ -135,7 +137,7 @@ store 清理、NSS 调试日志级别和 OpenClash 重复 overlay core。
 | V-06 | 物理冷启动十轮 | 需用户配合；逐轮查 PBUF、NSS、ath11k、pstore |
 | V-07 | reload matrix 80 次 | 旧证据作废；新格式每场景严格 20/20 |
 | V-08 | recovery 与回退镜像演练 | 需维护窗口和明确授权 |
-| V-09 | 两台 Linux 有线端点完整吞吐矩阵 | 缺第二端点；用于关闭 W-05/W-06/T-18 |
+| V-09 | 两台 Linux 有线端点完整吞吐矩阵 | 缺第二端点；用于关闭 W-05；W-06 另需 WAN 侧端点 |
 | V-10 | 2.4G IoT legacy/HT/HE 矩阵 | 缺受控客户端 |
 | V-11 | 24 小时压力和 72 小时正常业务 | 尚未完成；用于 alloc_fail、内存、DNS、ZT、Wi-Fi 长稳 |
 | V-12 | ECM multicast/IGMP/MLD 实机回归 | 等新固件 |
@@ -150,7 +152,14 @@ store 清理、NSS 调试日志级别和 OpenClash 重复 overlay core。
 - routed-perf、UDP baseline、旧 perf 替代工具和 reload validator fixtures：全部 PASS。
 - 仓库顶层 fixtures：21 PASS；`test-ax6-stock-compiled-dtb.sh` 因本机无 `dtc` 返回 69，
   属环境未执行，不是测试失败，也不能标记为通过。
-- 两个 Git 工作区均无未提交修改（生成本表前）。
+- 2026-08-12 新增实机性能复核：TCP 18 阶段、UDP 单向 12 阶段和路由器本机 9 阶段；
+  负载期接口错误/丢包、softnet drop/time_squeeze、qdisc drop/overlimit/backlog、EDMA
+  `alloc_fail` 增量均为 0。末态 `nss-check` 46/4/0、`ax6-config-audit` 30/3/0。
+- 当前构建工作区的有意修改包括：三个性能/频率工具统一严格 SSH host-key、旧 perf
+  的 EDMA 路径修复、对应 fixtures、总矩阵及本轮方案文档；源码工作区保持干净。
+  两个当前候选分支均未推送，GitHub Actions 尚无本轮结果。
+- 修正后的 NSS frequency A/B 工具已用 confirmed known_hosts 对实机执行只读 `status`：
+  compatible、boot ID、`auto_scale=0`、`current_freq=748800000` 均与基线一致。
 
 ## 9. 当前总判断
 
@@ -159,5 +168,7 @@ flow-offload 或构建溯源修复。本轮新增的内核/NSS/ECM 修复在源�
 但尚未进入云端固件和实机，因此统一保持 B 状态。
 
 当前真正未修或未关闭的重点是：EDMA portable DMA/store 模型、NSS 调试日志级别、
-ZeroTier 高速 UDP drops、LAN-LAN/WAN-LAN 双向性能根因、IoT/invalid REO 关联、旧验证
-数据缺陷，以及完整构建、产物、冷启动、reload、长稳和 recovery 验证。
+ZeroTier 高速 UDP drops、Windows 接收方向双向性能根因、真实 WAN-LAN routed 性能、
+IoT/invalid REO 关联、旧验证数据缺陷，以及完整构建、产物、冷启动、reload、长稳和
+recovery 验证。当前证据不支持为解决 W-05 而默认关闭 PAUSE、合入 split-NAPI 或更换
+NSS/SSDK/ECM 锁定版本。

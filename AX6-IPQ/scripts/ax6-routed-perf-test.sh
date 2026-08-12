@@ -24,7 +24,7 @@ Recommended environment:
   AX6_EXPECT_WAN_DEVICE        Expected router egress device (for example wan)
 
 Optional environment:
-  AX6_ROUTER_IP, AX6_SSH_KEY, AX6_IPERF_PORT, AX6_RUNS,
+  AX6_ROUTER_IP, AX6_SSH_KEY, AX6_KNOWN_HOSTS, AX6_IPERF_PORT, AX6_RUNS,
   AX6_DURATION, AX6_PARALLEL, AX6_RESULT_DIR,
   AX6_PROTOCOL=tcp|udp, AX6_UDP_RATE=100M|300M|500M|700M|900M
 
@@ -40,6 +40,7 @@ done
 
 ROUTER_IP="${AX6_ROUTER_IP:-192.168.5.1}"
 SSH_KEY="${AX6_SSH_KEY:-${HOME}/.ssh/ax6_check}"
+KNOWN_HOSTS="${AX6_KNOWN_HOSTS:-${HOME}/.ssh/known_hosts}"
 IPERF_TARGET="${AX6_IPERF_TARGET:-}"
 IPERF_PORT="${AX6_IPERF_PORT:-15211}"
 RUNS="${AX6_RUNS:-3}"
@@ -55,7 +56,16 @@ TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 RUN_DIR="$RESULT_DIR/$TIMESTAMP-$PROTOCOL${UDP_RATE:+-$UDP_RATE}"
 SUMMARY="$RUN_DIR/summary.tsv"
 
-SSH=(ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i "$SSH_KEY" "root@$ROUTER_IP")
+SSH=(
+    ssh
+    -o BatchMode=yes
+    -o IdentitiesOnly=yes
+    -o StrictHostKeyChecking=yes
+    -o "UserKnownHostsFile=$KNOWN_HOSTS"
+    -o ConnectTimeout=10
+    -i "$SSH_KEY"
+    "root@$ROUTER_IP"
+)
 PING_PIDS=()
 
 die() {
@@ -120,6 +130,7 @@ validate_inputs() {
     [ "$PARALLEL" -ge 1 ] && [ "$PARALLEL" -le 16 ] ||
         die "AX6_PARALLEL must be 1..16"
     [ -r "$SSH_KEY" ] || die "SSH key is not readable: $SSH_KEY"
+    [ -r "$KNOWN_HOSTS" ] || die "SSH known_hosts is not readable: $KNOWN_HOSTS"
     command -v iperf3 >/dev/null || die "iperf3 is required on the LAN client"
     command -v jq >/dev/null || die "jq is required on the LAN client"
     iperf3 --help 2>&1 | grep -q -- '--bidir' ||
@@ -196,6 +207,8 @@ preflight() {
 collect_router_snapshot() {
     local label="$1"
     local out="$RUN_DIR/router-${label}.txt"
+    # The quoted program is expanded by the router shell, not by this client.
+    # shellcheck disable=SC2016
     router_cmd '
         echo "time=$(date -Iseconds)"
         echo "boot_id=$(cat /proc/sys/kernel/random/boot_id)"

@@ -26,6 +26,14 @@ if head -1 "$SCRIPT_UNDER_TEST" | grep -Eq '^#!/usr/bin/env bash$|^#!/bin/bash$'
 else
   bad "Bash-only script must declare a Bash shebang"
 fi
+if grep -Fq 'IdentitiesOnly=yes' "$SCRIPT_UNDER_TEST" && \
+   grep -Fq 'StrictHostKeyChecking=yes' "$SCRIPT_UNDER_TEST" && \
+   grep -Fq 'UserKnownHostsFile=' "$SCRIPT_UNDER_TEST" && \
+   ! grep -Fq 'StrictHostKeyChecking=no' "$SCRIPT_UNDER_TEST"; then
+  ok "SSH verifies identity and router host key"
+else
+  bad "SSH host-key or identity boundary is incomplete"
+fi
 
 # ── Test 2: No killall iperf3 ──────────────────────────────────────────────
 echo "--- Test 2: No killall iperf3 (§3.1.6) ---"
@@ -113,6 +121,12 @@ for item in "snmp" "udp_socket" "softnet" "port_stats" "nss_check" "config_audit
     bad "missing collection: $item"
   fi
 done
+if grep -Fq 'qca-nss-drv/stats/edma/err_stats' "$SCRIPT_UNDER_TEST" && \
+   ! grep -Fq 'qca-nss-dp/edma/err_stats' "$SCRIPT_UNDER_TEST"; then
+  ok "uses the live qca-nss-drv EDMA counter path"
+else
+  bad "EDMA counter path is stale or ambiguous"
+fi
 
 # ── Test 11: Boot ID tracking ──────────────────────────────────────────────
 echo "--- Test 11: Boot ID tracking (§3.1.2) ---"
