@@ -7,7 +7,7 @@
 
 set -o nounset
 TEST_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-SCRIPT_UNDER_TEST="${TEST_DIR}/scripts/ax6-perf-test.sh"
+SCRIPT_UNDER_TEST="${TEST_DIR}/scripts/ax6-router-local-perf-test.sh"
 PASS=0
 FAIL=0
 TOTAL=0
