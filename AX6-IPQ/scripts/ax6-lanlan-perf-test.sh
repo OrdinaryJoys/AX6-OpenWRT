@@ -156,19 +156,25 @@ run_udp() { # $1=速率 $2=轮次 $3=方向(fwd/rev)
   iperf3 "${args[@]}" > "$j" 2> "$OUT/udp-$rate-$dir-r$r.err"
   local rc=$?
   [ "$rc" -eq 0 ] || { log "RESULT INCOMPLETE udp-$rate-$dir-r$r reason=iperf_rc=${rc}"; return 1; }
-  python3 - "$j" "$rate" "$dir" "$r" <<'EOF'
+  python3 - "$j" "$rate" "$dir" "$r" "$DURATION" <<'EOF'
 import json, sys
 j = json.load(open(sys.argv[1]))
+dur = float(sys.argv[5])
 if j.get("error"):
     print(f"RESULT INCOMPLETE udp-{sys.argv[2]}-{sys.argv[3]}-r{sys.argv[4]} reason=json_error"); sys.exit(1)
 e = j.get("end", {}) or {}
-for s in e.get("streams", []):
+streams = e.get("streams", [])
+if not streams:
+    print(f"RESULT INCOMPLETE udp-{sys.argv[2]}-{sys.argv[3]}-r{sys.argv[4]} reason=no_streams"); sys.exit(1)
+for s in streams:
+    # iperf3 3.21 UDP: 数据在 stream.udp (含 seconds/lost_percent), sender 为 None
     udp = s.get("udp", {}) or {}
-    send = s.get("sender", {}) or {}
-    secs = send.get("seconds")
+    secs = udp.get("seconds")
     if not secs:
         print(f"RESULT INCOMPLETE udp-{sys.argv[2]}-{sys.argv[3]}-r{sys.argv[4]} reason=no_duration"); sys.exit(1)
-    bps = send.get("bytes", 0) * 8 / secs / 1e6
+    if secs < dur * 0.9:
+        print(f"RESULT INCOMPLETE udp-{sys.argv[2]}-{sys.argv[3]}-r{sys.argv[4]} reason=duration_short={secs:.1f}s"); sys.exit(1)
+    bps = udp.get("bytes", 0) * 8 / secs / 1e6
     print(f"RESULT UDP-{sys.argv[2]}-{sys.argv[3]}-r{sys.argv[4]}: {bps:.1f} Mbps loss={udp.get('lost_percent', 0):.2f}% jitter={udp.get('jitter_ms', 0):.2f}ms")
 EOF
 }
@@ -202,26 +208,27 @@ main() {
   preflight_identity
   ax6_snapshot "$OUT/pre-all.txt"
 
+  abort_run() { log "RESULT INCOMPLETE run=aborted reason=$1"; exit 1; }
   if [ "$SKIP_TCP" != 1 ]; then
     for r in $(seq 1 "$ROUNDS"); do
       # P1 = 单流 (真 -P 1), P4 = 四流 (真 -P 4) — R2 P0-6
-      run_tcp "P1" "$r" "fwd" 1;   ax6_snapshot "$OUT/P1-fwd-r$r-post.txt"
-      run_tcp "P1" "$r" "rev" 1;   ax6_snapshot "$OUT/P1-rev-r$r-post.txt"
-      run_tcp "P1" "$r" "bidir" 1; ax6_snapshot "$OUT/P1-bidir-r$r-post.txt"
-      run_tcp "P4" "$r" "fwd" 4;   ax6_snapshot "$OUT/P4-fwd-r$r-post.txt"
-      run_tcp "P4" "$r" "rev" 4;   ax6_snapshot "$OUT/P4-rev-r$r-post.txt"
-      run_tcp "P4" "$r" "bidir" 4; ax6_snapshot "$OUT/P4-bidir-r$r-post.txt"
+      run_tcp "P1" "$r" "fwd" 1   || abort_run "P1-fwd-r$r";   ax6_snapshot "$OUT/P1-fwd-r$r-post.txt"
+      run_tcp "P1" "$r" "rev" 1   || abort_run "P1-rev-r$r";   ax6_snapshot "$OUT/P1-rev-r$r-post.txt"
+      run_tcp "P1" "$r" "bidir" 1 || abort_run "P1-bidir-r$r"; ax6_snapshot "$OUT/P1-bidir-r$r-post.txt"
+      run_tcp "P4" "$r" "fwd" 4   || abort_run "P4-fwd-r$r";   ax6_snapshot "$OUT/P4-fwd-r$r-post.txt"
+      run_tcp "P4" "$r" "rev" 4   || abort_run "P4-rev-r$r";   ax6_snapshot "$OUT/P4-rev-r$r-post.txt"
+      run_tcp "P4" "$r" "bidir" 4 || abort_run "P4-bidir-r$r"; ax6_snapshot "$OUT/P4-bidir-r$r-post.txt"
     done
   fi
 
   if [ "$SKIP_UDP" != 1 ]; then
     for r in $(seq 1 "$ROUNDS"); do
-      run_udp 300 "$r" fwd; ax6_snapshot "$OUT/udp-300-fwd-r$r-post.txt"
-      run_udp 300 "$r" rev; ax6_snapshot "$OUT/udp-300-rev-r$r-post.txt"
-      run_udp 600 "$r" fwd; ax6_snapshot "$OUT/udp-600-fwd-r$r-post.txt"
-      run_udp 600 "$r" rev; ax6_snapshot "$OUT/udp-600-rev-r$r-post.txt"
-      run_udp 900 "$r" fwd; ax6_snapshot "$OUT/udp-900-fwd-r$r-post.txt"
-      run_udp 900 "$r" rev; ax6_snapshot "$OUT/udp-900-rev-r$r-post.txt"
+      run_udp 300 "$r" fwd || abort_run "udp-300-fwd-r$r"; ax6_snapshot "$OUT/udp-300-fwd-r$r-post.txt"
+      run_udp 300 "$r" rev || abort_run "udp-300-rev-r$r"; ax6_snapshot "$OUT/udp-300-rev-r$r-post.txt"
+      run_udp 600 "$r" fwd || abort_run "udp-600-fwd-r$r"; ax6_snapshot "$OUT/udp-600-fwd-r$r-post.txt"
+      run_udp 600 "$r" rev || abort_run "udp-600-rev-r$r"; ax6_snapshot "$OUT/udp-600-rev-r$r-post.txt"
+      run_udp 900 "$r" fwd || abort_run "udp-900-fwd-r$r"; ax6_snapshot "$OUT/udp-900-fwd-r$r-post.txt"
+      run_udp 900 "$r" rev || abort_run "udp-900-rev-r$r"; ax6_snapshot "$OUT/udp-900-rev-r$r-post.txt"
     done
   fi
 

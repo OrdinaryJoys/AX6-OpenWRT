@@ -83,16 +83,16 @@ for jp in json_files:
             continue
         rate, direction, rnd = m.group(1), m.group(2), m.group(3)
         for s in streams:
+            # iperf3 3.21 UDP: 数据在 stream.udp (seconds/lost_percent), sender 为 None
             udp = s.get("udp", {}) or {}
-            send = s.get("sender", {}) or {}
-            secs = send.get("seconds")
+            secs = udp.get("seconds")
             if not secs:
                 incomplete_any = True
-                add_issue(name, "no sender.seconds", "INCOMPLETE")
+                add_issue(name, "no udp.seconds", "INCOMPLETE")
                 break
             scenarios[("udp", rate, direction)].setdefault("runs", []).append(
                 {"loss": udp.get("lost_percent", 0.0), "jitter": udp.get("jitter_ms", 0.0),
-                 "bps": send.get("bytes", 0) * 8 / secs / 1e6})
+                 "bps": udp.get("bytes", 0) * 8 / secs / 1e6})
     elif name.startswith("long-bidir"):
         for s in streams:
             send = s.get("sender", {}) or {}
@@ -143,11 +143,12 @@ def judge_tcp_unidir(key, label):
     med = median([r["bps"] for r in runs])
     mn = min(r["bps"] for r in runs)
     retx = sum(r.get("retx", 0) for r in runs)
-    if ax88179 and "MAC->WIN" in key and not qualified:
-        verdicts.append((label, "ENV-BLOCKED",
-            f"AX88179 endpoint, unidirectional {med:.0f}/{mn:.0f} Mbps (retx={retx}) — 端点兼容性样本, 不作为 AX6 结论"))
-    elif med >= 930 and mn >= 900:
+    if med >= 930 and mn >= 900:
         verdicts.append((label, "PASS", f"median={med:.1f} min={mn:.1f} Mbps retx={retx}"))
+    elif ax88179 and not qualified:
+        verdicts.append((label, "ENV-BLOCKED",
+            f"AX88179 endpoint, {med:.0f}/{mn:.0f} Mbps (retx={retx}) < 阈值 — 兼容性样本, "
+            "端点 CPU/USB/驱动无法排除 (R2 §6), 不得判 AX6 FAIL"))
     else:
         verdicts.append((label, "FAIL", f"median={med:.1f} (<930) or min={mn:.1f} (<900) Mbps retx={retx}"))
 
@@ -158,9 +159,10 @@ def judge_tcp_bidir(key, label):
     runs = v["runs"]
     med = median([r["bps"] for r in runs])
     mn = min(r["bps"] for r in runs)
-    if ax88179 and "MAC->WIN" in key and not qualified:
+    if ax88179 and not qualified:
+        # R2 §5.1: AX88179 兼容性样本不能单独给 AX6 双向下结论 — 无论数值高低
         verdicts.append((label, "ENV-BLOCKED",
-            f"AX88179 endpoint RX direction {med:.0f}/{mn:.0f} Mbps — 不能单独给 AX6 双向下结论 (R2 §5.1)"))
+            f"AX88179 endpoint bidir {med:.0f}/{mn:.0f} Mbps — 双向结论需合格端点 (R2 §5.1)"))
     elif med >= 850 and mn >= 750:
         verdicts.append((label, "PASS", f"median={med:.1f} min={mn:.1f} Mbps"))
     else:
@@ -176,6 +178,9 @@ def judge_udp(rate, label):
         limits = {"300": 0.05, "600": 0.1, "900": 1.0}
         if worst <= limits[rate]:
             verdicts.append((f"{label} {direction}", "PASS", f"max_loss={worst:.3f}%"))
+        elif ax88179 and not qualified:
+            verdicts.append((f"{label} {direction}", "ENV-BLOCKED",
+                f"max_loss={worst:.3f}% > {limits[rate]}% — AX88179 端点无法排除丢包源 (R2 §6)"))
         else:
             verdicts.append((f"{label} {direction}", "FAIL", f"max_loss={worst:.3f}% > {limits[rate]}%"))
 

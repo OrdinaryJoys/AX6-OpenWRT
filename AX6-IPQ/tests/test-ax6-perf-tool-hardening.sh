@@ -76,7 +76,8 @@ def streams(n, t, sender, loss=0.0):
              "sender": {"sender": sender, "bytes": int(per), "seconds": float(t),
                         "retransmits": 0, "max_rtt_ms": 2.0}}
         if loss:
-            s["udp"] = {"lost_percent": loss, "jitter_ms": 0.05, "packets": int(per/1400)}
+            s["udp"] = {"lost_percent": loss, "jitter_ms": 0.05, "packets": int(per/1400),
+                        "seconds": float(t), "bytes": int(per)}
             s["sender"]["udp"] = {"lost_percent": loss}
         out.append(s)
     return out
@@ -212,9 +213,8 @@ def build(name, bps_fwd, bps_rev, loss300, loss900, endpoint, snapshots=True):
     tcp("P1-bidir-r1.json", 1, "bidir", bps_fwd); tcp("P1-bidir-r2.json", 1, "bidir", bps_fwd); tcp("P1-bidir-r3.json", 1, "bidir", bps_fwd)
     def udp(fn, loss):
         t = 30.0
-        st = [{"bytes": 0, "seconds": t,
-               "udp": {"lost_percent": loss, "jitter_ms": 0.05},
-               "sender": {"sender": True, "bytes": 300 * 1e6 * t / 8, "seconds": t}}]
+        st = [{"udp": {"lost_percent": loss, "jitter_ms": 0.05,
+                       "seconds": t, "bytes": 300 * 1e6 * t / 8}}]
         json.dump({"end": {"streams": st}}, open(os.path.join(d, fn), "w"))
     udp("udp-300-fwd-r1.json", loss300); udp("udp-300-rev-r1.json", 0.0)
     udp("udp-600-fwd-r1.json", 0.05); udp("udp-600-rev-r1.json", 0.0)
@@ -241,6 +241,7 @@ def build(name, bps_fwd, bps_rev, loss300, loss900, endpoint, snapshots=True):
 build("s8-pass", 940, 945, 0.0, 0.2, "MacBook onboard RTL8153", True)
 build("s8-fail", 700, 945, 0.0, 0.2, "MacBook onboard RTL8153", True)
 build("s8-ax88179", 940, 945, 0.0, 0.2, "Windows AX88179 USB3 driver 1.16.27.321", True)
+build("s8-ax88179-degraded", 600, 700, 1.2, 2.5, "Windows AX88179 USB3 driver 1.16.27.321", True)
 build("s8-incomplete", 940, 945, 0.0, 0.2, "MacBook onboard RTL8153", False)
 PYEOF
 check_rc() { # dir expected_rc label
@@ -250,6 +251,7 @@ check_rc() { # dir expected_rc label
 check_rc "$WORK/s8-pass" 0 "PASS 样本 → PASS"
 check_rc "$WORK/s8-fail" 1 "低吞吐样本 → FAIL"
 check_rc "$WORK/s8-ax88179" 3 "AX88179 双向 → ENV-BLOCKED"
+check_rc "$WORK/s8-ax88179-degraded" 3 "AX88179 低吞吐 → ENV-BLOCKED (非 FAIL, R2 §6)"
 check_rc "$WORK/s8-incomplete" 2 "缺快照 → INCOMPLETE"
 
 # ── 核心断言: 无伪 PASS ─────────────────────────────────────────────────────
