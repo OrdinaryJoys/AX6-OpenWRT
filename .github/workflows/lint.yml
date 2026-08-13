@@ -196,10 +196,14 @@ jobs:
             SOURCE_HOSTAPD_PKG_RELEASE SOURCE_QCA_NSS_DRV_PKG_RELEASE \
             SOURCE_QCA_NSS_ECM_PKG_RELEASE; do
             value="${!name}"
-            [[ "$value" =~ ^[0-9]+$ ]] && [ "$value" -gt 0 ] || {
+            if ! [[ "$value" =~ ^[0-9]+$ ]]; then
               echo "::error::$name must be a positive integer (got '$value')"
               exit 1
-            }
+            fi
+            if [ "$value" -le 0 ]; then
+              echo "::error::$name must be a positive integer (got '$value')"
+              exit 1
+            fi
           done
           [[ "$SOURCE_PATCHSET_MANIFEST_SHA256" =~ ^[0-9a-f]{64}$ ]] || {
             echo "::error::SOURCE_PATCHSET_MANIFEST_SHA256 must be a 64-character lowercase SHA256"
