@@ -262,10 +262,10 @@ EOF
 
   ax6_snapshot "$OUT/post-all.txt"
 
-  # SHA 归档 (R2 P0-7)
-  (cd "$OUT" && find . -type f ! -name '.DS_Store' ! -name 'SHA256SUMS.txt' | sort | xargs shasum -a 256 > SHA256SUMS.txt)
-  log "SHA256: $OUT/SHA256SUMS.txt"
+  # SHA 归档必须是 run 目录最后一次写入 (其后 runner.log 冻结, 保证可校验)
+  log "SHA256 归档: $OUT/SHA256SUMS.txt (runner.log 冻结后生成)"
   log "RUN COMPLETE: $OUT (判定交由 ax6-perf-analyzer.sh, 执行完成 ≠ 通过 — R2 P0-8)"
+  (cd "$OUT" && find . -type f ! -name '.DS_Store' ! -name 'SHA256SUMS.txt' | sort | xargs shasum -a 256 > SHA256SUMS.txt)
   exit 0
 }
 
