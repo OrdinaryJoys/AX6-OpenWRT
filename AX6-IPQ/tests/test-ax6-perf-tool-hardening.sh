@@ -17,9 +17,11 @@ WORK="$(mktemp -d /tmp/ax6-perf-hardening.XXXXXX)"
 trap 'rm -rf "$WORK"' EXIT
 
 PASS=0; FAIL=0
+ANALYZER_ONLY=${AX6_ANALYZER_FIXTURE_ONLY:-0}
 ok() { PASS=$((PASS+1)); echo "  ✅ $1"; }
 bad() { FAIL=$((FAIL+1)); echo "  ❌ $1"; }
 
+if [ "$ANALYZER_ONLY" != 1 ]; then
 # ── 前置: 脚本存在 + 语法 ──────────────────────────────────────────────────
 echo "== 前置: 存在性与语法 =="
 for s in "$ROUTER_LOCAL" "$LANLAN" "$ANALYZER"; do
@@ -108,6 +110,12 @@ sys.exit(0)
 MOCKEOF
 chmod +x "$MOCK/iperf3"
 
+cat > "$MOCK/ping" <<'MOCKEOF'
+#!/bin/sh
+echo "rtt min/avg/max/mdev = 0.100/0.200/0.300/0.050 ms"
+MOCKEOF
+chmod +x "$MOCK/ping"
+
 export AX6_MOCK_CTRL="$CTRL"
 export PATH="$MOCK:$PATH"
 
@@ -141,6 +149,7 @@ export AX6_ENDPOINT_INFO="Mock Linux endpoint RTL8153"
 export AX6_LANLAN_SERVER_IP=192.168.5.111
 export AX6_LANLAN_OUT_BASE="$WORK/lanlan-runs"
 export AX6_ROUNDS=1 AX6_DURATION=2 AX6_SKIP_UDP=1 AX6_SKIP_LONG=1
+export AX6_LANLAN_LOG_TEE=0
 rm -rf "$AX6_LANLAN_OUT_BASE"; : > "$CTRL/args.log"
 bash "$LANLAN" >/dev/null 2>&1 || bad "lanlan 正样本运行失败"
 grep -q -- "-P 1 -t 2" "$CTRL/args.log" && ok "P1 使用 -P 1" || bad "P1 未使用 -P 1"
@@ -185,6 +194,7 @@ echo "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef  ./env.tx
 "$ANALYZER" "$RUN7" >/dev/null 2>&1
 rc=$?
 [ "$rc" -eq 2 ] && ok "SHA 损坏 → INCOMPLETE (exit=2)" || bad "SHA 损坏 → exit=$rc (期望 2)"
+fi
 
 # ── 场景 ⑧: analyzer 四状态 (正/负样本) ────────────────────────────────────
 echo "== ⑧ analyzer 四状态 =="
@@ -192,44 +202,62 @@ python3 - "$WORK" <<'PYEOF'
 import json, os, sys, hashlib
 w = sys.argv[1]
 
-def build(name, bps_fwd, bps_rev, loss300, loss900, endpoint, snapshots=True):
+def build(name, bps_fwd, bps_rev, loss300, loss900, endpoint, snapshots=True,
+          skip_tcp=False, skip_udp=False, skip_long=False, long_bps=None,
+          long_retx=0, counter_delta=0):
     d = os.path.join(w, name)
     os.makedirs(d, exist_ok=True)
-    env = f"endpoint_info={endpoint}\nfirmware_revision=r0-4e35043\n"
+    env = (f"endpoint_info={endpoint}\nfirmware_revision=r0-4e35043\n"
+           f"skip_tcp={int(skip_tcp)}\nskip_udp={int(skip_udp)}\n"
+           f"skip_long={int(skip_long)}\nrounds=3\nduration=30\nlong_duration=600\n"
+           f"long_retx_limit=1000\n")
     open(os.path.join(d, "env.txt"), "w").write(env)
-    def tcp(fn, n_streams, mode, bps):
-        t = 30.0
+    def tcp(fn, n_streams, mode, bps, t=30.0, retx=0):
         per = bps * 1e6 * t / 8 / n_streams
         st = []
-        senders = {"fwd": [True], "rev": [False], "bidir": [True, False]}
-        for k, snd in enumerate(senders[mode] * (n_streams if mode != "bidir" else 1)):
-            if mode == "bidir":
-                snd = k < n_streams
+        senders = {"fwd": [True] * n_streams,
+                   "rev": [False] * n_streams,
+                   "bidir": [True] * n_streams + [False] * n_streams}
+        for snd in senders[mode]:
             st.append({"bytes": int(per), "seconds": t,
-                       "sender": {"sender": snd, "bytes": int(per), "seconds": t, "retransmits": 0}})
+                       "sender": {"sender": snd, "bytes": int(per), "seconds": t,
+                                  "retransmits": retx // n_streams}})
         json.dump({"end": {"streams": st}}, open(os.path.join(d, fn), "w"))
-    tcp("P1-fwd-r1.json", 1, "fwd", bps_fwd); tcp("P1-fwd-r2.json", 1, "fwd", bps_fwd); tcp("P1-fwd-r3.json", 1, "fwd", bps_fwd)
-    tcp("P1-rev-r1.json", 1, "rev", bps_rev); tcp("P1-rev-r2.json", 1, "rev", bps_rev); tcp("P1-rev-r3.json", 1, "rev", bps_rev)
-    tcp("P1-bidir-r1.json", 1, "bidir", bps_fwd); tcp("P1-bidir-r2.json", 1, "bidir", bps_fwd); tcp("P1-bidir-r3.json", 1, "bidir", bps_fwd)
+    if not skip_tcp:
+        for phase, streams in (("P1", 1), ("P4", 4)):
+            for rnd in range(1, 4):
+                tcp(f"{phase}-fwd-r{rnd}.json", streams, "fwd", bps_fwd)
+                tcp(f"{phase}-rev-r{rnd}.json", streams, "rev", bps_rev)
+                tcp(f"{phase}-bidir-r{rnd}.json", streams, "bidir", min(bps_fwd, bps_rev))
     def udp(fn, loss):
         t = 30.0
         st = [{"udp": {"lost_percent": loss, "jitter_ms": 0.05,
                        "seconds": t, "bytes": 300 * 1e6 * t / 8}}]
         json.dump({"end": {"streams": st}}, open(os.path.join(d, fn), "w"))
-    udp("udp-300-fwd-r1.json", loss300); udp("udp-300-rev-r1.json", 0.0)
-    udp("udp-600-fwd-r1.json", 0.05); udp("udp-600-rev-r1.json", 0.0)
-    udp("udp-900-fwd-r1.json", loss900); udp("udp-900-rev-r1.json", 0.0)
+    if not skip_udp:
+        for rnd in range(1, 4):
+            udp(f"udp-300-fwd-r{rnd}.json", loss300); udp(f"udp-300-rev-r{rnd}.json", 0.0)
+            udp(f"udp-600-fwd-r{rnd}.json", 0.05); udp(f"udp-600-rev-r{rnd}.json", 0.0)
+            udp(f"udp-900-fwd-r{rnd}.json", loss900); udp(f"udp-900-rev-r{rnd}.json", 0.0)
+    if not skip_long:
+        tcp("long-bidir.json", 4, "bidir", long_bps or min(bps_fwd, bps_rev),
+            t=600.0, retx=long_retx)
     if snapshots:
-        def snap(fn, extra=""):
+        def snap(fn, dropped=0, extra=""):
             open(os.path.join(d, fn), "w").write(
-                "=== lan1 ===\nrx_errors=0\nrx_dropped=0\ntx_errors=0\ntx_dropped=0\n"
+                f"=== lan1 ===\nrx_errors=0\nrx_dropped={dropped}\ntx_errors=0\ntx_dropped=0\n"
                 "rx_bytes=1000\ntx_bytes=1000\n"
                 "=== lan2 ===\nrx_errors=0\nrx_dropped=0\ntx_errors=0\ntx_dropped=0\n"
                 "rx_bytes=1000\ntx_bytes=1000\n"
                 "=== edma_err_stats ===\nedma_err_alloc_fail_cnt = 4990\n"
                 "=== softnet_stat_dec ===\n100 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n" + extra)
-        snap("pre-all.txt"); snap("post-all.txt")
-    # SHA
+        snap("pre-all.txt"); snap("post-all.txt", counter_delta)
+        if counter_delta:
+            # Lexically later phase snapshots must not hide the final delta.
+            snap("zzz-phase-post.txt")
+    rehash(d)
+
+def rehash(d):
     lines = []
     for f in sorted(os.listdir(d)):
         p = os.path.join(d, f)
@@ -243,6 +271,22 @@ build("s8-fail", 700, 945, 0.0, 0.2, "MacBook onboard RTL8153", True)
 build("s8-ax88179", 940, 945, 0.0, 0.2, "Windows AX88179 USB3 driver 1.16.27.321", True)
 build("s8-ax88179-degraded", 600, 700, 1.2, 2.5, "Windows AX88179 USB3 driver 1.16.27.321", True)
 build("s8-incomplete", 940, 945, 0.0, 0.2, "MacBook onboard RTL8153", False)
+build("s8-long-retx", 940, 945, 0.0, 0.2, "MacBook onboard RTL8153", True,
+      long_bps=900, long_retx=50000)
+build("s8-ax88179-counter-fail", 600, 700, 1.2, 2.5,
+      "Windows AX88179 USB3 driver 1.16.27.321", True, counter_delta=1)
+build("s8-long-only", 940, 945, 0.0, 0.2, "MacBook onboard RTL8153", True,
+      skip_tcp=True, skip_udp=True, long_bps=900)
+build("s8-missing-round", 940, 945, 0.0, 0.2, "MacBook onboard RTL8153", True)
+os.unlink(os.path.join(w, "s8-missing-round", "P4-fwd-r3.json"))
+rehash(os.path.join(w, "s8-missing-round"))
+build("s8-short-duration", 940, 945, 0.0, 0.2, "MacBook onboard RTL8153", True)
+short = os.path.join(w, "s8-short-duration", "P1-fwd-r2.json")
+j = json.load(open(short))
+for stream in j["end"]["streams"]:
+    stream["sender"]["seconds"] = 5.0
+json.dump(j, open(short, "w"))
+rehash(os.path.join(w, "s8-short-duration"))
 PYEOF
 check_rc() { # dir expected_rc label
   "$ANALYZER" "$1" >/dev/null 2>&1; rc=$?
@@ -253,6 +297,11 @@ check_rc "$WORK/s8-fail" 1 "低吞吐样本 → FAIL"
 check_rc "$WORK/s8-ax88179" 3 "AX88179 双向 → ENV-BLOCKED"
 check_rc "$WORK/s8-ax88179-degraded" 3 "AX88179 低吞吐 → ENV-BLOCKED (非 FAIL, R2 §6)"
 check_rc "$WORK/s8-incomplete" 2 "缺快照 → INCOMPLETE"
+check_rc "$WORK/s8-long-retx" 1 "长时双向高重传 → FAIL"
+check_rc "$WORK/s8-ax88179-counter-fail" 1 "端点受限但驱动计数器增长 → FAIL"
+check_rc "$WORK/s8-long-only" 0 "仅运行 long-bidir 且显式跳过 TCP/UDP → PASS"
+check_rc "$WORK/s8-missing-round" 2 "缺少约定轮次 → INCOMPLETE"
+check_rc "$WORK/s8-short-duration" 2 "TCP 时长不足 → INCOMPLETE"
 
 # ── 核心断言: 无伪 PASS ─────────────────────────────────────────────────────
 echo "== 无伪 PASS 断言 =="

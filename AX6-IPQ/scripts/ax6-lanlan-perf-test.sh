@@ -36,13 +36,19 @@ CLIENT_NIC_INFO="${AX6_CLIENT_NIC_INFO:-}"
 ROUNDS="${AX6_ROUNDS:-3}"
 DURATION="${AX6_DURATION:-30}"
 LONG_DURATION="${AX6_LONG_DURATION:-600}"
+LONG_RETX_LIMIT="${AX6_LONG_RETX_LIMIT:-1000}"
 SKIP_TCP="${AX6_SKIP_TCP:-0}"
 SKIP_UDP="${AX6_SKIP_UDP:-0}"
 SKIP_LONG="${AX6_SKIP_LONG:-0}"
+LOG_TEE="${AX6_LANLAN_LOG_TEE:-1}"
 
 OUT="${OUT_BASE}/$(date +%Y%m%d-%H%M%S)-${LABEL}"
 mkdir -p "$OUT"
-exec > >(tee -a "$OUT/runner.log") 2>&1
+if [ "$LOG_TEE" = 1 ]; then
+  exec > >(tee -a "$OUT/runner.log") 2>&1
+else
+  exec >> "$OUT/runner.log" 2>&1
+fi
 
 SSH=(ssh -i "$SSH_KEY" -o IdentitiesOnly=yes -o BatchMode=yes \
   -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$KNOWN_HOSTS" root@"$ROUTER_IP")
@@ -77,7 +83,13 @@ preflight_identity() {
     echo "endpoint_info=${ENDPOINT_INFO}"
     echo "client_nic_info=${CLIENT_NIC_INFO}"
     echo "iperf3_version=$(iperf3 --version 2>&1 | head -1)"
-    echo "rounds=${ROUNDS} duration=${DURATION} long_duration=${LONG_DURATION}"
+    echo "rounds=${ROUNDS}"
+    echo "duration=${DURATION}"
+    echo "long_duration=${LONG_DURATION}"
+    echo "long_retx_limit=${LONG_RETX_LIMIT}"
+    echo "skip_tcp=${SKIP_TCP}"
+    echo "skip_udp=${SKIP_UDP}"
+    echo "skip_long=${SKIP_LONG}"
     date +%Y-%m-%dT%H:%M:%S%z
   } > "$OUT/env.txt"
   log "IDENTITY board=${board} kernel=${kernel} rev=${revision} boot=${boot_id:0:8}..."

@@ -22,7 +22,7 @@ import json, sys, os, glob, re, collections
 run, qualified = sys.argv[1], bool(int(sys.argv[2]))
 issues = []
 verdicts = []          # (scenario, status, detail)
-status_rank = {"PASS": 0, "FAIL": 1, "INCOMPLETE": 2, "ENV-BLOCKED": 3}
+status_rank = {"PASS": 0, "ENV-BLOCKED": 1, "INCOMPLETE": 2, "FAIL": 3}
 
 # ── 0. 完整性 ──────────────────────────────────────────────────────────────
 env_file = os.path.join(run, "env.txt")
@@ -34,6 +34,24 @@ for ln in open(env_file):
     ln = ln.strip()
     if "=" in ln and not ln.startswith("#"):
         k, v = ln.split("=", 1); env[k.strip()] = v.strip()
+
+def env_flag(name):
+    return env.get(name, "0").lower() in ("1", "true", "yes", "on")
+
+skip_tcp = env_flag("skip_tcp")
+skip_udp = env_flag("skip_udp")
+skip_long = env_flag("skip_long")
+try:
+    expected_rounds = int(env.get("rounds", "3"))
+    duration = float(env.get("duration", "30"))
+    long_duration = float(env.get("long_duration", "600"))
+    long_retx_limit = int(env.get("long_retx_limit", "1000"))
+except ValueError:
+    print(json.dumps({"overall": "INCOMPLETE", "reason": "invalid test contract"}, indent=2))
+    sys.exit(2)
+if expected_rounds < 1 or duration <= 0 or long_duration <= 0 or long_retx_limit < 0:
+    print(json.dumps({"overall": "INCOMPLETE", "reason": "out-of-range test contract"}, indent=2))
+    sys.exit(2)
 
 json_files = sorted(glob.glob(os.path.join(run, "*.json")))
 if not json_files:
@@ -92,25 +110,9 @@ for jp in json_files:
                 break
             scenarios[("udp", rate, direction)].setdefault("runs", []).append(
                 {"loss": udp.get("lost_percent", 0.0), "jitter": udp.get("jitter_ms", 0.0),
-                 "bps": udp.get("bytes", 0) * 8 / secs / 1e6})
+                 "bps": udp.get("bytes", 0) * 8 / secs / 1e6, "seconds": secs})
     elif name.startswith("long-bidir"):
-        for s in streams:
-            send = s.get("sender", {}) or {}
-            secs = send.get("seconds")
-            if not secs:
-                incomplete_any = True
-                add_issue(name, "no sender.seconds", "INCOMPLETE")
-                break
-            k = "MAC->WIN" if send.get("sender") else "WIN->MAC"
-            scenarios[("long", k)].setdefault("runs", []).append(
-                {"bps": send.get("bytes", 0) * 8 / secs / 1e6,
-                 "retx": send.get("retransmits", 0)})
-    else:
-        m = re.match(r"(P[14])-(fwd|rev|bidir)-r(\d+)", name)
-        if not m:
-            continue
-        phase, mode, rnd = m.group(1), m.group(2), m.group(3)
-        dirs = collections.defaultdict(lambda: [0, 0])
+        dirs = collections.defaultdict(lambda: [0.0, 0, []])
         for s in streams:
             send = s.get("sender", {}) or {}
             secs = send.get("seconds")
@@ -121,8 +123,30 @@ for jp in json_files:
             k = "MAC->WIN" if send.get("sender") else "WIN->MAC"
             dirs[k][0] += send.get("bytes", 0) * 8 / secs / 1e6
             dirs[k][1] += send.get("retransmits", 0)
-        for k, (bps, rt) in dirs.items():
-            scenarios[(phase, mode, k)].setdefault("runs", []).append({"bps": bps, "retx": rt})
+            dirs[k][2].append(secs)
+        for k, (bps, retx, durations) in dirs.items():
+            scenarios[("long", k)].setdefault("runs", []).append(
+                {"bps": bps, "retx": retx, "seconds": min(durations)})
+    else:
+        m = re.match(r"(P[14])-(fwd|rev|bidir)-r(\d+)", name)
+        if not m:
+            continue
+        phase, mode, rnd = m.group(1), m.group(2), m.group(3)
+        dirs = collections.defaultdict(lambda: [0, 0, []])
+        for s in streams:
+            send = s.get("sender", {}) or {}
+            secs = send.get("seconds")
+            if not secs:
+                incomplete_any = True
+                add_issue(name, "no sender.seconds", "INCOMPLETE")
+                break
+            k = "MAC->WIN" if send.get("sender") else "WIN->MAC"
+            dirs[k][0] += send.get("bytes", 0) * 8 / secs / 1e6
+            dirs[k][1] += send.get("retransmits", 0)
+            dirs[k][2].append(secs)
+        for k, (bps, rt, durations) in dirs.items():
+            scenarios[(phase, mode, k)].setdefault("runs", []).append(
+                {"bps": bps, "retx": rt, "seconds": min(durations)})
 
 endpoint = env.get("endpoint_info", "")
 ax88179 = "AX88179" in endpoint or "ax88179" in endpoint.lower()
@@ -136,10 +160,14 @@ def median(xs):
 def judge_tcp_unidir(key, label):
     v = scenarios.get(key)
     if not v or not v.get("runs"):
-        return
+        add_issue(label, "no runs", "INCOMPLETE"); return
     runs = v["runs"]
+    if len(runs) != expected_rounds:
+        add_issue(label, f"runs={len(runs)}, expected={expected_rounds}", "INCOMPLETE"); return
     if any(not r or "bps" not in r for r in runs):
         add_issue(label, "incomplete runs", "INCOMPLETE"); return
+    if any(r.get("seconds", 0) < duration * 0.9 for r in runs):
+        add_issue(label, f"duration shorter than 90% of {duration:.0f}s", "INCOMPLETE"); return
     med = median([r["bps"] for r in runs])
     mn = min(r["bps"] for r in runs)
     retx = sum(r.get("retx", 0) for r in runs)
@@ -155,8 +183,12 @@ def judge_tcp_unidir(key, label):
 def judge_tcp_bidir(key, label):
     v = scenarios.get(key)
     if not v or not v.get("runs"):
-        return
+        add_issue(label, "no runs", "INCOMPLETE"); return
     runs = v["runs"]
+    if len(runs) != expected_rounds:
+        add_issue(label, f"runs={len(runs)}, expected={expected_rounds}", "INCOMPLETE"); return
+    if any(r.get("seconds", 0) < duration * 0.9 for r in runs):
+        add_issue(label, f"duration shorter than 90% of {duration:.0f}s", "INCOMPLETE"); return
     med = median([r["bps"] for r in runs])
     mn = min(r["bps"] for r in runs)
     if ax88179 and not qualified:
@@ -174,6 +206,12 @@ def judge_udp(rate, label):
         if not v or not v.get("runs"):
             add_issue(f"{label} {direction}", "no runs", "INCOMPLETE"); continue
         losses = [r["loss"] for r in v["runs"]]
+        if len(v["runs"]) != expected_rounds:
+            add_issue(f"{label} {direction}",
+                      f"runs={len(v['runs'])}, expected={expected_rounds}", "INCOMPLETE"); continue
+        if any(r.get("seconds", 0) < duration * 0.9 for r in v["runs"]):
+            add_issue(f"{label} {direction}",
+                      f"duration shorter than 90% of {duration:.0f}s", "INCOMPLETE"); continue
         worst = max(losses)
         limits = {"300": 0.05, "600": 0.1, "900": 1.0}
         if worst <= limits[rate]:
@@ -184,13 +222,38 @@ def judge_udp(rate, label):
         else:
             verdicts.append((f"{label} {direction}", "FAIL", f"max_loss={worst:.3f}% > {limits[rate]}%"))
 
-for phase in ("P1", "P4"):
-    judge_tcp_unidir((phase, "fwd", "MAC->WIN"), f"TCP-{phase}-fwd MAC->WIN")
-    judge_tcp_unidir((phase, "rev", "WIN->MAC"), f"TCP-{phase}-rev WIN->MAC")
-    judge_tcp_bidir((phase, "bidir", "MAC->WIN"), f"TCP-{phase}-bidir MAC->WIN")
-    judge_tcp_bidir((phase, "bidir", "WIN->MAC"), f"TCP-{phase}-bidir WIN->MAC")
-for rate in ("300", "600", "900"):
-    judge_udp(rate, f"UDP-{rate}")
+def judge_long(direction):
+    label = f"LONG-bidir {direction}"
+    v = scenarios.get(("long", direction))
+    if not v or not v.get("runs"):
+        add_issue(label, "no runs", "INCOMPLETE"); return
+    runs = v["runs"]
+    if any(r.get("seconds", 0) < long_duration * 0.9 for r in runs):
+        add_issue(label, f"duration shorter than 90% of {long_duration:.0f}s", "INCOMPLETE"); return
+    med = median([r["bps"] for r in runs])
+    mn = min(r["bps"] for r in runs)
+    retx = sum(r.get("retx", 0) for r in runs)
+    detail = (f"median={med:.1f} min={mn:.1f} Mbps retx={retx} "
+              f"limit={long_retx_limit}")
+    if ax88179 and not qualified:
+        verdicts.append((label, "ENV-BLOCKED", detail + " — endpoint qualification required"))
+    elif med >= 850 and mn >= 750 and retx <= long_retx_limit:
+        verdicts.append((label, "PASS", detail))
+    else:
+        verdicts.append((label, "FAIL", detail))
+
+if not skip_tcp:
+    for phase in ("P1", "P4"):
+        judge_tcp_unidir((phase, "fwd", "MAC->WIN"), f"TCP-{phase}-fwd MAC->WIN")
+        judge_tcp_unidir((phase, "rev", "WIN->MAC"), f"TCP-{phase}-rev WIN->MAC")
+        judge_tcp_bidir((phase, "bidir", "MAC->WIN"), f"TCP-{phase}-bidir MAC->WIN")
+        judge_tcp_bidir((phase, "bidir", "WIN->MAC"), f"TCP-{phase}-bidir WIN->MAC")
+if not skip_udp:
+    for rate in ("300", "600", "900"):
+        judge_udp(rate, f"UDP-{rate}")
+if not skip_long:
+    judge_long("MAC->WIN")
+    judge_long("WIN->MAC")
 
 # ── 3. 计数器差分 (pre-all vs 最后快照) ────────────────────────────────────
 def parse_snapshot(f):
@@ -211,8 +274,11 @@ def parse_snapshot(f):
     return d
 
 pre = parse_snapshot(os.path.join(run, "pre-all.txt"))
-posts = sorted(glob.glob(os.path.join(run, "*post*.txt")))
-post = parse_snapshot(posts[-1]) if posts else None
+post_all = os.path.join(run, "post-all.txt")
+posts = glob.glob(os.path.join(run, "*post*.txt"))
+post_path = post_all if os.path.exists(post_all) else (
+    max(posts, key=os.path.getmtime) if posts else None)
+post = parse_snapshot(post_path) if post_path else None
 
 if pre is None or post is None:
     add_issue("counters", "pre/post snapshot missing", "INCOMPLETE")
@@ -233,15 +299,15 @@ else:
                 add_issue(f"softnet cpu{i} dropped", f"{r0[1]} -> {r1[1]}", "FAIL")
 
 # ── 4. 汇总 ─────────────────────────────────────────────────────────────────
-worst = "PASS"
-for scn, st, detail in verdicts:
-    if status_rank[st] > status_rank[worst]:
-        worst = st
-for _, st in issues:
-    if status_rank[st] > status_rank[worst]:
-        worst = st
-if incomplete_any and worst in ("PASS",):
-    worst = "INCOMPLETE"
+statuses = [st for _, st, _ in verdicts] + [st for _, st in issues]
+if incomplete_any:
+    statuses.append("INCOMPLETE")
+worst = max(statuses or ["INCOMPLETE"], key=status_rank.get)
+data_integrity = "INCOMPLETE" if "INCOMPLETE" in statuses else "PASS"
+test_result = "FAIL" if "FAIL" in statuses else ("PASS" if "PASS" in statuses else "NOT-EVALUATED")
+environment = "ENV-BLOCKED" if (ax88179 and not qualified) else "QUALIFIED"
+if environment == "ENV-BLOCKED" and worst == "PASS":
+    worst = "ENV-BLOCKED"
 
 result = {
     "overall": worst,
@@ -249,6 +315,12 @@ result = {
     "firmware_revision": env.get("firmware_revision", ""),
     "endpoint_info": endpoint,
     "ax88179_endpoint": ax88179,
+    "data_integrity": data_integrity,
+    "test_result": test_result,
+    "environment": environment,
+    "contract": {"skip_tcp": skip_tcp, "skip_udp": skip_udp, "skip_long": skip_long,
+                 "rounds": expected_rounds, "duration": duration,
+                 "long_duration": long_duration, "long_retx_limit": long_retx_limit},
     "scenarios": [{"scenario": s, "status": st, "detail": d} for s, st, d in verdicts],
     "issues": [{"issue": s, "status": st} for s, st in issues],
 }

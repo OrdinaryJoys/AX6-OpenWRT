@@ -53,6 +53,7 @@ jobs:
           sh tests/test-nss-monitor.sh
           sh tests/test-source-patchset-generator.sh
           bash AX6-IPQ/tests/test-ax6-perf-fixture.sh
+          bash AX6-IPQ/tests/test-ax6-perf-tool-hardening.sh
           sh AX6-IPQ/tests/test-ax6-routed-perf-fixture.sh
           sh AX6-IPQ/tests/test-ax6-nss-frequency-ab.sh
           sh AX6-IPQ/tests/test-ax6-reload-matrix-validate.sh
