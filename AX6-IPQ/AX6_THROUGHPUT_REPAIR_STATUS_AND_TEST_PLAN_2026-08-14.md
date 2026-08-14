@@ -21,18 +21,19 @@ SHA256；“测试执行完成”不等于“故障已经修复”。
 | 有线 Mac | `192.168.5.190`, `en0`, 1000baseT 全双工 |
 | Wi-Fi Mac | `192.168.5.232`, `en1`, MAC `b2:07:ce:13:f7:85` |
 | Wi-Fi 关联 | 5 GHz `RIFI`, HE80, 2x2, 信号约 `-32 dBm`, PHY 最高约 1200.9 Mbit/s |
-| Windows 端点 | `192.168.5.111:5201`, iperf3 3.21, AX88179 USB3 有线网卡 |
+| Windows 端点 | `192.168.5.111:5201`, iperf3 3.21, AX88179 USB3 有线网卡；当前不在 AP station 表中 |
+| Windows USB Wi-Fi | 尚未关联到 AX6；当前无线 station 只有 Mac `.232` 和 2.4 GHz IoT 设备，无法伪造已完成结果 |
 
 ## 3. 本轮已完成的仓库修复
 
 | 提交/工作区 | 修复 | 验证状态 |
 |---|---|---|
 | `8c71164` | 双向负载期间同步采集 NSS、PBUF、softnet、IRQ、RPS/RFS/XPS、接口和 CPU | 本地夹具通过；已在三类实机拓扑产生完整样本 |
-| `d67d4f7` | 按 `Packages` 精确复制全部依赖 IPK，生成自包含离线 kmod feed、索引和双层 SHA256 | 正/负夹具通过；新云端构建等待产物阶段复核 |
+| `d67d4f7` | 按 `Packages` 精确复制全部依赖 IPK，生成自包含离线 kmod feed、索引和双层 SHA256 | 正/负夹具、完整 stock 构建和下载产物独立校验均通过 |
 | `b565969` | lint 按 helper 所有权验证离线 feed，不再错误要求实现字符串必须位于 workflow | 云端 Lint `31779695328` 全部通过 |
-| 当前未提交 | LAN-LAN runner 增加 probe/TCP/UDP/长时硬超时、按 PID 清理、阶段冷却、全阶段同步采样和 N2H 总快照 | 挂起负样本通过；性能工具夹具 `36/36` 通过 |
-| 当前未提交 | 新增路由器到 Mac 的 P1/P4 正向、反向、双向和同步采样工具 | 有线、Wi-Fi 各 18 个 TCP 场景完整执行 |
-| 当前未提交 | 分离 N2H OCM pool pressure 与 default/payload/queue 最终失败 | OCM-only fixture=`WARN/exit 0`；payload fail fixture=`FAIL/exit 1` |
+| `2c20098` | LAN-LAN runner 增加 probe/TCP/UDP/长时硬超时、按 PID 清理、阶段冷却、全阶段同步采样和 N2H 总快照 | 挂起负样本通过；性能工具夹具 `36/36`、shellcheck 和云端 Lint `31787844185` 通过 |
+| `2c20098` | 新增路由器到 Mac 的 P1/P4 正向、反向、双向和同步采样工具 | 有线、Wi-Fi 各 18 个 TCP 场景完整执行 |
+| `2c20098` | 分离 N2H OCM pool pressure 与 default/payload/queue 最终失败 | OCM-only fixture=`WARN/exit 0`；payload fail fixture=`FAIL/exit 1` |
 
 ### 3.1 新发现并修复的测试工具错误
 
@@ -148,7 +149,7 @@ UDP 三轮短时结果：
 | ID | 状态 | 问题 | 当前证据与边界 |
 |---|---|---|---|
 | T-01 | 确定 | 旧 LAN-LAN runner 可被 iperf 会话永久挂住 | 已修复并由 hang fixture 验证 |
-| T-02 | 确定 | 旧 kmod artifact 缺少 `Packages` 引用的 23 个 IPK | helper 已修复；等待新 artifact 独立解包验收 |
+| T-02 | 已修复并验收 | 旧 kmod artifact 缺少 `Packages` 引用的 23 个 IPK | 新 artifact 索引和磁盘均为 166 个 IPK；压缩包 171 项与目录加校验文件精确一致，全部 SHA256 通过 |
 | T-03 | 确定 | lint 对 helper 重构产生错误失败 | 已修复；云端全门禁通过 |
 | R-01 | 确定异常 | Wi-Fi 路由终结双向极端不公平 | 三轮重复；有线同机对照不复现；根因仍待 forwarding/第二客户端验证 |
 | R-02 | 确定异常 | Windows AX88179 接收方向在持续负载后严重退化 | 有线和 Wi-Fi 客户端均指向 Windows 接收方向；不能归因 AX6 NSS |
@@ -158,22 +159,42 @@ UDP 三轮短时结果：
 | R-06 | 未验证 | WAN-LAN NAT/ECM/NSS routed 双向吞吐 | 缺 WAN 侧独立 iperf3 端点；LAN-LAN 与路由本机测试不能替代 |
 | R-07 | 确定压力信号 | N2H core0 OCM 首选池在短时负载中突增 | default/payload/queue 未同步增长，降级为 WARN；新固件 PBUF 需同契约 A/B |
 | R-08 | 已补工具、待复测 | 旧采样只覆盖 bidir，遗漏单向和 UDP 阶段 | runner 已改为 `sample_scope=all`，旧证据不能反推具体阶段 |
-| R-09 | 未执行 | Windows USB Wi-Fi 网卡核心测试 | 当前 Windows 端点是 AX88179 USB 有线网卡；需记录 USB Wi-Fi 芯片/驱动/IP/MAC 后单独执行 |
+| R-09 | 环境待就绪 | Windows USB Wi-Fi 网卡核心测试 | 只读 station/DHCP 盘点确认 `.111` 仍是有线端点且未关联 AP；需连接 USB Wi-Fi、记录芯片/驱动/IP/MAC 后单独执行 |
 
 ## 6. 云端构建状态
 
 - 构建运行：GitHub Actions `31779338123`
 - 固件构建提交：`d67d4f75f2b8a691d9d0254f82401bfbbc610e6d`
+- 结果：`success`。
 - 已通过：锁定源码、feeds、配置、OpenClash 输入、安全回移、NSS patch prepare、
-  007/008/012/018/019 回归门禁。
-- 当前阶段：`Compile firmware`。
-- 构建结束后必须继续验证：DTB、rootfs、唯一设备 manifest、OpenClash 插件和
-  AArch64 Meta core 哈希、完整离线 kmod feed、sysupgrade/recovery、全部 SHA256。
+  007/008/012/018/019 回归门禁、完整编译、DTB、最终 rootfs、artifact staging、
+  离线 kmod feed、sysupgrade 和 recovery 上传。
+- Release 上传按策略跳过；当前产物仍是候选验证件，不是已发布固件。
 
 `b565969` 只修改 lint 门禁，不改变固件输入；因此运行 `31779338123` 的固件内容
 仍覆盖所有实际固件修复。测试工具的后续提交也不改变固件 rootfs。
 
-### 6.1 驱动仓库交叉验证
+### 6.1 下载产物独立验收
+
+持久证据目录：
+`router-backups/NOT-FLASHED/run31779338123-20260814`
+
+1. sysupgrade、recovery、离线 kmod feed 和 kmod 压缩包的全部 SHA256 均通过。
+2. sysupgrade 与 recovery 的设备 manifest 和 BUILD-LOCK 逐字一致。
+3. rootfs 的 opkg 状态与设备 manifest 均为 391 个已安装包，逐项无差异。
+4. 离线 feed 的 `Packages` 索引与磁盘均为 166 个 IPK，无缺件或孤立 IPK；
+   `kmod-packages.tar.gz` 的内容与目录加 `KMOD-SHA256SUMS.txt` 精确一致。
+5. rootfs 内 OpenClash 为 `0.47.156`；Meta core 是静态链接 AArch64 ELF，
+   SHA256 为 `453066ac9e5045d95d035a96b5c02fb593fdc0427c3c9153ff4d6a4403feab6a`，
+   与 BUILD-LOCK 一致。
+6. rootfs 内 SQM/CAKE/IFB/NSS qdisc 组件已安装，但默认队列
+   `sqm.eth1.enabled=0`；当前没有 SQM 与 NSS 同时接管流量的运行冲突。
+7. `98-nss-tune` 首次启动写入 ECM `br-lan/report` 分层策略；
+   `ax6-boot-guard` 每次启动还会修复旧保留配置，和实际 helper 逻辑闭合。
+8. 实机重新校验镜像 SHA256 后，`sysupgrade -T` 返回 0；没有刷写或重启，
+   临时镜像已经删除。
+
+### 6.2 驱动仓库交叉验证
 
 | 来源 | 锁定/当前事实 | 对本轮结论的约束 |
 |---|---|---|
@@ -194,7 +215,7 @@ ath11k crash/warning；仅有用户停用有线接口对应的物理链路 down 
 
 1. Wi-Fi 到 Windows 的 600 秒双向阶段、JSON、样本、boot ID 和 SHA256 已闭合。
 2. 测试工具硬超时、全阶段采样、N2H 总快照和 router-endpoint runner 已通过
-   `36/36` 夹具及 shellcheck，提交后继续跑云端 lint。
+   `36/36` 夹具、shellcheck 和云端 Lint `31787844185`。
 3. 使用新的 `sample_scope=all` 在非 AX88179 合格端点复测，定位 OCM 压力究竟
    出现在 Wi-Fi 上行、有线接收还是 UDP 峰值阶段。
 4. 保持 default/payload/queue/softnet/接口错误为硬失败；OCM-only 保留 WARN，
@@ -204,12 +225,10 @@ ath11k crash/warning；仅有用户停用有线接口对应的物理链路 down 
 
 ### P1：新固件产物闭环
 
-1. 云端构建成功后下载两个 artifact 到 `router-backups/NOT-FLASHED`。
-2. 验证离线 feed 中 IPK 数量与 `Packages` 的 `Filename` 精确一致。
-3. 解包 rootfs，核对 PBUF/RPS、ECM offload policy、OpenClash、ZeroTier、UPnP、
-   ZRAM/IRQ 脚本所有权和无重复配置。
-4. 核对 stock 分区尺寸和 `sysupgrade -T`；没有完整通过前不刷机。
-5. 经用户确认后全新刷写，再按同一测试契约复测，禁止保留旧配置影响结论。
+1. 云端构建、下载、SHA256、manifest/rootfs、离线 feed 和
+   `sysupgrade -T` 已全部通过。
+2. 当前镜像仍保留在 `NOT-FLASHED`，没有发布或自动刷写。
+3. 经用户确认后全新刷写，再按同一测试契约复测，禁止保留旧配置影响结论。
 
 ### P1：Wi-Fi 定点 A/B（先只读，后临时）
 
