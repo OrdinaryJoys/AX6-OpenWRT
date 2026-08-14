@@ -68,6 +68,7 @@ chmod +x "$TMP/bin/ssh"
 
 if ! PATH="$TMP/bin:$PATH" \
    SSH_KEY="$TMP/nonexistent-key" \
+   SSH_KNOWN_HOSTS="$TMP/known_hosts" \
    MOCK_SAFE_ARCHIVE="$TMP/safe.tar.gz" \
    MOCK_OPENCLASH_ARCHIVE="$TMP/openclash.tar.gz" \
    "$ROOT/backup-router-config.sh" 192.0.2.1 "$TMP/backup" \
@@ -88,6 +89,7 @@ fi
 
 if PATH="$TMP/bin:$PATH" \
    SSH_KEY="$TMP/nonexistent-key" \
+   SSH_KNOWN_HOSTS="$TMP/known_hosts" \
    MOCK_SAFE_ARCHIVE="$TMP/shadow.tar.gz" \
    MOCK_OPENCLASH_ARCHIVE="$TMP/openclash.tar.gz" \
    "$ROOT/backup-router-config.sh" 192.0.2.1 "$TMP/shadow-backup" \
@@ -102,6 +104,7 @@ grep -q 'login password leaked into archive' "$TMP/shadow-output" || {
 
 if PATH="$TMP/bin:$PATH" \
    SSH_KEY="$TMP/nonexistent-key" \
+   SSH_KNOWN_HOSTS="$TMP/known_hosts" \
    MOCK_SAFE_ARCHIVE="$TMP/link.tar.gz" \
    MOCK_OPENCLASH_ARCHIVE="$TMP/openclash.tar.gz" \
    "$ROOT/backup-router-config.sh" 192.0.2.1 "$TMP/link-backup" \
@@ -112,6 +115,20 @@ fi
 grep -q 'restore-safe sysupgrade archive contains links or special files' \
     "$TMP/link-output" || {
     echo "test-router-backup: symlink rejection was not reported" >&2
+    exit 1
+}
+
+grep -Fq -- '-o IdentitiesOnly=yes' "$ROOT/backup-router-config.sh" || {
+    echo "test-router-backup: explicit identity isolation is missing" >&2
+    exit 1
+}
+grep -Fq -- '-o StrictHostKeyChecking=yes' "$ROOT/backup-router-config.sh" || {
+    echo "test-router-backup: strict host-key checking is missing" >&2
+    exit 1
+}
+grep -Fq -- '-o UserKnownHostsFile="$SSH_KNOWN_HOSTS"' \
+    "$ROOT/backup-router-config.sh" || {
+    echo "test-router-backup: fixed known_hosts ownership is missing" >&2
     exit 1
 }
 

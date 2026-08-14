@@ -536,7 +536,10 @@ pbuf_memtotal=$(awk '/MemTotal/{print $2}' /proc/meminfo 2>/dev/null)
 pbuf_extra=$(sysctl -n dev.nss.n2hcfg.extra_pbuf_core0 2>/dev/null)
 pbuf_high=$(sysctl -n dev.nss.n2hcfg.n2h_high_water_core0 2>/dev/null)
 pbuf_wifi=$(sysctl -n dev.nss.n2hcfg.n2h_wifi_pool_buf 2>/dev/null)
-pbuf_page_size=$(getconf PAGESIZE 2>/dev/null)
+# The locked qualcommax target selects CONFIG_ARM64_4K_PAGES. OpenWrt's
+# BusyBox image does not provide getconf, so keep this runtime contract
+# explicit and let the build gate reject a target page-size change.
+pbuf_page_size=4096
 pbuf_classifier=${NSS_PBUF_CLASSIFIER:-/usr/libexec/ax6-nss-pbuf-classify}
 
 if [ ! -x "$pbuf_classifier" ]; then

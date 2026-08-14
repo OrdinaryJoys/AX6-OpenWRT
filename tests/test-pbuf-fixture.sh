@@ -3,10 +3,20 @@
 set -eu
 
 CLASSIFIER=${NSS_PBUF_CLASSIFIER:-./AX6-IPQ/files/usr/libexec/ax6-nss-pbuf-classify}
+NSS_CHECK=${NSS_CHECK:-./AX6-IPQ/files/sbin/nss-check}
 [ -x "$CLASSIFIER" ] || {
     echo "FAIL: pbuf classifier is missing or not executable: $CLASSIFIER" >&2
     exit 1
 }
+
+grep -Fq 'pbuf_page_size=4096' "$NSS_CHECK" || {
+    echo "FAIL: nss-check does not use the locked qualcommax 4K page size" >&2
+    exit 1
+}
+if grep -Eq 'getconf[[:space:]]+PAGE(SIZE|_SIZE)' "$NSS_CHECK"; then
+    echo "FAIL: nss-check depends on getconf, which is absent from the AX6 image" >&2
+    exit 1
+fi
 
 assert_result() {
     expected=$1

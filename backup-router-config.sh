@@ -10,6 +10,7 @@ BACKUP_DIR="${2:-./ax6-backup-$(date +%Y%m%d-%H%M%S)}"
 TARGET="root@$ROUTER"
 SAFE_SYSUPGRADE_ARCHIVE="$BACKUP_DIR/sysupgrade-config-restore-safe.tar.gz"
 SSH_KEY="${SSH_KEY:-$HOME/.ssh/ax6_check}"
+SSH_KNOWN_HOSTS="${SSH_KNOWN_HOSTS:-$HOME/.ssh/known_hosts}"
 
 say() {
     printf '%s\n' "$*"
@@ -17,9 +18,19 @@ say() {
 
 remote() {
     if [ -r "$SSH_KEY" ]; then
-        ssh -i "$SSH_KEY" -o BatchMode=yes -o ConnectTimeout=8 "$TARGET" "$@"
+        ssh -i "$SSH_KEY" \
+            -o IdentitiesOnly=yes \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$SSH_KNOWN_HOSTS" \
+            -o ConnectTimeout=8 \
+            "$TARGET" "$@"
     else
-        ssh -o BatchMode=yes -o ConnectTimeout=8 "$TARGET" "$@"
+        ssh -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$SSH_KNOWN_HOSTS" \
+            -o ConnectTimeout=8 \
+            "$TARGET" "$@"
     fi
 }
 
