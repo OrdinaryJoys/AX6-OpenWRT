@@ -103,7 +103,9 @@ jobs:
           grep -Fq 'xiaomi_stock_check_image_size' "$workflow"
           grep -Fq 'upload/upgrade/*' "$workflow"
           grep -Fq 'path: upload/recovery/*' "$workflow"
-          grep -Fq 'KMOD-ARCHIVE-SHA256.txt' "$workflow"
+          grep -Fq 'AX6-IPQ/scripts/package-ax6-offline-feed.sh' "$workflow"
+          grep -Fq 'KMOD-ARCHIVE-SHA256.txt' \
+            AX6-IPQ/scripts/package-ax6-offline-feed.sh
 
           if grep -Eq 'nand (erase|write).*rootfs|fastboot flash rootfs' \
             "$workflow" AX6-IPQ/HARDWARE.md; then
