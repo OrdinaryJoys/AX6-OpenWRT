@@ -141,6 +141,9 @@ done
 grep -Fq 'verify-ax6-source-semantics.sh' "$REPO_ROOT/.github/workflows/build-AX6-NSS.yml" \
     && ok "build workflow calls the shared semantic verifier" \
     || bad "build workflow calls the shared semantic verifier"
+grep -Fq 'tests/test-qca-mcs-log-level.sh' "$REPO_ROOT/.github/workflows/build-AX6-NSS.yml" \
+    && ok "build workflow runs the qca-mcs source gate" \
+    || bad "build workflow runs the qca-mcs source gate"
 for name in \
     SOURCE_HOSTAPD_PKG_RELEASE SOURCE_QCA_NSS_DRV_PKG_RELEASE \
     SOURCE_QCA_NSS_ECM_PKG_RELEASE SOURCE_QCA_NSS_CLIENTS_PKG_RELEASE \

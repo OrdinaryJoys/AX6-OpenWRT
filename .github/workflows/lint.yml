@@ -52,6 +52,7 @@ jobs:
           sh tests/test-pbuf-fixture.sh
           sh tests/test-nss-monitor.sh
           sh tests/test-source-patchset-generator.sh
+          sh AX6-IPQ/tests/test-source-semantic-lock.sh
           bash AX6-IPQ/tests/test-ax6-perf-fixture.sh
           bash AX6-IPQ/tests/test-ax6-perf-tool-hardening.sh
           sh AX6-IPQ/tests/test-ax6-routed-perf-fixture.sh
