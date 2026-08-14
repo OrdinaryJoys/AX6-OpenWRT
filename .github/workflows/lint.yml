@@ -36,6 +36,7 @@ jobs:
           sh tests/test-openclash-dns-health.sh
           sh tests/test-openclash-archive.sh
           sh tests/test-router-backup.sh
+          sh tests/test-router-restore-preflight.sh
           sh tests/test-openclash-runtime-contract.sh
           sh tests/test-openclash-rom-core-guard.sh
           sh tests/test-openclash-keep-policy.sh
@@ -875,13 +876,25 @@ jobs:
           set -eo pipefail
           backup="backup-router-config.sh"
           deploy="deploy-openclash-runtime.sh"
+          preflight="preflight-router-restore.sh"
           test -x "$backup"
           test -x "$deploy"
-          grep -Fq 'sysupgrade-config-restore-safe.tar.gz' "$backup"
+          test -x "$preflight"
+          grep -Fq 'FORENSIC-CONFIG-SNAPSHOT.tar.gz.blocked' "$backup"
+          grep -Fq 'DO-NOT-RESTORE-WHOLE-BACKUP.txt' "$backup"
+          grep -Fq 'Never upload FORENSIC-CONFIG-SNAPSHOT.tar.gz.blocked in LuCI.' "$backup"
+          grep -Fq 'never pass it to sysupgrade -r' "$backup"
+          grep -Fq 'legacy whole-restore archive found' "$preflight"
+          if grep -Fq 'sysupgrade-config-restore-safe.tar.gz' "$backup"; then
+            echo "::error file=$backup::a forensic snapshot must not look directly restorable"
+            exit 1
+          fi
           grep -Fq '/etc/shadow' "$backup"
           grep -Fq '/etc/shadow-' "$backup"
           grep -Fq 'generated OpenClash data leaked into archive' "$backup"
-          grep -Fq 'restore-safe sysupgrade archive contains links or special files' "$backup"
+          grep -Fq 'forensic configuration snapshot contains links or special files' "$backup"
+          grep -Fq 'ssh-authorized-keys.tar.gz' "$backup" "$preflight"
+          grep -Fq 'zerotier-identity.tar.gz' "$backup" "$preflight"
           grep -Fq 'openclash-runtime.tar.gz' "$backup"
           grep -Fq 'openclash-runtime.tar.gz' "$deploy"
           grep -Fq '/etc/openclash/overwrite' "$backup"
@@ -895,6 +908,8 @@ jobs:
           grep -Fq 'OpenClash core, DNS and firewall contract: ready' "$deploy"
           grep -Fq '/sbin/ax6-config-audit -q' "$deploy"
           grep -Fq '/sbin/ax6-config-audit -v' "$deploy"
+          grep -Fq 'StrictHostKeyChecking=yes' "$backup" "$deploy"
+          grep -Fq 'UserKnownHostsFile="$SSH_KNOWN_HOSTS"' "$backup" "$deploy"
           if grep -Fq 'ax6-config-audit -v || true' "$deploy"; then
             echo "::error file=$deploy::restore must not ignore final configuration audit failures"
             exit 1

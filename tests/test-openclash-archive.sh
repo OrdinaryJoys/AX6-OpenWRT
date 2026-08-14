@@ -103,7 +103,8 @@ chmod +x "$TMP/bin/ssh"
 : > "$TMP/mock-log"
 
 if PATH="$TMP/bin:$PATH" \
-   SSH_KEY="$TMP/nonexistent-key" \
+	   SSH_KEY="$TMP/nonexistent-key" \
+	   SSH_KNOWN_HOSTS="$TMP/known_hosts" \
    MOCK_CALLS="$TMP/mock-calls" \
    MOCK_LOG="$TMP/mock-log" \
    MOCK_PRE_ARCHIVE="$TMP/pre-restore.tar.gz" \
@@ -129,7 +130,8 @@ grep -q 'restore_contract=clear-before-extract' "$TMP/mock-log" || {
 : > "$TMP/mock-calls"
 : > "$TMP/mock-log"
 if PATH="$TMP/bin:$PATH" \
-   SSH_KEY="$TMP/nonexistent-key" \
+	   SSH_KEY="$TMP/nonexistent-key" \
+	   SSH_KNOWN_HOSTS="$TMP/known_hosts" \
    MOCK_CALLS="$TMP/mock-calls" \
    MOCK_LOG="$TMP/mock-log" \
    MOCK_PRE_ARCHIVE="$TMP/pre-restore.tar.gz" \
@@ -148,5 +150,10 @@ grep -q 'target firmware still keeps the complete OpenClash runtime tree' \
     echo "test-openclash-archive: restore continued after target preflight rejection" >&2
     exit 1
 }
+
+grep -Fq -- '-o IdentitiesOnly=yes' "$ROOT/deploy-openclash-runtime.sh"
+grep -Fq -- '-o StrictHostKeyChecking=yes' "$ROOT/deploy-openclash-runtime.sh"
+grep -Fq -- '-o UserKnownHostsFile="$SSH_KNOWN_HOSTS"' \
+	"$ROOT/deploy-openclash-runtime.sh"
 
 echo "test-openclash-archive: PASS"
