@@ -78,6 +78,7 @@ renaming them with a `.blocked` suffix:
 - `/Volumes/FX-MD87/Review/backups/backup-20260731.tar.gz.blocked`
 - `/Volumes/FX-MD87/Review/backups/preflash-20260813-p1/`
 - `router-backups/Redmi-AX6-20260814-full-audit/ax6-pre-audit-20260814-120831/`
+- `/Volumes/FX-MD87/Review/AX6-BACKUPS/ax6-backup-20260719-114550/sysupgrade-config-no-login-password.tar.gz` (2026-08-14 19:05 补查发现并隔离; 含 network/system/firewall/dhcp/wireless 共 208 成员; SHA256 侧载 05d14bc9...)
 
 The current staged backup is:
 
