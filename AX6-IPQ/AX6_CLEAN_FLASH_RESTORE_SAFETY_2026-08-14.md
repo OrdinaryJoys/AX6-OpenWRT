@@ -101,3 +101,24 @@ Do not proceed to flashing when any of the following is true:
 Passing the backup preflight proves archive integrity and restore scope only.
 It does not authorize flashing and does not prove that a later real-device
 restore will succeed. Each real-device stage still requires explicit approval.
+
+## Current flash gate status
+
+- Real-device staged backup: PASS at
+  `router-backups/Redmi-AX6-20260814-clean-flash-safe/ax6-preflash-staged-20260814-124519/`.
+- Historical directly-restorable archive names under `/Volumes/FX-MD87/Review`:
+  none remaining; four archives were preserved with `.blocked` names and
+  independent SHA256 sidecars.
+- Repository restore-safety commit: `3b27db65fc682a38c1c9625fb2f30d8729ea768d`.
+- CI annotation follow-up: `9b211af9317167def024fd9d5841038f57c120f4`.
+- Cloud Lint run `31771229090`: PASS, including ShellCheck, Actionlint,
+  Yamllint, DTB, NSS/ECM/ath11k, PBUF, IRQ, ZRAM and restore policy gates.
+- Post-backup router reachability: 20/20 LAN pings, 0% loss,
+  0.672 ms average; LAN `br-lan` and WAN both remained up.
+- Stock build run `31770288192` at firmware commit `0d9224a` was still compiling
+  when this document was updated. The later commits change only host-side
+  maintenance scripts, tests and documentation; no firmware input differs.
+
+Flashing remains blocked until the stock run succeeds, artifacts are downloaded
+and independently checked, the exact sysupgrade image passes `sysupgrade -T` on
+this router, and the user explicitly authorizes the write and reboot.
