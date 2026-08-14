@@ -527,6 +527,7 @@ jobs:
           sh tests/test-qcom-hwspinlock-regmap-boundary.sh
           sh tests/test-qca-nss-pbuf-readback.sh
           sh tests/test-nss-targeted-backports.sh
+          sh tests/test-set-irq-affinity-device-discovery.sh
           sh tests/test-nss-drv-sysctl-log-level.sh
           echo "=== qca-nss-dp prepare (patch apply check) ==="
           make package/qca-nss/qca-nss-dp/prepare V=s
@@ -767,6 +768,9 @@ jobs:
             'rps_flow_cnt' \
             'xps_cpus' \
             '@.network[*].ports[*]' \
+            'board_detect' \
+            'get_uci_devices' \
+            'get_sysfs_devices' \
             'sock_flow_entries=65535'; do
             grep -Fq "$required" image-verify/set-irq-affinity || {
               echo "::error::Final rootfs set-irq-affinity is missing: $required"

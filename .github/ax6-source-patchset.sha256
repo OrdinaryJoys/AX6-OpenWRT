@@ -176,7 +176,7 @@ f75eded70f2b4d53ca3c10bd2db1a6f34446a5507f6202240050cb72fe4feca3  target/linux/g
 f7ac998c2c380329c6978e7635492397a32ae083bf2eced6247d36b8571c6590  target/linux/generic/pending-6.18/920-mangle_bootargs.patch
 bd34c6115540057aada210cbd6613447d6da2ca0a660f57f5a73b3eafcc736c8  target/linux/ipq40xx/patches-6.18/900-PCI-qcom-add-hack-compatible-for-ipq4019-Lantiq-DSL.patch
 aa1f7a31dc6854706c06a7b5f8f3e8b364775ee7e74f33c51cc29aad88608848  target/linux/mediatek/patches-6.18/901-arm-add-cmdline-override.patch
-ed62e1c5cd952b57c96e015ffc2ba3551200e4136175aab20cd35372631bd8ce  target/linux/qualcommax/base-files/etc/init.d/set-irq-affinity
+92f31217d84ae02bf322600b282d99d5dd0c9e2e65371a0511501bf22c8984a1  target/linux/qualcommax/base-files/etc/init.d/set-irq-affinity
 feb92e1ae70a4ed6b231f9a7cd754ee307cda5f9c656e2269103412fee7ffc25  target/linux/qualcommax/dts/ipq8071-ax3600-stock.dts
 5105286478646d2d09a230abf5ed5d17919367eb25372c2c246a7dfa3dd254a2  target/linux/qualcommax/dts/ipq8071-ax6-stock.dts
 a891afc469ce64c8e75f98a2b17b4c30b2aed03ffc60bc05458f2bb507158f4c  target/linux/qualcommax/image/ipq807x.mk
@@ -202,3 +202,4 @@ ebf0dfc23432f67e5a1de0402f5fd44b4687e1186e4856453ed8536d2cef9e76  tests/test-nss
 601785e8b74d008be87c89df99d0abab07e5d5a4903adaec4eba492c9d1e788b  tests/test-nss-targeted-backports.sh
 d22aa053d44ccf5055f6d95f2932b5eca8d58d1cef3b3ba119842a18dc7571a6  tests/test-qca-nss-pbuf-readback.sh
 94cd3d9e1ee2180182209066e162ccbbae4d8bc930c829f77ebe494e0427ee47  tests/test-qcom-hwspinlock-regmap-boundary.sh
+cf67b4857833eafe5c2a95c32025fc5ea4e685fba031d4826857f0afb1237952  tests/test-set-irq-affinity-device-discovery.sh
