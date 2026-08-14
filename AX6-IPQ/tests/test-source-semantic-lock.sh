@@ -21,28 +21,31 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 
 # ---------------------------------------------------------------------------
-# Scratch source tree with three Makefiles
+# Scratch source tree with four Makefiles
 # ---------------------------------------------------------------------------
-mk_tree() { # hostapd_release drv_release ecm_release [dup_flag]
+mk_tree() { # hostapd_release drv_release ecm_release clients_release [dup_flag]
     tree="$tmp/tree"
     rm -rf "$tree"
     mkdir -p "$tree/package/network/services/hostapd" \
              "$tree/package/qca-nss/qca-nss-drv" \
-             "$tree/package/qca-nss/qca-nss-ecm"
+             "$tree/package/qca-nss/qca-nss-ecm" \
+             "$tree/package/qca-nss/qca-nss-clients"
     [ -n "$1" ] && echo "PKG_RELEASE:=$1" > "$tree/package/network/services/hostapd/Makefile"
     [ -n "$2" ] && echo "PKG_RELEASE:=$2" > "$tree/package/qca-nss/qca-nss-drv/Makefile"
     [ -n "$3" ] && echo "PKG_RELEASE:=$3" > "$tree/package/qca-nss/qca-nss-ecm/Makefile"
-    if [ "${4:-}" = dup ]; then
+    [ -n "$4" ] && echo "PKG_RELEASE:=$4" > "$tree/package/qca-nss/qca-nss-clients/Makefile"
+    if [ "${5:-}" = dup ]; then
         echo "PKG_RELEASE:=99" >> "$tree/package/qca-nss/qca-nss-ecm/Makefile"
     fi
 }
 
-mk_lock() { # hostapd drv ecm
+mk_lock() { # hostapd drv ecm clients
     lock="$tmp/lock.env"
     {
         echo "SOURCE_HOSTAPD_PKG_RELEASE=$1"
         echo "SOURCE_QCA_NSS_DRV_PKG_RELEASE=$2"
         echo "SOURCE_QCA_NSS_ECM_PKG_RELEASE=$3"
+        echo "SOURCE_QCA_NSS_CLIENTS_PKG_RELEASE=$4"
     } > "$lock"
 }
 
@@ -56,55 +59,66 @@ run_expect_fail() { # label
 }
 
 # ---------------------------------------------------------------------------
-# 1. 正场景: hostapd=2 drv=20 ecm=10 → PASS
+# 1. 正场景: hostapd=2 drv=20 ecm=10 clients=14 → PASS
 # ---------------------------------------------------------------------------
-mk_tree 2 20 10
-mk_lock 2 20 10
+mk_tree 2 20 10 14
+mk_lock 2 20 10 14
 "$VERIFY" "$tmp/tree" "$lock" > /dev/null 2>&1 \
-    && ok "positive: hostapd=2 drv=20 ecm=10 matches lock" \
-    || bad "positive: hostapd=2 drv=20 ecm=10 matches lock"
+    && ok "positive: hostapd=2 drv=20 ecm=10 clients=14 matches lock" \
+    || bad "positive: hostapd=2 drv=20 ecm=10 clients=14 matches lock"
 
 # ---------------------------------------------------------------------------
 # 2. ECM 源码 10、lock 9 → FAIL
 # ---------------------------------------------------------------------------
-mk_tree 2 20 10
-mk_lock 2 20 9
+mk_tree 2 20 10 14
+mk_lock 2 20 9 14
 run_expect_fail "negative: ecm source=10 lock=9 fails" "$VERIFY" "$tmp/tree" "$lock"
 
 # ---------------------------------------------------------------------------
 # 3. ECM release 缺失 → FAIL
 # ---------------------------------------------------------------------------
-mk_tree 2 20 ""
-mk_lock 2 20 10
+mk_tree 2 20 "" 14
+mk_lock 2 20 10 14
 run_expect_fail "negative: missing ecm release fails" "$VERIFY" "$tmp/tree" "$lock"
 
 # ---------------------------------------------------------------------------
 # 4. ECM release 重复定义 → FAIL
 # ---------------------------------------------------------------------------
-mk_tree 2 20 10 dup
-mk_lock 2 20 10
+mk_tree 2 20 10 14 dup
+mk_lock 2 20 10 14
 run_expect_fail "negative: duplicated ecm release fails" "$VERIFY" "$tmp/tree" "$lock"
 
 # ---------------------------------------------------------------------------
 # 5. release 非数字 / 0 → FAIL
 # ---------------------------------------------------------------------------
-mk_tree 2 abc 10
-mk_lock 2 20 10
+mk_tree 2 abc 10 14
+mk_lock 2 20 10 14
 run_expect_fail "negative: non-numeric drv release fails" "$VERIFY" "$tmp/tree" "$lock"
 
-mk_tree 2 0 10
-mk_lock 2 20 10
+mk_tree 2 0 10 14
+mk_lock 2 20 10 14
 run_expect_fail "negative: zero drv release fails" "$VERIFY" "$tmp/tree" "$lock"
 
 # ---------------------------------------------------------------------------
 # 6. lock 缺失 release 变量 → FAIL
 # ---------------------------------------------------------------------------
-mk_tree 2 20 10
+mk_tree 2 20 10 14
 printf 'SOURCE_HOSTAPD_PKG_RELEASE=2\nSOURCE_QCA_NSS_DRV_PKG_RELEASE=20\n' > "$lock"
 run_expect_fail "negative: lock missing ecm release fails" "$VERIFY" "$tmp/tree" "$lock"
 
 # ---------------------------------------------------------------------------
-# 7. workflow 不再出现 release 硬编码 → 真实文件检查
+# 7. clients 版本倒退或 lock 缺失必须失败
+# ---------------------------------------------------------------------------
+mk_tree 2 20 10 14
+mk_lock 2 20 10 13
+run_expect_fail "negative: clients source=14 lock=13 fails" "$VERIFY" "$tmp/tree" "$lock"
+
+mk_tree 2 20 10 14
+mk_lock 2 20 10 ""
+run_expect_fail "negative: lock missing clients release fails" "$VERIFY" "$tmp/tree" "$lock"
+
+# ---------------------------------------------------------------------------
+# 8. workflow 不再出现 release 硬编码 → 真实文件检查
 # ---------------------------------------------------------------------------
 for wf in build-AX6-NSS.yml lint.yml; do
     if grep -Eq "PKG_RELEASE:=[0-9]+|release must be [0-9]+" "$REPO_ROOT/.github/workflows/$wf"; then
@@ -116,9 +130,19 @@ done
 grep -Fq 'verify-ax6-source-semantics.sh' "$REPO_ROOT/.github/workflows/build-AX6-NSS.yml" \
     && ok "build workflow calls the shared semantic verifier" \
     || bad "build workflow calls the shared semantic verifier"
+for name in \
+    SOURCE_HOSTAPD_PKG_RELEASE SOURCE_QCA_NSS_DRV_PKG_RELEASE \
+    SOURCE_QCA_NSS_ECM_PKG_RELEASE SOURCE_QCA_NSS_CLIENTS_PKG_RELEASE; do
+    if grep -Fq "echo \"$name=\$$name\"" \
+        "$REPO_ROOT/.github/workflows/build-AX6-NSS.yml"; then
+        ok "artifact BUILD-LOCK records $name"
+    else
+        bad "artifact BUILD-LOCK records $name"
+    fi
+done
 
 # ---------------------------------------------------------------------------
-# 8. 验证器自身语法
+# 9. 验证器自身语法
 # ---------------------------------------------------------------------------
 sh -n "$VERIFY" && ok "verifier shell syntax" || bad "verifier shell syntax"
 

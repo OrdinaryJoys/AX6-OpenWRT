@@ -87,6 +87,7 @@ cfc56566d2c3194ffb490c5468e446b9f74dda0ea250bf0caabd6eb9ed8fb7a1  package/networ
 30936fe7e1792f54f2ecf6f99b4199dc283b77fc0805a0a598daa0bf2da9b173  package/network/services/hostapd/patches/601-ucode_support.patch
 fc9f1630547033428f4bdf7200a3b9f90d2a3d4321681891010d8f71be13f1a9  package/network/services/hostapd/patches/720-iface_max_num_sta.patch
 6ffd026abef22e9b53d6f80d915f034c02564c033fc8e5d65e2f584254c4a71d  package/network/services/hostapd/patches/762-AP-don-t-ignore-probe-requests-with-invalid-DSSS-par.patch
+350d94c5060dcabae108979289ce67be83d3a469f2773ee86147b752b1633d30  package/qca-nss/qca-nss-clients/Makefile
 9f9fe8a246cd6020dc1824f9cc84967079a890713eb9504f0d55f901301e1c2f  package/qca-nss/qca-nss-clients/patches/011-act_nssmirred-fix-action-list-corruption-on-release.patch
 a3450da6e7b815cc7b49edaf84c79749d7a0b09d619331ae9633d5c83d47cd96  package/qca-nss/qca-nss-clients/patches/012-nss_qdisc-guard-stats-attach-detach-against-noop-root.patch
 fe4144c5ebbcb41dfcb68bdb141dc319a6b5aa3cbf869bf69c00e5e1b4fd3f8f  package/qca-nss/qca-nss-clients/patches/013-netlink-require-admin-for-rule-injection.patch

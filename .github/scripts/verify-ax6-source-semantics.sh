@@ -2,7 +2,7 @@
 #
 # AX6 cross-repo source semantic verifier (P0-2).
 #
-# Compares the three package PKG_RELEASE values declared in the build
+# Compares the four package PKG_RELEASE values declared in the build
 # lock against the single authoritative PKG_RELEASE in the locked
 # source tree.  A drift here previously failed the CI gate only after
 # the source clone step (ECM release 9 vs 10), so the expected values
@@ -12,7 +12,8 @@
 #
 # Behavior:
 #   1. Reads SOURCE_HOSTAPD_PKG_RELEASE / SOURCE_QCA_NSS_DRV_PKG_RELEASE /
-#      SOURCE_QCA_NSS_ECM_PKG_RELEASE from the lock (must be positive ints).
+#      SOURCE_QCA_NSS_ECM_PKG_RELEASE / SOURCE_QCA_NSS_CLIENTS_PKG_RELEASE
+#      from the lock (must be positive ints).
 #   2. Reads the single authoritative PKG_RELEASE:=N from each Makefile.
 #   3. Missing, duplicated, non-numeric or mismatched values fail with a
 #      per-component message.  Never modifies source or lock.
@@ -79,6 +80,7 @@ compare() { # label lock_var src_mk
 exp_hostapd=$(lock_var SOURCE_HOSTAPD_PKG_RELEASE)
 exp_drv=$(lock_var SOURCE_QCA_NSS_DRV_PKG_RELEASE)
 exp_ecm=$(lock_var SOURCE_QCA_NSS_ECM_PKG_RELEASE)
+exp_clients=$(lock_var SOURCE_QCA_NSS_CLIENTS_PKG_RELEASE)
 
 compare hostapd "$exp_hostapd" \
     "$(src_release "$source_root/package/network/services/hostapd/Makefile")"
@@ -86,9 +88,11 @@ compare qca-nss-drv "$exp_drv" \
     "$(src_release "$source_root/package/qca-nss/qca-nss-drv/Makefile")"
 compare qca-nss-ecm "$exp_ecm" \
     "$(src_release "$source_root/package/qca-nss/qca-nss-ecm/Makefile")"
+compare qca-nss-clients "$exp_clients" \
+    "$(src_release "$source_root/package/qca-nss/qca-nss-clients/Makefile")"
 
 if [ "$FAIL" -ne 0 ]; then
     echo "AX6 source semantics: FAIL (see per-component messages above)" >&2
     exit 1
 fi
-echo "AX6 source semantics: PASS (hostapd=$exp_hostapd drv=$exp_drv ecm=$exp_ecm)"
+echo "AX6 source semantics: PASS (hostapd=$exp_hostapd drv=$exp_drv ecm=$exp_ecm clients=$exp_clients)"
