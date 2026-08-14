@@ -2,7 +2,7 @@
 # AX6 吞吐测试独立分析器 (R2 P0-8) — 只读, 不产生测试数据
 # ============================================================================
 # 输入: LAN-LAN runner 生成的 run 目录 (env.txt + *.json + 快照 + SHA256SUMS.txt)
-# 输出: 逐场景判定 + JSON verdict; 退出码 0=PASS 1=FAIL 2=INCOMPLETE 3=ENV-BLOCKED
+# 输出: 逐场景判定 + JSON verdict; 退出码 0=PASS/WARN 1=FAIL 2=INCOMPLETE 3=ENV-BLOCKED
 # 原则: 执行完成 ≠ 通过; 阈值判定与原始 JSON 分离; 端点先饱和 → ENV-BLOCKED
 #       不得判 AX6 FAIL (R2 §6)。
 # 用法: ax6-perf-analyzer.sh RUN_DIR [--assume-qualified-endpoint]
@@ -22,7 +22,7 @@ import json, sys, os, glob, re, collections, math
 run, qualified = sys.argv[1], bool(int(sys.argv[2]))
 issues = []
 verdicts = []          # (scenario, status, detail)
-status_rank = {"PASS": 0, "ENV-BLOCKED": 1, "INCOMPLETE": 2, "FAIL": 3}
+status_rank = {"PASS": 0, "WARN": 1, "ENV-BLOCKED": 2, "INCOMPLETE": 3, "FAIL": 4}
 
 # ── 0. 完整性 ──────────────────────────────────────────────────────────────
 env_file = os.path.join(run, "env.txt")
@@ -42,6 +42,10 @@ skip_tcp = env_flag("skip_tcp")
 skip_udp = env_flag("skip_udp")
 skip_long = env_flag("skip_long")
 sync_sampling = env_flag("sync_sampling")
+sample_scope = env.get("sample_scope", "bidir")
+if sample_scope not in ("bidir", "all"):
+    print(json.dumps({"overall": "INCOMPLETE", "reason": "invalid sample_scope"}, indent=2))
+    sys.exit(2)
 try:
     expected_rounds = int(env.get("rounds", "3"))
     duration = float(env.get("duration", "30"))
@@ -267,20 +271,29 @@ if not skip_long:
 
 # ── 3. 计数器差分 (pre-all vs 最后快照) ────────────────────────────────────
 def parse_snapshot(f):
-    d = {}; cur = None; in_soft = False
+    d = {}; cur = None; in_soft = False; n2h_core = None
     if not os.path.exists(f):
         return None
     for ln in open(f):
         ln = ln.strip()
         m = re.match(r"=== (\w+) ===", ln)
         if m:
-            cur = m.group(1); in_soft = (m.group(1) == "softnet_stat_dec"); continue
+            cur = m.group(1); in_soft = (m.group(1) == "softnet_stat_dec")
+            if cur != "n2h_stats":
+                n2h_core = None
+            continue
         if in_soft and ln.strip():
             d.setdefault("softnet", []).append([int(x) for x in ln.split()]); continue
+        m = re.search(r"N2H ([0-9]+)", ln)
+        if cur == "n2h_stats" and m:
+            n2h_core = m.group(1); continue
         m = re.match(r"([\w_]+)=(\d+)", ln)
         if m: d.setdefault(cur or "?", {})[m.group(1)] = int(m.group(2)); continue
         m = re.match(r"(edma_err_[\w]+)\s*=\s*(\d+)", ln)
-        if m: d.setdefault("edma", {})[m.group(1)] = int(m.group(2))
+        if m: d.setdefault("edma", {})[m.group(1)] = int(m.group(2)); continue
+        m = re.match(r"(n2h_(?:rx_queue.*drops|queue_drops|pbuf.*alloc_fail|payload_alloc_fails|n2h_enqueue_retries))\s*=\s*(\d+)", ln)
+        if m and n2h_core is not None:
+            d.setdefault("n2h_core" + n2h_core, {})[m.group(1)] = int(m.group(2))
     return d
 
 pre = parse_snapshot(os.path.join(run, "pre-all.txt"))
@@ -302,6 +315,13 @@ else:
         a = pre["edma"][k]; b = post.get("edma", {}).get(k, a)
         if b != a:
             add_issue(f"counter edma.{k}", f"{a} -> {b} (Δ{b-a})", "FAIL")
+    for core in ("n2h_core0", "n2h_core1"):
+        for k, a in pre.get(core, {}).items():
+            b = post.get(core, {}).get(k, a)
+            if b <= a:
+                continue
+            status = "WARN" if "pbuf_ocm_alloc_fail" in k else "FAIL"
+            add_issue(f"counter {core}.{k}", f"{a} -> {b} (Δ{b-a})", status)
     sp, so = pre.get("softnet", []), post.get("softnet", [])
     if sp and so and len(sp) == len(so):
         for i, (r0, r1) in enumerate(zip(sp, so)):
@@ -400,7 +420,9 @@ def analyze_sync_file(label, seconds):
         add_issue(f"SYNC {label}", f"softnet dropped delta={softnet_drop}", "FAIL")
 
     error_delta = 0
+    pressure_delta = 0
     error_changes = []
+    pressure_changes = []
     for metric in first:
         if not metric.startswith("nss."):
             continue
@@ -408,10 +430,18 @@ def analyze_sync_file(label, seconds):
             continue
         delta = numeric_delta(first, last, metric)
         if delta and delta > 0:
-            error_delta += delta
-            error_changes.append(f"{metric}=+{delta}")
+            if ".n2h_pbuf_ocm_alloc_fail_" in metric:
+                pressure_delta += delta
+                pressure_changes.append(f"{metric}=+{delta}")
+            else:
+                error_delta += delta
+                error_changes.append(f"{metric}=+{delta}")
     if error_changes:
         add_issue(f"SYNC {label}", "NSS/EDMA errors: " + ",".join(error_changes), "FAIL")
+    if pressure_changes:
+        add_issue(f"SYNC {label}",
+                  "NSS OCM pool pressure (default/payload/queue counters decide failure): " +
+                  ",".join(pressure_changes), "WARN")
 
     net_changes = []
     for metric in first:
@@ -428,16 +458,24 @@ def analyze_sync_file(label, seconds):
     pbuf_high = first.get("pbuf.n2h_high_water_core0", "unknown")
     detail = (f"samples={len(samples)} pbuf_high={pbuf_high} "
               f"softnet_drop={softnet_drop} time_squeeze={softnet_squeeze} "
-              f"nss_error_delta={error_delta} irq_delta={irq_delta}")
+              f"nss_error_delta={error_delta} nss_ocm_pressure_delta={pressure_delta} "
+              f"irq_delta={irq_delta}")
     sync_results.append({"scenario": label, "detail": detail})
-    if not pbuf_changed and not softnet_drop and not error_changes and not net_changes:
+    if not pbuf_changed and not softnet_drop and not error_changes and not pressure_changes and not net_changes:
         verdicts.append((f"SYNC {label}", "PASS", detail))
 
 if sync_sampling:
     if not skip_tcp:
         for phase in ("P1", "P4"):
             for rnd in range(1, expected_rounds + 1):
-                analyze_sync_file(f"{phase}-bidir-r{rnd}", duration)
+                modes = ("fwd", "rev", "bidir") if sample_scope == "all" else ("bidir",)
+                for mode in modes:
+                    analyze_sync_file(f"{phase}-{mode}-r{rnd}", duration)
+    if not skip_udp and sample_scope == "all":
+        for rate in ("300", "600", "900"):
+            for rnd in range(1, expected_rounds + 1):
+                for direction in ("fwd", "rev"):
+                    analyze_sync_file(f"udp-{rate}-{direction}-r{rnd}", duration)
     if not skip_long:
         analyze_sync_file("long-bidir", long_duration)
 
@@ -465,11 +503,11 @@ result = {
                  "rounds": expected_rounds, "duration": duration,
                  "long_duration": long_duration, "long_retx_limit": long_retx_limit,
                  "sync_sampling": sync_sampling, "sample_interval": sample_interval,
-                 "sample_grace": sample_grace},
+                 "sample_grace": sample_grace, "sample_scope": sample_scope},
     "sync_samples": sync_results,
     "scenarios": [{"scenario": s, "status": st, "detail": d} for s, st, d in verdicts],
     "issues": [{"issue": s, "status": st} for s, st in issues],
 }
 print(json.dumps(result, indent=2, ensure_ascii=False))
-sys.exit({"PASS": 0, "FAIL": 1, "INCOMPLETE": 2, "ENV-BLOCKED": 3}[worst])
+sys.exit({"PASS": 0, "WARN": 0, "FAIL": 1, "INCOMPLETE": 2, "ENV-BLOCKED": 3}[worst])
 PYEOF

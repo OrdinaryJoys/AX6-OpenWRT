@@ -46,6 +46,8 @@ SKIP_LONG="${AX6_SKIP_LONG:-0}"
 LOG_TEE="${AX6_LANLAN_LOG_TEE:-1}"
 SAMPLE_INTERVAL="${AX6_SAMPLE_INTERVAL:-2}"
 SAMPLE_GRACE="${AX6_SAMPLE_GRACE:-4}"
+IPERF_TIMEOUT_GRACE="${AX6_IPERF_TIMEOUT_GRACE:-20}"
+STAGE_PAUSE="${AX6_STAGE_PAUSE:-2}"
 
 OUT="${OUT_BASE}/$(date +%Y%m%d-%H%M%S)-${LABEL}"
 mkdir -p "$OUT"
@@ -60,6 +62,17 @@ SSH=(ssh -i "$SSH_KEY" -o IdentitiesOnly=yes -o BatchMode=yes \
 log() { echo "[$(date +%H:%M:%S)] $*"; }
 SAMPLER_PID=""
 SAMPLER_FILE=""
+IPERF_PID=""
+
+cleanup_iperf() {
+  if [ -n "$IPERF_PID" ] && kill -0 "$IPERF_PID" 2>/dev/null; then
+    kill "$IPERF_PID" 2>/dev/null || true
+    sleep 1
+    kill -9 "$IPERF_PID" 2>/dev/null || true
+  fi
+  [ -n "$IPERF_PID" ] && wait "$IPERF_PID" 2>/dev/null || true
+  IPERF_PID=""
+}
 
 cleanup_sampler() {
   if [ -n "$SAMPLER_PID" ] && kill -0 "$SAMPLER_PID" 2>/dev/null; then
@@ -69,14 +82,40 @@ cleanup_sampler() {
   SAMPLER_PID=""
 }
 
+# shellcheck disable=SC2329  # Invoked through the EXIT trap below.
 on_exit() {
   local rc=$?
+  cleanup_iperf
   cleanup_sampler
   [ "$rc" -eq 0 ] || log "FAILED exit=$rc"
   exit "$rc"
 }
 trap on_exit EXIT
 trap 'exit 130' INT TERM HUP
+
+run_iperf_with_deadline() { # $1=stdout $2=stderr $3=timeout seconds, remaining args=iperf3
+  local stdout_file="$1" stderr_file="$2" timeout="$3" deadline now rc=0
+  shift 3
+  iperf3 "$@" > "$stdout_file" 2> "$stderr_file" &
+  IPERF_PID=$!
+  deadline=$(($(date +%s) + timeout))
+  while kill -0 "$IPERF_PID" 2>/dev/null; do
+    now=$(date +%s)
+    if [ "$now" -ge "$deadline" ]; then
+      printf 'iperf3 exceeded hard timeout (%ss)\n' "$timeout" >> "$stderr_file"
+      cleanup_iperf
+      return 124
+    fi
+    sleep 1
+  done
+  wait "$IPERF_PID" || rc=$?
+  IPERF_PID=""
+  return "$rc"
+}
+
+stage_pause() {
+  [ "$STAGE_PAUSE" -eq 0 ] || sleep "$STAGE_PAUSE"
+}
 
 start_router_sampler() { # $1=阶段标签 $2=iperf 持续秒数
   local label="$1" duration="$2" count ready=0
@@ -151,8 +190,11 @@ preflight_identity() {
     echo "skip_udp=${SKIP_UDP}"
     echo "skip_long=${SKIP_LONG}"
     echo "sync_sampling=1"
+    echo "sample_scope=all"
     echo "sample_interval=${SAMPLE_INTERVAL}"
     echo "sample_grace=${SAMPLE_GRACE}"
+    echo "iperf_timeout_grace=${IPERF_TIMEOUT_GRACE}"
+    echo "stage_pause=${STAGE_PAUSE}"
     date +%Y-%m-%dT%H:%M:%S%z
   } > "$OUT/env.txt"
   log "IDENTITY board=${board} kernel=${kernel} rev=${revision} boot=${boot_id:0:8}..."
@@ -165,6 +207,7 @@ ax6_snapshot() {
   {
     echo "=== boot_id ==="; "${SSH[@]}" cat /proc/sys/kernel/random/boot_id
     echo "=== uptime ==="; "${SSH[@]}" cat /proc/uptime
+    echo "=== n2h_stats ==="; "${SSH[@]}" cat /sys/kernel/debug/qca-nss-drv/stats/n2h
     echo "=== edma_err_stats ==="; "${SSH[@]}" cat /sys/kernel/debug/qca-nss-drv/stats/edma/err_stats
     echo "=== softnet_stat_raw ==="; "${SSH[@]}" cat /proc/net/softnet_stat
     for d in lan1 lan2; do
@@ -198,15 +241,12 @@ run_tcp() { # $1=阶段 $2=轮次 $3=模式(fwd/rev/bidir) $4=并行数
   [ "$mode" = rev ] && args+=(-R)
   [ "$mode" = bidir ] && args+=(--bidir)
   log "TCP $phase-$mode r$r (${DURATION}s -P $pcount)"
-  local rc=0 sampled=0
-  if [ "$mode" = bidir ]; then
-    start_router_sampler "$phase-$mode-r$r" "$DURATION" || return 1
-    sampled=1
-  fi
-  iperf3 "${args[@]}" > "$j" 2> "$OUT/$phase-$mode-r$r.err" || rc=$?
-  if [ "$sampled" -eq 1 ]; then
-    finish_router_sampler "$phase-$mode-r$r" || return 1
-  fi
+  local rc=0
+  start_router_sampler "$phase-$mode-r$r" "$DURATION" || return 1
+  run_iperf_with_deadline "$j" "$OUT/$phase-$mode-r$r.err" \
+    "$((DURATION + IPERF_TIMEOUT_GRACE))" "${args[@]}" || rc=$?
+  finish_router_sampler "$phase-$mode-r$r" || return 1
+  [ "$rc" -ne 124 ] || { log "RESULT INCOMPLETE $phase-$mode-r$r reason=iperf_timeout"; return 1; }
   [ "$rc" -eq 0 ] || { log "RESULT INCOMPLETE $phase-$mode-r$r reason=iperf_rc=${rc}"; return 1; }
   python3 - "$j" "$phase" "$mode" "$r" <<'EOF'
 import json, sys
@@ -227,6 +267,7 @@ for s in e.get("streams", []):
 for k, (bps, rt) in sorted(dirs.items()):
     print(f"RESULT {sys.argv[2]}-{sys.argv[3]}-r{sys.argv[4]} {k}: {bps:.1f} Mbps retrans={rt}")
 EOF
+  stage_pause
 }
 
 run_udp() { # $1=速率 $2=轮次 $3=方向(fwd/rev)
@@ -235,8 +276,12 @@ run_udp() { # $1=速率 $2=轮次 $3=方向(fwd/rev)
   local args=(-c "$SERVER_IP" -p "$PORT" -u -b "${rate}M" -t "$DURATION" -J)
   [ "$dir" = rev ] && args+=(-R)
   log "UDP ${rate}M-$dir r$r (${DURATION}s)"
-  iperf3 "${args[@]}" > "$j" 2> "$OUT/udp-$rate-$dir-r$r.err"
-  local rc=$?
+  local rc=0
+  start_router_sampler "udp-$rate-$dir-r$r" "$DURATION" || return 1
+  run_iperf_with_deadline "$j" "$OUT/udp-$rate-$dir-r$r.err" \
+    "$((DURATION + IPERF_TIMEOUT_GRACE))" "${args[@]}" || rc=$?
+  finish_router_sampler "udp-$rate-$dir-r$r" || return 1
+  [ "$rc" -ne 124 ] || { log "RESULT INCOMPLETE udp-$rate-$dir-r$r reason=iperf_timeout"; return 1; }
   [ "$rc" -eq 0 ] || { log "RESULT INCOMPLETE udp-$rate-$dir-r$r reason=iperf_rc=${rc}"; return 1; }
   python3 - "$j" "$rate" "$dir" "$r" "$DURATION" <<'EOF'
 import json, sys
@@ -259,6 +304,7 @@ for s in streams:
     bps = udp.get("bytes", 0) * 8 / secs / 1e6
     print(f"RESULT UDP-{sys.argv[2]}-{sys.argv[3]}-r{sys.argv[4]}: {bps:.1f} Mbps loss={udp.get('lost_percent', 0):.2f}% jitter={udp.get('jitter_ms', 0):.2f}ms")
 EOF
+  stage_pause
 }
 
 # ── 主流程 ───────────────────────────────────────────────────────────────────
@@ -279,11 +325,20 @@ main() {
     log "RESULT INCOMPLETE phase=preflight reason=sampler_missing"
     exit 1
   }
-  case "$SAMPLE_INTERVAL:$SAMPLE_GRACE" in
-    *[!0-9:]*|0:*|*:0)
-      log "FATAL AX6_SAMPLE_INTERVAL and AX6_SAMPLE_GRACE must be positive integers"
+  local numeric_value
+  for numeric_value in "$SAMPLE_INTERVAL" "$SAMPLE_GRACE" "$IPERF_TIMEOUT_GRACE"; do
+    case "$numeric_value" in
+    ''|*[!0-9]*|0)
+      log "FATAL sample interval/grace and timeout grace must be positive integers; stage pause may be zero"
       exit 1
       ;;
+    esac
+  done
+  case "$STAGE_PAUSE" in
+  ''|*[!0-9]*)
+    log "FATAL stage pause must be a non-negative integer"
+    exit 1
+    ;;
   esac
   # 拓扑误用防护 (R2 P0-7): iperf3 server 不得是路由器本机 (那是 router-local 场景)
   if [ "$SERVER_IP" = "$ROUTER_IP" ]; then
@@ -292,7 +347,15 @@ main() {
     exit 1
   fi
   # 服务器可达性
-  iperf3 -c "$SERVER_IP" -p "$PORT" -t 1 -J > "$OUT/probe.json" 2>/dev/null || {
+  local probe_rc=0
+  run_iperf_with_deadline "$OUT/probe.json" "$OUT/probe.err" \
+    "$((1 + IPERF_TIMEOUT_GRACE))" -c "$SERVER_IP" -p "$PORT" -t 1 -J || probe_rc=$?
+  [ "$probe_rc" -ne 124 ] || {
+    log "FATAL iperf3 server probe timed out at ${SERVER_IP}:${PORT}"
+    log "RESULT INCOMPLETE phase=preflight reason=server_probe_timeout"
+    exit 1
+  }
+  [ "$probe_rc" -eq 0 ] || {
     log "FATAL iperf3 server unreachable at ${SERVER_IP}:${PORT}"
     log "RESULT INCOMPLETE phase=preflight reason=server_unreachable"
     exit 1
@@ -330,8 +393,11 @@ main() {
     log "LONG bidir (${LONG_DURATION}s -P 4)"
     start_router_sampler "long-bidir" "$LONG_DURATION" || exit 1
     local rc=0
-    iperf3 -c "$SERVER_IP" -p "$PORT" -P 4 -t "$LONG_DURATION" --bidir -J > "$j" 2> "$OUT/long-bidir.err" || rc=$?
+    run_iperf_with_deadline "$j" "$OUT/long-bidir.err" \
+      "$((LONG_DURATION + IPERF_TIMEOUT_GRACE))" \
+      -c "$SERVER_IP" -p "$PORT" -P 4 -t "$LONG_DURATION" --bidir -J || rc=$?
     finish_router_sampler "long-bidir" || exit 1
+    [ "$rc" -ne 124 ] || { log "RESULT INCOMPLETE long-bidir reason=iperf_timeout"; exit 1; }
     [ "$rc" -eq 0 ] || { log "RESULT INCOMPLETE long-bidir reason=iperf_rc=${rc}"; exit 1; }
     python3 - "$j" <<'EOF'
 import json, sys

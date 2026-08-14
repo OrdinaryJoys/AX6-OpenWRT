@@ -12,6 +12,7 @@ TEST_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 SCRIPTS="$TEST_DIR/scripts"
 ROUTER_LOCAL="$SCRIPTS/ax6-router-local-perf-test.sh"
 LANLAN="$SCRIPTS/ax6-lanlan-perf-test.sh"
+ROUTER_ENDPOINT="$SCRIPTS/ax6-router-endpoint-perf-test.sh"
 ANALYZER="$SCRIPTS/ax6-perf-analyzer.sh"
 SYNC_SAMPLER="$SCRIPTS/ax6-router-sync-sampler.sh"
 WORK="$(mktemp -d /tmp/ax6-perf-hardening.XXXXXX)"
@@ -25,7 +26,7 @@ bad() { FAIL=$((FAIL+1)); echo "  ❌ $1"; }
 if [ "$ANALYZER_ONLY" != 1 ]; then
 # ── 前置: 脚本存在 + 语法 ──────────────────────────────────────────────────
 echo "== 前置: 存在性与语法 =="
-for s in "$ROUTER_LOCAL" "$LANLAN" "$ANALYZER" "$SYNC_SAMPLER"; do
+for s in "$ROUTER_LOCAL" "$LANLAN" "$ROUTER_ENDPOINT" "$ANALYZER" "$SYNC_SAMPLER"; do
   [ -f "$s" ] && bash -n "$s" 2>/dev/null && ok "bash -n $(basename "$s")" || bad "bash -n $(basename "$s")"
 done
 
@@ -74,7 +75,7 @@ chmod +x "$MOCK/ssh"
 
 cat > "$MOCK/iperf3" <<'MOCKEOF'
 #!/usr/bin/env python3
-import sys, os, json
+import sys, os, json, time
 CTRL = os.environ["AX6_MOCK_CTRL"]
 args = sys.argv[1:]
 with open(os.path.join(CTRL, "args.log"), "a") as f:
@@ -82,6 +83,8 @@ with open(os.path.join(CTRL, "args.log"), "a") as f:
 mode = open(os.path.join(CTRL, "iperf_mode")).read().strip()
 if mode == "exit1":
     sys.stderr.write("simulated iperf3 failure\n"); sys.exit(1)
+if mode == "hang":
+    time.sleep(30); sys.exit(0)
 def streams(n, t, sender, loss=0.0):
     out = []
     per = (930e6 / 8) * t / n
@@ -168,6 +171,20 @@ grep -q -- "-P 1 -t 2" "$CTRL/args.log" && ok "P1 使用 -P 1" || bad "P1 未使
 grep -q -- "-P 4 -t 2" "$CTRL/args.log" && ok "P4 使用 -P 4" || bad "P4 未使用 -P 4"
 grep -q -- "-P 4.*--bidir" "$CTRL/args.log" && ok "bidir 使用 -P 4" || bad "bidir 参数异常"
 
+# ── 场景 ②b: iperf 挂起必须被硬超时终止 ──────────────────────────────────
+echo "== ②b iperf 硬超时 =="
+rm -rf "$AX6_LANLAN_OUT_BASE"; echo "hang" > "$CTRL/iperf_mode"
+start=$SECONDS
+AX6_DURATION=1 AX6_IPERF_TIMEOUT_GRACE=1 bash "$LANLAN" >/dev/null 2>&1
+rc=$?; elapsed=$((SECONDS - start))
+if [ "$rc" -ne 0 ] && [ "$elapsed" -lt 10 ] && \
+    grep -q 'server_probe_timeout' "$AX6_LANLAN_OUT_BASE"/*/runner.log 2>/dev/null; then
+  ok "iperf 挂起在硬超时内拒绝且无伪完成"
+else
+  bad "iperf 挂起处理异常: rc=$rc elapsed=${elapsed}s"
+fi
+echo "good" > "$CTRL/iperf_mode"
+
 # ── 场景 ③: 错误 JSON → INCOMPLETE 非零 ────────────────────────────────────
 echo "== ③ 错误 JSON (P0-4) =="
 rm -rf "$AX6_RESULT_DIR"; echo "badjson" > "$CTRL/iperf_mode"
@@ -208,8 +225,8 @@ rc=$?
 [ "$rc" -eq 2 ] && ok "SHA 损坏 → INCOMPLETE (exit=2)" || bad "SHA 损坏 → exit=$rc (期望 2)"
 fi
 
-# ── 场景 ⑧: analyzer 四状态 (正/负样本) ────────────────────────────────────
-echo "== ⑧ analyzer 四状态 =="
+# ── 场景 ⑧: analyzer 五状态 (正/负样本) ────────────────────────────────────
+echo "== ⑧ analyzer 五状态 =="
 python3 - "$WORK" <<'PYEOF'
 import json, os, sys, hashlib
 w = sys.argv[1]
@@ -278,7 +295,7 @@ def rehash(d):
         lines.append(f"{h}  ./{f}")
     open(os.path.join(d, "SHA256SUMS.txt"), "w").write("\n".join(lines) + "\n")
 
-def add_sync_samples(d, drop_delta=0, omit=None):
+def add_sync_samples(d, drop_delta=0, omit=None, ocm_delta=0, payload_delta=0):
     with open(os.path.join(d, "env.txt"), "a") as f:
         f.write("sync_sampling=1\nsample_interval=30\nsample_grace=1\n")
         f.write("boot_id=sync-fixture-boot\n")
@@ -292,12 +309,17 @@ def add_sync_samples(d, drop_delta=0, omit=None):
                 f.write("@@READY schema=ax6-sync-v1 interval_s=30 samples=2 boot_id=sync-fixture-boot\n")
                 for seq in range(2):
                     dropped = drop_delta if (label == "P4-bidir-r3" and seq == 1) else 0
+                    ocm = ocm_delta if (label == "P4-bidir-r3" and seq == 1) else 0
+                    payload = payload_delta if (label == "P4-bidir-r3" and seq == 1) else 0
                     f.write(f"@@SAMPLE seq={seq} epoch={1786700000 + seq * 30} uptime={100 + seq * 30}.00\n")
                     metrics = {
                         "pbuf.n2h_high_water_core0": "32768",
                         "softnet.cpu0.dropped_hex": f"{dropped:08x}",
                         "softnet.cpu0.time_squeeze_hex": "00000000",
                         "irq.40.cpu0": str(100 + seq * 500),
+                        "nss.n2h.core0.n2h_pbuf_ocm_alloc_fail_payload": str(10 + ocm),
+                        "nss.n2h.core0.n2h_pbuf_def_alloc_fail_payload": "0",
+                        "nss.n2h.core0.n2h_payload_alloc_fails": str(payload),
                         "nss.edma.edma_err_alloc_fail_cnt": "101",
                         "net.lan1.rx_errors": "0",
                         "net.lan1.rx_dropped": "0",
@@ -340,6 +362,12 @@ add_sync_samples(os.path.join(w, "s8-sync-drop"), drop_delta=1)
 build("s8-sync-missing", 940, 945, 0.0, 0.2, "MacBook onboard RTL8153", True,
       skip_udp=True, skip_long=True)
 add_sync_samples(os.path.join(w, "s8-sync-missing"), omit="P4-bidir-r3")
+build("s8-sync-ocm", 940, 945, 0.0, 0.2, "MacBook onboard RTL8153", True,
+      skip_udp=True, skip_long=True)
+add_sync_samples(os.path.join(w, "s8-sync-ocm"), ocm_delta=100)
+build("s8-sync-payload", 940, 945, 0.0, 0.2, "MacBook onboard RTL8153", True,
+      skip_udp=True, skip_long=True)
+add_sync_samples(os.path.join(w, "s8-sync-payload"), payload_delta=1)
 PYEOF
 check_rc() { # dir expected_rc label
   "$ANALYZER" "$1" >/dev/null 2>&1; rc=$?
@@ -358,6 +386,14 @@ check_rc "$WORK/s8-short-duration" 2 "TCP 时长不足 → INCOMPLETE"
 check_rc "$WORK/s8-sync-pass" 0 "同步采样完整 → PASS"
 check_rc "$WORK/s8-sync-drop" 1 "负载期 softnet drop 增长 → FAIL"
 check_rc "$WORK/s8-sync-missing" 2 "缺少同步采样文件 → INCOMPLETE"
+"$ANALYZER" "$WORK/s8-sync-ocm" > "$WORK/s8-sync-ocm-verdict.json" 2>/dev/null
+rc=$?
+if [ "$rc" -eq 0 ] && grep -q '"overall": "WARN"' "$WORK/s8-sync-ocm-verdict.json"; then
+  ok "仅 OCM 首选池压力增长 → WARN (exit=0)"
+else
+  bad "仅 OCM 首选池压力判定异常: exit=$rc"
+fi
+check_rc "$WORK/s8-sync-payload" 1 "最终 payload alloc fail 增长 → FAIL"
 
 # ── 核心断言: 无伪 PASS ─────────────────────────────────────────────────────
 echo "== 无伪 PASS 断言 =="
