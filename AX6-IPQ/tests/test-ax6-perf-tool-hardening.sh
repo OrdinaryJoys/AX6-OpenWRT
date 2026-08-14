@@ -13,6 +13,7 @@ SCRIPTS="$TEST_DIR/scripts"
 ROUTER_LOCAL="$SCRIPTS/ax6-router-local-perf-test.sh"
 LANLAN="$SCRIPTS/ax6-lanlan-perf-test.sh"
 ANALYZER="$SCRIPTS/ax6-perf-analyzer.sh"
+SYNC_SAMPLER="$SCRIPTS/ax6-router-sync-sampler.sh"
 WORK="$(mktemp -d /tmp/ax6-perf-hardening.XXXXXX)"
 trap 'rm -rf "$WORK"' EXIT
 
@@ -24,7 +25,7 @@ bad() { FAIL=$((FAIL+1)); echo "  ❌ $1"; }
 if [ "$ANALYZER_ONLY" != 1 ]; then
 # ── 前置: 脚本存在 + 语法 ──────────────────────────────────────────────────
 echo "== 前置: 存在性与语法 =="
-for s in "$ROUTER_LOCAL" "$LANLAN" "$ANALYZER"; do
+for s in "$ROUTER_LOCAL" "$LANLAN" "$ANALYZER" "$SYNC_SAMPLER"; do
   [ -f "$s" ] && bash -n "$s" 2>/dev/null && ok "bash -n $(basename "$s")" || bad "bash -n $(basename "$s")"
 done
 
@@ -49,6 +50,17 @@ fail_after=$(cat "$CTRL/ssh_fail_after")
 [ "$fail_after" != 0 ] && [ "$n" -ge "$fail_after" ] && { echo "ssh: simulated failure" >&2; exit 255; }
 change_after=$(cat "$CTRL/boot_change_after")
 case "$cmd" in
+  *"sh -s --"*)
+    printf '%s\n' \
+      '@@READY schema=ax6-sync-v1 interval_s=1 samples=1 boot_id=fixed-boot-id-0000' \
+      '@@SAMPLE seq=0 epoch=1786700000 uptime=100.00' \
+      '0	1786700000	100.00	pbuf.n2h_high_water_core0	32768' \
+      '0	1786700000	100.00	softnet.cpu0.dropped_hex	00000000' \
+      '0	1786700000	100.00	irq.40.cpu0	100' \
+      '0	1786700000	100.00	nss.edma.edma_err_alloc_fail_cnt	0' \
+      '@@END_SAMPLE seq=0' \
+      '@@DONE samples=1 boot_id=fixed-boot-id-0000'
+    ;;
   *boot_id*) if [ "$change_after" != 0 ] && [ "$n" -ge "$change_after" ]; then echo "changed-boot-id-9999"; else cat "$CTRL/boot_id"; fi ;;
   *sysinfo/model*) echo "Redmi AX6" ;;
   *"uname -r"*) echo "6.18.38" ;;
@@ -266,6 +278,38 @@ def rehash(d):
         lines.append(f"{h}  ./{f}")
     open(os.path.join(d, "SHA256SUMS.txt"), "w").write("\n".join(lines) + "\n")
 
+def add_sync_samples(d, drop_delta=0, omit=None):
+    with open(os.path.join(d, "env.txt"), "a") as f:
+        f.write("sync_sampling=1\nsample_interval=30\nsample_grace=1\n")
+        f.write("boot_id=sync-fixture-boot\n")
+    for phase in ("P1", "P4"):
+        for rnd in range(1, 4):
+            label = f"{phase}-bidir-r{rnd}"
+            if label == omit:
+                continue
+            path = os.path.join(d, label + "-router-samples.tsv")
+            with open(path, "w") as f:
+                f.write("@@READY schema=ax6-sync-v1 interval_s=30 samples=2 boot_id=sync-fixture-boot\n")
+                for seq in range(2):
+                    dropped = drop_delta if (label == "P4-bidir-r3" and seq == 1) else 0
+                    f.write(f"@@SAMPLE seq={seq} epoch={1786700000 + seq * 30} uptime={100 + seq * 30}.00\n")
+                    metrics = {
+                        "pbuf.n2h_high_water_core0": "32768",
+                        "softnet.cpu0.dropped_hex": f"{dropped:08x}",
+                        "softnet.cpu0.time_squeeze_hex": "00000000",
+                        "irq.40.cpu0": str(100 + seq * 500),
+                        "nss.edma.edma_err_alloc_fail_cnt": "101",
+                        "net.lan1.rx_errors": "0",
+                        "net.lan1.rx_dropped": "0",
+                        "net.lan1.tx_errors": "0",
+                        "net.lan1.tx_dropped": "0",
+                    }
+                    for metric, value in metrics.items():
+                        f.write(f"{seq}\t{1786700000 + seq * 30}\t{100 + seq * 30}.00\t{metric}\t{value}\n")
+                    f.write(f"@@END_SAMPLE seq={seq}\n")
+                f.write("@@DONE samples=2 boot_id=sync-fixture-boot\n")
+    rehash(d)
+
 build("s8-pass", 940, 945, 0.0, 0.2, "MacBook onboard RTL8153", True)
 build("s8-fail", 700, 945, 0.0, 0.2, "MacBook onboard RTL8153", True)
 build("s8-ax88179", 940, 945, 0.0, 0.2, "Windows AX88179 USB3 driver 1.16.27.321", True)
@@ -287,6 +331,15 @@ for stream in j["end"]["streams"]:
     stream["sender"]["seconds"] = 5.0
 json.dump(j, open(short, "w"))
 rehash(os.path.join(w, "s8-short-duration"))
+build("s8-sync-pass", 940, 945, 0.0, 0.2, "MacBook onboard RTL8153", True,
+      skip_udp=True, skip_long=True)
+add_sync_samples(os.path.join(w, "s8-sync-pass"))
+build("s8-sync-drop", 940, 945, 0.0, 0.2, "MacBook onboard RTL8153", True,
+      skip_udp=True, skip_long=True)
+add_sync_samples(os.path.join(w, "s8-sync-drop"), drop_delta=1)
+build("s8-sync-missing", 940, 945, 0.0, 0.2, "MacBook onboard RTL8153", True,
+      skip_udp=True, skip_long=True)
+add_sync_samples(os.path.join(w, "s8-sync-missing"), omit="P4-bidir-r3")
 PYEOF
 check_rc() { # dir expected_rc label
   "$ANALYZER" "$1" >/dev/null 2>&1; rc=$?
@@ -302,6 +355,9 @@ check_rc "$WORK/s8-ax88179-counter-fail" 1 "端点受限但驱动计数器增长
 check_rc "$WORK/s8-long-only" 0 "仅运行 long-bidir 且显式跳过 TCP/UDP → PASS"
 check_rc "$WORK/s8-missing-round" 2 "缺少约定轮次 → INCOMPLETE"
 check_rc "$WORK/s8-short-duration" 2 "TCP 时长不足 → INCOMPLETE"
+check_rc "$WORK/s8-sync-pass" 0 "同步采样完整 → PASS"
+check_rc "$WORK/s8-sync-drop" 1 "负载期 softnet drop 增长 → FAIL"
+check_rc "$WORK/s8-sync-missing" 2 "缺少同步采样文件 → INCOMPLETE"
 
 # ── 核心断言: 无伪 PASS ─────────────────────────────────────────────────────
 echo "== 无伪 PASS 断言 =="

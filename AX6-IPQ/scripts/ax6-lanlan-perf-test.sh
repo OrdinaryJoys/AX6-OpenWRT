@@ -14,6 +14,9 @@
 
 set -Eeuo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROUTER_SAMPLER="${AX6_ROUTER_SAMPLER:-$SCRIPT_DIR/ax6-router-sync-sampler.sh}"
+
 # ── 配置 ─────────────────────────────────────────────────────────────────────
 SERVER_IP="${AX6_LANLAN_SERVER_IP:?AX6_LANLAN_SERVER_IP required (iperf3 server endpoint)}"
 ROUTER_IP="${AX6_ROUTER_IP:-192.168.5.1}"
@@ -41,6 +44,8 @@ SKIP_TCP="${AX6_SKIP_TCP:-0}"
 SKIP_UDP="${AX6_SKIP_UDP:-0}"
 SKIP_LONG="${AX6_SKIP_LONG:-0}"
 LOG_TEE="${AX6_LANLAN_LOG_TEE:-1}"
+SAMPLE_INTERVAL="${AX6_SAMPLE_INTERVAL:-2}"
+SAMPLE_GRACE="${AX6_SAMPLE_GRACE:-4}"
 
 OUT="${OUT_BASE}/$(date +%Y%m%d-%H%M%S)-${LABEL}"
 mkdir -p "$OUT"
@@ -53,7 +58,62 @@ fi
 SSH=(ssh -i "$SSH_KEY" -o IdentitiesOnly=yes -o BatchMode=yes \
   -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$KNOWN_HOSTS" root@"$ROUTER_IP")
 log() { echo "[$(date +%H:%M:%S)] $*"; }
-trap 'log "FAILED at line $LINENO"; exit 1' ERR
+SAMPLER_PID=""
+SAMPLER_FILE=""
+
+cleanup_sampler() {
+  if [ -n "$SAMPLER_PID" ] && kill -0 "$SAMPLER_PID" 2>/dev/null; then
+    kill "$SAMPLER_PID" 2>/dev/null || true
+    wait "$SAMPLER_PID" 2>/dev/null || true
+  fi
+  SAMPLER_PID=""
+}
+
+on_exit() {
+  local rc=$?
+  cleanup_sampler
+  [ "$rc" -eq 0 ] || log "FAILED exit=$rc"
+  exit "$rc"
+}
+trap on_exit EXIT
+trap 'exit 130' INT TERM HUP
+
+start_router_sampler() { # $1=阶段标签 $2=iperf 持续秒数
+  local label="$1" duration="$2" count ready=0
+  count=$(((duration + SAMPLE_GRACE + SAMPLE_INTERVAL - 1) / SAMPLE_INTERVAL))
+  SAMPLER_FILE="$OUT/$label-router-samples.tsv"
+
+  "${SSH[@]}" "sh -s -- '$SAMPLE_INTERVAL' '$count'" \
+    < "$ROUTER_SAMPLER" > "$SAMPLER_FILE" \
+    2> "$OUT/$label-router-samples.err" &
+  SAMPLER_PID=$!
+
+  for _ in $(seq 1 100); do
+    if grep -q '^@@END_SAMPLE seq=0$' "$SAMPLER_FILE" 2>/dev/null; then
+      ready=1
+      break
+    fi
+    kill -0 "$SAMPLER_PID" 2>/dev/null || break
+    sleep 0.1
+  done
+  if [ "$ready" -ne 1 ]; then
+    log "RESULT INCOMPLETE $label reason=sampler_not_ready"
+    cleanup_sampler
+    return 1
+  fi
+  log "SAMPLER $label interval=${SAMPLE_INTERVAL}s planned_samples=$count"
+}
+
+finish_router_sampler() { # $1=阶段标签
+  local label="$1" rc=0
+  wait "$SAMPLER_PID" || rc=$?
+  SAMPLER_PID=""
+  if [ "$rc" -ne 0 ] || ! grep -q '^@@DONE ' "$SAMPLER_FILE"; then
+    log "RESULT INCOMPLETE $label reason=sampler_incomplete rc=$rc"
+    return 1
+  fi
+  log "SAMPLER $label complete samples=$(grep -c '^@@END_SAMPLE ' "$SAMPLER_FILE")"
+}
 
 # ── 前置: 固件身份 + 端点身份 (R2 P0-3/T-04) ──────────────────────────────
 preflight_identity() {
@@ -90,6 +150,9 @@ preflight_identity() {
     echo "skip_tcp=${SKIP_TCP}"
     echo "skip_udp=${SKIP_UDP}"
     echo "skip_long=${SKIP_LONG}"
+    echo "sync_sampling=1"
+    echo "sample_interval=${SAMPLE_INTERVAL}"
+    echo "sample_grace=${SAMPLE_GRACE}"
     date +%Y-%m-%dT%H:%M:%S%z
   } > "$OUT/env.txt"
   log "IDENTITY board=${board} kernel=${kernel} rev=${revision} boot=${boot_id:0:8}..."
@@ -135,8 +198,15 @@ run_tcp() { # $1=阶段 $2=轮次 $3=模式(fwd/rev/bidir) $4=并行数
   [ "$mode" = rev ] && args+=(-R)
   [ "$mode" = bidir ] && args+=(--bidir)
   log "TCP $phase-$mode r$r (${DURATION}s -P $pcount)"
-  iperf3 "${args[@]}" > "$j" 2> "$OUT/$phase-$mode-r$r.err"
-  local rc=$?
+  local rc=0 sampled=0
+  if [ "$mode" = bidir ]; then
+    start_router_sampler "$phase-$mode-r$r" "$DURATION" || return 1
+    sampled=1
+  fi
+  iperf3 "${args[@]}" > "$j" 2> "$OUT/$phase-$mode-r$r.err" || rc=$?
+  if [ "$sampled" -eq 1 ]; then
+    finish_router_sampler "$phase-$mode-r$r" || return 1
+  fi
   [ "$rc" -eq 0 ] || { log "RESULT INCOMPLETE $phase-$mode-r$r reason=iperf_rc=${rc}"; return 1; }
   python3 - "$j" "$phase" "$mode" "$r" <<'EOF'
 import json, sys
@@ -204,6 +274,17 @@ main() {
     log "RESULT INCOMPLETE phase=preflight reason=endpoint_info_missing"
     exit 1
   }
+  [ -r "$ROUTER_SAMPLER" ] || {
+    log "FATAL router sampler not readable: $ROUTER_SAMPLER"
+    log "RESULT INCOMPLETE phase=preflight reason=sampler_missing"
+    exit 1
+  }
+  case "$SAMPLE_INTERVAL:$SAMPLE_GRACE" in
+    *[!0-9:]*|0:*|*:0)
+      log "FATAL AX6_SAMPLE_INTERVAL and AX6_SAMPLE_GRACE must be positive integers"
+      exit 1
+      ;;
+  esac
   # 拓扑误用防护 (R2 P0-7): iperf3 server 不得是路由器本机 (那是 router-local 场景)
   if [ "$SERVER_IP" = "$ROUTER_IP" ]; then
     log "FATAL topology misuse: SERVER_IP == ROUTER_IP (host-terminated traffic); use ax6-router-local-perf-test.sh"
@@ -247,8 +328,10 @@ main() {
   if [ "$SKIP_LONG" != 1 ]; then
     local j="$OUT/long-bidir.json"
     log "LONG bidir (${LONG_DURATION}s -P 4)"
-    iperf3 -c "$SERVER_IP" -p "$PORT" -P 4 -t "$LONG_DURATION" --bidir -J > "$j" 2> "$OUT/long-bidir.err"
-    local rc=$?
+    start_router_sampler "long-bidir" "$LONG_DURATION" || exit 1
+    local rc=0
+    iperf3 -c "$SERVER_IP" -p "$PORT" -P 4 -t "$LONG_DURATION" --bidir -J > "$j" 2> "$OUT/long-bidir.err" || rc=$?
+    finish_router_sampler "long-bidir" || exit 1
     [ "$rc" -eq 0 ] || { log "RESULT INCOMPLETE long-bidir reason=iperf_rc=${rc}"; exit 1; }
     python3 - "$j" <<'EOF'
 import json, sys

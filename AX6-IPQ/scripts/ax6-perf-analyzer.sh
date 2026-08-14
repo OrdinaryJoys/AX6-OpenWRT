@@ -17,7 +17,7 @@ QUALIFIED=0
 [ -d "$RUN_DIR" ] || { echo "INCOMPLETE: run dir not found: $RUN_DIR"; exit 2; }
 
 python3 - "$RUN_DIR" "$QUALIFIED" <<'PYEOF'
-import json, sys, os, glob, re, collections
+import json, sys, os, glob, re, collections, math
 
 run, qualified = sys.argv[1], bool(int(sys.argv[2]))
 issues = []
@@ -41,19 +41,29 @@ def env_flag(name):
 skip_tcp = env_flag("skip_tcp")
 skip_udp = env_flag("skip_udp")
 skip_long = env_flag("skip_long")
+sync_sampling = env_flag("sync_sampling")
 try:
     expected_rounds = int(env.get("rounds", "3"))
     duration = float(env.get("duration", "30"))
     long_duration = float(env.get("long_duration", "600"))
     long_retx_limit = int(env.get("long_retx_limit", "1000"))
+    sample_interval = int(env.get("sample_interval", "2"))
+    sample_grace = int(env.get("sample_grace", "4"))
 except ValueError:
     print(json.dumps({"overall": "INCOMPLETE", "reason": "invalid test contract"}, indent=2))
     sys.exit(2)
-if expected_rounds < 1 or duration <= 0 or long_duration <= 0 or long_retx_limit < 0:
+if (expected_rounds < 1 or duration <= 0 or long_duration <= 0 or
+        long_retx_limit < 0 or sample_interval < 1 or sample_grace < 1):
     print(json.dumps({"overall": "INCOMPLETE", "reason": "out-of-range test contract"}, indent=2))
     sys.exit(2)
 
-json_files = sorted(glob.glob(os.path.join(run, "*.json")))
+def is_iperf_json(path):
+    name = os.path.basename(path)
+    return (name == "probe.json" or
+            re.match(r"^(P[14]-(fwd|rev|bidir)-r[0-9]+|udp-[0-9]+-(fwd|rev)-r[0-9]+|long-bidir)\.json$", name))
+
+json_files = sorted(path for path in glob.glob(os.path.join(run, "*.json"))
+                    if is_iperf_json(path))
 if not json_files:
     print(json.dumps({"overall": "INCOMPLETE", "reason": "no iperf3 JSON found"}, indent=2))
     sys.exit(2)
@@ -298,7 +308,140 @@ else:
             if r1[1] != r0[1]:
                 add_issue(f"softnet cpu{i} dropped", f"{r0[1]} -> {r1[1]}", "FAIL")
 
-# ── 4. 汇总 ─────────────────────────────────────────────────────────────────
+# ── 4. 双向负载同步采样 ────────────────────────────────────────────────────
+sync_results = []
+
+def parse_sync_samples(path):
+    samples = collections.defaultdict(dict)
+    ready = done = False
+    ready_boot = done_boot = ""
+    for raw in open(path):
+        line = raw.rstrip("\n")
+        if line.startswith("@@READY "):
+            ready = True
+            m = re.search(r"boot_id=([^ ]+)", line)
+            ready_boot = m.group(1) if m else ""
+            continue
+        if line.startswith("@@DONE "):
+            done = True
+            m = re.search(r"boot_id=([^ ]+)", line)
+            done_boot = m.group(1) if m else ""
+            continue
+        if line.startswith("@@") or not line:
+            continue
+        cols = line.split("\t", 4)
+        if len(cols) != 5:
+            continue
+        seq, epoch, uptime, metric, value = cols
+        try:
+            seq_i = int(seq)
+            int(epoch)
+            float(uptime)
+        except ValueError:
+            continue
+        samples[seq_i][metric] = value
+    return ready, done, ready_boot, done_boot, dict(samples)
+
+def numeric_delta(first, last, metric, base=10):
+    if metric not in first or metric not in last:
+        return None
+    try:
+        return int(last[metric], base) - int(first[metric], base)
+    except ValueError:
+        return None
+
+def analyze_sync_file(label, seconds):
+    path = os.path.join(run, label + "-router-samples.tsv")
+    expected = math.ceil((seconds + sample_grace) / sample_interval)
+    if not os.path.exists(path):
+        add_issue(f"SYNC {label}", "sample file missing", "INCOMPLETE")
+        return
+    ready, done, ready_boot, done_boot, samples = parse_sync_samples(path)
+    if not ready or not done:
+        add_issue(f"SYNC {label}", "READY/DONE marker missing", "INCOMPLETE")
+        return
+    if not ready_boot or ready_boot != done_boot or ready_boot != env.get("boot_id", ""):
+        add_issue(f"SYNC {label}",
+                  f"boot ID mismatch ready={ready_boot} done={done_boot}", "INCOMPLETE")
+        return
+    if len(samples) != expected or sorted(samples) != list(range(expected)):
+        add_issue(f"SYNC {label}",
+                  f"samples={len(samples)}, expected contiguous 0..{expected - 1}", "INCOMPLETE")
+        return
+
+    first, last = samples[0], samples[expected - 1]
+    required_prefixes = ("pbuf.", "softnet.", "irq.", "nss.", "net.")
+    for seq, metrics in samples.items():
+        missing = [p for p in required_prefixes
+                   if not any(k.startswith(p) for k in metrics)]
+        if missing:
+            add_issue(f"SYNC {label}",
+                      f"sample {seq} missing groups: {','.join(missing)}", "INCOMPLETE")
+            return
+
+    pbuf_metrics = sorted(k for k in first if k.startswith("pbuf."))
+    pbuf_changed = [k for k in pbuf_metrics
+                    if any(s.get(k) != first[k] for s in samples.values())]
+    if pbuf_changed:
+        add_issue(f"SYNC {label}", "PBUF changed: " + ",".join(pbuf_changed), "FAIL")
+
+    softnet_drop = 0
+    softnet_squeeze = 0
+    for metric in first:
+        if re.match(r"softnet\.cpu\d+\.dropped_hex$", metric):
+            delta = numeric_delta(first, last, metric, 16)
+            if delta is not None:
+                softnet_drop += delta
+        elif re.match(r"softnet\.cpu\d+\.time_squeeze_hex$", metric):
+            delta = numeric_delta(first, last, metric, 16)
+            if delta is not None:
+                softnet_squeeze += delta
+    if softnet_drop:
+        add_issue(f"SYNC {label}", f"softnet dropped delta={softnet_drop}", "FAIL")
+
+    error_delta = 0
+    error_changes = []
+    for metric in first:
+        if not metric.startswith("nss."):
+            continue
+        if not re.search(r"(alloc_fail|_drops|_errors|queue_full|not_responding)", metric):
+            continue
+        delta = numeric_delta(first, last, metric)
+        if delta and delta > 0:
+            error_delta += delta
+            error_changes.append(f"{metric}=+{delta}")
+    if error_changes:
+        add_issue(f"SYNC {label}", "NSS/EDMA errors: " + ",".join(error_changes), "FAIL")
+
+    net_changes = []
+    for metric in first:
+        if not re.match(r"net\.(br-lan|lan1|lan2|lan3|wan)\.(rx_errors|rx_dropped|tx_errors|tx_dropped)$", metric):
+            continue
+        delta = numeric_delta(first, last, metric)
+        if delta and delta > 0:
+            net_changes.append(f"{metric}=+{delta}")
+    if net_changes:
+        add_issue(f"SYNC {label}", "interface errors: " + ",".join(net_changes), "FAIL")
+
+    irq_metrics = [k for k in first if re.match(r"irq\.\d+\.cpu[0-3]$", k)]
+    irq_delta = sum(max(0, numeric_delta(first, last, k) or 0) for k in irq_metrics)
+    pbuf_high = first.get("pbuf.n2h_high_water_core0", "unknown")
+    detail = (f"samples={len(samples)} pbuf_high={pbuf_high} "
+              f"softnet_drop={softnet_drop} time_squeeze={softnet_squeeze} "
+              f"nss_error_delta={error_delta} irq_delta={irq_delta}")
+    sync_results.append({"scenario": label, "detail": detail})
+    if not pbuf_changed and not softnet_drop and not error_changes and not net_changes:
+        verdicts.append((f"SYNC {label}", "PASS", detail))
+
+if sync_sampling:
+    if not skip_tcp:
+        for phase in ("P1", "P4"):
+            for rnd in range(1, expected_rounds + 1):
+                analyze_sync_file(f"{phase}-bidir-r{rnd}", duration)
+    if not skip_long:
+        analyze_sync_file("long-bidir", long_duration)
+
+# ── 5. 汇总 ─────────────────────────────────────────────────────────────────
 statuses = [st for _, st, _ in verdicts] + [st for _, st in issues]
 if incomplete_any:
     statuses.append("INCOMPLETE")
@@ -320,7 +463,10 @@ result = {
     "environment": environment,
     "contract": {"skip_tcp": skip_tcp, "skip_udp": skip_udp, "skip_long": skip_long,
                  "rounds": expected_rounds, "duration": duration,
-                 "long_duration": long_duration, "long_retx_limit": long_retx_limit},
+                 "long_duration": long_duration, "long_retx_limit": long_retx_limit,
+                 "sync_sampling": sync_sampling, "sample_interval": sample_interval,
+                 "sample_grace": sample_grace},
+    "sync_samples": sync_results,
     "scenarios": [{"scenario": s, "status": st, "detail": d} for s, st, d in verdicts],
     "issues": [{"issue": s, "status": st} for s, st in issues],
 }
