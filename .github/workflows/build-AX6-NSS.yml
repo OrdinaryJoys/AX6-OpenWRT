@@ -1138,26 +1138,15 @@ jobs:
       - name: Package kmod for offline install
         run: |
           set -eo pipefail
-          mkdir -p upload/kmod
           if [ -d openwrt/bin/targets/qualcommax/ipq807x/packages ]; then
-            mkdir -p upload/kmod/packages
-            find openwrt/bin/targets/qualcommax/ipq807x/packages \
-              -maxdepth 1 -type f \
-              \( -name 'kmod-*.ipk' -o -name 'Packages*' \) \
-              -exec cp -f {} upload/kmod/packages/ \;
-            if ! find upload/kmod/packages -type f -name 'kmod-*.ipk' | grep -q .; then
-              echo "::warning::no kmod ipk files found"
-            fi
-            find upload/kmod/packages -type f -exec sha256sum {} + |
-              sed 's#upload/kmod/##' >upload/kmod/KMOD-SHA256SUMS.txt
-            tar -czf upload/kmod/kmod-packages.tar.gz -C upload/kmod packages KMOD-SHA256SUMS.txt
-            (
-              cd upload/kmod
-              sha256sum kmod-packages.tar.gz >KMOD-ARCHIVE-SHA256.txt
-            )
+            mkdir -p upload/kmod
+            AX6-IPQ/scripts/package-ax6-offline-feed.sh \
+              openwrt/bin/targets/qualcommax/ipq807x/packages \
+              upload/kmod
             ls -lh upload/kmod/
           else
-            echo "::warning::kmod packages directory not found"
+            echo "::error::kmod packages directory not found"
+            exit 1
           fi
 
       - name: Get current date
