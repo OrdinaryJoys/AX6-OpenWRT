@@ -909,6 +909,7 @@ jobs:
           grep -Fq '/sbin/ax6-config-audit -q' "$deploy"
           grep -Fq '/sbin/ax6-config-audit -v' "$deploy"
           grep -Fq 'StrictHostKeyChecking=yes' "$backup" "$deploy"
+          # shellcheck disable=SC2016 # Match the literal known_hosts option in both scripts.
           grep -Fq 'UserKnownHostsFile="$SSH_KNOWN_HOSTS"' "$backup" "$deploy"
           if grep -Fq 'ax6-config-audit -v || true' "$deploy"; then
             echo "::error file=$deploy::restore must not ignore final configuration audit failures"
