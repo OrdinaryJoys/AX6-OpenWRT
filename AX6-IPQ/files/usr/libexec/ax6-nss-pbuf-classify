@@ -1,6 +1,7 @@
 #!/bin/sh
 
 # Classify the active NSS N2H/pbuf values against an OpenWrt memory profile.
+# Arguments: profile memtotal extra high wifi [kernel_page_size]
 # Output is a single pipe-delimited record:
 #   status|label|expected_extra|expected_high|expected_wifi|observed_total
 
@@ -9,6 +10,7 @@ memtotal=${2:-}
 extra=${3:-}
 high=${4:-}
 wifi=${5:-}
+page_size=${6:-4096}
 
 case "$profile" in
     off*|false*|disable*|0)
@@ -63,6 +65,16 @@ case "$profile" in
         ;;
 esac
 
+case "$page_size" in
+    ''|*[!0-9]*|0)
+        printf 'invalid-page-size|||||\n'
+        exit 0
+        ;;
+esac
+
+# The NSS driver rounds the one-shot extra pool allocation to PAGE_SIZE.
+expected_extra=$(((expected_extra + page_size - 1) / page_size * page_size))
+
 case "$extra:$high:$wifi" in
     *[!0-9:]*|:*|*::*|*:)
         printf 'invalid-values|%s|%s|%s|%s|\n' \
@@ -72,14 +84,10 @@ case "$extra:$high:$wifi" in
 esac
 
 total=$((high + wifi))
-if [ "$extra" -ge "$expected_extra" ] &&
-   [ "$high" -ge "$expected_high" ] &&
-   [ "$wifi" -ge "$expected_wifi" ]; then
+if [ "$extra" -eq "$expected_extra" ] &&
+   [ "$high" -eq "$expected_high" ] &&
+   [ "$wifi" -eq "$expected_wifi" ]; then
     status=ok
-elif [ "$extra" -ge "$expected_extra" ] &&
-     [ "$wifi" -ge "$expected_wifi" ] &&
-     [ "$total" -ge "$expected_high" ]; then
-    status=warn
 else
     status=fail
 fi

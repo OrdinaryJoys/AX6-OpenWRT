@@ -20,26 +20,35 @@ assert_result() {
     fi
 }
 
-assert_result 'ok|1GB|10000000|65536|32768|98304' \
-    1024 916088 10000000 65536 32768
+assert_result 'ok|1GB|10002432|65536|32768|98304' \
+    1024 916088 10002432 65536 32768
 
-assert_result 'warn|1GB|10000000|65536|32768|65536' \
-    auto 916088 10002432 28672 36864
+assert_result 'fail|1GB|10002432|65536|32768|65536' \
+    auto 916088 10002432 32768 32768
 
-assert_result 'fail|1GB|10000000|65536|32768|65536' \
+assert_result 'fail|1GB|10002432|65536|32768|65536' \
     1g 916088 9000000 28672 36864
 
-assert_result 'invalid-values|1GB|10000000|65536|32768|' \
+assert_result 'fail|1GB|10002432|65536|32768|98304' \
+    1g 916088 10006528 65536 32768
+
+assert_result 'invalid-values|1GB|10002432|65536|32768|' \
     1024 916088 invalid 65536 32768
 
-assert_result 'invalid-values|1GB|10000000|65536|32768|' \
+assert_result 'invalid-values|1GB|10002432|65536|32768|' \
     1024 916088 '' 65536 32768
 
-assert_result 'ok|512MB|8000000|32768|16384|49152' \
-    auto 500000 8000000 32768 16384
+assert_result 'ok|512MB|8003584|32768|16384|49152' \
+    auto 500000 8003584 32768 16384
 
-assert_result 'ok|256MB|4000000|16384|8192|24576' \
-    auto 250000 4000000 16384 8192
+assert_result 'ok|256MB|4001792|16384|8192|24576' \
+    auto 250000 4001792 16384 8192
+
+assert_result 'ok|1GB|10027008|65536|32768|98304' \
+    1024 916088 10027008 65536 32768 65536
+
+assert_result 'invalid-page-size|||||' \
+    1024 916088 10002432 65536 32768 invalid
 
 assert_result 'invalid-memory|||||' auto invalid 1 1 1
 assert_result 'invalid-profile|||||' wrong 916088 1 1 1

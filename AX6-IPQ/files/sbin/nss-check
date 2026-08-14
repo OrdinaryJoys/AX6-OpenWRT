@@ -536,6 +536,7 @@ pbuf_memtotal=$(awk '/MemTotal/{print $2}' /proc/meminfo 2>/dev/null)
 pbuf_extra=$(sysctl -n dev.nss.n2hcfg.extra_pbuf_core0 2>/dev/null)
 pbuf_high=$(sysctl -n dev.nss.n2hcfg.n2h_high_water_core0 2>/dev/null)
 pbuf_wifi=$(sysctl -n dev.nss.n2hcfg.n2h_wifi_pool_buf 2>/dev/null)
+pbuf_page_size=$(getconf PAGESIZE 2>/dev/null)
 pbuf_classifier=${NSS_PBUF_CLASSIFIER:-/usr/libexec/ax6-nss-pbuf-classify}
 
 if [ ! -x "$pbuf_classifier" ]; then
@@ -544,11 +545,11 @@ else
     pbuf_result=$(
         "$pbuf_classifier" \
             "$pbuf_profile" "$pbuf_memtotal" \
-            "$pbuf_extra" "$pbuf_high" "$pbuf_wifi"
+            "$pbuf_extra" "$pbuf_high" "$pbuf_wifi" "$pbuf_page_size"
     )
     IFS='|' read -r \
         pbuf_status pbuf_label pbuf_expected_extra pbuf_expected_high \
-        pbuf_expected_wifi pbuf_total <<EOF
+        pbuf_expected_wifi _pbuf_total <<EOF
 $pbuf_result
 EOF
 
@@ -562,14 +563,14 @@ EOF
     invalid-memory)
         fail "NSS pbuf MemTotal is unavailable or non-numeric: ${pbuf_memtotal:-unset}"
         ;;
+    invalid-page-size)
+        fail "NSS pbuf kernel page size is unavailable or invalid"
+        ;;
     invalid-values)
         fail "NSS pbuf sysctl unavailable or non-numeric: extra=${pbuf_extra:-unset}, high=${pbuf_high:-unset}, wifi_pool=${pbuf_wifi:-unset}"
         ;;
     ok)
         ok "NSS pbuf/N2H profile applied (${pbuf_label}: extra=${pbuf_extra}, high=${pbuf_high}, wifi_pool=${pbuf_wifi})"
-        ;;
-    warn)
-        warn "NSS pbuf/N2H firmware split budget (${pbuf_label}: extra=${pbuf_extra}, high=${pbuf_high}, wifi_pool=${pbuf_wifi}; total=${pbuf_total} >= ${pbuf_expected_high})"
         ;;
     fail)
         fail "NSS pbuf/N2H profile not applied: extra=${pbuf_extra:-unset}/${pbuf_expected_extra}, high=${pbuf_high:-unset}/${pbuf_expected_high}, wifi_pool=${pbuf_wifi:-unset}/${pbuf_expected_wifi}"
