@@ -87,6 +87,8 @@ cfc56566d2c3194ffb490c5468e446b9f74dda0ea250bf0caabd6eb9ed8fb7a1  package/networ
 30936fe7e1792f54f2ecf6f99b4199dc283b77fc0805a0a598daa0bf2da9b173  package/network/services/hostapd/patches/601-ucode_support.patch
 fc9f1630547033428f4bdf7200a3b9f90d2a3d4321681891010d8f71be13f1a9  package/network/services/hostapd/patches/720-iface_max_num_sta.patch
 6ffd026abef22e9b53d6f80d915f034c02564c033fc8e5d65e2f584254c4a71d  package/network/services/hostapd/patches/762-AP-don-t-ignore-probe-requests-with-invalid-DSSS-par.patch
+06d18f192575204060dff23c52e1b98056cd7a25e1a6f24c2f563fa68214d377  package/qca-nss/qca-mcs/Makefile
+91378a047f9ef290f4b2400701a3d94721eccb64ec188f866a6284707c0e5c49  package/qca-nss/qca-mcs/patches/009-quiet-unconfigured-wifi-leave-events.patch
 350d94c5060dcabae108979289ce67be83d3a469f2773ee86147b752b1633d30  package/qca-nss/qca-nss-clients/Makefile
 9f9fe8a246cd6020dc1824f9cc84967079a890713eb9504f0d55f901301e1c2f  package/qca-nss/qca-nss-clients/patches/011-act_nssmirred-fix-action-list-corruption-on-release.patch
 a3450da6e7b815cc7b49edaf84c79749d7a0b09d619331ae9633d5c83d47cd96  package/qca-nss/qca-nss-clients/patches/012-nss_qdisc-guard-stats-attach-detach-against-noop-root.patch
@@ -201,6 +203,7 @@ d168a3176e2c6694f7b17ed4696dcaa5057635e6120c9659bb2a0ff1d6ba9c12  tests/test-apc
 95fd90143506de7cb941a7c9fb1429944b69e148b6f807358913416250724266  tests/test-edma-correctness-prerequisites.sh
 ebf0dfc23432f67e5a1de0402f5fd44b4687e1186e4856453ed8536d2cef9e76  tests/test-nss-drv-sysctl-log-level.sh
 601785e8b74d008be87c89df99d0abab07e5d5a4903adaec4eba492c9d1e788b  tests/test-nss-targeted-backports.sh
+1f081094f359c94f74e38efcad5d2e2ba740c814325fd8e937d6f12927ef4b74  tests/test-qca-mcs-log-level.sh
 d22aa053d44ccf5055f6d95f2932b5eca8d58d1cef3b3ba119842a18dc7571a6  tests/test-qca-nss-pbuf-readback.sh
 94cd3d9e1ee2180182209066e162ccbbae4d8bc930c829f77ebe494e0427ee47  tests/test-qcom-hwspinlock-regmap-boundary.sh
 cf67b4857833eafe5c2a95c32025fc5ea4e685fba031d4826857f0afb1237952  tests/test-set-irq-affinity-device-discovery.sh
