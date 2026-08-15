@@ -6,6 +6,7 @@ set -u
 
 INTERVAL="${1:-2}"
 SAMPLES="${2:-1}"
+STATION_MAC="${3:-}"
 
 case "$INTERVAL" in ''|*[!0-9]*) exit 2 ;; esac
 case "$SAMPLES" in ''|*[!0-9]*) exit 2 ;; esac
@@ -60,6 +61,51 @@ emit_n2h_file() {
         }
     ' "$file" | while IFS="$(printf '\t')" read -r metric value; do
         emit "$metric" "$value"
+    done
+}
+
+# M-03: NSS Wi-Fi datapath TX counters (wifili) — TX enqueue/sent/completion
+# and TCL ring state reveal downlink queueing vs airtime efficiency.
+emit_wifili_tx() {
+    local file=/sys/kernel/debug/qca-nss-drv/stats/wifili
+    [ -r "$file" ] || return 0
+    awk -F= -v prefix="nss.wifili" '
+        $1 ~ /(wifili\[[0-9]+\]_tx_(enqueue|enqueue_drop|dequeue|hw_enqueue_fail|sent_count)|tcl_ring_(sent|full)|tx_desc_(alloc_fail|free_completion|queuelimit_drop))/ {
+            key=$1; value=$2
+            gsub(/^[ \t]+|[ \t]+$/, "", key)
+            gsub(/[^A-Za-z0-9_]+/, "_", key)
+            gsub(/^[ \t]+/, "", value)
+            sub(/[ \t]+.*$/, "", value)
+            if (value ~ /^[0-9]+$/)
+                print prefix "." key "\t" value
+        }
+    ' "$file" | while IFS="$(printf '\t')" read -r metric value; do
+        emit "$metric" "$value"
+    done
+}
+
+# M-03: ath11k station downlink TX airtime/rate/retries (iw station get).
+# tx_duration_us is cumulative; the per-interval delta is the TX airtime,
+# which distinguishes air-idle (queue starve) from air-busy-inefficient
+# (aggregation) when compared against wall-clock and tx_bytes.
+emit_station_tx() {
+    [ -n "$STATION_MAC" ] || return 0
+    local iface out=""
+    for iface in phy0-ap0 phy1-ap0; do
+        out=$(iw dev "$iface" station get "$STATION_MAC" 2>/dev/null)
+        [ -n "$out" ] && break
+    done
+    [ -n "$out" ] || return 0
+    printf '%s\n' "$out" | awk '
+        $1=="tx" && $2=="duration:" { printf "nss.sta.tx_duration_us\t%s\n", $3 }
+        $1=="tx" && $2=="bitrate:"  { printf "nss.sta.tx_bitrate\t%s\n", $3 }
+        $1=="tx" && $2=="retries:"  { printf "nss.sta.tx_retries\t%s\n", $3 }
+        $1=="tx" && $2=="failed:"   { printf "nss.sta.tx_failed\t%s\n", $3 }
+        $1=="tx" && $2=="bytes:"    { printf "nss.sta.tx_bytes\t%s\n", $3 }
+        $1=="rx" && $2=="bytes:"    { printf "nss.sta.rx_bytes\t%s\n", $3 }
+        $1=="signal:"               { printf "nss.sta.signal_dbm\t%s\n", $2 }
+    ' | while IFS="$(printf '\t')" read -r metric value; do
+        [ -n "$value" ] && emit "$metric" "$value"
     done
 }
 
@@ -126,6 +172,8 @@ while [ "$seq" -lt "$SAMPLES" ]; do
     done
 
     emit_n2h_file
+    emit_wifili_tx
+    emit_station_tx
     emit_nss_file nss.drv /sys/kernel/debug/qca-nss-drv/stats/drv \
         'drv_(nbuf_alloc_errors|paged_buf_alloc_errors|tx_queue_full|rx_bad_desciptor|invalid_|tx_buffers_empty|rx_buffers_empty|tx_skb_fraglist|rx_skb_fraglist)'
     emit_nss_file nss.edma /sys/kernel/debug/qca-nss-drv/stats/edma/err_stats \

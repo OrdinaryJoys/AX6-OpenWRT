@@ -104,7 +104,7 @@ station_snapshot() { # output file
 start_sampler() { # label
   local label="$1" count ready=0
   count=$(((DURATION + SAMPLE_GRACE + SAMPLE_INTERVAL - 1) / SAMPLE_INTERVAL))
-  "${SSH[@]}" "sh -s -- '$SAMPLE_INTERVAL' '$count'" < "$SAMPLER" \
+  "${SSH[@]}" "sh -s -- '$SAMPLE_INTERVAL' '$count' '$ENDPOINT_MAC'" < "$SAMPLER" \
     > "$OUT/$label-router-samples.tsv" 2> "$OUT/$label-router-samples.err" &
   SAMPLER_PID=$!
   for _ in $(seq 1 100); do
