@@ -26,8 +26,8 @@ case "$profile" in
         esac
         if [ "$memtotal" -gt 512000 ]; then
             expected_extra=10000000
-            expected_high=65536
-            expected_wifi=32768
+            expected_high=72512
+            expected_wifi=36864
             label=1GB
         elif [ "$memtotal" -le 256000 ]; then
             expected_extra=4000000
@@ -43,8 +43,8 @@ case "$profile" in
         ;;
     1024|1g*)
         expected_extra=10000000
-        expected_high=65536
-        expected_wifi=32768
+        expected_high=72512
+        expected_wifi=36864
         label=1GB
         ;;
     512|512m*)
