@@ -1,6 +1,6 @@
 1d7b96e3b81be04305bac508a2abc6c516c9c8d8ee2a1665bc80282314bf30c0  package/kernel/mac80211/Makefile
 80587244b81f5303ce9479e21ef90c3a3b78b310ec63d0b814e26eb8f73733dd  package/kernel/mac80211/files/pbuf.uci
-39ccfe2e4dae8970115c516ab08c2e1247cb3ded354caaa7b25144b3822b1565  package/kernel/mac80211/files/qca-nss-pbuf.init
+21ea9e6c4737299a6f60c46f6a26e241f5c909f0c6d315de0cfa200044e635e2  package/kernel/mac80211/files/qca-nss-pbuf.init
 b66d866d40cd5a6fc2e52912c3b31b3d6b4d1c1a62a085916798993e2c9e5ca4  package/kernel/mac80211/patches/ath11k/950-ath11k-add-6ghz-lpi-rule-to-world-regd.patch
 dd4ad38515ad746630d28dae3669cfef7be3ddb6dc1fd552586a0cf137d1c38a  package/kernel/mac80211/patches/ath11k/990-ath11k-clamp-reg-rule-bandwidth.patch
 32d138be4da4736535d62c0fc7ed4514be924dd6bae6de12a1a535641268e3e2  package/kernel/mac80211/patches/ath12k/104-wifi-ath12k-fix-regulatory-range-for-wideband-radios.patch
@@ -205,6 +205,6 @@ d168a3176e2c6694f7b17ed4696dcaa5057635e6120c9659bb2a0ff1d6ba9c12  tests/test-apc
 ebf0dfc23432f67e5a1de0402f5fd44b4687e1186e4856453ed8536d2cef9e76  tests/test-nss-drv-sysctl-log-level.sh
 601785e8b74d008be87c89df99d0abab07e5d5a4903adaec4eba492c9d1e788b  tests/test-nss-targeted-backports.sh
 1f081094f359c94f74e38efcad5d2e2ba740c814325fd8e937d6f12927ef4b74  tests/test-qca-mcs-log-level.sh
-803f40a56e2a2a190935d5b1a0732646819ee7150cd9224b5f5365cd2c0fc15f  tests/test-qca-nss-pbuf-readback.sh
+54890a3fc2ab5820282b2704e26daa8e299ba54b8b8e874de4229dc30805543f  tests/test-qca-nss-pbuf-readback.sh
 94cd3d9e1ee2180182209066e162ccbbae4d8bc930c829f77ebe494e0427ee47  tests/test-qcom-hwspinlock-regmap-boundary.sh
 b0fab284f0a08b7e50683c57e2d9db27c44b7c9be27a54fa28ffb9a32a5a3016  tests/test-set-irq-affinity-device-discovery.sh
