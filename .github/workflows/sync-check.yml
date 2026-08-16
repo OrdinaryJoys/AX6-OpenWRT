@@ -83,7 +83,7 @@ jobs:
           check_locked "qosmio/sqm-scripts-nss main" "$SQM_SCRIPTS_NSS_URL" refs/heads/main "$SQM_SCRIPTS_NSS_COMMIT"
           check_locked "OrdinaryJoys/luci $LUCI_FEED_TRACKING_BRANCH" "$LUCI_FEED_URL" "refs/heads/$LUCI_FEED_TRACKING_BRANCH" "$LUCI_FEED_COMMIT"
           check_locked "immortalwrt/packages HEAD" "$PACKAGES_FEED_URL" HEAD "$PACKAGES_FEED_COMMIT" "$PACKAGES_FEED_POLICY"
-          check_locked "openwrt/routing HEAD" "$ROUTING_FEED_URL" HEAD "$ROUTING_FEED_COMMIT"
+          check_locked "openwrt/routing HEAD" "$ROUTING_FEED_URL" HEAD "$ROUTING_FEED_COMMIT" "$ROUTING_FEED_POLICY"
           check_locked "openwrt/telephony HEAD" "$TELEPHONY_FEED_URL" HEAD "$TELEPHONY_FEED_COMMIT"
           check_locked "openwrt/video HEAD" "$VIDEO_FEED_URL" HEAD "$VIDEO_FEED_COMMIT"
           check_locked "jerrykuku/luci-theme-argon HEAD" "$ARGON_THEME_URL" HEAD "$ARGON_THEME_COMMIT"
