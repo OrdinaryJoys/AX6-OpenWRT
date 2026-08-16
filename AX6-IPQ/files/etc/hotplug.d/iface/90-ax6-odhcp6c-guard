@@ -1,0 +1,77 @@
+#!/bin/sh
+# AX6 odhcp6c 孤儿守护: wan6 ifup 时清理同一接口的多余/卡死 odhcp6c 实例。
+#
+# 根因 (R-11 风暴源头, 2026-08-16 实测): 网络 reload 偶发遗留孤儿 odhcp6c,
+# 其占用 ubus 对象 "odhcp6c.wan"; netifd 之后生成的每个新实例在注册同名
+# 对象时立即失败 ("ubus error: Invalid argument") 并退出, netifd 以 ~9s
+# 周期无限重试 → 每次 ifup 触发 fw4 reload → 反复冲掉 OpenClash 动态规则。
+#
+# 介入条件 (任一满足):
+#   1) wan6 上存在多于一个 odhcp6c 进程 → 保留启动时间最新的 (netifd 刚
+#      生成的), 终止其余孤儿 (ubus 对象冲突场景);
+#   2) 仅有一个实例, 但 wan6 接口处于 down 且该实例已存活超过 120s →
+#      判定为卡死的持锁实例, 终止它让 netifd 重新生成干净实例。
+# 正常态 (单实例 + 接口 up) 零操作。匹配严格锚定 argv[0]="odhcp6c",
+# 避免误杀任何其他进程。
+
+case "${ACTION:-}" in
+	ifup|ifupdate) ;;
+	*) exit 0 ;;
+esac
+
+[ "${INTERFACE:-}" = "wan6" ] || exit 0
+
+PROC_ROOT="${PROC_ROOT:-/proc}"
+
+pidof odhcp6c >/dev/null 2>&1 || exit 0
+
+now_boot=$(cut -d. -f1 "$PROC_ROOT/uptime" 2>/dev/null)
+[ -n "$now_boot" ] || exit 0
+
+pids=""
+newest=""
+newest_ts=0
+for pid in $(pgrep -f "^odhcp6c .* wan$" 2>/dev/null); do
+	[ -r "$PROC_ROOT/$pid/stat" ] || continue
+	ts=$(awk "{print \$22}" "$PROC_ROOT/$pid/stat" 2>/dev/null)
+	[ -n "$ts" ] || continue
+	pids="$pids $pid"
+	if [ "$ts" -gt "$newest_ts" ]; then
+		newest_ts="$ts"
+		newest="$pid"
+	fi
+done
+
+[ -n "$newest" ] || exit 0
+
+# 1) 多实例: 清理除最新外的所有实例。
+victims=""
+for pid in $pids; do
+	[ "$pid" = "$newest" ] && continue
+	victims="$victims $pid"
+done
+
+if [ -z "$victims" ]; then
+	# 2) 单实例但接口 down 且实例过老 (持锁卡死) → 清理。
+	ifup_state=$(ifstatus wan6 2>/dev/null | jsonfilter -e '@["up"]' 2>/dev/null)
+	[ "$ifup_state" = "false" ] || exit 0
+	hz=$(getconf CLK_TCK 2>/dev/null)
+	[ -n "$hz" ] && [ "$hz" -gt 0 ] || hz=100
+	age=$(( (now_boot - newest_ts) / hz ))
+	[ "$age" -gt 120 ] || exit 0
+	victims="$newest"
+fi
+
+[ -n "$victims" ] || exit 0
+
+logger -t ax6-odhcp6c-guard \
+	"wan6 ifup: cleaning odhcp6c instance(s):$victims (newest kept: $newest)"
+for pid in $victims; do
+	env kill "$pid" 2>/dev/null
+done
+sleep 2
+for pid in $victims; do
+	env kill -9 "$pid" 2>/dev/null
+done
+
+exit 0

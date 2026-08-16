@@ -238,6 +238,7 @@ run_tcp() { # $1=阶段 $2=轮次 $3=模式(fwd/rev/bidir) $4=并行数
   local phase=$1 r=$2 mode=$3 pcount=$4
   local j="$OUT/$phase-$mode-r$r.json"
   local args=(-c "$SERVER_IP" -p "$PORT" -P "$pcount" -t "$DURATION" -J)
+  [ -n "${AX6_CLIENT_BIND:-}" ] && args=(-B "$AX6_CLIENT_BIND" "${args[@]}")
   [ "$mode" = rev ] && args+=(-R)
   [ "$mode" = bidir ] && args+=(--bidir)
   log "TCP $phase-$mode r$r (${DURATION}s -P $pcount)"
@@ -274,6 +275,7 @@ run_udp() { # $1=速率 $2=轮次 $3=方向(fwd/rev)
   local rate=$1 r=$2 dir=$3
   local j="$OUT/udp-$rate-$dir-r$r.json"
   local args=(-c "$SERVER_IP" -p "$PORT" -u -b "${rate}M" -t "$DURATION" -J)
+  [ -n "${AX6_CLIENT_BIND:-}" ] && args=(-B "$AX6_CLIENT_BIND" "${args[@]}")
   [ "$dir" = rev ] && args+=(-R)
   log "UDP ${rate}M-$dir r$r (${DURATION}s)"
   local rc=0

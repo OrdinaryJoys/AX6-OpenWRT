@@ -1,0 +1,25 @@
+#!/bin/sh
+# 每 5 分钟幂等重断言 RPS/RFS/XPS 队列策略。
+#
+# 已知边缘: EDMA 延迟探针/运行态 network reload 会静默重建数据面端口队列,
+# 重建后 rps_cpus/rps_flow_cnt 归零且不伴随可捕获的 iface 事件 (hotplug
+# 兜底覆盖不到), 实测今日多次复发 (nss-monitor FAIL=1)。本 cron 每 5 分钟
+# 调用 set-irq-affinity 的事件入口 start_rps, 写入幂等 (已有正确策略时零
+# 变更, 成本 ~10ms), 把抹零窗口压到 5 分钟以内。
+
+CRONTAB_ROOT="${CRONTAB_ROOT:-/etc/crontabs/root}"
+CRON_INIT="${CRON_INIT:-/etc/init.d/cron}"
+
+mkdir -p "$(dirname "$CRONTAB_ROOT")"
+LINE='*/5 * * * * /etc/init.d/set-irq-affinity start_rps >/dev/null 2>&1'
+touch "$CRONTAB_ROOT"
+# Replace only the line managed by this package. Keep unrelated user probes.
+TMP_CRONTAB="${CRONTAB_ROOT}.tmp.$$"
+sed '\|/etc/init.d/set-irq-affinity start_rps|d' "$CRONTAB_ROOT" > "$TMP_CRONTAB"
+echo "$LINE" >> "$TMP_CRONTAB"
+chmod 600 "$TMP_CRONTAB"
+mv "$TMP_CRONTAB" "$CRONTAB_ROOT"
+"$CRON_INIT" enable >/dev/null 2>&1
+"$CRON_INIT" restart >/dev/null 2>&1
+
+exit 0
