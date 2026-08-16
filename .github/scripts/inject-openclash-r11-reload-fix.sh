@@ -13,7 +13,12 @@
 #   - the rate-limit skip now only skips while the rules are actually present
 #     (sentinel check on the openclash/openclash_mangle chains);
 #   - set_firewall is called synchronously in the "firewall" and "manual"
-#     reload branches before the background TUN/cfg check.
+#     reload branches before the background TUN/cfg check;
+#   - R-11 v2: the background check_core_status & call is DROPPED in those two
+#     branches — its tail unconditionally re-runs set_firewall, which
+#     duplicated every unguarded rule (observed 2x jump rules and 2x
+#     ip rule 0x162). The synchronous set_firewall above is the single
+#     authoritative injection.
 #
 # Idempotent; fails hard when the upstream anchor text moved.
 set -eu
@@ -29,7 +34,29 @@ target="$1"
 	exit 2
 }
 
-grep -Fq "AX6 R-11 fix" "$target" && exit 0
+if grep -Fq "AX6 R-11 v2" "$target"; then
+	exit 0
+fi
+if grep -Fq "AX6 R-11 fix" "$target"; then
+	# v1 -> v2 upgrade: drop the two background check_core_status calls the
+	# v1 patch left behind (firewall + manual branches).
+	python3 - "$target" <<'UPGRADE' || exit 2
+import sys
+p = sys.argv[1]
+s = open(p).read()
+old = "      set_firewall\n      check_core_status &\n"
+new = ("      set_firewall\n"
+       "      # AX6 R-11 v2: no background check_core_status here - its tail re-runs\n"
+       "      # set_firewall and duplicates every unguarded rule (observed 2x jump\n"
+       "      # rules and 2x ip rule 0x162). The sync set_firewall above is the\n"
+       "      # single authoritative injection.\n")
+n = s.count(old)
+if n != 2:
+    sys.exit(2)
+open(p, "w").write(s.replace(old, new))
+UPGRADE
+	exit 0
+fi
 
 tmp="${target}.ax6r11.$$"
 trap 'rm -f "$tmp"' EXIT HUP INT TERM
@@ -69,14 +96,18 @@ if ! awk '
 			fw_branch = 1
 		}
 
-		# 3) Synchronous injection before the background TUN/cfg check.
+		# 3) Synchronous injection; R-11 v2 drops the background call entirely
+		#    (its tail re-runs set_firewall and duplicates unguarded rules).
 		if ($0 == "      check_core_status &") {
 			if (fw_branch) {
 				print "      # AX6 R-11 fix: inject synchronously. The upstream path relied on the"
 				print "      # background check_core_status tail, which races the next fw4 reload and"
 				print "      # can leave the ruleset empty (observed: chains exist with zero rules)."
 				print "      set_firewall"
-				print $0
+				print "      # AX6 R-11 v2: no background check_core_status here - its tail re-runs"
+				print "      # set_firewall and duplicates every unguarded rule (observed 2x jump"
+				print "      # rules and 2x ip rule 0x162). The sync set_firewall above is the"
+				print "      # single authoritative injection."
 				fw_branch = 0
 				saw_fw_sync = 1
 				prev = $0
@@ -84,7 +115,10 @@ if ! awk '
 			}
 			if (prev == "      do_run_mode") {
 				print "      set_firewall"
-				print $0
+				print "      # AX6 R-11 v2: no background check_core_status here - its tail re-runs"
+				print "      # set_firewall and duplicates every unguarded rule (observed 2x jump"
+				print "      # rules and 2x ip rule 0x162). The sync set_firewall above is the"
+				print "      # single authoritative injection."
 				saw_manual_sync = 1
 				prev = $0
 				next

@@ -50,18 +50,62 @@ FIXTURE
 cp "$TMP/upstream" "$TMP/target"
 "$HELPER" "$TMP/target"
 
-# The three fix pieces must all be present.
+# The fix pieces must all be present.
 grep -Fq 'if nft list chain inet fw4 openclash 2>/dev/null | grep -q "counter" ||' "$TMP/target"
 grep -Fq 'OpenClash Rules Missing After fw4 Reload, Force Restore...' "$TMP/target"
 test "$(grep -Fc '      set_firewall' "$TMP/target")" -eq 2
+# R-11 v2: the background check_core_status call is dropped in both branches
+# (its tail re-runs set_firewall and duplicates every unguarded rule).
+test "$(grep -Fc 'AX6 R-11 v2: no background check_core_status here' "$TMP/target")" -eq 2
+test "$(grep -Fc '      check_core_status &' "$TMP/target")" -eq 0
 # The rate-limit skip must be reachable only through the sentinel guard.
 test "$(grep -Fxc '            exit 0' "$TMP/target")" -eq 1
 # The original block structure must survive (balanced fi pairs).
 test "$(grep -Fxc '      fi' "$TMP/target")" -eq 1
 
-# Idempotency: a second run is a no-op.
+# Idempotency: a second run is a no-op (v2 marker present).
 "$HELPER" "$TMP/target"
 "$HELPER" "$TMP/target"
+
+# v1 -> v2 upgrade path: a v1-patched target (sync set_firewall + background
+# check kept) must be upgraded in place to the v2 layout.
+cat > "$TMP/v1" <<'FIXTURE1'
+reload_service()
+{
+   get_config
+   MAX_RELOAD=10
+   if pidof clash >/dev/null && [ "$enable" == "1" ] && [ "$1" == "firewall" ]; then
+      sleep 5
+      NOW_TS=$(date +%s)
+      RELOAD_COUNT=$(grep "Reload OpenClash Firewall Rules...$" "$LOG_FILE" | wc -l)
+      if [ "$RELOAD_COUNT" -ge "$MAX_RELOAD" ]; then
+         if nft list chain inet fw4 openclash 2>/dev/null | grep -q "counter" ||
+            nft list chain inet fw4 openclash_mangle 2>/dev/null | grep -q "counter"; then
+            LOG_OUT "Skip Reload OpenClash Firewall Rules Until 5 Minutes Later..."
+            exit 0
+         fi
+         LOG_OUT "OpenClash Rules Missing After fw4 Reload, Force Restore..."
+      fi
+      LOG_OUT "Reload OpenClash Firewall Rules..."
+      revert_firewall
+      do_run_mode
+      # AX6 R-11 fix: inject synchronously.
+      set_firewall
+      check_core_status &
+   fi
+   if pidof clash >/dev/null && [ "$enable" == "1" ] && [ "$1" == "manual" ]; then
+      LOG_OUT "Manually Reload Firewall Rules..."
+      revert_firewall
+      do_run_mode
+      set_firewall
+      check_core_status &
+   fi
+}
+FIXTURE1
+"$HELPER" "$TMP/v1"
+test "$(grep -Fc 'AX6 R-11 v2: no background check_core_status here' "$TMP/v1")" -eq 2
+test "$(grep -Fc '      check_core_status &' "$TMP/v1")" -eq 0
+test "$(grep -Fc '      set_firewall' "$TMP/v1")" -eq 2
 
 # Structural drift: the swallowed "exit 0" line changed -> fail hard, no
 # partial patch (file must stay byte-identical to upstream).

@@ -1,0 +1,25 @@
+#!/bin/sh
+# 每 2 分钟检查 OpenClash 防火墙规则在场性 (R-11 补强)。
+#
+# 已知边缘: fw4 reload 从零重建 ruleset, OpenClash 的重注入若被中途杀死
+# (注入窗口缺陷的极端变体), dstnat 跳转 / ip rule 0x162 会缺失到下一次
+# reload 事件为止, 期间流量直连 (泄露+故障)。本 cron 发现缺失后 30s 再确认
+# (避开正常 reload 的 ~8s 注入窗口), 仍缺失则触发 "/etc/init.d/openclash
+# reload manual" (同步 set_firewall, 无 sleep, 无限流) 自愈。
+
+CRONTAB_ROOT="${CRONTAB_ROOT:-/etc/crontabs/root}"
+CRON_INIT="${CRON_INIT:-/etc/init.d/cron}"
+
+mkdir -p "$(dirname "$CRONTAB_ROOT")"
+LINE='*/2 * * * * /usr/sbin/ax6-openclash-fw-health >/dev/null 2>&1'
+touch "$CRONTAB_ROOT"
+# Replace only the line managed by this package. Keep unrelated user probes.
+TMP_CRONTAB="${CRONTAB_ROOT}.tmp.$$"
+sed '\|/usr/sbin/ax6-openclash-fw-health|d' "$CRONTAB_ROOT" > "$TMP_CRONTAB"
+echo "$LINE" >> "$TMP_CRONTAB"
+chmod 600 "$TMP_CRONTAB"
+mv "$TMP_CRONTAB" "$CRONTAB_ROOT"
+"$CRON_INIT" enable >/dev/null 2>&1
+"$CRON_INIT" restart >/dev/null 2>&1
+
+exit 0

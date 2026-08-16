@@ -1,0 +1,21 @@
+#!/bin/sh
+# AX6 OpenClash 防火墙在场看门狗 (R-11 补强)
+# 修复目标: fw4 reload 会从零重建 ruleset; 若 OpenClash 的重注入被中途杀死
+# (注入窗口缺陷的极端变体), 规则/策略路由会缺失到下一次 reload 事件为止。
+# 本脚本每 2 分钟运行: clash 在跑但 dstnat 跳转或 ip rule 0x162 缺失时,
+# 30s 后再确认一次 (避开正常 reload 的 ~8s 注入窗口), 仍缺失则触发
+# "/etc/init.d/openclash reload manual" (同步 set_firewall, 无 sleep, 无限流)。
+ENABLE=$(uci -q get openclash.config.enable 2>/dev/null || echo 0)
+[ "$ENABLE" = 1 ] || exit 0
+pidof clash >/dev/null 2>&1 || exit 0
+missing=0
+nft list chain inet fw4 dstnat 2>/dev/null | grep -qE "jump openclash" || missing=1
+ip rule show 2>/dev/null | grep -q 0x162 || missing=1
+[ "$missing" = 1 ] || exit 0
+sleep 30
+missing=0
+nft list chain inet fw4 dstnat 2>/dev/null | grep -qE "jump openclash" || missing=1
+ip rule show 2>/dev/null | grep -q 0x162 || missing=1
+[ "$missing" = 1 ] || exit 0
+logger -t ax6-openclash-fw-health "firewall rules missing, triggering manual reload"
+/etc/init.d/openclash reload manual >/dev/null 2>&1
