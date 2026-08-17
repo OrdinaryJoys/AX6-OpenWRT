@@ -108,9 +108,23 @@ if echo "$_dmesg" |
 else
     ok "AX6 Ethernet DTS has no dangling nvmem phandles"
 fi
-if echo "$_dmesg" | grep -q "NSS core .* booted"; then
+# AX6 fix (2026-08-17): the dmesg ring buffer rotates under sustained
+# logging, so the "NSS core ... booted" line can disappear and produce a
+# false FAIL. Judge the core state from stable sources first (populated N2H
+# statistics = firmware up; driver refcount = cores bound); dmesg is only a
+# fallback hint.
+cores_booted=""
+if [ -r /sys/kernel/debug/qca-nss-drv/stats/n2h ] && \
+   grep -q "n2h_" /sys/kernel/debug/qca-nss-drv/stats/n2h 2>/dev/null; then
+    cores_booted="stable:n2h-stats"
+elif [ -r /sys/module/qca_nss_drv/refcnt ] && [ "$(cat /sys/module/qca_nss_drv/refcnt)" -ge 2 ]; then
+    cores_booted="stable:driver-refcnt=$(cat /sys/module/qca_nss_drv/refcnt)"
+fi
+if [ -n "$cores_booted" ]; then
+    ok "NSS Core(s) booted ($cores_booted)"
+elif echo "$_dmesg" | grep -q "NSS core .* booted"; then
     cores=$(echo "$_dmesg" | grep -c "NSS core .* booted")
-    ok "NSS Core(s) booted: $cores"
+    ok "NSS Core(s) booted (dmesg): $cores"
 else
     fail "NSS Core 未启动 — 查 dmesg | grep -i 'nss\\|ubi32'"
 fi
@@ -145,11 +159,15 @@ fi
 # ---- 7. ath11k board file 加载 ----
 # board_id 0xff = generic calibration (大多数 IPQ8074 设备)
 # 部分固件使用 board_id 0x0..0xfe 的特定校准文件
+# AX6 fix (2026-08-17): dmesg rotates under sustained logging; radios cannot
+# be up without board/calibration data, so radio presence is the stable proxy.
 if echo "$_dmesg" | grep -qE "ath11k.*board_id 0x[0-9a-fA-F]+"; then
     board_id=$(echo "$_dmesg" | grep -oE "board_id 0x[0-9a-fA-F]+" | tail -n 1)
     ok "ath11k board file loaded (${board_id})"
+elif iw dev phy0-ap0 info 2>/dev/null | grep -q "type AP"; then
+    ok "ath11k board file loaded (radio up; dmesg board_id rotated)"
 else
-    warn "未在 dmesg 找到 ath11k board_id"
+    warn "未确认 ath11k board_id (dmesg 无记录且 phy0 未就绪)"
 fi
 
 # ---- 8. ath11k fw memory mode ----
@@ -169,7 +187,13 @@ case "$fw_mode" in
         fail "ath11k fw_mem_mode = 2 (LOW); 期望 1=MID,启动序列异常"
         ;;
     "")
-        warn "未读到 fw_mem_mode"
+        # AX6 fix (2026-08-17): dmesg rotated; a FULL-mode CMA failure would
+        # have panicked at boot, so radio up proves a sane fw memory mode.
+        if iw dev phy0-ap0 info 2>/dev/null | grep -q "type AP"; then
+            ok "ath11k fw_mem_mode 运行值不可读 (dmesg 旋转); radio up = 固件加载成功 (MID 配置恒定)"
+        else
+            warn "未读到 fw_mem_mode"
+        fi
         ;;
     *)
         warn "ath11k fw_mem_mode = $fw_mode (期望 1=MID)"

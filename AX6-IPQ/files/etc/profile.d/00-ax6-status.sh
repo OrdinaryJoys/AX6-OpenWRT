@@ -11,7 +11,9 @@ _nss_count=$(lsmod 2>/dev/null | grep -c '^qca_nss')
 # NSS Core 启动状态 (检查 /proc 而非反复 grep dmesg)
 if [ -d /sys/kernel/debug/qca-nss-drv ]; then
     _nss_state="$(_color '32' 'OK')"
-elif dmesg 2>/dev/null | grep -q 'NSS core .* booted'; then
+elif grep -q "n2h_" /sys/kernel/debug/qca-nss-drv/stats/n2h 2>/dev/null || \
+     [ "$(cat /sys/module/qca_nss_drv/refcnt 2>/dev/null)" -ge 2 ] || \
+     dmesg 2>/dev/null | grep -q 'NSS core .* booted'; then
     _nss_state="$(_color '32' 'OK')"
 else
     _nss_state="$(_color '31' 'NOT-BOOTED')"
