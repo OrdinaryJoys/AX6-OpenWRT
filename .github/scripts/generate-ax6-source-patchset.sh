@@ -33,18 +33,25 @@ trap 'rm -rf "$tmp_dir"' EXIT HUP INT TERM
 # directories. Rename sources are absent and rename destinations are present.
 : > "$tmp_dir/present"
 : > "$tmp_dir/absent"
-git -C "$source_root" diff --name-status -M "$base_commit" "$target_commit" |
+for commit in "$base_commit" "$target_commit"; do
+    git -C "$source_root" cat-file -e "$commit^{commit}" || {
+        echo "ERROR: source commit is unavailable: $commit" >&2
+        exit 2
+    }
+done
+git -C "$source_root" diff --name-status -M "$base_commit" "$target_commit" \
+    > "$tmp_dir/name-status"
 awk -F '\t' -v present="$tmp_dir/present" -v absent_out="$tmp_dir/absent" '
     $1 == "D" { print $2 > absent_out; next }
     $1 ~ /^R/ { print $2 > absent_out; print $3 > present; next }
     $1 ~ /^C/ { print $3 > present; next }
     { print $2 > present }
-'
+' "$tmp_dir/name-status"
 
 LC_ALL=C sort -u "$tmp_dir/present" > "$tmp_dir/present.sorted"
 LC_ALL=C sort -u "$tmp_dir/absent" > "$absent"
 
-> "$manifest"
+: > "$manifest"
 while IFS= read -r f || [ -n "$f" ]; do
     [ -n "$f" ] || continue
     case "$f" in

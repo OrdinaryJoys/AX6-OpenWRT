@@ -73,4 +73,19 @@ actual_absent=$(cat "$absent")
         "$manifest_sha" "$base" >/dev/null
 )
 
+# An unavailable lock commit must fail before replacing a valid manifest.
+before=$(sha256sum \
+    "$manifest" "$absent" "$workspace/.github/ax6-nss-lock.env")
+if GITHUB_WORKSPACE="$workspace" \
+    "$GENERATOR" "$source_repo" "$base" deadbeef >/dev/null 2>&1; then
+    echo "FAIL: generator accepted an unavailable target commit" >&2
+    exit 1
+fi
+after=$(sha256sum \
+    "$manifest" "$absent" "$workspace/.github/ax6-nss-lock.env")
+[ "$before" = "$after" ] || {
+    echo "FAIL: failed generation replaced a valid manifest or lock" >&2
+    exit 1
+}
+
 echo "test-source-patchset-generator: PASS"

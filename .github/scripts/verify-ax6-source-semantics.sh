@@ -2,7 +2,7 @@
 #
 # AX6 cross-repo source semantic verifier (P0-2).
 #
-# Compares the five package PKG_RELEASE values declared in the build
+# Compares the package PKG_RELEASE values declared in the build
 # lock against the single authoritative PKG_RELEASE in the locked
 # source tree.  A drift here previously failed the CI gate only after
 # the source clone step (ECM release 9 vs 10), so the expected values
@@ -11,7 +11,8 @@
 # Usage: verify-ax6-source-semantics.sh <source-root> <lock-file>
 #
 # Behavior:
-#   1. Reads SOURCE_HOSTAPD_PKG_RELEASE / SOURCE_QCA_NSS_DRV_PKG_RELEASE /
+#   1. Reads SOURCE_MAC80211_PKG_RELEASE / SOURCE_HOSTAPD_PKG_RELEASE /
+#      SOURCE_QCA_NSS_DRV_PKG_RELEASE /
 #      SOURCE_QCA_NSS_ECM_PKG_RELEASE / SOURCE_QCA_NSS_CLIENTS_PKG_RELEASE /
 #      SOURCE_QCA_MCS_PKG_RELEASE
 #      from the lock (must be positive ints).
@@ -79,11 +80,14 @@ compare() { # label lock_var src_mk
 }
 
 exp_hostapd=$(lock_var SOURCE_HOSTAPD_PKG_RELEASE)
+exp_mac80211=$(lock_var SOURCE_MAC80211_PKG_RELEASE)
 exp_drv=$(lock_var SOURCE_QCA_NSS_DRV_PKG_RELEASE)
 exp_ecm=$(lock_var SOURCE_QCA_NSS_ECM_PKG_RELEASE)
 exp_clients=$(lock_var SOURCE_QCA_NSS_CLIENTS_PKG_RELEASE)
 exp_mcs=$(lock_var SOURCE_QCA_MCS_PKG_RELEASE)
 
+compare mac80211 "$exp_mac80211" \
+    "$(src_release "$source_root/package/kernel/mac80211/Makefile")"
 compare hostapd "$exp_hostapd" \
     "$(src_release "$source_root/package/network/services/hostapd/Makefile")"
 compare qca-nss-drv "$exp_drv" \
@@ -95,8 +99,29 @@ compare qca-nss-clients "$exp_clients" \
 compare qca-mcs "$exp_mcs" \
     "$(src_release "$source_root/package/qca-nss/qca-mcs/Makefile")"
 
+# Linux 6.18 predates kzalloc_objs(). The upstream ath11k fix must therefore
+# retain its official provenance while using the equivalent kcalloc() form.
+ath11k_stride_patch="$source_root/package/kernel/mac80211/patches/ath11k/102-wifi-ath11k-fix-stride-mismatch-in-mac_phy_caps_parse.patch"
+if [ ! -s "$ath11k_stride_patch" ]; then
+    echo "FAIL: ath11k mac_phy_caps stride backport is missing" >&2
+    FAIL=1
+elif grep -Eq '^\+.*kzalloc_objs' "$ath11k_stride_patch"; then
+    echo "FAIL: ath11k stride backport uses kzalloc_objs, unavailable on Linux 6.18" >&2
+    FAIL=1
+else
+    for marker in \
+        'From 7a246c72132eb943b5844ba79dad597b47429dba ' \
+        'kcalloc(svc_rdy_ext->tot_phy_id,' \
+        'sizeof(*svc_rdy_ext->mac_phy_caps), GFP_ATOMIC)'; do
+        if ! grep -Fq "$marker" "$ath11k_stride_patch"; then
+            echo "FAIL: ath11k stride backport is missing marker: $marker" >&2
+            FAIL=1
+        fi
+    done
+fi
+
 if [ "$FAIL" -ne 0 ]; then
     echo "AX6 source semantics: FAIL (see per-component messages above)" >&2
     exit 1
 fi
-echo "AX6 source semantics: PASS (hostapd=$exp_hostapd drv=$exp_drv ecm=$exp_ecm clients=$exp_clients mcs=$exp_mcs)"
+echo "AX6 source semantics: PASS (mac80211=$exp_mac80211 hostapd=$exp_hostapd drv=$exp_drv ecm=$exp_ecm clients=$exp_clients mcs=$exp_mcs)"
