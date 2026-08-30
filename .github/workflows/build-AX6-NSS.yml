@@ -168,7 +168,7 @@ jobs:
             ROUTING_FEED_URL ROUTING_FEED_COMMIT \
             TELEPHONY_FEED_URL TELEPHONY_FEED_COMMIT \
             VIDEO_FEED_URL VIDEO_FEED_COMMIT \
-            ARGON_THEME_URL ARGON_THEME_COMMIT \
+            ARGON_THEME_URL ARGON_THEME_COMMIT ARGON_THEME_VERSION \
             ARGON_CONFIG_URL ARGON_CONFIG_COMMIT \
             OPENCLASH_URL OPENCLASH_REF \
             SOURCE_MAC80211_PKG_RELEASE SOURCE_HOSTAPD_PKG_RELEASE SOURCE_QCA_NSS_DRV_PKG_RELEASE \
@@ -897,6 +897,24 @@ jobs:
             echo "::error::OpenClash package version mismatch: metadata=$OPENCLASH_ACTUAL_VERSION rootfs=${openclash_version:-missing}"
             exit 1
           }
+          argon_version=$(awk '
+            BEGIN { RS=""; FS="\n" }
+            {
+              package=""; version=""
+              for (i = 1; i <= NF; i++) {
+                if ($i ~ /^Package: /) package=substr($i, 10)
+                if ($i ~ /^Version: /) version=substr($i, 10)
+              }
+              if (package == "luci-theme-argon") print version
+            }
+          ' image-verify/opkg-status)
+          case "$argon_version" in
+            "$ARGON_THEME_VERSION"-*) ;;
+            *)
+              echo "::error::Argon package version mismatch: lock=$ARGON_THEME_VERSION rootfs=${argon_version:-missing}"
+              exit 1
+              ;;
+          esac
           unsquashfs -cat "$rootfs" etc/openclash/core/clash_meta \
             > image-verify/clash_meta
           printf '%s  %s\n' "$OPENCLASH_CORE_SHA256" image-verify/clash_meta |
@@ -1090,6 +1108,7 @@ jobs:
             echo "VIDEO_FEED_COMMIT=$VIDEO_FEED_COMMIT"
             echo "ARGON_THEME_URL=$ARGON_THEME_URL"
             echo "ARGON_THEME_COMMIT=$ARGON_THEME_COMMIT"
+            echo "ARGON_THEME_VERSION=$ARGON_THEME_VERSION"
             echo "ARGON_CONFIG_URL=$ARGON_CONFIG_URL"
             echo "ARGON_CONFIG_COMMIT=$ARGON_CONFIG_COMMIT"
             echo "OPENCLASH_URL=$OPENCLASH_URL"

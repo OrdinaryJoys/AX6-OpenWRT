@@ -176,7 +176,7 @@ jobs:
             ROUTING_FEED_URL ROUTING_FEED_COMMIT \
             TELEPHONY_FEED_URL TELEPHONY_FEED_COMMIT \
             VIDEO_FEED_URL VIDEO_FEED_COMMIT \
-            ARGON_THEME_URL ARGON_THEME_COMMIT \
+            ARGON_THEME_URL ARGON_THEME_COMMIT ARGON_THEME_VERSION \
             ARGON_CONFIG_URL ARGON_CONFIG_COMMIT \
             OPENCLASH_URL OPENCLASH_REF \
             SOURCE_MAC80211_PKG_RELEASE SOURCE_HOSTAPD_PKG_RELEASE SOURCE_QCA_NSS_DRV_PKG_RELEASE \
@@ -215,6 +215,10 @@ jobs:
           done
           [[ "$SOURCE_PATCHSET_MANIFEST_SHA256" =~ ^[0-9a-f]{64}$ ]] || {
             echo "::error::SOURCE_PATCHSET_MANIFEST_SHA256 must be a 64-character lowercase SHA256"
+            exit 1
+          }
+          [[ "$ARGON_THEME_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "::error::ARGON_THEME_VERSION must be numeric"
             exit 1
           }
           [ "$PACKAGES_FEED_POLICY" = compatible-security-backport ] || {
