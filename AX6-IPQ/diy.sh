@@ -37,6 +37,12 @@ resolve_branch_commit() {
 
 clone_locked "$ARGON_THEME_URL" "$ARGON_THEME_COMMIT" package/luci-theme-argon
 clone_locked "$ARGON_CONFIG_URL" "$ARGON_CONFIG_COMMIT" package/luci-app-argon-config
+ARGON_ACTUAL_VERSION=$(sed -n 's/^PKG_VERSION:=//p' \
+  package/luci-theme-argon/Makefile | head -1)
+[ "$ARGON_ACTUAL_VERSION" = "$ARGON_THEME_VERSION" ] || {
+  echo "[diy.sh] Argon version mismatch: expected $ARGON_THEME_VERSION, got ${ARGON_ACTUAL_VERSION:-missing}" >&2
+  exit 2
+}
 
 # Verify the authenticated cgi-io security source lock. The helper is
 # intentionally idempotent when the selected packages feed already contains
