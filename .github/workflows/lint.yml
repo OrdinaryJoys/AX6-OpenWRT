@@ -238,11 +238,11 @@ jobs:
             exit 1
           }
           workflow=.github/workflows/build-AX6-NSS.yml
-          grep -Fq 'ROUTING_FEED_URL ROUTING_FEED_COMMIT ROUTING_FEED_POLICY \' "$workflow" || {
+          grep -Fq "ROUTING_FEED_URL ROUTING_FEED_COMMIT ROUTING_FEED_POLICY \\" "$workflow" || {
             echo "::error::build workflow does not require ROUTING_FEED_POLICY"
             exit 1
           }
-          grep -Fq 'echo "ROUTING_FEED_POLICY=$ROUTING_FEED_POLICY"' "$workflow" || {
+          grep -Fq "echo \"ROUTING_FEED_POLICY=\$ROUTING_FEED_POLICY\"" "$workflow" || {
             echo "::error::artifact BUILD-LOCK does not record ROUTING_FEED_POLICY"
             exit 1
           }
