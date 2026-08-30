@@ -237,6 +237,15 @@ jobs:
             echo "::error::routing defconfig candidate changed without review"
             exit 1
           }
+          workflow=.github/workflows/build-AX6-NSS.yml
+          grep -Fq 'ROUTING_FEED_URL ROUTING_FEED_COMMIT ROUTING_FEED_POLICY \' "$workflow" || {
+            echo "::error::build workflow does not require ROUTING_FEED_POLICY"
+            exit 1
+          }
+          grep -Fq 'echo "ROUTING_FEED_POLICY=$ROUTING_FEED_POLICY"' "$workflow" || {
+            echo "::error::artifact BUILD-LOCK does not record ROUTING_FEED_POLICY"
+            exit 1
+          }
           backport=AX6-IPQ/package-patches/cgi-io/100-fix-malformed-post-use-after-free.patch
           grep -Fq "$CGI_IO_SECURITY_BACKPORT_COMMIT" "$backport" || {
             echo "::error file=$backport::cgi-io package backport provenance does not match the build lock"
