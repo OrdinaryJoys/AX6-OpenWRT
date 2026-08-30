@@ -173,7 +173,7 @@ jobs:
             LUCI_FEED_URL LUCI_FEED_TRACKING_BRANCH LUCI_FEED_COMMIT \
             PACKAGES_FEED_URL PACKAGES_FEED_COMMIT PACKAGES_FEED_POLICY \
             CGI_IO_SECURITY_BACKPORT_COMMIT \
-            ROUTING_FEED_URL ROUTING_FEED_COMMIT \
+            ROUTING_FEED_URL ROUTING_FEED_COMMIT ROUTING_FEED_POLICY \
             TELEPHONY_FEED_URL TELEPHONY_FEED_COMMIT \
             VIDEO_FEED_URL VIDEO_FEED_COMMIT \
             ARGON_THEME_URL ARGON_THEME_COMMIT \
@@ -217,12 +217,20 @@ jobs:
             echo "::error::SOURCE_PATCHSET_MANIFEST_SHA256 must be a 64-character lowercase SHA256"
             exit 1
           }
-          [ "$PACKAGES_FEED_POLICY" = compatible-security-backport ] || {
+          [ "$PACKAGES_FEED_POLICY" = defconfig-candidate ] || {
             echo "::error::unexpected packages feed policy: $PACKAGES_FEED_POLICY"
             exit 1
           }
-          [ "$PACKAGES_FEED_COMMIT" = 4db836e2d929b5f0d858000f99aa55bb0ab85100 ] || {
-            echo "::error::packages compatibility lock changed without a reviewed defconfig result"
+          [ "$PACKAGES_FEED_COMMIT" = a874f8aabbf21af382a6bab90d300e50ebccadb0 ] || {
+            echo "::error::packages defconfig candidate changed without review"
+            exit 1
+          }
+          [ "$ROUTING_FEED_POLICY" = defconfig-candidate ] || {
+            echo "::error::unexpected routing feed policy: $ROUTING_FEED_POLICY"
+            exit 1
+          }
+          [ "$ROUTING_FEED_COMMIT" = 4b9891b9136259f93294a424507ed24c5e8c1cbd ] || {
+            echo "::error::routing defconfig candidate changed without review"
             exit 1
           }
           backport=AX6-IPQ/package-patches/cgi-io/100-fix-malformed-post-use-after-free.patch
