@@ -93,7 +93,10 @@ case "$*" in
         [ "${OPENCLASH_INSTALLED:-0}" = 1 ] && echo openclash || exit 1
         ;;
     '-q get openclash.config.geo_auto_update') echo "${OPENCLASH_GEO_AUTO:-0}" ;;
-    '-q get openclash.config.geoip_auto_update'|'-q get openclash.config.geosite_auto_update'|'-q get openclash.config.geoasn_auto_update'|'-q get openclash.config.chnr_auto_update') echo 0 ;;
+    '-q get openclash.config.geoip_auto_update') echo "${OPENCLASH_GEOIP_AUTO:-0}" ;;
+    '-q get openclash.config.geosite_auto_update') echo "${OPENCLASH_GEOSITE_AUTO:-0}" ;;
+    '-q get openclash.config.geoasn_auto_update') echo "${OPENCLASH_GEOASN_AUTO:-0}" ;;
+    '-q get openclash.config.chnr_auto_update') echo "${OPENCLASH_CHNR_AUTO:-0}" ;;
     '-q get openclash.config.enable') echo 0 ;;
     '-q get openclash.config.dns_port'|'-q get openclash.config.enable_redirect_dns'|'-q get openclash.config.operation_mode'|'-q get openclash.config.en_mode'|'-q get dhcp.@dnsmasq[0].server') exit 1 ;;
     *) exit 1 ;;
@@ -211,6 +214,16 @@ if grep -Fq 'all Country/GeoIP/GeoSite/GeoASN/CHNR automatic updates are disable
     exit 1
 fi
 grep -Fq 'FAIL=0' "$TMP/openclash-country-auto.log"
+
+OPENCLASH_INSTALLED=1 \
+OPENCLASH_GEO_AUTO=1 \
+OPENCLASH_GEOIP_AUTO=1 \
+OPENCLASH_GEOSITE_AUTO=1 \
+OPENCLASH_GEOASN_AUTO=1 \
+OPENCLASH_CHNR_AUTO=1 \
+    run_audit > "$TMP/openclash-geodata-format.log"
+grep -Fq 'geo_auto_update, geoip_auto_update, geosite_auto_update, geoasn_auto_update, chnr_auto_update enabled' \
+    "$TMP/openclash-geodata-format.log"
 
 export UCI_SCHEMA=legacy LEGACY_ALLOW_DEFAULT=1
 run_audit > "$TMP/legacy.log"

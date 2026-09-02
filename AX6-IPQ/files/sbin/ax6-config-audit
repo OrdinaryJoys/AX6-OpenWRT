@@ -408,14 +408,19 @@ openclash_overlay_total_kb() {
 }
 
 openclash_auto_geodata_enabled() {
+    _oc_enabled=""
     for _oc_option in \
         geo_auto_update \
         geoip_auto_update \
         geosite_auto_update \
         geoasn_auto_update \
         chnr_auto_update; do
-        [ "$(uci -q get "openclash.config.${_oc_option}")" = "1" ] && echo "$_oc_option"
+        if [ "$(uci -q get "openclash.config.${_oc_option}")" = "1" ]; then
+            [ -z "$_oc_enabled" ] || _oc_enabled="${_oc_enabled}, "
+            _oc_enabled="${_oc_enabled}${_oc_option}"
+        fi
     done
+    printf '%s\n' "$_oc_enabled"
 }
 
 if [ "$QUIET" -eq 0 ]; then
