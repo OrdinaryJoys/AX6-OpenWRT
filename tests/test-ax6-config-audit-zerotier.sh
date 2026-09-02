@@ -88,7 +88,14 @@ case "$*" in
     '-q get vlmcsd.config.internet_access') echo "${VLMCS_INTERNET:-0}" ;;
     '-q get vlmcsd.config.auto_activate') echo "${VLMCS_AUTO_ACTIVATE:-0}" ;;
     '-q get vlmcsd.config.autoactivate') [ "${VLMCS_LEGACY_OPTION:-0}" = 1 ] && echo 1 ;;
-    '-q get upnpd.config'|'-q get openclash.config') exit 1 ;;
+    '-q get upnpd.config') exit 1 ;;
+    '-q get openclash.config')
+        [ "${OPENCLASH_INSTALLED:-0}" = 1 ] && echo openclash || exit 1
+        ;;
+    '-q get openclash.config.geo_auto_update') echo "${OPENCLASH_GEO_AUTO:-0}" ;;
+    '-q get openclash.config.geoip_auto_update'|'-q get openclash.config.geosite_auto_update'|'-q get openclash.config.geoasn_auto_update'|'-q get openclash.config.chnr_auto_update') echo 0 ;;
+    '-q get openclash.config.enable') echo 0 ;;
+    '-q get openclash.config.dns_port'|'-q get openclash.config.enable_redirect_dns'|'-q get openclash.config.operation_mode'|'-q get openclash.config.en_mode'|'-q get dhcp.@dnsmasq[0].server') exit 1 ;;
     *) exit 1 ;;
 esac
 EOF
@@ -190,6 +197,20 @@ fi
 grep -Fq 'nft input include exactly matches daemon ports and protocols' "$TMP/pass.log"
 grep -Fq 'live nft input rules exactly match daemon ports and protocols' "$TMP/pass.log"
 grep -Fq 'FAIL=0' "$TMP/pass.log"
+
+OPENCLASH_INSTALLED=1 run_audit > "$TMP/openclash-disabled-geodata.log"
+grep -Fq 'all Country/GeoIP/GeoSite/GeoASN/CHNR automatic updates are disabled' \
+    "$TMP/openclash-disabled-geodata.log"
+grep -Fq 'FAIL=0' "$TMP/openclash-disabled-geodata.log"
+
+OPENCLASH_INSTALLED=1 OPENCLASH_GEO_AUTO=1 run_audit > "$TMP/openclash-country-auto.log"
+grep -Fq 'geo_auto_update enabled' "$TMP/openclash-country-auto.log"
+if grep -Fq 'all Country/GeoIP/GeoSite/GeoASN/CHNR automatic updates are disabled' \
+    "$TMP/openclash-country-auto.log"; then
+    echo 'audit ignored an enabled Country.mmdb auto-update policy' >&2
+    exit 1
+fi
+grep -Fq 'FAIL=0' "$TMP/openclash-country-auto.log"
 
 export UCI_SCHEMA=legacy LEGACY_ALLOW_DEFAULT=1
 run_audit > "$TMP/legacy.log"

@@ -799,8 +799,10 @@ jobs:
             'config bridge-vlan is present' \
             'openclash_dns_redirect' \
             'OpenClash DNS Hijack' \
-            'GeoIP/GeoSite/ASN/CHNR data use' \
+            'Country/GeoIP/GeoSite/GeoASN/CHNR data use' \
+            'geo_auto_update' \
             'enabled on ${oc_overlay_total} KiB overlay can refill flash' \
+            'all Country/GeoIP/GeoSite/GeoASN/CHNR automatic updates are disabled' \
             'dashboard UI files occupy' \
             'fake-ip cache persistence enabled' \
             'custom DNS nameserver group is configured' \

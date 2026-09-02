@@ -398,15 +398,18 @@ openclash_geodata_kb() {
 }
 
 openclash_overlay_free_kb() {
-    df -k /overlay 2>/dev/null | awk 'NR == 2 { print $4 + 0 }'
+    df -k /overlay 2>/dev/null |
+        awk 'NR == 2 { print $4 + 0; found = 1 } END { if (!found) print 0 }'
 }
 
 openclash_overlay_total_kb() {
-    df -k /overlay 2>/dev/null | awk 'NR == 2 { print $2 + 0 }'
+    df -k /overlay 2>/dev/null |
+        awk 'NR == 2 { print $2 + 0; found = 1 } END { if (!found) print 0 }'
 }
 
 openclash_auto_geodata_enabled() {
     for _oc_option in \
+        geo_auto_update \
         geoip_auto_update \
         geosite_auto_update \
         geoasn_auto_update \
@@ -747,9 +750,9 @@ if uci -q get openclash.config >/dev/null 2>&1; then
     fi
     if [ "$oc_geodata_kb" -gt 0 ]; then
         if [ "$oc_overlay_free" -lt 4096 ]; then
-            fail "OpenClash: GeoIP/GeoSite/ASN/CHNR data use ${oc_geodata_kb} KiB and overlay free is only ${oc_overlay_free} KiB"
+            fail "OpenClash: Country/GeoIP/GeoSite/GeoASN/CHNR data use ${oc_geodata_kb} KiB and overlay free is only ${oc_overlay_free} KiB"
         else
-            warn "OpenClash: GeoIP/GeoSite/ASN/CHNR data use ${oc_geodata_kb} KiB on overlay; monitor free space before updates"
+            warn "OpenClash: Country/GeoIP/GeoSite/GeoASN/CHNR data use ${oc_geodata_kb} KiB on overlay; monitor free space before updates"
         fi
     fi
     if [ -n "$oc_auto_geodata" ]; then
@@ -758,6 +761,8 @@ if uci -q get openclash.config >/dev/null 2>&1; then
         else
             warn "OpenClash: ${oc_auto_geodata} enabled; ensure overlay has enough free space"
         fi
+    else
+        warn "OpenClash: all Country/GeoIP/GeoSite/GeoASN/CHNR automatic updates are disabled; data freshness depends on manual updates"
     fi
     if [ "$oc_ui_overlay_kb" -gt 0 ]; then
         warn "OpenClash: dashboard UI files occupy ${oc_ui_overlay_kb} KiB in overlay; prefer baking plugin into firmware"
