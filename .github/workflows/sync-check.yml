@@ -55,7 +55,8 @@ jobs:
             elif [ "$remote" = "$locked" ]; then
               echo "| $label | \`$locked\` | current |" >> "$GITHUB_STEP_SUMMARY"
             else
-              if [ "$policy" = compatible-security-backport ]; then
+              if [ "$policy" = compatible-security-backport ] || \
+                 [ "$policy" = unselected-compatibility-pin ]; then
                 echo "| $label | \`$locked\` | compatibility pin; HEAD: \`$remote\` |" >> "$GITHUB_STEP_SUMMARY"
                 echo "::warning::$label intentionally remains at validated compatibility lock $locked; current HEAD is $remote"
                 compatible_pins=$((compatible_pins + 1))
@@ -94,7 +95,7 @@ jobs:
           check_locked "immortalwrt/packages HEAD" "$PACKAGES_FEED_URL" HEAD "$PACKAGES_FEED_COMMIT" "$PACKAGES_FEED_POLICY"
           check_locked "openwrt/routing HEAD" "$ROUTING_FEED_URL" HEAD "$ROUTING_FEED_COMMIT" "$ROUTING_FEED_POLICY"
           check_locked "openwrt/telephony HEAD" "$TELEPHONY_FEED_URL" HEAD "$TELEPHONY_FEED_COMMIT"
-          check_locked "openwrt/video HEAD" "$VIDEO_FEED_URL" HEAD "$VIDEO_FEED_COMMIT"
+          check_locked "openwrt/video HEAD" "$VIDEO_FEED_URL" HEAD "$VIDEO_FEED_COMMIT" "$VIDEO_FEED_POLICY"
           check_locked "jerrykuku/luci-theme-argon HEAD" "$ARGON_THEME_URL" HEAD "$ARGON_THEME_COMMIT"
           check_locked "jerrykuku/luci-app-argon-config HEAD" "$ARGON_CONFIG_URL" HEAD "$ARGON_CONFIG_COMMIT"
           probe_reference "vernesong/OpenClash ${OPENCLASH_REF:-master}" "$OPENCLASH_URL" "refs/heads/${OPENCLASH_REF:-master}"
