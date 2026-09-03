@@ -443,6 +443,19 @@ def analyze_sync_file(label, seconds):
                   "NSS OCM pool pressure (default/payload/queue counters decide failure): " +
                   ",".join(pressure_changes), "WARN")
 
+    wifili_desc_peaks = []
+    for metric in sorted(first):
+        if not re.match(r"nss\.wifili\.wifili_\d+__tx_desc_in_use$", metric):
+            continue
+        values = []
+        for sample in samples.values():
+            try:
+                values.append(int(sample[metric]))
+            except (KeyError, ValueError):
+                pass
+        if values:
+            wifili_desc_peaks.append(f"{metric}={max(values)}")
+
     net_changes = []
     for metric in first:
         if not re.match(r"net\.(br-lan|lan1|lan2|lan3|wan)\.(rx_errors|rx_dropped|tx_errors|tx_dropped)$", metric):
@@ -459,7 +472,8 @@ def analyze_sync_file(label, seconds):
     detail = (f"samples={len(samples)} pbuf_high={pbuf_high} "
               f"softnet_drop={softnet_drop} time_squeeze={softnet_squeeze} "
               f"nss_error_delta={error_delta} nss_ocm_pressure_delta={pressure_delta} "
-              f"irq_delta={irq_delta}")
+              f"irq_delta={irq_delta} "
+              f"wifili_tx_desc_peak={','.join(wifili_desc_peaks) or 'unavailable'}")
     sync_results.append({"scenario": label, "detail": detail})
     if not pbuf_changed and not softnet_drop and not error_changes and not pressure_changes and not net_changes:
         verdicts.append((f"SYNC {label}", "PASS", detail))

@@ -70,7 +70,7 @@ emit_wifili_tx() {
     local file=/sys/kernel/debug/qca-nss-drv/stats/wifili
     [ -r "$file" ] || return 0
     awk -F= -v prefix="nss.wifili" '
-        $1 ~ /(wifili\[[0-9]+\]_tx_(enqueue|enqueue_drop|dequeue|hw_enqueue_fail|sent_count)|tcl_ring_(sent|full)|tx_desc_(alloc_fail|free_completion|queuelimit_drop))/ {
+        $1 ~ /(wifili\[[0-9]+\]_tx_(enqueue|enqueue_drop|dequeue|hw_enqueue_fail|sent_count)|tcl_ring_(sent|full)|tx_desc_(in_use|alloc_fail|invalid_free|free_completion|queuelimit_drop))/ {
             key=$1; value=$2
             gsub(/^[ \t]+|[ \t]+$/, "", key)
             gsub(/[^A-Za-z0-9_]+/, "_", key)

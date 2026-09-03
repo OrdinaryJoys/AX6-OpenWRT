@@ -29,6 +29,9 @@ echo "== 前置: 存在性与语法 =="
 for s in "$ROUTER_LOCAL" "$LANLAN" "$ROUTER_ENDPOINT" "$ANALYZER" "$SYNC_SAMPLER"; do
   [ -f "$s" ] && bash -n "$s" 2>/dev/null && ok "bash -n $(basename "$s")" || bad "bash -n $(basename "$s")"
 done
+grep -q 'tx_desc_(in_use|alloc_fail|invalid_free|' "$SYNC_SAMPLER" && \
+  ok "同步采样包含 WiFiLi 描述符占用和错误计数" || \
+  bad "同步采样缺少 WiFiLi 描述符占用或错误计数"
 
 # ── Mock 环境 ───────────────────────────────────────────────────────────────
 MOCK="$WORK/mock"; CTRL="$WORK/ctrl"
@@ -295,7 +298,8 @@ def rehash(d):
         lines.append(f"{h}  ./{f}")
     open(os.path.join(d, "SHA256SUMS.txt"), "w").write("\n".join(lines) + "\n")
 
-def add_sync_samples(d, drop_delta=0, omit=None, ocm_delta=0, payload_delta=0):
+def add_sync_samples(d, drop_delta=0, omit=None, ocm_delta=0, payload_delta=0,
+                     desc_fail_delta=0):
     with open(os.path.join(d, "env.txt"), "a") as f:
         f.write("sync_sampling=1\nsample_interval=30\nsample_grace=1\n")
         f.write("boot_id=sync-fixture-boot\n")
@@ -311,6 +315,7 @@ def add_sync_samples(d, drop_delta=0, omit=None, ocm_delta=0, payload_delta=0):
                     dropped = drop_delta if (label == "P4-bidir-r3" and seq == 1) else 0
                     ocm = ocm_delta if (label == "P4-bidir-r3" and seq == 1) else 0
                     payload = payload_delta if (label == "P4-bidir-r3" and seq == 1) else 0
+                    desc_fail = desc_fail_delta if (label == "P4-bidir-r3" and seq == 1) else 0
                     f.write(f"@@SAMPLE seq={seq} epoch={1786700000 + seq * 30} uptime={100 + seq * 30}.00\n")
                     metrics = {
                         "pbuf.n2h_high_water_core0": "32768",
@@ -321,6 +326,8 @@ def add_sync_samples(d, drop_delta=0, omit=None, ocm_delta=0, payload_delta=0):
                         "nss.n2h.core0.n2h_pbuf_def_alloc_fail_payload": "0",
                         "nss.n2h.core0.n2h_payload_alloc_fails": str(payload),
                         "nss.edma.edma_err_alloc_fail_cnt": "101",
+                        "nss.wifili.wifili_0__tx_desc_in_use": "8192" if desc_fail else "1024",
+                        "nss.wifili.wifili_0__tx_desc_alloc_fail": str(200 + desc_fail),
                         "net.lan1.rx_errors": "0",
                         "net.lan1.rx_dropped": "0",
                         "net.lan1.tx_errors": "0",
@@ -368,6 +375,9 @@ add_sync_samples(os.path.join(w, "s8-sync-ocm"), ocm_delta=100)
 build("s8-sync-payload", 940, 945, 0.0, 0.2, "MacBook onboard RTL8153", True,
       skip_udp=True, skip_long=True)
 add_sync_samples(os.path.join(w, "s8-sync-payload"), payload_delta=1)
+build("s8-sync-wifili-desc", 940, 945, 0.0, 0.2, "MacBook onboard RTL8153", True,
+      skip_udp=True, skip_long=True)
+add_sync_samples(os.path.join(w, "s8-sync-wifili-desc"), desc_fail_delta=250000)
 PYEOF
 check_rc() { # dir expected_rc label
   "$ANALYZER" "$1" >/dev/null 2>&1; rc=$?
@@ -394,6 +404,14 @@ else
   bad "仅 OCM 首选池压力判定异常: exit=$rc"
 fi
 check_rc "$WORK/s8-sync-payload" 1 "最终 payload alloc fail 增长 → FAIL"
+"$ANALYZER" "$WORK/s8-sync-wifili-desc" > "$WORK/s8-sync-wifili-desc-verdict.json" 2>/dev/null
+rc=$?
+if [ "$rc" -eq 1 ] && grep -q 'tx_desc_alloc_fail=+250000' "$WORK/s8-sync-wifili-desc-verdict.json" && \
+   grep -q 'wifili_tx_desc_peak=nss.wifili.wifili_0__tx_desc_in_use=8192' "$WORK/s8-sync-wifili-desc-verdict.json"; then
+  ok "WiFiLi 描述符耗尽增长与池峰值 → FAIL 且保留根因证据"
+else
+  bad "WiFiLi 描述符耗尽判定或峰值证据异常: exit=$rc"
+fi
 
 # ── 核心断言: 无伪 PASS ─────────────────────────────────────────────────────
 echo "== 无伪 PASS 断言 =="
