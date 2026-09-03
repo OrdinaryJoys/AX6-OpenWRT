@@ -175,7 +175,7 @@ jobs:
             CGI_IO_SECURITY_BACKPORT_COMMIT \
             ROUTING_FEED_URL ROUTING_FEED_COMMIT ROUTING_FEED_POLICY \
             TELEPHONY_FEED_URL TELEPHONY_FEED_COMMIT \
-            VIDEO_FEED_URL VIDEO_FEED_COMMIT \
+            VIDEO_FEED_URL VIDEO_FEED_COMMIT VIDEO_FEED_POLICY \
             ARGON_THEME_URL ARGON_THEME_COMMIT ARGON_THEME_VERSION \
             ARGON_CONFIG_URL ARGON_CONFIG_COMMIT \
             OPENCLASH_URL OPENCLASH_REF \
@@ -225,7 +225,7 @@ jobs:
             echo "::error::unexpected packages feed policy: $PACKAGES_FEED_POLICY"
             exit 1
           }
-          [ "$PACKAGES_FEED_COMMIT" = a874f8aabbf21af382a6bab90d300e50ebccadb0 ] || {
+          [ "$PACKAGES_FEED_COMMIT" = 03d8b9d71b0d9eaeb815472fa7e30bab405ac2d0 ] || {
             echo "::error::packages defconfig candidate changed without review"
             exit 1
           }
@@ -237,6 +237,10 @@ jobs:
             echo "::error::routing defconfig candidate changed without review"
             exit 1
           }
+          [ "$VIDEO_FEED_POLICY" = unselected-compatibility-pin ] || {
+            echo "::error::unexpected video feed policy: $VIDEO_FEED_POLICY"
+            exit 1
+          }
           workflow=.github/workflows/build-AX6-NSS.yml
           grep -Fq "ROUTING_FEED_URL ROUTING_FEED_COMMIT ROUTING_FEED_POLICY \\" "$workflow" || {
             echo "::error::build workflow does not require ROUTING_FEED_POLICY"
@@ -246,6 +250,19 @@ jobs:
             echo "::error::artifact BUILD-LOCK does not record ROUTING_FEED_POLICY"
             exit 1
           }
+          grep -Fq "VIDEO_FEED_URL VIDEO_FEED_COMMIT VIDEO_FEED_POLICY \\" "$workflow" || {
+            echo "::error::build workflow does not require VIDEO_FEED_POLICY"
+            exit 1
+          }
+          grep -Fq "echo \"VIDEO_FEED_POLICY=\$VIDEO_FEED_POLICY\"" "$workflow" || {
+            echo "::error::artifact BUILD-LOCK does not record VIDEO_FEED_POLICY"
+            exit 1
+          }
+          if grep -Eq '^CONFIG_PACKAGE_(kmod-video|ffmpeg|gstreamer|libva|libvulkan|mesa|weston|wlroots)([^=]*)=y$' \
+              AX6-IPQ/.config-stock AX6-IPQ/.config-expand; then
+            echo "::error::video feed compatibility policy is invalid because an AX6 config selects a video/graphics package"
+            exit 1
+          fi
           backport=AX6-IPQ/package-patches/cgi-io/100-fix-malformed-post-use-after-free.patch
           grep -Fq "$CGI_IO_SECURITY_BACKPORT_COMMIT" "$backport" || {
             echo "::error file=$backport::cgi-io package backport provenance does not match the build lock"
