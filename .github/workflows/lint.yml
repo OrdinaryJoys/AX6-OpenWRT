@@ -225,7 +225,7 @@ jobs:
             echo "::error::unexpected packages feed policy: $PACKAGES_FEED_POLICY"
             exit 1
           }
-          [ "$PACKAGES_FEED_COMMIT" = 03d8b9d71b0d9eaeb815472fa7e30bab405ac2d0 ] || {
+          [ "$PACKAGES_FEED_COMMIT" = 03d8b9d71b5e27972e4111ebe39898d093544c92 ] || {
             echo "::error::packages defconfig candidate changed without review"
             exit 1
           }
