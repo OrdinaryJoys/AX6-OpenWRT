@@ -2,7 +2,7 @@
 
 set -eu
 
-repo_root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
+repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 gate="$repo_root/AX6-IPQ/scripts/check-ax6-stock-compiled-dtb.sh"
 tmp_dir=$(mktemp -d)
 trap 'rm -rf "$tmp_dir"' EXIT HUP INT TERM
@@ -24,7 +24,7 @@ cat > "$tmp_dir/good.dts" <<'EOF'
 	};
 
 	soc@0 {
-		wifi@c000000 {
+		wifi@c0000000 {
 			qcom,nss-wifili-tx-desc-count = <16384>;
 		};
 		dp2: dp2@3a001200 {};
@@ -49,7 +49,7 @@ cat > "$tmp_dir/bad.dts" <<'EOF'
 	macaddr_dp2: macaddr-dp2 {};
 
 	soc@0 {
-		wifi@c000000 {
+		wifi@c0000000 {
 			qcom,nss-wifili-tx-desc-count = <16384>;
 		};
 		dp2: dp2@3a001200 {

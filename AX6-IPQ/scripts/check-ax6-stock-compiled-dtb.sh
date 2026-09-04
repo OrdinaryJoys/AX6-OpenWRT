@@ -18,7 +18,7 @@ for dtb in "$@"; do
 		exit 1
 	}
 
-	wifi_node=/soc@0/wifi@c000000
+	wifi_node=/soc@0/wifi@c0000000
 	tx_desc_count=$(fdtget -t u "$dtb" "$wifi_node" \
 		qcom,nss-wifili-tx-desc-count 2>/dev/null) || {
 		echo "$dtb is missing the AX6 NSS WiFi TX descriptor override" >&2
