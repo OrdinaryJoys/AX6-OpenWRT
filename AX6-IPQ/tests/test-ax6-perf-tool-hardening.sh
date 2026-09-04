@@ -29,9 +29,11 @@ echo "== 前置: 存在性与语法 =="
 for s in "$ROUTER_LOCAL" "$LANLAN" "$ROUTER_ENDPOINT" "$ANALYZER" "$SYNC_SAMPLER"; do
   [ -f "$s" ] && bash -n "$s" 2>/dev/null && ok "bash -n $(basename "$s")" || bad "bash -n $(basename "$s")"
 done
-grep -q 'tx_desc_(in_use|alloc_fail|invalid_free|' "$SYNC_SAMPLER" && \
-  ok "同步采样包含 WiFiLi 描述符占用和错误计数" || \
+if grep -q 'tx_desc_(in_use|alloc_fail|invalid_free|' "$SYNC_SAMPLER"; then
+  ok "同步采样包含 WiFiLi 描述符占用和错误计数"
+else
   bad "同步采样缺少 WiFiLi 描述符占用或错误计数"
+fi
 
 # ── Mock 环境 ───────────────────────────────────────────────────────────────
 MOCK="$WORK/mock"; CTRL="$WORK/ctrl"

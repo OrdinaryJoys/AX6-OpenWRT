@@ -536,6 +536,7 @@ jobs:
           sh tests/test-apcs-regmap-boundary.sh
           sh tests/test-qcom-hwspinlock-regmap-boundary.sh
           sh tests/test-qca-nss-pbuf-readback.sh
+          sh tests/test-ath11k-nss-tx-desc-profile.sh
           sh tests/test-qca-mcs-log-level.sh
           sh tests/test-nss-targeted-backports.sh
           sh tests/test-set-irq-affinity-device-discovery.sh

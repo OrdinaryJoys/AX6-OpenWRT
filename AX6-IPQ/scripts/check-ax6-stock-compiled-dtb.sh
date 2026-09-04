@@ -18,6 +18,17 @@ for dtb in "$@"; do
 		exit 1
 	}
 
+	wifi_node=/soc@0/wifi@c000000
+	tx_desc_count=$(fdtget -t u "$dtb" "$wifi_node" \
+		qcom,nss-wifili-tx-desc-count 2>/dev/null) || {
+		echo "$dtb is missing the AX6 NSS WiFi TX descriptor override" >&2
+		exit 1
+	}
+	[ "$tx_desc_count" = 16384 ] || {
+		echo "$dtb has unexpected AX6 NSS WiFi TX descriptor count: $tx_desc_count" >&2
+		exit 1
+	}
+
 	for port in 2 3 4 5; do
 		case "$port" in
 			2) address=3a001200 ;;
