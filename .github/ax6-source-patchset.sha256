@@ -45,7 +45,7 @@ c0358cf9fb30703ac55c747882b1f10e8dd5a04649792c84d61b443aa627c264  package/kernel
 753a0e515f1921393257b54d31fff6f8376b1a0eda6c15be4c51dd11975d7297  package/kernel/mac80211/patches/nss/ath11k/999-930-ath11k-drop-data-tx-during-crash-recovery.patch
 6c70b7ee48bd63dfa82135a7b212db8fb36597ff2906f77a6237a5ca260b7a63  package/kernel/mac80211/patches/nss/ath11k/999-931-ath11k-guard-ce-send-reap-against-cleared-srng.patch
 31a37bd3ecbd5d7f59193626d4f9e085dd62499d8b9559b1440a2aa1a5d5d0ef  package/kernel/mac80211/patches/nss/ath11k/999-932-ath11k-quiesce-irqs-before-recovery-ring-reset.patch
-3797bb4b9c457880ea6f3b4238745b780055a62c9acea1bd8f8210018ec49d46  package/kernel/mac80211/patches/nss/ath11k/999-933-ath11k-nss-configure-wifili-tx-desc-from-dt.patch
+fbc202d5cf8597525dfda7d3b24e33016f6713f2fc0b784a461d811682f137db  package/kernel/mac80211/patches/nss/ath11k/999-933-ath11k-nss-configure-wifili-tx-desc-from-dt.patch
 b2406698a34a741031e020161c0070ade51ca67c47258e0cbd5d4ba23d75a93c  package/kernel/mac80211/patches/nss/subsys/199-001-mac80211-add-nss-support.patch
 058b5b54d98fe2cf769eb7ffd9b2a52404de02c96629637d3cf5604aeff68332  package/kernel/mac80211/patches/nss/subsys/203-mac80211-ath11k-fw-dynamic-muedca.patch
 9c0e4703c4fa67c1ef7f984ea8dd02d9fb3f56575604da889b4855f5f1de037c  package/kernel/mac80211/patches/nss/subsys/235-001-mac80211-add-AP_VLAN-iftype-support-on-NSS-offload-case.patch
@@ -204,7 +204,7 @@ d7857543eef8198c9936572e220cabe9c5639305d977518ee2e30647c97eddca  target/linux/q
 a1377638524e3422a8000dc3085866e61731e66637490c96adf1a44d3b21ebe9  tests/fixtures/qcom-apcs-ipc-mailbox-v6.18.c
 91077e1684b94c3143693ce5d760c3dfaeaba1b1bcc621765ee8805275006343  tests/fixtures/qcom-hwspinlock-probe-mmio-v6.18.c
 d168a3176e2c6694f7b17ed4696dcaa5057635e6120c9659bb2a0ff1d6ba9c12  tests/test-apcs-regmap-boundary.sh
-ef4482857ccc9fca73f814e1bade26afaa57c302695210207126ba50606a5f03  tests/test-ath11k-nss-tx-desc-profile.sh
+9e3357365fb43cb5d15a7e9318b473772b94604824172799ecdbd68d8a7aa34a  tests/test-ath11k-nss-tx-desc-profile.sh
 95fd90143506de7cb941a7c9fb1429944b69e148b6f807358913416250724266  tests/test-edma-correctness-prerequisites.sh
 ebf0dfc23432f67e5a1de0402f5fd44b4687e1186e4856453ed8536d2cef9e76  tests/test-nss-drv-sysctl-log-level.sh
 601785e8b74d008be87c89df99d0abab07e5d5a4903adaec4eba492c9d1e788b  tests/test-nss-targeted-backports.sh
