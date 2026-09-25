@@ -542,6 +542,18 @@ jobs:
           python3 tests/test-ecm-rawip-rmnet.py
           sh tests/test-set-irq-affinity-device-discovery.sh
           sh tests/test-nss-drv-sysctl-log-level.sh
+          echo "=== mac80211 prepare and recovery reset/crash regression ==="
+          make package/kernel/mac80211/prepare V=s
+          mapfile -d '' ath11k_core_files < <(
+            find build_dir -type f \
+              -path '*/backports-*/drivers/net/wireless/ath/ath11k/core.c' -print0
+          )
+          if [ "${#ath11k_core_files[@]}" -ne 1 ]; then
+            echo "::error::Expected one prepared ath11k core source; found ${#ath11k_core_files[@]}"
+            exit 1
+          fi
+          backports_dir=${ath11k_core_files[0]%/drivers/net/wireless/ath/ath11k/core.c}
+          python3 tests/test-ath11k-recovery-reset-guard.py "$backports_dir"
           echo "=== qca-nss-dp prepare (patch apply check) ==="
           make package/qca-nss/qca-nss-dp/prepare V=s
           echo "=== qca-nss-drv prepare (patch apply check) ==="
