@@ -539,6 +539,7 @@ jobs:
           sh tests/test-ath11k-nss-tx-desc-profile.sh
           sh tests/test-qca-mcs-log-level.sh
           sh tests/test-nss-targeted-backports.sh
+          python3 tests/test-ecm-rawip-rmnet.py
           sh tests/test-set-irq-affinity-device-discovery.sh
           sh tests/test-nss-drv-sysctl-log-level.sh
           echo "=== qca-nss-dp prepare (patch apply check) ==="
