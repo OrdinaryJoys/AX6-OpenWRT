@@ -309,7 +309,8 @@ jobs:
           for regression_gate in \
             'python3 openwrt/tests/test-download-cache.py' \
             'python3 tests/test-ath11k-recovery-reset-guard.py "$backports_dir"' \
-            'python3 tests/test-ath11k-rx-alignment.py "$backports_dir"'; do
+            'python3 tests/test-ath11k-rx-alignment.py "$backports_dir"' \
+            'python3 tests/test-nss-fraglist-accounting.py "$nss_drv_dir"'; do
             grep -Fq "$regression_gate" "$workflow" || {
               echo "::error file=$workflow::missing source regression gate: $regression_gate"
               exit 1

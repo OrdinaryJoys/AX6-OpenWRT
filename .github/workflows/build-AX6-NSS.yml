@@ -560,6 +560,16 @@ jobs:
           make package/qca-nss/qca-nss-dp/prepare V=s
           echo "=== qca-nss-drv prepare (patch apply check) ==="
           make package/qca-nss/qca-nss-drv/prepare V=s
+          mapfile -d '' nss_drv_dirs < <(
+            find build_dir -type d -name 'qca-nss-drv-*' -print0
+          )
+          if [ "${#nss_drv_dirs[@]}" -ne 1 ]; then
+            echo "::error::Expected one prepared NSS driver directory; found ${#nss_drv_dirs[@]}"
+            exit 1
+          fi
+          nss_drv_dir=${nss_drv_dirs[0]}
+          test -s "$nss_drv_dir/nss_core.c"
+          python3 tests/test-nss-fraglist-accounting.py "$nss_drv_dir"
           echo "=== qca-nss-ecm prepare (patch apply check) ==="
           make package/qca-nss/qca-nss-ecm/prepare V=s
           echo "=== ZeroTier prepare (AX6 UDP buffer patch apply check) ==="
