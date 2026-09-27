@@ -305,6 +305,16 @@ jobs:
             echo "::error file=$workflow::build workflow must call the shared source semantic verifier"
             exit 1
           }
+          # shellcheck disable=SC2016 # Match literal prepared-source commands.
+          for regression_gate in \
+            'python3 openwrt/tests/test-download-cache.py' \
+            'python3 tests/test-ath11k-recovery-reset-guard.py "$backports_dir"' \
+            'python3 tests/test-ath11k-rx-alignment.py "$backports_dir"'; do
+            grep -Fq "$regression_gate" "$workflow" || {
+              echo "::error file=$workflow::missing source regression gate: $regression_gate"
+              exit 1
+            }
+          done
           # Release values live in the lock; hardcoded PKG_RELEASE or
           # 'release must be N' strings in the workflow are forbidden (P0-4).
           if grep -Eq "PKG_RELEASE:=[0-9]+|release must be [0-9]+" "$workflow"; then

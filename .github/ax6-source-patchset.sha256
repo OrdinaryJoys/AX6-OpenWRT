@@ -1,8 +1,9 @@
-20eb867650885b0a32d8fe4d82f7690901ff4c37b0a7d279ed54c2611e7a35f8  package/kernel/mac80211/Makefile
+bd1e4627b312f2e3dc08de5b776dc13a5e74a882e77406019cee61e51d83b89f  package/kernel/mac80211/Makefile
 80587244b81f5303ce9479e21ef90c3a3b78b310ec63d0b814e26eb8f73733dd  package/kernel/mac80211/files/pbuf.uci
 a41393d099f74a901cce379418a418f12badef665354fa15acb7bb855e8775e1  package/kernel/mac80211/files/qca-nss-pbuf.init
 865ea34a7d98208c6533fed5aeabf551adb61f2c344d1c768a99e778df10cff6  package/kernel/mac80211/patches/ath11k/102-wifi-ath11k-fix-stride-mismatch-in-mac_phy_caps_parse.patch
 b66d866d40cd5a6fc2e52912c3b31b3d6b4d1c1a62a085916798993e2c9e5ca4  package/kernel/mac80211/patches/ath11k/950-ath11k-add-6ghz-lpi-rule-to-world-regd.patch
+96865ac49b23dcb325f05c172c494356a3c4631464f0e35a5cd4774ec6d73b64  package/kernel/mac80211/patches/ath11k/985-ath11k-reserve-empty-rx-buffer-alignment.patch
 dd4ad38515ad746630d28dae3669cfef7be3ddb6dc1fd552586a0cf137d1c38a  package/kernel/mac80211/patches/ath11k/990-ath11k-clamp-reg-rule-bandwidth.patch
 32d138be4da4736535d62c0fc7ed4514be924dd6bae6de12a1a535641268e3e2  package/kernel/mac80211/patches/ath12k/104-wifi-ath12k-fix-regulatory-range-for-wideband-radios.patch
 dfbeb05256a5c504d3d7afa77e04a51a74bb0960fcf8318788ddc945c8f7e47a  package/kernel/mac80211/patches/ath12k/700-ath12k-read-calibration-variant-from-dt.patch
@@ -117,6 +118,7 @@ f31aecc51e7bebffb73c9b9d700fc1cfdf5f4e1e5b2d04c9bc9bbc106dfa7bad  package/qca-ns
 1eff77f431829640a3f68e7f85bf2b5258636285ec005a3c3368f0d9b4226a75  package/qca-nss/qca-nss-ecm/tests/test-disable-offloads.sh
 ddb52cdf907a45761b7c3e394db4c29eeae5d268f3e00ed86e3eabf6fd641055  package/qca-nss/qca-ssdk/patches/009-feature-nss-dp-netdev-mac-sync.patch
 b187ecd16255a6386cf15dcb90c999d79ada51e5015d9d06df7a588ceb221932  package/system/ubus/Makefile
+ac85f667032f61de480a13d5fe0377afead2bba8fe5b964717389cf435120194  scripts/download.pl
 0ce26e852ca0b03f4450d00ec9e98d2e4387f288cf581524a664243f7896c79c  target/linux/airoha/patches-6.18/096-v6.19-net-airoha-Add-missing-stats-to-ethtool_eth_mac_stat.patch
 ee4a12ed7daf688b4bd6a488dfd347ec819891e99f7bd3d6db4d3400e9f950b6  target/linux/airoha/patches-6.18/097-v6.19-net-airoha-Add-get_link-ethtool-callback.patch
 8887a30440d2361500427bdac332095499985433e2a812a41d201a42cc8e189d  target/linux/airoha/patches-6.18/099-09-v6.19-net-airoha-Select-default-ppe-cpu-port-in-airoha_dev.patch
@@ -206,6 +208,8 @@ a1377638524e3422a8000dc3085866e61731e66637490c96adf1a44d3b21ebe9  tests/fixtures
 d168a3176e2c6694f7b17ed4696dcaa5057635e6120c9659bb2a0ff1d6ba9c12  tests/test-apcs-regmap-boundary.sh
 673e403c22f08f85e64e8550f9f22b0ef3c7b9bc6cd67ea04e0c21fe1274719c  tests/test-ath11k-nss-tx-desc-profile.sh
 675227e4bd77baad4400294697736c5e5ec22664d06fcdbb673423aa7bad53d7  tests/test-ath11k-recovery-reset-guard.py
+8c7dcf6be69bb7891a4bf3e28d10355ec6470f240d18b2aa47552513cceb7e04  tests/test-ath11k-rx-alignment.py
+6efdf777649e205df42cb8f59092f079c9f31d6d2b3b564e6a09c2b4e7c990ec  tests/test-download-cache.py
 aa20c01c54b863b988f634df03de330c24112dff2956bb95ccfc0c27d6bf46dd  tests/test-ecm-rawip-rmnet.py
 95fd90143506de7cb941a7c9fb1429944b69e148b6f807358913416250724266  tests/test-edma-correctness-prerequisites.sh
 ebf0dfc23432f67e5a1de0402f5fd44b4687e1186e4856453ed8536d2cef9e76  tests/test-nss-drv-sysctl-log-level.sh
