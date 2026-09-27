@@ -554,6 +554,8 @@ jobs:
           fi
           backports_dir=${ath11k_core_files[0]%/drivers/net/wireless/ath/ath11k/core.c}
           python3 tests/test-ath11k-recovery-reset-guard.py "$backports_dir"
+          python3 tests/test-ath11k-rx-alignment.py "$backports_dir"
+          python3 tests/test-download-cache.py
           echo "=== qca-nss-dp prepare (patch apply check) ==="
           make package/qca-nss/qca-nss-dp/prepare V=s
           echo "=== qca-nss-drv prepare (patch apply check) ==="
