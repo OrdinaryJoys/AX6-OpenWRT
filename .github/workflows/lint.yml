@@ -36,6 +36,8 @@ jobs:
           sh tests/test-openclash-dns-health.sh
           python3 tests/test-openclash-dns-scope.py
           python3 tests/test-rps-image-mode-gate.py
+          python3 tests/test-openclash-dns-policy-probe.py
+          sh tests/test-ax6-dns-source-contract.sh
           sh tests/test-openclash-archive.sh
           sh tests/test-router-backup.sh
           sh tests/test-router-restore-preflight.sh
@@ -170,6 +172,7 @@ jobs:
           for workflow in .github/workflows/build-AX6-NSS.yml .github/workflows/build-AX6-IPQ.yml; do
             # shellcheck disable=SC2016 # Match literal workflow paths and variables.
             for gate in \
+              'sh .github/scripts/verify-ax6-dns-source.sh openwrt' \
               'sh tests/test-openclash-dns-health.sh' \
               'python3 tests/test-openclash-dns-scope.py' \
               'python3 .github/scripts/inject-openclash-dns-scope.py check' \

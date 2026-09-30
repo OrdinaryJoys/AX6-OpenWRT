@@ -43,6 +43,18 @@ cross-build restore contract.
   They must not be imported as complete packages.
 - Backup and deployment require a previously confirmed SSH host key.
 
+### DNS health helper inheritance (2026-09-30)
+
+The firmware includes the V29 ordinary and policy DNS probes in
+`/usr/sbin/ax6-openclash-dns-health`. Both must answer before health is restored.
+The ownership gate, startup grace, three-failure threshold and 300-second
+restart cooldown remain unchanged. This checks health, not DNS policy repair
+or proof that a remote resolver failure is a core defect.
+
+The rootfs gates compare helper/init bytes, executable modes and startup
+linkage, then run helper tests against the extracted image. Firmware code must
+come from the new ROM; do not preserve an old helper through overlay restore.
+
 ## Required clean-flash sequence
 
 ### Firmware code versus configuration (2026-09-30)

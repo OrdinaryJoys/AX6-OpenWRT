@@ -218,6 +218,7 @@ jobs:
             "$SOURCE_BASE_COMMIT"
           .github/scripts/verify-ax6-source-semantics.sh \
             openwrt "$GITHUB_WORKSPACE/$BUILD_LOCK"
+          sh .github/scripts/verify-ax6-dns-source.sh openwrt
           python3 openwrt/tests/test-download-cache.py
           # Local DNS redirect ingress only; this is not a general TPROXY gate.
           sh openwrt/tests/test-dns-redirect-scope.sh

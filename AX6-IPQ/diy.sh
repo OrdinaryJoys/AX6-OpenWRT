@@ -4,6 +4,9 @@ set -eo pipefail
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 REPO_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
 
+# Reject unsupported source variants before cloning or downloading packages.
+sh "$REPO_ROOT/.github/scripts/verify-ax6-dns-source.sh" "$PWD"
+
 # Add packages from the verified build lock exported by the workflow.
 clone_locked() {
   url="$1"

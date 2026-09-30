@@ -52,6 +52,8 @@ jobs:
           set -eo pipefail
           git clone "$REPO_URL" -b "$REPO_BRANCH" openwrt
           echo "IPQ_SOURCE_COMMIT=$(git -C openwrt rev-parse HEAD)" >> "$GITHUB_ENV"
+          # Shared DNS overlay requires its reviewed source-side helper.
+          sh .github/scripts/verify-ax6-dns-source.sh openwrt
 
       - name: Load locked external packages
         run: |
