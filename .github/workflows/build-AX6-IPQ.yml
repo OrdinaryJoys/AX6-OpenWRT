@@ -254,8 +254,8 @@ jobs:
             diff -u AX6-IPQ/files/etc/sysupgrade.conf image-verify/sysupgrade.conf || true
             exit 1
           }
-          if [ "$(grep -Fxc '/usr/sbin/ax6-openclash-dns-health' image-verify/sysupgrade.conf)" -ne 1 ]; then
-            echo "::error::Final rootfs must preserve the V29 DNS health helper exactly once"
+          if grep -Fxq '/usr/sbin/ax6-openclash-dns-health' image-verify/sysupgrade.conf; then
+            echo "::error::Final rootfs must not preserve old DNS helper over new ROM"
             exit 1
           fi
 

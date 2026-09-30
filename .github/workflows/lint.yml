@@ -182,7 +182,7 @@ jobs:
               'cmp "$dnsmasq_source/dnsmasq.init" image-verify/dnsmasq.init' \
               'cmp "$dnsmasq_source/dns-redirect-scope.sh" image-verify/dns-redirect-scope' \
               'sh openwrt/tests/test-dns-redirect-scope.sh' \
-              'Final rootfs must preserve the V29 DNS health helper exactly once' \
+              'Final rootfs must not preserve old DNS helper over new ROM' \
               'Final rootfs DNS helper/init must be executable'; do
               grep -Fq "$gate" "$workflow" || {
                 echo "::error file=$workflow::missing local DNS/V29 gate: $gate"

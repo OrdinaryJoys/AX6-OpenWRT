@@ -121,22 +121,29 @@ policy_discriminator() {
 	[ ! -e "$STATE_FILE" ] || fail '--probe created state'
 	no_restart
 }
-check_preservation() {
+check_rom_policy() {
 	[ -x "$ROOT/AX6-IPQ/files/usr/sbin/ax6-openclash-dns-health" ] || fail 'source script not executable'
 	sh -n "$TARGET"
 	keep="${DNS_HEALTH_KEEP_TARGET:-$ROOT/AX6-IPQ/files/etc/sysupgrade.conf}"
 	init="${DNS_HEALTH_INIT_TARGET:-$ROOT/AX6-IPQ/files/etc/init.d/ax6-openclash-dns-health}"
-	equal "$(grep -Fxc /usr/sbin/ax6-openclash-dns-health "$keep")" 1 'keep entry count'
+	# Firmware code must not be restored over the new ROM. Also reject parent
+	# directories and globs that would include it in list_static_conffiles().
+	awk '/^[[:space:]]*#/ || /^[[:space:]]*$/ {next}
+	     {sub(/^[[:space:]]*/, ""); sub(/[[:space:]]*$/, ""); print}' "$keep" > "$TMP/keep-paths"
+	while IFS= read -r entry; do
+		prefix=${entry%/}
+		case /usr/sbin/ax6-openclash-dns-health in
+			$entry|"$prefix"/*) fail 'keep policy would restore firmware DNS helper' ;;
+		esac
+	done < "$TMP/keep-paths"
 	grep -Fqx 'PROG=/usr/sbin/ax6-openclash-dns-health' "$init" || fail 'init path mismatch'
 	# Assert the literal variable in the installed init.
 	# shellcheck disable=SC2016
 	grep -Fq 'procd_set_param command "$PROG" --daemon' "$init" || fail 'init daemon command mismatch'
 	mkdir -p "$TMP/rootfs/usr/sbin"
 	cp "$TARGET" "$TMP/rootfs/usr/sbin/ax6-openclash-dns-health"
-	# Static preservation-list resolution only; not an executed sysupgrade.
-	awk '/^[[:space:]]*#/ || /^[[:space:]]*$/ {next} {print}' "$keep" |
-		grep -Fqx /usr/sbin/ax6-openclash-dns-health
-	[ -f "$TMP/rootfs/usr/sbin/ax6-openclash-dns-health" ] || fail 'keep entry has no fixture source'
+	# Static ROM staging only; not an executed sysupgrade/backup restore.
+	[ -f "$TMP/rootfs/usr/sbin/ax6-openclash-dns-health" ] || fail 'ROM fixture source missing'
 	cmp -s "$TARGET" "$TMP/rootfs/usr/sbin/ax6-openclash-dns-health" || fail 'staged script changed'
 }
 if [ "${1:-}" = --policy-regression ]; then
@@ -144,9 +151,9 @@ if [ "${1:-}" = --policy-regression ]; then
 	echo 'V29 policy-only discriminator: PASS'
 	exit 0
 fi
-if [ "${1:-}" = --preservation-only ]; then
-	check_preservation
-	echo 'V29 preservation discriminator: PASS'
+if [ "${1:-}" = --rom-policy-only ]; then
+	check_rom_policy
+	echo 'V29 ROM-code policy discriminator: PASS'
 	exit 0
 fi
 
@@ -294,17 +301,16 @@ for owner_case in disabled redirect external_dns invalid_port missing_core; do
 done
 echo 'V29-07 probe/dry-run state immutability and owner/PID boundaries: PASS'
 
-check_preservation
-sed '\|^/usr/sbin/ax6-openclash-dns-health$|d' "$keep" > "$TMP/missing-keep"
-cp "$keep" "$TMP/duplicate-keep"
-printf '/usr/sbin/ax6-openclash-dns-health\n' >> "$TMP/duplicate-keep"
-for broken_keep in missing duplicate; do
-	if DNS_HEALTH_KEEP_TARGET="$TMP/$broken_keep-keep" sh "$0" --preservation-only > "$TMP/keep-negative" 2>&1; then
-		fail "$broken_keep keep entry passed preservation gate"
+check_rom_policy
+for unsafe_path in /usr/sbin/ax6-openclash-dns-health /usr/sbin/ /usr/ / '/usr/sbin/*'; do
+	cp "$keep" "$TMP/unsafe-keep"
+	printf '%s\n' "$unsafe_path" >> "$TMP/unsafe-keep"
+	if DNS_HEALTH_KEEP_TARGET="$TMP/unsafe-keep" sh "$0" --rom-policy-only > "$TMP/keep-negative" 2>&1; then
+		fail "$unsafe_path keep entry passed ROM-code policy gate"
 	fi
-	grep -Fq 'keep entry count: expected [1]' "$TMP/keep-negative" || fail 'keep negative control failed for unrelated reason'
+	grep -Fq 'keep policy would restore firmware DNS helper' "$TMP/keep-negative" || fail 'keep negative control failed for unrelated reason'
 done
-echo 'V29-08 source/install path and unique keep entry, static staging fixture: PASS (no upgrade executed)'
+echo 'V29-08 ROM source/install path; exact, parent and wildcard old-code keep rejected: PASS (no upgrade executed)'
 
 old="$ROOT/tests/fixtures/openclash-dns-health-5ceaf77.sh"
 old_expected=31b2257f04322cab0264b173235c198ac21dc6b33692b7455da4f1e0e2ef2417

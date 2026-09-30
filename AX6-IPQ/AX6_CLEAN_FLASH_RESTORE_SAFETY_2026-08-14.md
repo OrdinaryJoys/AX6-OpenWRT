@@ -45,6 +45,22 @@ cross-build restore contract.
 
 ## Required clean-flash sequence
 
+### Firmware code versus configuration (2026-09-30)
+
+The new image must contain the V29 dual-domain DNS health helper itself.
+Do not add `/usr/sbin/ax6-openclash-dns-health` or its parent directories to
+the preservation list, and do not restore the old helper or historical keep
+entry from a backup. A restored executable can shadow newer ROM code.
+The DNS ingress helper and dnsmasq/OpenClash init scripts are firmware code
+as well, not transferable configuration. Restore only reviewed settings.
+
+This contract is for clean-flash restoration, not automatic migration of an
+existing overlay. A configuration-preserving upgrade requires a separate
+overlay and backup-list audit. Current production overlay files and keep
+entries have not been changed by the offline candidate work.
+
+### Ordered recovery
+
 1. Run `backup-router-config.sh` and require its final offline preflight to pass.
 2. Keep the router recovery image, current firmware, checksums and serial/TFTP
    recovery instructions available.
