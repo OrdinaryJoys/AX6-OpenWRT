@@ -84,7 +84,11 @@ table inet fw4 {
                     for family in (4, 6):
                         # Only fixture-owned rule/table in this namespace.
                         ns('ip', f'-{family}', 'rule', 'flush')
-                        ns('ip', f'-{family}', 'route', 'flush', 'table', '0x162')
+                        # A fresh namespace has no IPv4 FIB table 354 yet.
+                        # Do not suppress arbitrary ip errors to handle absence.
+                        routes = json.loads(ns('ip', '-j', f'-{family}', 'route', 'show', 'table', 'all'))
+                        if any(str(route.get('table')) in ('354', '0x162') for route in routes):
+                            ns('ip', f'-{family}', 'route', 'flush', 'table', '0x162')
                         if family == 4 or v6mode != 1:
                             ns('ip', f'-{family}', 'rule', 'add', 'fwmark', '0x162', 'lookup', '0x162')
                             tunnel = tun or mixed if family == 4 else v6mode in (2, 3)
