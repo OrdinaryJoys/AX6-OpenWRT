@@ -118,7 +118,7 @@ a65bb3d49039034afcf48c51dc1f417d2dbdacf9e444d03599827f587ee1e5f9  package/qca-ns
 caea40fce2daaebe35c2a8c36b98bd557bbbd2a0ecad0ca4381297a93959cccb  package/qca-nss/qca-nss-ecm/Makefile
 2438ccfa97b0fa4e6f3cb333de8d0c8fcb05c46b6bcfdca93f4f75ae390920d9  package/qca-nss/qca-nss-ecm/files/disable_offloads.hotplug
 b77c0e472c087bc23cd7a2baa1b7db1ad02fc09b709bf53ab2243ae79f3e2eb9  package/qca-nss/qca-nss-ecm/files/disable_offloads.sh
-82c81f0bd94945b3887e95e034463ca9bf2b48f81036adcdfad0da40cb4db2a4  package/qca-nss/qca-nss-ecm/files/qca-nss-ecm.init
+0bc9a98f29c600264f73424899af81ce25b81e710febe92464b3c5b2255c58c6  package/qca-nss/qca-nss-ecm/files/qca-nss-ecm.init
 22b40538dcae6851ecdae4b8e1d96bc8a7a745672ab83177e38cf8f7345045a7  package/qca-nss/qca-nss-ecm/patches/026-frontends-nss-respect-bridge-port-vlan-tagging-for-vlan-over-bridge.patch
 95307ad7ade437e6c7f22a51d7a830726dd0c8d9008dcfed67c62f9372a8dc9d  package/qca-nss/qca-nss-ecm/patches/027-fix-multicast-destination-count-signedness.patch
 1eff77f431829640a3f68e7f85bf2b5258636285ec005a3c3368f0d9b4226a75  package/qca-nss/qca-nss-ecm/tests/test-disable-offloads.sh
@@ -224,7 +224,7 @@ d168a3176e2c6694f7b17ed4696dcaa5057635e6120c9659bb2a0ff1d6ba9c12  tests/test-apc
 aa20c01c54b863b988f634df03de330c24112dff2956bb95ccfc0c27d6bf46dd  tests/test-ecm-rawip-rmnet.py
 f13170c06029ac94a84bf6f5ba22fe37ce6a444d70cce6220a8a28ed5eed285a  tests/test-ecm-reload-errors.py
 749cf9fa4d0f30d05b145530acb21cf421545a78bb40b30187f4a6925b3a91e4  tests/test-ecm-rps-ownership.py
-314f55be07735760e936a0d7f21795481750ed2e80c81e6629e5ea2b91d06763  tests/test-ecm-service-errors.py
+d9f7a6e59fe2e2be8fa004dc7e8afd2e55a0654b3ac5d7f176138806a2510be0  tests/test-ecm-service-errors.py
 95fd90143506de7cb941a7c9fb1429944b69e148b6f807358913416250724266  tests/test-edma-correctness-prerequisites.sh
 e9c94e16c7092cb391d4b37c3dcdb8204939ae8eb6cd2531919a32cacf4cb27b  tests/test-hostapd-targeted-regressions.py
 ebf0dfc23432f67e5a1de0402f5fd44b4687e1186e4856453ed8536d2cef9e76  tests/test-nss-drv-sysctl-log-level.sh
