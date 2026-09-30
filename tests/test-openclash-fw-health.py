@@ -77,6 +77,19 @@ class Validator(unittest.TestCase):
             with self.subTest(combo=combo):
                 self.check(*fixture(*combo))
 
+    def test_all_192_numeric_kernel_canonical_combinations(self):
+        for combo in itertools.product(MODES, ('0', '1'), ('0', '1', '2', '3'), ('0', '1'), ('0', '1')):
+            args, data = fixture(*combo)
+            for rule in entries(data):
+                implicit = any(e.get('match', {}).get('left', {}).get('payload') for e in rule['expr'])
+                if implicit:
+                    rule['expr'] = [e for e in rule['expr'] if e.get('match', {}).get('left', {}).get('meta', {}).get('key') != 'nfproto']
+                for expr in rule['expr']:
+                    m = expr.get('match', {})
+                    m['right'] = {'ipv4': 2, 'ipv6': 10, 'tcp': 6, 'udp': 17}.get(m.get('right'), m.get('right'))
+            with self.subTest(combo=combo):
+                self.check(args, data)
+
     def test_dns_jump_is_not_proxy(self):
         args, data = fixture()
         data['fw4']['nftables'] = [item for item in data['fw4']['nftables'] if 'rule' not in item or item['rule']['chain'] not in ('dstnat', 'mangle_prerouting')]

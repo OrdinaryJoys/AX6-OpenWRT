@@ -69,15 +69,18 @@ for (let item in data.fw4.nftables) {
 			if (m.left?.payload) key = `${m.left.payload.protocol}.${m.left.payload.field}`;
 			if (!key || key in values) fail(`ambiguous ${target} match`, 1);
 			values[key] = scalar(m.right);
+			if (key == 'nfproto' && type(values[key]) == 'int')
+				values[key] = values[key] == 2 ? 'ipv4' : values[key] == 10 ? 'ipv6' : values[key];
+			if ((key == 'ip.protocol' || key == 'ip6.nexthdr') && type(values[key]) == 'int')
+				values[key] = values[key] == 6 ? 'tcp' : values[key] == 17 ? 'udp' : values[key];
 		}
 		let proto = want.family == 'ipv4' ? 'ip.protocol' : 'ip6.nexthdr';
-		// Upstream IPv6 REDIRECT uses ip6 nexthdr, which implies the family;
-		// unlike the other entry sites it has no explicit meta nfproto match.
-		let implicit6 = want.family == 'ipv6' && want.protocol == 'tcp' &&
-			values.nfproto == null && values[proto] == 'tcp';
-		if ((!implicit6 && values.nfproto != want.family) || (want.protocol && values[proto] != want.protocol))
+		// nft omits redundant nfproto when an ip/ip6 payload match implies it.
+		// The protocol-specific key (not just the TCP/UDP value) binds the family.
+		let implicit = want.protocol && values.nfproto == null && values[proto] == want.protocol;
+		if ((!implicit && values.nfproto != want.family) || (want.protocol && values[proto] != want.protocol))
 			fail(`wrong ${target} family/protocol`, 1);
-		let base = (want.protocol ? 2 : 1) - (implicit6 ? 1 : 0);
+		let base = (want.protocol ? 2 : 1) - (implicit ? 1 : 0);
 		if (values.iifname == identity[1] && number(values.iif) == int(identity[2]) &&
 			length(keys(values)) == base + 2) want.lan++;
 		else if (rule.chain == 'mangle_prerouting' && values.iifname == 'lo' &&

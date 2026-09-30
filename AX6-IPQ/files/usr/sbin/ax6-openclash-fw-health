@@ -52,7 +52,9 @@ probe() {
 	udp=$(get enable_udp_proxy) || return 2
 	v6udp=$(get enable_v6_udp_proxy) || v6udp=0
 	scope=$("$SCOPE") || { unavailable 'LAN identity unresolved'; return 2; }
-	rules=$("$NFT" -j list table inet fw4) || { unavailable 'fw4 snapshot unavailable'; return 2; }
+	# Without numeric output nft may print iif as the current device name,
+	# hiding the actual index that this check must compare after recreation.
+	rules=$("$NFT" -j -n list table inet fw4) || { unavailable 'fw4 snapshot unavailable'; return 2; }
 	# Query all tables: querying an absent 0x162 table itself can exit nonzero.
 	# The validator selects table 354, so absence is repairable, not unreadable.
 	rule4=$("$IP" -j -4 rule show) && route4=$("$IP" -j -4 route show table all) && \

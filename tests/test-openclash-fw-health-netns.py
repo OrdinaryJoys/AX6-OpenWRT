@@ -47,7 +47,7 @@ def main():
         return json.loads(ns('ip', '-j', 'link', 'show', 'lan'))[0]['ifindex']
 
     def check(mode, v6mode, status=0):
-        snapshot = {'fw4': json.loads(ns('nft', '-j', 'list', 'table', 'inet', 'fw4'))}
+        snapshot = {'fw4': json.loads(ns('nft', '-j', '-n', 'list', 'table', 'inet', 'fw4'))}
         for family in (4, 6):
             snapshot[f'rule{family}'] = json.loads(ns('ip', '-j', f'-{family}', 'rule', 'show'))
             snapshot[f'route{family}'] = json.loads(ns('ip', '-j', f'-{family}', 'route', 'show', 'table', 'all'))
