@@ -21,7 +21,7 @@ jobs:
         run: |
           set -eo pipefail
           sudo apt-get -qq update
-          sudo apt-get -qq install -y device-tree-compiler shellcheck yamllint
+          sudo apt-get -qq install -y busybox device-tree-compiler shellcheck yamllint
           # actionlint
           bash <(curl --proto '=https' --tlsv1.2 -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) 1.7.0
           sudo mv actionlint /usr/local/bin/
@@ -65,6 +65,27 @@ jobs:
           sh AX6-IPQ/tests/test-ax6-nss-frequency-ab.sh
           sh AX6-IPQ/tests/test-ax6-reload-matrix-validate.sh
           sh AX6-IPQ/tests/test-ax6-udp-baseline-fixture.sh
+
+      - name: Locked ECM service callbacks (BusyBox ash)
+        run: |
+          set -eo pipefail
+          # Exercise service startup without requiring a firmware build.
+          . .github/ax6-nss-lock.env
+          fixture=$(mktemp -d)
+          trap 'rm -rf "$fixture"' EXIT
+          git -C "$fixture" init -q
+          git -C "$fixture" remote add origin "$SOURCE_REPO"
+          git -C "$fixture" config remote.origin.promisor true
+          git -C "$fixture" config remote.origin.partialclonefilter blob:none
+          git -C "$fixture" fetch --depth=1 --filter=blob:none origin "$SOURCE_COMMIT"
+          git -C "$fixture" sparse-checkout set \
+            tests package/base-files/files/etc \
+            package/qca-nss/qca-nss-ecm/files \
+            target/linux/qualcommax/base-files/usr/libexec/platform
+          git -C "$fixture" checkout --detach FETCH_HEAD
+          test "$(git -C "$fixture" rev-parse HEAD)" = "$SOURCE_COMMIT"
+          ECM_TEST_SHELL='busybox ash' python3 "$fixture/tests/test-ecm-service-errors.py" "$fixture"
+          python3 "$fixture/tests/test-ecm-reload-errors.py" "$fixture"
 
       - name: Actionlint
         run: actionlint -color .github/workflows/*.yml
@@ -346,6 +367,8 @@ jobs:
             'sh openwrt/tests/test-dns-redirect-scope.sh' \
             'python3 tests/test-ecm-rps-ownership.py' \
             'python3 tests/test-ecm-reload-errors.py' \
+            'python3 tests/test-ecm-service-errors.py' \
+            'python3 openwrt/tests/test-ecm-service-errors.py "$rps_fixture"' \
             'python3 openwrt/tests/test-ecm-reload-errors.py "$rps_fixture"' \
             'python3 openwrt/tests/test-ecm-rps-ownership.py "$rps_fixture"' \
             'IRQ_TEST_SCRIPT="$GITHUB_WORKSPACE/image-verify/set-irq-affinity"' \
