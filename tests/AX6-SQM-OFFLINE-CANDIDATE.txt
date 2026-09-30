@@ -1,0 +1,73 @@
+SQM error/state prototype: OFFLINE ONLY, NOT DEPLOYABLE
+
+Purpose
+Preserve the locked generic 20ba926 / NSS 4b4ed863 algorithms while fixing a
+bounded set of returned errors, state publication, and service orchestration.
+No nft migration, algorithm replacement, package upgrade, SQM enablement, or
+change to shared rc.common is included.
+
+Interface
+  python3 .github/scripts/inject-ax6-sqm-transaction-fix.py --root STAGED_ROOT
+The command above MUST refuse. An offline reviewer must explicitly add:
+  --acknowledge-incomplete-ownership
+All seven input paths must match the supplied locked fixtures or exact generated
+candidate bytes. Every input is checked before any write; --check performs no
+writes. This is an offline staged-root transformer, not a live package updater.
+Its manifest AX6-SQM-INCOMPLETE-OWNERSHIP.json permanently says
+ownership_gate=FAIL_NOT_IMPLEMENTED. Do not wire it into production image builds.
+
+Verification
+  python3 tests/test-ax6-sqm-transaction.py
+  python3 tests/test-ax6-sqm-transaction.py --shell /bin/bash
+Default shell is host Bash; Dash is explicitly refused because locked NSS code
+uses ash-compatible [[ ]] syntax. This is not target BusyBox evidence. Ten
+original fixture scripts are checked against the committed SHA256SUMS.txt.
+No real network, tc, module, UCI, procd, or router actions are run.
+The test report separates bounded passing contracts from BASELINE_NEGATIVE_CONTROL
+and KNOWN_UNFIXED observations. Do not add those categories together as repaired
+defects or reinterpret the 31 earlier observations as tests of this prototype.
+
+Implemented boundary
+- NSS add_nsstbl/add_nssfq_codel and ingress tc/ip calls stop at first error;
+  prepare/address/direction errors retain their actual status despite logging.
+- Generic prepare/module/direction errors propagate. Disabled directions do not
+  delete a root merely because bandwidth is zero. NSS qdisc creation arguments,
+  rates/bursts/ECN/limits and the CAKE algorithms remain unchanged.
+- State serialization validates variable names, safely single-quotes values
+  including metacharacters/newlines, checks awk/sort/serialization/rename, and
+  preserves old state on failure. Same-directory rename is atomic publication,
+  NOT power-loss durability, resource atomicity or filesystem fsync proof.
+- Start publishes .pending parameters before callbacks. Callback or active-state
+  publication failure retains .pending and returns the actual error. This file is
+  NOT an ownership journal; it records intended parameters, not created objects.
+- A .pending file blocks automatic start retry AND automatic stop/cleanup.
+  Do not delete it to force recovery: resource ownership must first be established
+  in a separately authorised recovery procedure. The prototype cannot do that.
+- An active .state file is deleted only after a stop/cleanup callback returns
+  success. Returned failure retains exact state. Lower-level masked failures are
+  not magically detectable at this boundary (see blockers).
+- No-state/no-pending stop is an idempotent no-op without inspecting/deleting
+  kernel resources. Repeated active start is refused. Multi-instance run/hotplug
+  preserves the earliest error; independent later instances may still be checked.
+- init reload/restart and hotplug do not start an interface whose stop returned
+  failure. Actual rc.common CLI start/stop hooks preserve returned SQM errors;
+  outer procd lock/close/kill errors remain explicitly outside this patch.
+- The old NSS source-time exit is removed, because it also skipped stop. NSS
+  start instead refuses an already-existing physical IFB whose ownership is
+  unknown. This is a preflight, not ownership proof or a rollback implementation.
+
+Blocking omissions
+1. Legacy NSS and generic stop/cleanup may still delete foreign qdisc/filter/IFB
+   resources or unload shared modules. The retained negative fixture proves
+   NSS foreign root/child/ingress deletion attempts and masked tc failure.
+2. Need durable per-instance journal with ifindex, exact handles/filter identities,
+   successful-step recording, reconciliation with current objects, stale/foreign
+   object refusal, reverse-order compensation, and retained failed cleanup state.
+3. No atomicity across netlink commands or multiple interface instances. No
+   SIGKILL/crash-durability/stale-lock/ifindex-reuse recovery claim.
+4. No full procd envelope error contract; no real CAKE/NSS kernel, target BusyBox,
+   interface lifecycle, load, latency, or on-device performance acceptance.
+
+This prototype is useful for reviewing and reusing the bounded fixes, but MUST
+remain out of the production firmware path until the ownership/transaction gates
+are implemented and independently validated. No claim of complete SQM repair.

@@ -1,0 +1,37 @@
+SQM locked fixture provenance
+
+Generic algorithm: https://github.com/tohojo/sqm-scripts/tree/20ba92639546075d8e39346dcb88a3cdfe8ee903
+NSS algorithm: https://github.com/qosmio/sqm-scripts-nss/tree/4b4ed8639229be5e70cf94b73cdf7dbc09e66d5d
+
+Copied without code changes from fixed-path artifact extraction in:
+/Volumes/FX-MD87/Review/SERVICE_ERRORS_20260930/sqm-audit/artifact/
+Upstream-to-artifact byte comparison is recorded in that audit's identities.json.
+Artifact GitHub Actions run: 36685680393.
+Build commit: 5ceaf77c8810a78a5358ec98b4c8e795abd77350.
+Source commit: bedf0bd2d8065a0cd4412202fdfe20af6acd99d5.
+Generic feed commit: 03d8b9d71b5e27972e4111ebe39898d093544c92.
+
+Path mapping:
+usr/lib/sqm/functions.sh = generic src/functions.sh
+usr/lib/sqm/defaults.sh = generic src/defaults.sh
+usr/lib/sqm/start-sqm = generic src/start-sqm
+usr/lib/sqm/stop-sqm = generic src/stop-sqm
+usr/lib/sqm/run.sh = generic src/run-openwrt.sh
+etc/init.d/sqm = generic platform/openwrt/sqm-init
+etc/hotplug.d/iface/11-sqm = generic platform/openwrt/sqm-hotplug
+usr/lib/sqm/nss-zk.qos = NSS nss-zk.qos
+etc/rc.common and lib/functions.sh = OpenWrt platform from the same artifact.
+
+Original licensing notices are retained. These are test DATA, not executable
+router installation scripts. Tests redirect all side effects into mocks.
+
+License evidence (fresh GitHub API at the pinned references, 2026-09-30):
+- NSS repository LICENSE is GNU GPL version 3; exact text is preserved separately
+  as LICENSE.NSS-GPL-3.0.txt. Upstream git blob f288702d2fa16d3cdf0035b15a9fcbc552cd88e7.
+  https://github.com/qosmio/sqm-scripts-nss/blob/4b4ed8639229be5e70cf94b73cdf7dbc09e66d5d/LICENSE
+- Generic repository has no root license file recognised by the license API;
+  the preserved functions/start/stop/run headers explicitly state GPL version 2.
+  Do not relabel all fixtures GPLv3 merely because NSS uses that license.
+- The OpenWrt platform fixtures retain their original copyright notices. No
+  replacement or additional blanket license was invented for those files.
+- This is source/license provenance, not a legal compatibility determination.
