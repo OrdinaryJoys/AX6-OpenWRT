@@ -1,0 +1,93 @@
+AX6 SQM: real-kernel identifier experiments in a disposable Linux namespace
+
+NOT a production SQM backend, ownership fix, atomic compare-delete or benchmark.
+Never run on a router, a persistent host or a self-hosted production runner.
+The caller must explicitly opt in with AX6_SQM_KERNEL_ISOLATED_TEST=1. Both
+GITHUB_ACTIONS=true and RUNNER_ENVIRONMENT=github-hosted are required by the
+controller and worker. The separately guarded hosted Linux CI job is the caller.
+
+Commands
+  python3 -B tests/test-ax6-sqm-kernel-isolation.py --self-test
+  # The Lint workflow supplies the opt-in and hosted-runner environment.
+  # A normal persistent Linux machine is refused even with the opt-in alone.
+
+The report destination must be new and its parent must exist. O_EXCL/no-follow
+reservation happens before kernel actions; an existing file is not overwritten.
+--self-test runs pure harness guards, not real Linux objects. --worker is an
+internal controller entry, not a public execution interface.
+
+Prerequisites and result semantics
+- GitHub-hosted Linux root with network-namespace privileges and iproute2 ip/tc.
+- /sys/module/ifb must already exist. The test never modprobes/rmmods anything.
+  Loading IFB with its historical default can create host ifb0/ifb1; preparation
+  must be separately authorised and use numifbs=0 on the temporary CI runner.
+- CAKE/matchall/mirred support and JSON-capable tc. Their use may auto-load shared
+  kernel modules: a netns isolates network objects, not the host kernel/modules.
+- Missing opt-in/platform/tools/IFB/capability yields ENV-BLOCKED, exit 2. Missing
+  CAKE or classifier support also blocks, never silently skips or passes.
+- Assertions, unexpected JSON, command errors after setup and cleanup failure
+  yield FAIL, exit 1. CI must fail for both exit 1 and exit 2.
+- Success is PASS_ISOLATED_KERNEL_EXPERIMENT_ONLY. Production admission always
+  remains PRODUCTION_BLOCKED_NO_OWNERSHIP_BACKEND, even on a green CI run.
+
+Safety boundary
+Controller generates a cryptographically random ax6sqm-<24 hex> name, refuses a
+pre-existing path, creates only that namespace and records its nsfs dev/inode.
+No host link/address/route/qdisc/filter mutation is permitted by this test.
+Controller enters it once using ip netns exec. Worker verifies its own actual
+namespace identity, verifies the real parent namespace matches the controller,
+and requires them to differ before invoking tools. All fixed argv ip/tc commands
+inherit that worker namespace. There is no shell, SQM source, daemon, traffic
+generator, module command or arbitrary interface/command argument.
+Only newly created ax6d0/ax6p0 veth pair and ax6ifb0 are used; no physical device
+is moved. A veth pair avoids dummy-module default host dummy0 creation.
+The worker's short-lived tool processes inherit its process group; controller
+timeouts can terminate that group, and worker timeouts reap their own child.
+Handled failure/SIGINT/SIGTERM/SIGHUP runs bounded finally cleanup of exactly
+the recorded namespace only if its name/path/nsfs identity still match.
+Identity precheck then namespace unlink is not atomic against malicious root.
+The threat boundary is a dedicated temporary CI runner without competing root
+namespace mutators. SIGKILL/host loss can prevent finally; no guarantee claimed.
+
+What the real experiment checks
+1. CAKE creation on veth and IFB with exact root handle 1: and JSON bandwidth
+   1,250,000 bytes/sec for the command's 10mbit. Exit=0 and JSON are recorded;
+   this is command acceptance/state evidence, NOT raw netlink ACK capture.
+2. Delete and re-add a CAKE with the SAME kind, handle and parameters (not just
+   replace, which may modify in place). The identical snapshot cannot establish
+   creator identity. The guard denies cleanup despite equality. A deliberately
+   unsafe old-handle delete then removes that replacement inside the disposable
+   namespace, showing why read/compare/delete is not an ownership primitive.
+3. An ingress qdisc and two precise matchall filters: protocol all, chain 0,
+   pref/handle 49152/1 and 49153/2, mirred egress redirect to the exact IFB name.
+   Ownership labels are fixture intent, not a Linux owner field. An unrecognised
+   filter reference causes refusal and leaves both filters intact. The separate
+   destructive negative control deletes the containing ingress qdisc, showing
+   coarse cleanup does not protect that declared-foreign fixture object.
+4. Recreate the same device name and record its actual ifindex. A changed index
+   invalidates old identity. If the index is reused, deny on lack of ownership
+   proof instead. The test does not force ifindex reuse or prove incarnation.
+
+Every tool argv/rc/stdout/stderr, kernel/boot ID, ip/tc versions, namespace identity
+and cleanup result is retained in JSON. Negative controls are observations,
+not repaired vulnerabilities. No packet/throughput/latency/NSS behavior proof.
+
+Primary JSON schema references read 2026-09-30
+https://github.com/iproute2/iproute2/blob/main/tc/q_cake.c
+https://github.com/iproute2/iproute2/blob/main/tc/tc_util.c
+https://github.com/iproute2/iproute2/blob/main/lib/json_print.c
+https://github.com/iproute2/iproute2/blob/main/lib/utils_math.c
+  get_rate64 converts bits to bytes; cake passes BASE_RATE64 to tc_print_rate;
+  JSON prints that byte rate, while human-readable formatting multiplies by 8.
+https://github.com/iproute2/iproute2/blob/main/tc/f_matchall.c
+https://github.com/iproute2/iproute2/blob/main/tc/m_mirred.c
+  Matchall handle and mirred action/direction/to_dev are validated explicitly.
+These fresh upstream references explain parsing, not exact target firmware
+provenance. The actual CI tool versions and unmodified raw JSON are the evidence.
+
+Remaining production gates
+No actual SQM package hooks, durable journal, exclusive real ownership boundary,
+atomic undo, IFB lifetime adapter, module ownership or crash reconciliation is
+implemented. SIGKILL between create/readback/journal and delete/UNDONE, including
+same-tuple foreign recreation, belongs to a later real-journal experiment; it is
+not pretended to be covered here. Keep all production injection disabled.

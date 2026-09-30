@@ -21,7 +21,7 @@ jobs:
         run: |
           set -eo pipefail
           sudo apt-get -qq update
-          sudo apt-get -qq install -y busybox device-tree-compiler shellcheck yamllint libjson-c-dev pkg-config
+          sudo apt-get -qq install -y busybox device-tree-compiler shellcheck yamllint libjson-c-dev pkg-config iproute2 kmod
           # actionlint
           bash <(curl --proto '=https' --tlsv1.2 -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) 1.7.0
           sudo mv actionlint /usr/local/bin/
@@ -105,6 +105,32 @@ jobs:
 
       - name: Actionlint
         run: actionlint -color .github/workflows/*.yml
+
+      - name: SQM real kernel objects in a new isolated namespace
+        run: |
+          set -eo pipefail
+          mkdir -p "$RUNNER_TEMP/ax6-sqm-kernel-evidence"
+          sudo env GITHUB_ACTIONS="$GITHUB_ACTIONS" RUNNER_ENVIRONMENT="$RUNNER_ENVIRONMENT" \
+            bash .github/scripts/prepare-ax6-sqm-kernel-ci.sh \
+            2>&1 | tee "$RUNNER_TEMP/ax6-sqm-kernel-evidence/preparation.log"
+          kernel_status=0
+          sudo env AX6_SQM_KERNEL_ISOLATED_TEST=1 \
+            GITHUB_ACTIONS="$GITHUB_ACTIONS" RUNNER_ENVIRONMENT="$RUNNER_ENVIRONMENT" \
+            python3 tests/test-ax6-sqm-kernel-isolation.py \
+            --report "$RUNNER_TEMP/ax6-sqm-kernel-evidence/result.json" || kernel_status=$?
+          if [[ -f "$RUNNER_TEMP/ax6-sqm-kernel-evidence/result.json" ]]; then
+            sudo chown "$(id -u):$(id -g)" "$RUNNER_TEMP/ax6-sqm-kernel-evidence/result.json"
+          fi
+          exit "$kernel_status"
+
+      - name: Save isolated SQM kernel evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: ax6-sqm-kernel-evidence
+          path: ${{ runner.temp }}/ax6-sqm-kernel-evidence/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Yamllint (relaxed)
         run: yamllint -d relaxed .github/
