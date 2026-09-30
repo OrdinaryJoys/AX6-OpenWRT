@@ -74,6 +74,7 @@ jobs:
           # Offline only: ownership remains blocked; never apply in DIY/rootfs.
           python3 tests/test-ax6-sqm-transaction.py --shell /bin/bash
           python3 tests/test-ax6-sqm-ownership-protocol.py
+          PYTHONDONTWRITEBYTECODE=1 python3 tests/test-ax6-sqm-link-inventory.py
           python3 tests/test-openclash-dns-policy-probe.py
           sh tests/test-ax6-dns-source-contract.sh
           sh tests/test-openclash-archive.sh

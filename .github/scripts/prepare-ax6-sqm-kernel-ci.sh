@@ -12,8 +12,20 @@ set -euo pipefail
 command -v ip
 command -v tc
 command -v modprobe
-before_ifb=$(ip -j link show type ifb)
-printf 'Host IFB inventory before: %s\n' "$before_ifb"
+command -v python3
+uname -r
+ip -Version
+tc -Version
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+host_inventory() {
+  # Filtered JSON can contain empty placeholders; obtain every real identity.
+  local raw_links
+  raw_links=$(ip -d -j link show) || return "$?"
+  printf 'Host raw link inventory (%s): %s\n' "$1" "$raw_links" >&2
+  printf '%s\n' "$raw_links" | python3 "$script_dir/ax6-sqm-link-inventory.py"
+}
+before_links=$(host_inventory before)
+printf 'Host link inventory before: %s\n' "$before_links"
 if [[ -d /sys/module/ifb ]]; then
   echo 'IFB module already prepared; existing host devices remain untouched'
 else
@@ -25,10 +37,10 @@ modprobe sch_cake
   echo 'Required IFB/CAKE modules are unavailable' >&2
   exit 2
 }
-after_ifb=$(ip -j link show type ifb)
-printf 'Host IFB inventory after: %s\n' "$after_ifb"
-[[ "$before_ifb" == "$after_ifb" ]] || {
-  echo 'Preparation unexpectedly changed host IFB inventory' >&2
+after_links=$(host_inventory after)
+printf 'Host link inventory after: %s\n' "$after_links"
+[[ "$before_links" == "$after_links" ]] || {
+  echo 'Preparation unexpectedly changed host link inventory' >&2
   exit 1
 }
 if [[ -r /sys/module/ifb/parameters/numifbs ]]; then
@@ -36,6 +48,3 @@ if [[ -r /sys/module/ifb/parameters/numifbs ]]; then
 else
   echo 'IFB numifbs is not exported through sysfs; recorded load arguments and host inventory are the evidence'
 fi
-uname -r
-ip -Version
-tc -Version

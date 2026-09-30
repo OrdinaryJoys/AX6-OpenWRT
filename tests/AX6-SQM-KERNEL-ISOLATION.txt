@@ -91,3 +91,16 @@ atomic undo, IFB lifetime adapter, module ownership or crash reconciliation is
 implemented. SIGKILL between create/readback/journal and delete/UNDONE, including
 same-tuple foreign recreation, belongs to a later real-journal experiment; it is
 not pretended to be covered here. Keep all production injection disabled.
+2026-09-30 inventory-method correction:
+The first hosted preparation failed before any netns creation: filtered
+iproute2 5.15 JSON returned four empty objects before module load and an empty
+array after. Empty objects have no identity and are not four deleted IFBs.
+Preparation now saves unfiltered ip -d -j link show output, strictly validates
+nonempty full host inventory, and compares sorted (ifindex, ifname, kind) for
+ALL links plus the IFB subset. Ordinary links may omit kind; that is unknown,
+not proof of a physical driver. Empty objects, bad fields/JSON, duplicate keys
+or identities fail before modprobe. Added/deleted/renamed/reindexed/kind-changed
+host links still fail. Unit tests execute no kernel actions.
+The identity comparison is not full host configuration equality or atomic
+incarnation proof; transient changes and same-tuple recreation can evade two
+snapshots. Full raw snapshots are retained, and no existing link is operated on.
