@@ -75,6 +75,8 @@ jobs:
           python3 tests/test-ax6-sqm-transaction.py --shell /bin/bash
           python3 tests/test-ax6-sqm-ownership-protocol.py
           PYTHONDONTWRITEBYTECODE=1 python3 tests/test-ax6-sqm-link-inventory.py
+          PYTHONDONTWRITEBYTECODE=1 python3 tests/test-ax6-sqm-durable-journal.py
+          PYTHONDONTWRITEBYTECODE=1 python3 tests/test-ax6-sqm-journal-crash.py --self-test
           python3 tests/test-openclash-dns-policy-probe.py
           sh tests/test-ax6-dns-source-contract.sh
           sh tests/test-openclash-archive.sh
@@ -163,6 +165,34 @@ jobs:
         with:
           name: ax6-sqm-kernel-evidence
           path: ${{ runner.temp }}/ax6-sqm-kernel-evidence/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: SQM durable journal and real worker SIGKILL (isolated, test only)
+        timeout-minutes: 4
+        run: |
+          set -eo pipefail
+          mkdir -p "$RUNNER_TEMP/ax6-sqm-journal-crash-evidence"
+          # Recheck module preparation and host link identity; never unload.
+          sudo env GITHUB_ACTIONS="$GITHUB_ACTIONS" RUNNER_ENVIRONMENT="$RUNNER_ENVIRONMENT" \
+            bash .github/scripts/prepare-ax6-sqm-kernel-ci.sh \
+            2>&1 | tee "$RUNNER_TEMP/ax6-sqm-journal-crash-evidence/preparation.log"
+          crash_status=0
+          sudo env AX6_SQM_JOURNAL_CRASH_TEST=1 PYTHONDONTWRITEBYTECODE=1 \
+            GITHUB_ACTIONS="$GITHUB_ACTIONS" RUNNER_ENVIRONMENT="$RUNNER_ENVIRONMENT" \
+            RUNNER_TEMP="$RUNNER_TEMP" python3 tests/test-ax6-sqm-journal-crash.py \
+            --report "$RUNNER_TEMP/ax6-sqm-journal-crash-evidence/result.json" || crash_status=$?
+          if [[ -f "$RUNNER_TEMP/ax6-sqm-journal-crash-evidence/result.json" ]]; then
+            sudo chown "$(id -u):$(id -g)" "$RUNNER_TEMP/ax6-sqm-journal-crash-evidence/result.json"
+          fi
+          exit "$crash_status"
+
+      - name: Save SQM journal crash evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: ax6-sqm-journal-crash-evidence
+          path: ${{ runner.temp }}/ax6-sqm-journal-crash-evidence/
           if-no-files-found: warn
           retention-days: 14
 

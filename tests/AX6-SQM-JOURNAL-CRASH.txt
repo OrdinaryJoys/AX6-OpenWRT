@@ -1,0 +1,92 @@
+AX6 SQM real-journal process-crash experiment — TEST ONLY
+
+Production gate: PRODUCTION_BLOCKED_NO_OWNERSHIP_BACKEND.
+This is not a production SQM implementation or router test. It invokes no
+existing SQM init/functions/stop script and never automatically deletes a
+resource based on a journal record, handle or same-tuple snapshot.
+
+Entry points
+  python3 tests/test-ax6-sqm-journal-crash.py --self-test
+The self-test invokes no external commands, privileged operations or journal
+writes. It checks closed argv, identity, readback and fail-closed recovery guards.
+
+Real entry requires Linux root on an explicitly disposable GitHub-hosted runner:
+  AX6_SQM_JOURNAL_CRASH_TEST=1
+  GITHUB_ACTIONS=true
+  RUNNER_ENVIRONMENT=github-hosted
+  RUNNER_TEMP=<existing runner temporary directory>
+  python3 tests/test-ax6-sqm-journal-crash.py --report <NEW JSON FILE>
+Reserve the report with O_EXCL/O_NOFOLLOW mode 0600 before any kernel action.
+Existing report files and symlinks are refused, never overwritten. CI owns the
+artifact chown/upload policy. Preserve both the report and preparation log.
+
+Use the previously audited explicit hosted module-preparation step first.
+The test checks IFB and CAKE are already present; it never calls modprobe or
+rmmod. Network namespaces do not isolate the shared kernel/modules. No existing
+host interface, routing table, firewall or router is operated on.
+
+Isolation and persistence
+The controller creates one random ax6sj-<24 hex> namespace, requires its name
+did not exist, records nsfs device/inode, and never accepts a caller-supplied
+namespace name. Every worker enters once through ip netns exec, verifies its
+actual namespace equals the recorded new identity and differs from the host,
+and verifies its actual parent's namespace matches the controller host. Every
+ip/tc call rechecks its current namespace and a closed synthetic-device argv.
+Synthetic veth pairs sjca0/sjpa0, sjcb0/sjpb0, sjcn0/sjpn0 are separate cases.
+There is no packet generator, daemon, address or route modification.
+
+The controller creates a new 0700 random directory under RUNNER_TEMP, with
+separate private case parents. The durable-journal library creates each new
+private journal child. Journal identity contains kernel, boot, namespace,
+ifindex and exact synthetic qdisc description. Those are observations, not
+kernel owner tokens. Journal data/lock files are nonrecursively captured with
+no-follow reads and size bounds; full bytes as base64, SHA256, decoded records
+and library write/fsync traces are embedded in the report. Private originals
+are retained for disposable runner teardown, never reused or auto-deleted.
+
+Case A: create succeeded, APPLIED not yet written
+1. Create the synthetic veth fixture and a new journal.
+2. Append durable INTENT_CREATE; library must finish write/fsync successfully.
+3. Add root CAKE handle 1: bandwidth 10mbit; require command exit zero and
+   JSON readback root/handle/bandwidth=1250000 bytes per second.
+4. Publish the checkpoint with records, trace, command transcript and directory
+   identity, then do nothing except signal.pause.
+5. Controller sees the complete checkpoint, verifies its own Popen PID is
+   sleeping in pause via /proc/PID/status and wchan, SIGKILLs only its owned
+   process group, then waits for return code -9.
+6. A new worker reopens the actual journal and reads the existing qdisc.
+   Recovery must remain INTENT_CREATE/UNKNOWN_CREATE_OUTCOME, may_delete=false,
+   may_replay=false, with production blocked. Records and qdisc are unchanged.
+
+Case B: delete succeeded, UNDONE not yet written
+1. Record INTENT_CREATE, create/read back CAKE, then persist APPLIED.
+2. Persist INTENT_DELETE. Delete only this known newly-created test fixture and
+   read back CAKE absence. No production cleanup adapter is involved.
+3. Publish the pre-UNDONE checkpoint and pause; controller SIGKILL/wait as A.
+4. A separate test-role worker deliberately re-creates the same CAKE tuple.
+   This is explicitly an external/foreign-fixture simulation, NOT recovery.
+5. Reopen the journal: INTENT_DELETE/UNKNOWN_DELETE_OUTCOME must not authorize
+   cleanup/replay. The same-tuple replacement must remain byte-descriptor-equal
+   before/after the read-only recovery decision. APPLIED is not owner proof.
+
+Normal control: all four phases persisted in order, fixture creation/readback
+and deletion/readback complete, graceful close/reopen records unchanged, final
+UNDONE/OBSERVED_UNDONE_NO_REPLAY still grants no replay/delete authority.
+
+Safety and interpretation
+Only two expected SIGKILL exits are success conditions; they are labelled and
+must be -9. All regular commands/workers must return zero. Checkpoint or pause
+visibility failure cannot become PASS. Internal timeouts kill/wait only Popen
+children owned by this test; worker tools inherit the worker process group.
+Controller finally removes only the exact namespace name it created, after
+checking recorded identity, and verifies that name is gone. Identity drift
+refuses cleanup and fails. No wildcard cleanup, global pkill or module unload.
+
+PASS_REAL_JOURNAL_SIGKILL_EXPERIMENT_ONLY means real process-crash boundaries
+and real Linux qdisc snapshots behaved as recorded. It is NOT sudden power
+loss or storage-cache survival evidence, raw netlink ACK capture, atomic kernel
+ownership/CAS, durable production rollback, IFB lifetime implementation,
+concurrent hostile-root safety, forced ifindex reuse, traffic/performance/NSS
+hardware validation, or permission to deploy. SIGKILL of the controller or host
+loss can bypass finally. Namespace deletion proves name removal, not absence
+of all external references. Keep production injection disabled.
