@@ -44,8 +44,8 @@ def main():
     def ns(*cmd, **kwargs):
         return run('ip', 'netns', 'exec', router, *cmd, **kwargs)
 
-    def count():
-        value = json.loads(ns('nft', '-j', 'list', 'counter', 'inet', 'fw4', 'admitted'))
+    def count(name='admitted'):
+        value = json.loads(ns('nft', '-j', 'list', 'counter', 'inet', 'fw4', name))
         return next(item['counter']['packets'] for item in value['nftables'] if 'counter' in item)
 
     def packet(peer, family, protocol, destination=None, port=54321):
@@ -69,15 +69,18 @@ else:
 
     def expect(peer, family, proto, allowed, **kwargs):
         before = count()
+        arrival_before = count('arrived')
         sender = packet(peer, family, proto, **kwargs)
         after = count()
-        if (after > before) != allowed:
+        arrival_after = count('arrived')
+        if arrival_after <= arrival_before or (after > before) != allowed:
             print('Sender:', sender, flush=True)
             print(ns('nft', '-a', 'list', 'ruleset'), flush=True)
             print(ns('ip', '-s', 'link'), flush=True)
             print(run('ip', '-n', peer, 'route', 'show'), flush=True)
             print(run('ip', '-n', peer, '-s', 'link'), flush=True)
             print(ns('cat', '/proc/net/snmp'), flush=True)
+        assert arrival_after > arrival_before, ('probe never reached prerouting', peer, family, proto)
         assert (after > before) == allowed, (mode, peer, family, proto, allowed, before, after)
 
     try:
@@ -104,8 +107,11 @@ else:
                 ns('nft', '-f', '-', input='''flush ruleset
 table inet fw4 {
  counter admitted {}
+ counter arrived {}
  chain dstnat { type nat hook prerouting priority dstnat; policy accept; }
- chain mangle_prerouting { type filter hook prerouting priority mangle; policy accept; }
+ chain mangle_prerouting { type filter hook prerouting priority mangle; policy accept;
+   counter name arrived
+ }
  chain mangle_output { type route hook output priority mangle; policy accept;
    udp dport 54322 meta mark set 0x162
  }
@@ -134,6 +140,12 @@ table inet fw4 {
                 second = json.loads(ns('nft', '-j', 'list', 'ruleset'))
                 n_rules = lambda rules: sum('rule' in item for item in rules['nftables'])
                 assert n_rules(first) == n_rules(second), 'reload duplicated rules'
+                # NAT lookup bypasses packets without conntrack. Counter-only
+                # backends do not acquire it as real REDIRECT/TPROXY rules do.
+                # First reproduce the missing prerequisite, then enable it.
+                if mode == 'redirect':
+                    expect(peers['lan'], 4, 'tcp', False)
+                ns('nft', 'add', 'rule', 'inet', 'fw4', 'mangle_prerouting', 'ct state new counter')
                 for role, peer in peers.items():
                     for family in (4, 6):
                         for proto in ('tcp', 'udp', 'icmp'):
