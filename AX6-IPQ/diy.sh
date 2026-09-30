@@ -181,6 +181,8 @@ rm -rf package/luci-app-openclash-source
   package/luci-app-openclash/root/etc/init.d/openclash
 "$REPO_ROOT/.github/scripts/inject-openclash-r11-reload-fix.sh" \
   package/luci-app-openclash/root/etc/init.d/openclash
+python3 "$REPO_ROOT/.github/scripts/inject-openclash-dns-scope.py" apply \
+  package/luci-app-openclash/root/etc/init.d/openclash
 "$REPO_ROOT/AX6-IPQ/scripts/check-openclash-runtime-contract.sh" \
   package/luci-app-openclash/root/etc/init.d/openclash
 printf '%s\n' "$OPENCLASH_ACTUAL_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || {

@@ -4,7 +4,6 @@ STATE_FILE="${STATE_FILE:-/var/run/ax6-openclash-dns-health.state}"
 OPENCLASH_INIT="${OPENCLASH_INIT:-/etc/init.d/openclash}"
 NSLOOKUP_BIN="${NSLOOKUP_BIN:-/usr/bin/nslookup}"
 PROBE_NAME="${PROBE_NAME:-openwrt.org}"
-POLICY_PROBE_NAME="${POLICY_PROBE_NAME:-services.googleapis.cn}"
 INTERVAL="${INTERVAL:-30}"
 QUERY_TIMEOUT="${QUERY_TIMEOUT:-3}"
 STARTUP_GRACE="${STARTUP_GRACE:-60}"
@@ -69,14 +68,13 @@ openclash_dns_owner() {
 	return 1
 }
 
-probe_one_dns() {
-	probe_name="$1"
+probe_dns() {
 	if [ -n "${PROBE_BIN:-}" ]; then
-		"$PROBE_BIN" "$DNS_PORT" "$probe_name"
+		"$PROBE_BIN" "$DNS_PORT" "$PROBE_NAME"
 		return
 	fi
 
-	"$NSLOOKUP_BIN" -type=a -port="$DNS_PORT" "$probe_name" 127.0.0.1 \
+	"$NSLOOKUP_BIN" -type=a -port="$DNS_PORT" "$PROBE_NAME" 127.0.0.1 \
 		>/dev/null 2>&1 &
 	probe_pid=$!
 	remaining="$QUERY_TIMEOUT"
@@ -94,18 +92,6 @@ probe_one_dns() {
 		return 1
 	fi
 	wait "$probe_pid"
-}
-
-probe_dns() {
-	FAILED_PROBE_NAME=""
-	for probe_name in "$PROBE_NAME" "$POLICY_PROBE_NAME"; do
-		[ -n "$probe_name" ] || continue
-		if ! probe_one_dns "$probe_name"; then
-			FAILED_PROBE_NAME="$probe_name"
-			return 1
-		fi
-	done
-	return 0
 }
 
 health_once() {
@@ -143,22 +129,22 @@ health_once() {
 	failures=$((STATE_FAILURES + 1))
 	write_state "$core_pid" "$STATE_FIRST_SEEN" "$failures" "$STATE_LAST_RESTART"
 	if [ "$failures" -lt "$FAILURE_THRESHOLD" ]; then
-		log_error "OpenClash core DNS on 127.0.0.1:${DNS_PORT} failed ${FAILED_PROBE_NAME:-unknown} probe ${failures}/${FAILURE_THRESHOLD}"
+		log_error "OpenClash core DNS on 127.0.0.1:${DNS_PORT} failed probe ${failures}/${FAILURE_THRESHOLD}"
 		return 1
 	fi
 
 	if [ "$STATE_LAST_RESTART" -gt 0 ] &&
 	   [ $((now - STATE_LAST_RESTART)) -lt "$RESTART_COOLDOWN" ]; then
-		log_error "OpenClash DNS ${FAILED_PROBE_NAME:-unknown} remains unavailable; restart cooldown is active"
+		log_error "OpenClash DNS remains unavailable; restart cooldown is active"
 		return 1
 	fi
 
 	if [ "$DRY_RUN" -eq 1 ]; then
-		log_notice "dry-run: would restart OpenClash after ${failures} failed DNS probes (${FAILED_PROBE_NAME:-unknown})"
+		log_notice "dry-run: would restart OpenClash after ${failures} failed DNS probes"
 		return 1
 	fi
 
-	log_error "restarting OpenClash after ${failures} consecutive DNS probe failures (${FAILED_PROBE_NAME:-unknown})"
+	log_error "restarting OpenClash after ${failures} consecutive direct DNS probe failures"
 	write_state 0 "$now" 0 "$now"
 	"$OPENCLASH_INIT" restart >/dev/null 2>&1 || {
 		log_error "OpenClash restart command failed"

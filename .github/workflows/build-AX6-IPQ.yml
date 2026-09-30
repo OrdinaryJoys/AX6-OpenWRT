@@ -97,6 +97,16 @@ jobs:
           chmod +x "$DIY_SH"
           ( cd openwrt && "$GITHUB_WORKSPACE/$DIY_SH" )
 
+      - name: Verify local DNS ingress and V29 health contracts
+        run: |
+          set -eo pipefail
+          # These shared overlay checks do not validate the unlocked IPQ source.
+          sh tests/test-openclash-dns-health.sh
+          python3 tests/test-openclash-dns-scope.py
+          openclash_init=openwrt/package/luci-app-openclash/root/etc/init.d/openclash
+          python3 .github/scripts/inject-openclash-dns-scope.py check "$openclash_init"
+          python3 tests/test-openclash-dns-scope.py "$openclash_init"
+
       - name: Verify tracked OpenClash inputs
         run: |
           set -eo pipefail
@@ -233,6 +243,10 @@ jobs:
             image-verify/openclash-init
           AX6-IPQ/scripts/check-openclash-runtime-contract.sh \
             image-verify/openclash-init
+          python3 .github/scripts/inject-openclash-dns-scope.py check \
+            image-verify/openclash-init
+          python3 tests/test-openclash-dns-scope.py image-verify/openclash-init
+          # Scope is local DNS redirect ingress, not every proxy/WAN chain.
           unsquashfs -cat "$rootfs" etc/sysupgrade.conf \
             > image-verify/sysupgrade.conf
           cmp -s AX6-IPQ/files/etc/sysupgrade.conf image-verify/sysupgrade.conf || {
@@ -240,6 +254,50 @@ jobs:
             diff -u AX6-IPQ/files/etc/sysupgrade.conf image-verify/sysupgrade.conf || true
             exit 1
           }
+          if [ "$(grep -Fxc '/usr/sbin/ax6-openclash-dns-health' image-verify/sysupgrade.conf)" -ne 1 ]; then
+            echo "::error::Final rootfs must preserve the V29 DNS health helper exactly once"
+            exit 1
+          fi
+
+          unsquashfs -cat "$rootfs" usr/sbin/ax6-openclash-dns-health \
+            > image-verify/ax6-openclash-dns-health
+          unsquashfs -cat "$rootfs" etc/init.d/ax6-openclash-dns-health \
+            > image-verify/ax6-openclash-dns-health.init
+          cmp AX6-IPQ/files/usr/sbin/ax6-openclash-dns-health \
+            image-verify/ax6-openclash-dns-health
+          cmp AX6-IPQ/files/etc/init.d/ax6-openclash-dns-health \
+            image-verify/ax6-openclash-dns-health.init
+          sh -n image-verify/ax6-openclash-dns-health
+          sh -n image-verify/ax6-openclash-dns-health.init
+          DNS_HEALTH_TEST_TARGET="$GITHUB_WORKSPACE/image-verify/ax6-openclash-dns-health" \
+          DNS_HEALTH_KEEP_TARGET="$GITHUB_WORKSPACE/image-verify/sysupgrade.conf" \
+          DNS_HEALTH_INIT_TARGET="$GITHUB_WORKSPACE/image-verify/ax6-openclash-dns-health.init" \
+            sh tests/test-openclash-dns-health-domains.sh
+          grep -Eq 'squashfs-root/etc/rc\.d/S92ax6-openclash-dns-health -> \.\./init\.d/ax6-openclash-dns-health$' \
+            image-verify/rootfs-files.txt
+
+          dnsmasq_source=openwrt/package/network/services/dnsmasq/files
+          unsquashfs -cat "$rootfs" etc/init.d/dnsmasq > image-verify/dnsmasq.init
+          unsquashfs -cat "$rootfs" usr/libexec/dns-redirect-scope > image-verify/dns-redirect-scope
+          cmp "$dnsmasq_source/dnsmasq.init" image-verify/dnsmasq.init
+          cmp "$dnsmasq_source/dns-redirect-scope.sh" image-verify/dns-redirect-scope
+          sh -n image-verify/dnsmasq.init
+          sh -n image-verify/dns-redirect-scope
+          for executable in \
+            'usr/sbin/ax6-openclash-dns-health' \
+            'etc/init\.d/ax6-openclash-dns-health' \
+            'etc/init\.d/dnsmasq' \
+            'usr/libexec/dns-redirect-scope'; do
+            grep -Eq "^-rwxr-xr-x[[:space:]].* squashfs-root/${executable}$" image-verify/rootfs-files.txt || {
+              echo "::error::Final rootfs DNS helper/init must be executable: $executable"
+              exit 1
+            }
+          done
+          # unsquashfs -cat does not preserve mode; the image's mode was checked above.
+          chmod +x image-verify/dns-redirect-scope
+          sh openwrt/tests/test-dns-redirect-scope.sh \
+            "$GITHUB_WORKSPACE/image-verify/dns-redirect-scope" "$GITHUB_WORKSPACE/image-verify/dnsmasq.init"
+          echo "Local DNS ingress and V29 rootfs contracts: PASS (not a general proxy exposure audit)"
           for required in \
             'lib/modules/.*/qca-ssdk\.ko' \
             'lib/modules/.*/qca-nss-dp\.ko' \

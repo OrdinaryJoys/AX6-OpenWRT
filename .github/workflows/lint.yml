@@ -34,6 +34,7 @@ jobs:
           sh tests/test-vlan-add.sh
           sh tests/test-openvpn-defaults.sh
           sh tests/test-openclash-dns-health.sh
+          python3 tests/test-openclash-dns-scope.py
           sh tests/test-openclash-archive.sh
           sh tests/test-router-backup.sh
           sh tests/test-router-restore-preflight.sh
@@ -159,6 +160,36 @@ jobs:
               )
               sys.exit(1)
           PY
+
+      - name: Local DNS ingress and V29 gate wiring
+        run: |
+          set -eo pipefail
+          test -s tests/test-openclash-dns-health-domains.sh
+          grep -Fq 'inject-openclash-dns-scope.py' AX6-IPQ/diy.sh
+          for workflow in .github/workflows/build-AX6-NSS.yml .github/workflows/build-AX6-IPQ.yml; do
+            # shellcheck disable=SC2016 # Match literal workflow paths and variables.
+            for gate in \
+              'sh tests/test-openclash-dns-health.sh' \
+              'python3 tests/test-openclash-dns-scope.py' \
+              'python3 .github/scripts/inject-openclash-dns-scope.py check' \
+              'python3 tests/test-openclash-dns-scope.py image-verify/openclash-init' \
+              'DNS_HEALTH_TEST_TARGET="$GITHUB_WORKSPACE/image-verify/ax6-openclash-dns-health"' \
+              'DNS_HEALTH_KEEP_TARGET="$GITHUB_WORKSPACE/image-verify/sysupgrade.conf"' \
+              'DNS_HEALTH_INIT_TARGET="$GITHUB_WORKSPACE/image-verify/ax6-openclash-dns-health.init"' \
+              'sh tests/test-openclash-dns-health-domains.sh' \
+              'cmp AX6-IPQ/files/usr/sbin/ax6-openclash-dns-health' \
+              'cmp AX6-IPQ/files/etc/init.d/ax6-openclash-dns-health' \
+              'cmp "$dnsmasq_source/dnsmasq.init" image-verify/dnsmasq.init' \
+              'cmp "$dnsmasq_source/dns-redirect-scope.sh" image-verify/dns-redirect-scope' \
+              'sh openwrt/tests/test-dns-redirect-scope.sh' \
+              'Final rootfs must preserve the V29 DNS health helper exactly once' \
+              'Final rootfs DNS helper/init must be executable'; do
+              grep -Fq "$gate" "$workflow" || {
+                echo "::error file=$workflow::missing local DNS/V29 gate: $gate"
+                exit 1
+              }
+            done
+          done
 
       - name: AX6 NSS build lock check
         run: |
@@ -308,6 +339,7 @@ jobs:
           # shellcheck disable=SC2016 # Match literal prepared-source commands.
           for regression_gate in \
             'python3 openwrt/tests/test-download-cache.py' \
+            'sh openwrt/tests/test-dns-redirect-scope.sh' \
             'python3 tests/test-service-lifecycle.py' \
             'python3 tests/test-hostapd-targeted-regressions.py "$hostapd_dir"' \
             'python3 tests/test-ath11k-recovery-reset-guard.py "$backports_dir"' \

@@ -91,3 +91,6 @@ if DNSMASQ_SERVER=127.0.0.1#7874 PROBE_OK=0 \
 fi
 
 echo 'test-openclash-dns-health: PASS'
+
+# The legacy all-or-nothing probe cannot detect a missing policy-domain probe.
+sh "$ROOT/tests/test-openclash-dns-health-domains.sh"
