@@ -29,13 +29,17 @@ jobs:
       - name: Shellcheck (errors only block)
         run: |
           set -eo pipefail
-          find . -type f \( -name "*.sh" -o -path "*/uci-defaults/*" -o -path "*/hotplug.d/*" -o -path "*/sbin/*" -o -path "*/usr/sbin/*" -o -path "*/usr/bin/*" \) ! -path "./.git/*" -print0 | \
+          # Byte-exact historical SQM test data is checked by its dedicated suite.
+          # Do not rewrite those upstream files to satisfy our script style gate.
+          find . -type f \( -name "*.sh" -o -path "*/uci-defaults/*" -o -path "*/hotplug.d/*" -o -path "*/sbin/*" -o -path "*/usr/sbin/*" -o -path "*/usr/bin/*" \) ! -path "./.git/*" ! -path "./tests/fixtures/sqm-locked/*" -print0 | \
             xargs -0 -P4 shellcheck -S error -f gcc
           sh tests/test-vlan-add.sh
           sh tests/test-openvpn-defaults.sh
           sh tests/test-openclash-dns-health.sh
           python3 tests/test-openclash-dns-scope.py
           python3 tests/test-rps-image-mode-gate.py
+          # Offline only: ownership remains blocked; never apply in DIY/rootfs.
+          python3 tests/test-ax6-sqm-transaction.py --shell /bin/bash
           python3 tests/test-openclash-dns-policy-probe.py
           sh tests/test-ax6-dns-source-contract.sh
           sh tests/test-openclash-archive.sh
@@ -66,7 +70,7 @@ jobs:
           sh AX6-IPQ/tests/test-ax6-reload-matrix-validate.sh
           sh AX6-IPQ/tests/test-ax6-udp-baseline-fixture.sh
 
-      - name: Locked ECM service callbacks (BusyBox ash)
+      - name: Locked ECM and complete RPS callbacks (BusyBox ash)
         run: |
           set -eo pipefail
           # Exercise service startup without requiring a firmware build.
@@ -79,14 +83,17 @@ jobs:
           git -C "$fixture" config remote.origin.partialclonefilter blob:none
           git -C "$fixture" fetch --depth=1 --filter=blob:none origin "$SOURCE_COMMIT"
           git -C "$fixture" sparse-checkout set \
-            tests package/base-files/files/etc \
+            tests package/base-files/files/etc package/base-files/files/lib package/system/procd/files \
             package/qca-nss/qca-nss-ecm/files \
+            target/linux/qualcommax/base-files/etc/init.d \
             target/linux/qualcommax/base-files/usr/libexec/platform
           git -C "$fixture" checkout --detach FETCH_HEAD
           test "$(git -C "$fixture" rev-parse HEAD)" = "$SOURCE_COMMIT"
           ECM_TEST_SHELL='busybox ash' python3 "$fixture/tests/test-ecm-service-errors.py" "$fixture"
           python3 "$fixture/tests/test-ecm-reload-errors.py" "$fixture"
           ECM_TEST_SHELL='busybox ash' python3 "$fixture/tests/test-ecm-offload-errors.py" "$fixture"
+          IRQ_TEST_SCRIPT="$fixture/target/linux/qualcommax/base-files/etc/init.d/set-irq-affinity" \
+            RPS_TEST_SHELL='busybox ash' python3 "$fixture/tests/test-set-irq-affinity-policy-errors.py"
 
       - name: Actionlint
         run: actionlint -color .github/workflows/*.yml
@@ -370,6 +377,11 @@ jobs:
             'python3 tests/test-ecm-reload-errors.py' \
             'python3 tests/test-ecm-service-errors.py' \
             'python3 tests/test-ecm-offload-errors.py' \
+            "RPS_TEST_SHELL='busybox ash' python3 tests/test-set-irq-affinity-policy-errors.py" \
+            "RPS_TEST_SHELL='busybox ash' python3 openwrt/tests/test-set-irq-affinity-policy-errors.py" \
+            'unsquashfs -cat "$rootfs" lib/functions/procd.sh' \
+            'require_rps_datafile lib/functions/procd.sh' \
+            'require_rps_datafile lib/functions.sh' \
             'python3 openwrt/tests/test-ecm-service-errors.py "$rps_fixture"' \
             'python3 openwrt/tests/test-ecm-reload-errors.py "$rps_fixture"' \
             'python3 openwrt/tests/test-ecm-rps-ownership.py "$rps_fixture"' \

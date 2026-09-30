@@ -554,6 +554,7 @@ jobs:
           sh tests/test-nss-targeted-backports.sh
           python3 tests/test-ecm-rawip-rmnet.py
           sh tests/test-set-irq-affinity-device-discovery.sh
+          RPS_TEST_SHELL='busybox ash' python3 tests/test-set-irq-affinity-policy-errors.py
           python3 tests/test-ecm-rps-ownership.py
           python3 tests/test-ecm-reload-errors.py
           ECM_TEST_SHELL='busybox ash' python3 tests/test-ecm-service-errors.py
@@ -890,9 +891,20 @@ jobs:
               return 1
             }
           }
+          require_rps_datafile() {
+            awk -v expected="squashfs-root/$1" '
+              $NF == expected { count++; if ($1 == "-rw-r--r--") readable++ }
+              END { exit !(count == 1 && readable == 1) }
+            ' image-verify/rootfs-files.txt || {
+              echo "::error::Final rootfs data library must have one exact mode 0644 entry: $1"
+              return 1
+            }
+          }
           require_rps_executable etc/init.d/set-irq-affinity
           IRQ_TEST_SCRIPT="$GITHUB_WORKSPACE/image-verify/set-irq-affinity" \
             sh openwrt/tests/test-set-irq-affinity-device-discovery.sh
+          IRQ_TEST_SCRIPT="$GITHUB_WORKSPACE/image-verify/set-irq-affinity" \
+            RPS_TEST_SHELL='busybox ash' python3 openwrt/tests/test-set-irq-affinity-policy-errors.py
           # Exercise actual image callbacks with the same offline path substitution.
           rps_fixture=image-verify/rps-fixture
           for mapping in \
@@ -910,6 +922,20 @@ jobs:
             require_rps_executable "$installed"
             chmod 755 "$extracted"
           done
+          # These are sourced libraries installed as 0644 data, not callbacks.
+          # The service fixtures must exercise the exact image bytes too.
+          functions_extracted="$rps_fixture/package/base-files/files/lib/functions.sh"
+          mkdir -p "$(dirname "$functions_extracted")"
+          unsquashfs -cat "$rootfs" lib/functions.sh > "$functions_extracted"
+          cmp openwrt/package/base-files/files/lib/functions.sh "$functions_extracted"
+          sh -n "$functions_extracted"
+          require_rps_datafile lib/functions.sh
+          procd_extracted="$rps_fixture/package/system/procd/files/procd.sh"
+          mkdir -p "$(dirname "$procd_extracted")"
+          unsquashfs -cat "$rootfs" lib/functions/procd.sh > "$procd_extracted"
+          cmp openwrt/package/system/procd/files/procd.sh "$procd_extracted"
+          sh -n "$procd_extracted"
+          require_rps_datafile lib/functions/procd.sh
           python3 openwrt/tests/test-ecm-rps-ownership.py "$rps_fixture"
           python3 openwrt/tests/test-ecm-reload-errors.py "$rps_fixture"
           offload_extracted="$rps_fixture/package/qca-nss/qca-nss-ecm/files/disable_offloads.sh"
