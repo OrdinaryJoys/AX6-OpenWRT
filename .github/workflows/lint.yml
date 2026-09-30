@@ -117,7 +117,7 @@ jobs:
           git -C "$fixture" config remote.origin.partialclonefilter blob:none
           git -C "$fixture" fetch --depth=1 --filter=blob:none origin "$SOURCE_COMMIT"
           git -C "$fixture" sparse-checkout set \
-            tests package/base-files/files/etc \
+            tests include package/base-files/files/etc package/base-files/files/lib \
             package/qca-nss/qca-nss-ecm/files \
             target/linux/qualcommax/base-files/usr/libexec/platform
           git -C "$fixture" checkout --detach FETCH_HEAD
@@ -125,6 +125,22 @@ jobs:
           ECM_TEST_SHELL='busybox ash' python3 "$fixture/tests/test-ecm-service-errors.py" "$fixture"
           python3 "$fixture/tests/test-ecm-reload-errors.py" "$fixture"
           ECM_TEST_SHELL='busybox ash' python3 "$fixture/tests/test-ecm-offload-errors.py" "$fixture"
+          # These negative controls reproduce unsafe upgrade boundaries.
+          # Passing is NOT a plugin upgrade/deployment safety certificate.
+          ref=$(git ls-remote https://github.com/vernesong/OpenClash.git refs/heads/master | awk '$2 == "refs/heads/master" {print $1}')
+          [[ "$ref" =~ ^[0-9a-f]{40}$ ]]
+          echo "OpenClash upgrade boundary source=$ref source_lock=$SOURCE_COMMIT"
+          curl --proto '=https' --tlsv1.2 -fsSL --connect-timeout 15 --max-time 90 \
+            "https://raw.githubusercontent.com/vernesong/OpenClash/$ref/luci-app-openclash/root/usr/share/openclash/openclash_ps.sh" \
+            -o "$fixture/openclash_ps.sh"
+          curl --proto '=https' --tlsv1.2 -fsSL --connect-timeout 15 --max-time 90 \
+            "https://raw.githubusercontent.com/vernesong/OpenClash/$ref/luci-app-openclash/root/usr/share/openclash/openclash_update.sh" \
+            -o "$fixture/openclash_update.sh"
+          AX6_PACKAGE_FUNCTIONS="$fixture/package/base-files/files/lib/functions.sh" \
+            AX6_PACKAGE_PACK="$fixture/include/package-pack.mk" \
+            AX6_OPENCLASH_UPDATE="$fixture/openclash_update.sh" \
+            AX6_OPENCLASH_PS="$fixture/openclash_ps.sh" AX6_TEST_SHELL='busybox ash' \
+            python3 tests/test-openclash-upgrade-boundaries.py
 
       - name: Actionlint
         run: actionlint -color .github/workflows/*.yml
