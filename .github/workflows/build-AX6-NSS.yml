@@ -557,6 +557,7 @@ jobs:
           python3 tests/test-ecm-rps-ownership.py
           python3 tests/test-ecm-reload-errors.py
           ECM_TEST_SHELL='busybox ash' python3 tests/test-ecm-service-errors.py
+          ECM_TEST_SHELL='busybox ash' python3 tests/test-ecm-offload-errors.py
           sh tests/test-nss-drv-sysctl-log-level.sh
           python3 tests/test-service-lifecycle.py
           echo "=== hostapd prepare and APuP/RRM regressions ==="
@@ -911,7 +912,11 @@ jobs:
           done
           python3 openwrt/tests/test-ecm-rps-ownership.py "$rps_fixture"
           python3 openwrt/tests/test-ecm-reload-errors.py "$rps_fixture"
+          offload_extracted="$rps_fixture/package/qca-nss/qca-nss-ecm/files/disable_offloads.sh"
+          unsquashfs -cat "$rootfs" lib/netifd/offload/disable_offloads.sh > "$offload_extracted"
+          cmp openwrt/package/qca-nss/qca-nss-ecm/files/disable_offloads.sh "$offload_extracted"
           ECM_TEST_SHELL='busybox ash' python3 openwrt/tests/test-ecm-service-errors.py "$rps_fixture"
+          ECM_TEST_SHELL='busybox ash' python3 openwrt/tests/test-ecm-offload-errors.py "$rps_fixture"
           for required in \
             'rps_cpus' \
             'rps_flow_cnt' \

@@ -86,6 +86,7 @@ jobs:
           test "$(git -C "$fixture" rev-parse HEAD)" = "$SOURCE_COMMIT"
           ECM_TEST_SHELL='busybox ash' python3 "$fixture/tests/test-ecm-service-errors.py" "$fixture"
           python3 "$fixture/tests/test-ecm-reload-errors.py" "$fixture"
+          ECM_TEST_SHELL='busybox ash' python3 "$fixture/tests/test-ecm-offload-errors.py" "$fixture"
 
       - name: Actionlint
         run: actionlint -color .github/workflows/*.yml
@@ -368,6 +369,7 @@ jobs:
             'python3 tests/test-ecm-rps-ownership.py' \
             'python3 tests/test-ecm-reload-errors.py' \
             'python3 tests/test-ecm-service-errors.py' \
+            'python3 tests/test-ecm-offload-errors.py' \
             'python3 openwrt/tests/test-ecm-service-errors.py "$rps_fixture"' \
             'python3 openwrt/tests/test-ecm-reload-errors.py "$rps_fixture"' \
             'python3 openwrt/tests/test-ecm-rps-ownership.py "$rps_fixture"' \
