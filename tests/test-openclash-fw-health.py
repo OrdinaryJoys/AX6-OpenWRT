@@ -31,6 +31,8 @@ def fixture(mode='fake-ip', v6='1', v6mode='3', udp='1', v6udp='0'):
     mark4 = tun or mixed or udp == '1' or mode == 'fake-ip'
     mark6 = v6 == '1' and (v6udp == '1' or v6mode != '1')
     data = {'fw4': {'nftables': []}, 'rule4': [], 'rule6': [], 'route4': [], 'route6': []}
+    data['links_before'] = [{'ifname': 'lo', 'ifindex': 1}, {'ifname': 'br-lan', 'ifindex': 12}, {'ifname': 'wan', 'ifindex': 13}]
+    data['links_after'] = copy.deepcopy(data['links_before'])
     items = data['fw4']['nftables']
     for name, kind in [('dstnat', 'nat'), ('mangle_prerouting', 'filter')]:
         items.append({'chain': {'family': 'inet', 'table': 'fw4', 'name': name, 'hook': 'prerouting', 'type': kind}})
@@ -94,6 +96,49 @@ class Validator(unittest.TestCase):
         args, data = fixture()
         data['fw4']['nftables'] = [item for item in data['fw4']['nftables'] if 'rule' not in item or item['rule']['chain'] not in ('dstnat', 'mangle_prerouting')]
         data['fw4']['nftables'].append({'rule': {'family': 'inet', 'table': 'fw4', 'chain': 'dstnat', 'comment': 'jump openclash', 'expr': [{'jump': {'target': 'openclash_dns_redirect'}}]}})
+        self.check(args, data, 1)
+
+    def test_all_192_symbolic_index_combinations(self):
+        for combo in itertools.product(MODES, ('0', '1'), ('0', '1', '2', '3'), ('0', '1'), ('0', '1')):
+            args, data = fixture(*combo)
+            for rule in entries(data):
+                for expr in rule['expr']:
+                    if expr.get('match', {}).get('left') == {'meta': {'key': 'iif'}}:
+                        expr['match']['right'] = 'br-lan'
+            with self.subTest(combo=combo):
+                self.check(args, data)
+
+    def test_interface_identity_negative_controls(self):
+        for mutation in ('missing', 'malformed', 'scalar', 'name-duplicate', 'index-duplicate', 'changed', 'lan-mismatch', 'unknown-symbol', 'numeric-name'):
+            args, data = fixture()
+            first = next(e['match'] for e in entries(data)[0]['expr'] if e.get('match', {}).get('left') == {'meta': {'key': 'iif'}})
+            if mutation == 'missing':
+                del data['links_before']
+            elif mutation == 'malformed':
+                data['links_after'] = [{}]
+            elif mutation == 'scalar':
+                data['links_after'] = [1]
+            elif mutation == 'name-duplicate':
+                data['links_before'].append({'ifname': 'br-lan', 'ifindex': 90})
+            elif mutation == 'index-duplicate':
+                data['links_before'].append({'ifname': 'other', 'ifindex': 12})
+            elif mutation == 'changed':
+                data['links_after'][1]['ifindex'] = 99
+            elif mutation == 'lan-mismatch':
+                data['links_before'][1]['ifindex'] = data['links_after'][1]['ifindex'] = 99
+            elif mutation == 'unknown-symbol':
+                first['right'] = 'vanished'
+            else:
+                data['links_before'].append({'ifname': '12', 'ifindex': 90})
+                data['links_after'] = copy.deepcopy(data['links_before'])
+                first['right'] = '12'
+            with self.subTest(mutation=mutation):
+                self.check(args, data, 2)
+        args, data = fixture()
+        data['links_after'].reverse()
+        self.check(args, data)
+        first = next(e['match'] for e in entries(data)[0]['expr'] if e.get('match', {}).get('left') == {'meta': {'key': 'iif'}})
+        first['right'] = 'wan'
         self.check(args, data, 1)
 
     def test_entry_mutations(self):
@@ -220,6 +265,12 @@ print(json.dumps(json.loads((p/'snapshot').read_text())['fw4']))
         self.script('ip', '''import json,os,pathlib,sys
 p=pathlib.Path(os.environ['MOCK_ROOT'])
 if (p/'ip-fail').exists(): sys.exit(1)
+if sys.argv[1:]==['-j','link','show']:
+ n=int((p/'link-calls').read_text()) if (p/'link-calls').exists() else 0
+ (p/'link-calls').write_text(str(n+1))
+ data=json.loads((p/'snapshot').read_text())['links_before']
+ if (p/'link-race').exists() and n%2: data[1]['ifindex']=99
+ print(json.dumps(data)); sys.exit(0)
 assert sys.argv[1]=='-j' and sys.argv[2] in ('-4','-6')
 if sys.argv[3]=='route': assert sys.argv[5:] == ['table','all']
 print(json.dumps(json.loads((p/'snapshot').read_text())[sys.argv[3]+sys.argv[2][1:]]))
@@ -289,6 +340,19 @@ sys.exit(int((pathlib.Path(os.environ['MOCK_ROOT'])/'lock-busy').exists()))
     def test_probe_missing_is_readonly(self):
         self.broken()
         self.run_watch(1, probe=True)
+        self.no_reload()
+        self.assertFalse((self.root / 'state').exists())
+
+    def test_symbolic_snapshot_and_link_race(self):
+        args, data = fixture()
+        for rule in entries(data):
+            for expr in rule['expr']:
+                if expr.get('match', {}).get('left') == {'meta': {'key': 'iif'}}:
+                    expr['match']['right'] = 'br-lan'
+        self.write('snapshot', json.dumps(data))
+        self.run_watch(probe=True)
+        self.write('link-race', '')
+        self.run_watch(2)
         self.no_reload()
         self.assertFalse((self.root / 'state').exists())
 

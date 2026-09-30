@@ -47,10 +47,12 @@ def main():
         return json.loads(ns('ip', '-j', 'link', 'show', 'lan'))[0]['ifindex']
 
     def check(mode, v6mode, status=0):
-        snapshot = {'fw4': json.loads(ns('nft', '-j', '-n', 'list', 'table', 'inet', 'fw4'))}
+        snapshot = {'links_before': json.loads(ns('ip', '-j', 'link', 'show'))}
+        snapshot['fw4'] = json.loads(ns('nft', '-j', '-n', 'list', 'table', 'inet', 'fw4'))
         for family in (4, 6):
             snapshot[f'rule{family}'] = json.loads(ns('ip', '-j', f'-{family}', 'rule', 'show'))
             snapshot[f'route{family}'] = json.loads(ns('ip', '-j', f'-{family}', 'route', 'show', 'table', 'all'))
+        snapshot['links_after'] = json.loads(ns('ip', '-j', 'link', 'show'))
         result = subprocess.run(['ip', 'netns', 'exec', name, *UCODE, str(CHECK),
                                  f'iifname "lan" meta iif {index()}', mode, '1', str(v6mode), '1', '0'],
                                 input=json.dumps(snapshot), text=True, capture_output=True, timeout=20)

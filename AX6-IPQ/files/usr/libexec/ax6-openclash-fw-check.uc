@@ -44,6 +44,25 @@ if (type(data?.fw4?.nftables) != 'array') fail('invalid fw4 JSON', 2);
 for (let key in ['rule4', 'route4', 'rule6', 'route6'])
 	if (type(data[key]) != 'array') fail(`invalid ${key} JSON`, 2);
 
+function interfaces(links) {
+	if (type(links) != 'array') fail('missing interface identity snapshot', 2);
+	let names = {}, indices = {};
+	for (let link in links) {
+		if (type(link) != 'object' || type(link.ifname) != 'string' || !length(link.ifname) || length(link.ifname) > 15 ||
+			type(link.ifindex) != 'int' || link.ifindex <= 0 ||
+			link.ifname in names || `${link.ifindex}` in indices)
+			fail('invalid/ambiguous interface identity snapshot', 2);
+		names[link.ifname] = link.ifindex;
+		indices[`${link.ifindex}`] = link.ifname;
+	}
+	return names;
+}
+let links = interfaces(data.links_before), after_links = interfaces(data.links_after);
+if (length(keys(links)) != length(keys(after_links))) fail('interface identities changed during snapshot', 2);
+for (let name, idx in links)
+	if (after_links[name] != idx) fail('interface identities changed during snapshot', 2);
+if (links[identity[1]] != int(identity[2])) fail('LAN identity differs from interface snapshot', 2);
+
 let chains = {}, backends = {};
 for (let item in data.fw4.nftables) {
 	let chain = item.chain;
@@ -81,7 +100,17 @@ for (let item in data.fw4.nftables) {
 		if ((!implicit && values.nfproto != want.family) || (want.protocol && values[proto] != want.protocol))
 			fail(`wrong ${target} family/protocol`, 1);
 		let base = (want.protocol ? 2 : 1) - (implicit ? 1 : 0);
-		if (values.iifname == identity[1] && number(values.iif) == int(identity[2]) &&
+		let idx = number(values.iif);
+		if ('iif' in values && type(values.iif) == 'string') {
+			// nft 1.0.2 and target 1.1.6 print iif via the RTM_GETLINK cache
+			// even with -n. Never equate iif and iifname without this mapping.
+			if (values.iif in links) {
+				if (idx != null) fail('ambiguous numeric interface name', 2);
+				idx = links[values.iif];
+			}
+			else if (idx == null) fail('unresolved symbolic interface index', 2);
+		}
+		if (values.iifname == identity[1] && idx == int(identity[2]) &&
 			length(keys(values)) == base + 2) want.lan++;
 		else if (rule.chain == 'mangle_prerouting' && values.iifname == 'lo' &&
 			number(values.mark) == 354 && length(keys(values)) == base + 2) want.lo++;

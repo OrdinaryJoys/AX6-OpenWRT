@@ -52,8 +52,9 @@ probe() {
 	udp=$(get enable_udp_proxy) || return 2
 	v6udp=$(get enable_v6_udp_proxy) || v6udp=0
 	scope=$("$SCOPE") || { unavailable 'LAN identity unresolved'; return 2; }
-	# Without numeric output nft may print iif as the current device name,
-	# hiding the actual index that this check must compare after recreation.
+	# nft can render iif as a name even with -n. Bracket its RTM_GETLINK
+	# lookup with identity snapshots; the validator rejects changes/ambiguity.
+	links_before=$("$IP" -j link show) || { unavailable 'interface snapshot unavailable'; return 2; }
 	rules=$("$NFT" -j -n list table inet fw4) || { unavailable 'fw4 snapshot unavailable'; return 2; }
 	# Query all tables: querying an absent 0x162 table itself can exit nonzero.
 	# The validator selects table 354, so absence is repairable, not unreadable.
@@ -61,6 +62,7 @@ probe() {
 		rule6=$("$IP" -j -6 rule show) && route6=$("$IP" -j -6 route show table all) || {
 		unavailable 'policy routing snapshot unavailable'; return 2;
 	}
+	links_after=$("$IP" -j link show) || { unavailable 'interface resnapshot unavailable'; return 2; }
 	after_scope=$("$SCOPE") || return 2
 	after=$(fingerprint) || return 2
 	[ "$scope" = "$after_scope" ] && [ "$before" = "$after" ] && \
@@ -70,8 +72,8 @@ probe() {
 	case "$before$init_before" in ''|*[!a-f0-9]*) return 2 ;; esac
 	[ "${#before}" = 64 ] && [ "${#init_before}" = 64 ] || return 2
 	OBSERVED="$before|$scope|$init_before"
-	DIAGNOSTIC=$(printf '{"fw4":%s,"rule4":%s,"route4":%s,"rule6":%s,"route6":%s}\n' \
-		"$rules" "$rule4" "$route4" "$rule6" "$route6" |
+	DIAGNOSTIC=$(printf '{"fw4":%s,"rule4":%s,"route4":%s,"rule6":%s,"route6":%s,"links_before":%s,"links_after":%s}\n' \
+		"$rules" "$rule4" "$route4" "$rule6" "$route6" "$links_before" "$links_after" |
 		"$UCODE" "$CHECK" "$scope" "$mode" "$v6" "$v6mode" "$udp" "$v6udp" 2>&1)
 	result=$?
 	printf '%s\n' "$DIAGNOSTIC"
