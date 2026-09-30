@@ -555,6 +555,7 @@ jobs:
           python3 tests/test-ecm-rawip-rmnet.py
           sh tests/test-set-irq-affinity-device-discovery.sh
           python3 tests/test-ecm-rps-ownership.py
+          python3 tests/test-ecm-reload-errors.py
           sh tests/test-nss-drv-sysctl-log-level.sh
           python3 tests/test-service-lifecycle.py
           echo "=== hostapd prepare and APuP/RRM regressions ==="
@@ -893,6 +894,7 @@ jobs:
           # Exercise actual image callbacks with the same offline path substitution.
           rps_fixture=image-verify/rps-fixture
           for mapping in \
+            'etc/rc.common:package/base-files/files/etc/rc.common' \
             'usr/libexec/platform/packet-steering.sh:target/linux/qualcommax/base-files/usr/libexec/platform/packet-steering.sh' \
             'etc/init.d/qca-nss-ecm:package/qca-nss/qca-nss-ecm/files/qca-nss-ecm.init' \
             'etc/init.d/packet_steering:package/network/config/netifd/files/etc/init.d/packet_steering'; do
@@ -907,6 +909,7 @@ jobs:
             chmod 755 "$extracted"
           done
           python3 openwrt/tests/test-ecm-rps-ownership.py "$rps_fixture"
+          python3 openwrt/tests/test-ecm-reload-errors.py "$rps_fixture"
           for required in \
             'rps_cpus' \
             'rps_flow_cnt' \

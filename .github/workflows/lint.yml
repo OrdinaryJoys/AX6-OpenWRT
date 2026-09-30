@@ -345,6 +345,8 @@ jobs:
             'python3 openwrt/tests/test-download-cache.py' \
             'sh openwrt/tests/test-dns-redirect-scope.sh' \
             'python3 tests/test-ecm-rps-ownership.py' \
+            'python3 tests/test-ecm-reload-errors.py' \
+            'python3 openwrt/tests/test-ecm-reload-errors.py "$rps_fixture"' \
             'python3 openwrt/tests/test-ecm-rps-ownership.py "$rps_fixture"' \
             'IRQ_TEST_SCRIPT="$GITHUB_WORKSPACE/image-verify/set-irq-affinity"' \
             'python3 tests/test-service-lifecycle.py' \
