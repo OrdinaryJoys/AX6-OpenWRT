@@ -553,6 +553,7 @@ jobs:
           sh tests/test-nss-targeted-backports.sh
           python3 tests/test-ecm-rawip-rmnet.py
           sh tests/test-set-irq-affinity-device-discovery.sh
+          python3 tests/test-ecm-rps-ownership.py
           sh tests/test-nss-drv-sysctl-log-level.sh
           python3 tests/test-service-lifecycle.py
           echo "=== hostapd prepare and APuP/RRM regressions ==="
@@ -874,6 +875,37 @@ jobs:
 
           unsquashfs -cat "$rootfs" etc/init.d/set-irq-affinity \
             > image-verify/set-irq-affinity
+          rps_source=openwrt/target/linux/qualcommax/base-files
+          cmp "$rps_source/etc/init.d/set-irq-affinity" image-verify/set-irq-affinity
+          require_rps_executable() {
+            awk -v expected="squashfs-root/$1" '
+              $NF == expected { count++; if ($1 == "-rwxr-xr-x") executable++ }
+              END { exit !(count == 1 && executable == 1) }
+            ' image-verify/rootfs-files.txt || {
+              echo "::error::Final rootfs RPS callback must have one exact mode 0755 entry: $1"
+              return 1
+            }
+          }
+          require_rps_executable etc/init.d/set-irq-affinity
+          IRQ_TEST_SCRIPT="$GITHUB_WORKSPACE/image-verify/set-irq-affinity" \
+            sh openwrt/tests/test-set-irq-affinity-device-discovery.sh
+          # Exercise actual image callbacks with the same offline path substitution.
+          rps_fixture=image-verify/rps-fixture
+          for mapping in \
+            'usr/libexec/platform/packet-steering.sh:target/linux/qualcommax/base-files/usr/libexec/platform/packet-steering.sh' \
+            'etc/init.d/qca-nss-ecm:package/qca-nss/qca-nss-ecm/files/qca-nss-ecm.init' \
+            'etc/init.d/packet_steering:package/network/config/netifd/files/etc/init.d/packet_steering'; do
+            installed=${mapping%%:*}
+            source_path=${mapping#*:}
+            extracted="$rps_fixture/$source_path"
+            mkdir -p "$(dirname "$extracted")"
+            unsquashfs -cat "$rootfs" "$installed" > "$extracted"
+            cmp "openwrt/$source_path" "$extracted"
+            sh -n "$extracted"
+            require_rps_executable "$installed"
+            chmod 755 "$extracted"
+          done
+          python3 openwrt/tests/test-ecm-rps-ownership.py "$rps_fixture"
           for required in \
             'rps_cpus' \
             'rps_flow_cnt' \
