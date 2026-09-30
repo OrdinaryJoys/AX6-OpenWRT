@@ -85,14 +85,18 @@ table inet fw4 {
 ''')
                     for family in (4, 6):
                         # Only fixture-owned rule/table in this namespace.
-                        ns('ip', f'-{family}', 'rule', 'flush')
+                        rules = json.loads(ns('ip', '-j', f'-{family}', 'rule', 'show'))
+                        owned = [rule for rule in rules if rule.get('priority') == 1888]
+                        if owned:
+                            assert len(owned) == 1 and owned[0].get('fwmark') == '0x162' and str(owned[0].get('table')) == '354', owned
+                            ns('ip', f'-{family}', 'rule', 'del', 'priority', '1888', 'fwmark', '0x162', 'lookup', '0x162')
                         # A fresh namespace has no IPv4 FIB table 354 yet.
                         # Do not suppress arbitrary ip errors to handle absence.
                         routes = json.loads(ns('ip', '-j', f'-{family}', 'route', 'show', 'table', 'all'))
                         if any(str(route.get('table')) in ('354', '0x162') for route in routes):
                             ns('ip', f'-{family}', 'route', 'flush', 'table', '0x162')
                         if family == 4 or v6mode != 1:
-                            ns('ip', f'-{family}', 'rule', 'add', 'fwmark', '0x162', 'lookup', '0x162')
+                            ns('ip', f'-{family}', 'rule', 'add', 'priority', '1888', 'fwmark', '0x162', 'lookup', '0x162')
                             tunnel = tun or mixed if family == 4 else v6mode in (2, 3)
                             ns('ip', f'-{family}', 'route', 'add', *(['default', 'dev', 'utun'] if tunnel else ['local', 'default', 'dev', 'lo']), 'table', '0x162')
                     chosen = [(chain, body) for chain, body in sites
