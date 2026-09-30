@@ -16,6 +16,10 @@ START = '   ax6_dns_scope_prepare || return 1\n'
 CALL = '   ax6_proxy_scope_prepare || return 1\n'
 FIREWALL_CALL = '      set_firewall\n'
 FIREWALL_GUARD = '      ax6_proxy_apply_firewall || return $?\n'
+R11_OLD = ('         if nft list chain inet fw4 openclash 2>/dev/null | grep -q "counter" ||\n'
+           '            nft list chain inet fw4 openclash_mangle 2>/dev/null | grep -q "counter"; then\n')
+R11_PROBE = '"${AX6_FW_HEALTH_BIN:-/usr/sbin/ax6-openclash-fw-health}" --probe'
+R11_NEW = f'         if {R11_PROBE} >/dev/null 2>&1; then\n'
 HELPERS = r'''# AX6 proxy ingress scope v1 begin
 ax6_proxy_apply_firewall()
 {
@@ -129,9 +133,15 @@ def check(text):
         raise ValueError('Proxy scope helper or ordering changed')
     firewall_callers(text, scoped=True)
     entries(text, scoped=True)
+    if 'AX6 R-11 v2' in text and (text.count(R11_NEW) != 1 or R11_OLD in text):
+        raise ValueError('R-11 must share the exact read-only ingress health probe')
 
 
 def transform(text):
+    if 'AX6 R-11 v2' in text and R11_NEW not in text:
+        if text.count(R11_OLD) != 1:
+            raise ValueError('R-11 rate-limit sentinel drifted')
+        text = text.replace(R11_OLD, R11_NEW)
     if BEGIN in text or END in text:
         check(text)
         return text

@@ -21,7 +21,7 @@ jobs:
         run: |
           set -eo pipefail
           sudo apt-get -qq update
-          sudo apt-get -qq install -y busybox device-tree-compiler shellcheck yamllint nftables iproute2
+          sudo apt-get -qq install -y busybox device-tree-compiler shellcheck yamllint nftables iproute2 cmake libjson-c-dev
           # actionlint
           bash <(curl --proto '=https' --tlsv1.2 -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) 1.7.0
           sudo mv actionlint /usr/local/bin/
@@ -67,6 +67,20 @@ jobs:
           sh AX6-IPQ/tests/test-ax6-reload-matrix-validate.sh
           sh AX6-IPQ/tests/test-ax6-udp-baseline-fixture.sh
 
+      - name: Build locked target-version ucode for health fixtures
+        run: |
+          set -eo pipefail
+          # Test interpreter matches package/utils/ucode; not a plugin pin.
+          git clone -q https://github.com/jow-/ucode.git "$RUNNER_TEMP/ax6-ucode"
+          git -C "$RUNNER_TEMP/ax6-ucode" checkout --detach 3ec4e5c238353067e4b58fb9bb9938d85d59e7c2
+          cmake -S "$RUNNER_TEMP/ax6-ucode" -B "$RUNNER_TEMP/ax6-ucode-build" \
+            -DFS_SUPPORT=ON -DUBUS_SUPPORT=OFF -DUCI_SUPPORT=OFF -DULOOP_SUPPORT=OFF \
+            -DNL80211_SUPPORT=OFF -DRTNL_SUPPORT=OFF -DLOG_SUPPORT=OFF -DDIGEST_SUPPORT=OFF
+          cmake --build "$RUNNER_TEMP/ax6-ucode-build" -j2
+          echo "AX6_TEST_UCODE=$RUNNER_TEMP/ax6-ucode-build/ucode -L $RUNNER_TEMP/ax6-ucode-build/*.so" >> "$GITHUB_ENV"
+          AX6_TEST_UCODE="$RUNNER_TEMP/ax6-ucode-build/ucode -L $RUNNER_TEMP/ax6-ucode-build/*.so" \
+            AX6_TEST_SHELL='busybox ash' python3 tests/test-openclash-fw-health.py
+
       - name: OpenClash upstream ingress and isolated nft packets
         run: |
           set -eo pipefail
@@ -86,7 +100,9 @@ jobs:
           python3 .github/scripts/inject-openclash-proxy-scope.py apply "$testdir/openclash"
           AX6_TEST_SHELL='busybox ash' python3 tests/test-openclash-proxy-scope.py "$testdir/openclash"
           python3 tests/test-openclash-dns-scope.py "$testdir/openclash"
+          AX6_TEST_INIT="$testdir/openclash" AX6_TEST_SHELL='busybox ash' python3 tests/test-openclash-fw-health.py
           sudo python3 tests/test-openclash-proxy-netns.py "$testdir/openclash"
+          sudo env AX6_TEST_UCODE="$AX6_TEST_UCODE" python3 tests/test-openclash-fw-health-netns.py "$testdir/openclash"
 
       - name: Locked ECM service callbacks (BusyBox ash)
         run: |

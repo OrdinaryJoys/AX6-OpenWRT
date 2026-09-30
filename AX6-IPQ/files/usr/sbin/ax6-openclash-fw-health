@@ -1,21 +1,116 @@
 #!/bin/sh
-# AX6 OpenClash 防火墙在场看门狗 (R-11 补强)
-# 修复目标: fw4 reload 会从零重建 ruleset; 若 OpenClash 的重注入被中途杀死
-# (注入窗口缺陷的极端变体), 规则/策略路由会缺失到下一次 reload 事件为止。
-# 本脚本每 2 分钟运行: clash 在跑但 dstnat 跳转或 ip rule 0x162 缺失时,
-# 30s 后再确认一次 (避开正常 reload 的 ~8s 注入窗口), 仍缺失则触发
-# "/etc/init.d/openclash reload manual" (同步 set_firewall, 无 sleep, 无限流)。
-ENABLE=$(uci -q get openclash.config.enable 2>/dev/null || echo 0)
-[ "$ENABLE" = 1 ] || exit 0
-pidof clash >/dev/null 2>&1 || exit 0
-missing=0
-nft list chain inet fw4 dstnat 2>/dev/null | grep -qE "jump openclash" || missing=1
-ip rule show 2>/dev/null | grep -q 0x162 || missing=1
-[ "$missing" = 1 ] || exit 0
+# Check owned ingress and policy routes, not DNS reachability or throughput.
+# --probe is read-only. The cron path rechecks before one bounded repair.
+set -f
+export LC_ALL=C
+UCI=${AX6_FW_UCI:-uci}
+NFT=${AX6_FW_NFT:-nft}
+IP=${AX6_FW_IP:-ip}
+UCODE=${AX6_FW_UCODE:-ucode}
+PIDOF=${AX6_FW_PIDOF:-pidof}
+INIT=${AX6_FW_INIT:-/etc/init.d/openclash}
+SCOPE=${AX6_FW_SCOPE:-/usr/libexec/ax6-openclash-lan-scope}
+CHECK=${AX6_FW_CHECK:-/usr/libexec/ax6-openclash-fw-check.uc}
+STATE=${AX6_FW_STATE:-/tmp/ax6-openclash-fw-health}
+UPTIME=${AX6_FW_UPTIME:-/proc/uptime}
+
+log() { logger -t ax6-openclash-fw-health "$*"; }
+get() { "$UCI" -q get "openclash.config.$1"; }
+unavailable() { DIAGNOSTIC="UNVERIFIED: $*"; printf '%s\n' "$DIAGNOSTIC" >&2; return 2; }
+
+contract() {
+	[ -x "$INIT" ] && [ -x "$SCOPE" ] && [ -r "$CHECK" ] || return 1
+	sh -n "$INIT" || return 1
+	# These are safety prerequisites, not a checksum pin on the plugin version.
+	for marker in 'AX6 proxy ingress scope v1 begin' 'ax6_proxy_apply_firewall()' \
+		'AX6 DNS ingress scope v1 begin' 'AX6 R-11 v2' \
+		'ax6-openclash-zerotier-bypass' 'avoid copying the immutable ROM core'; do
+		grep -Fq "$marker" "$INIT" || return 1
+	done
+	grep -Fq '"${AX6_FW_HEALTH_BIN:-/usr/sbin/ax6-openclash-fw-health}" --probe' "$INIT" || return 1
+	[ "$(grep -c '^      ax6_proxy_apply_firewall || return \$?$' "$INIT")" = 4 ]
+}
+
+fingerprint() {
+	# Do not store/export user credentials or subscription contents in state.
+	configuration=$("$UCI" -q export openclash) || return 2
+	printf '%s\n' "$configuration" | sha256sum | cut -d ' ' -f 1
+}
+
+probe() {
+	DIAGNOSTIC='configuration/command validation failed'
+	enabled=$(get enable) || { unavailable 'enable setting unavailable'; return 2; }
+	case "$enabled" in 0) return 3 ;; 1) ;; *) unavailable 'invalid enable setting'; return 2 ;; esac
+	command -v "$PIDOF" >/dev/null || return 2
+	"$PIDOF" clash >/dev/null 2>&1 || return 3
+	contract || { unavailable 'init contract absent/changed (possible plugin replacement)'; return 2; }
+	before=$(fingerprint) || return 2
+	init_before=$(sha256sum "$INIT" | cut -d ' ' -f 1) || return 2
+	mode=$(get en_mode) || return 2
+	v6=$(get ipv6_enable) || return 2
+	v6mode=$(get ipv6_mode) || v6mode=0
+	udp=$(get enable_udp_proxy) || return 2
+	v6udp=$(get enable_v6_udp_proxy) || v6udp=0
+	scope=$("$SCOPE") || { unavailable 'LAN identity unresolved'; return 2; }
+	rules=$("$NFT" -j list table inet fw4) || { unavailable 'fw4 snapshot unavailable'; return 2; }
+	# Query all tables: querying an absent 0x162 table itself can exit nonzero.
+	# The validator selects table 354, so absence is repairable, not unreadable.
+	rule4=$("$IP" -j -4 rule show) && route4=$("$IP" -j -4 route show table all) && \
+		rule6=$("$IP" -j -6 rule show) && route6=$("$IP" -j -6 route show table all) || {
+		unavailable 'policy routing snapshot unavailable'; return 2;
+	}
+	after_scope=$("$SCOPE") || return 2
+	after=$(fingerprint) || return 2
+	[ "$scope" = "$after_scope" ] && [ "$before" = "$after" ] && \
+		[ "$init_before" = "$(sha256sum "$INIT" | cut -d ' ' -f 1)" ] || {
+		unavailable 'configuration/LAN changed during sampling'; return 2;
+	}
+	case "$before$init_before" in ''|*[!a-f0-9]*) return 2 ;; esac
+	[ "${#before}" = 64 ] && [ "${#init_before}" = 64 ] || return 2
+	OBSERVED="$before|$scope|$init_before"
+	DIAGNOSTIC=$(printf '{"fw4":%s,"rule4":%s,"route4":%s,"rule6":%s,"route6":%s}\n' \
+		"$rules" "$rule4" "$route4" "$rule6" "$route6" |
+		"$UCODE" "$CHECK" "$scope" "$mode" "$v6" "$v6mode" "$udp" "$v6udp" 2>&1)
+	result=$?
+	printf '%s\n' "$DIAGNOSTIC"
+	return "$result"
+}
+
+case "${1:-}" in
+	--probe) [ "$#" = 1 ] || exit 64; probe; exit $? ;;
+	'') [ "$#" = 0 ] || exit 64 ;;
+	*) printf 'usage: %s [--probe]\n' "$0" >&2; exit 64 ;;
+esac
+
+probe
+status=$?
+case "$status" in 0|3) exit 0 ;; 1) ;; *) log "no safe automatic repair: $DIAGNOSTIC"; exit 2 ;; esac
+original=$OBSERVED
+mkdir -p "$STATE" || exit 2
+exec 9>"$STATE/lock" || exit 2
+command -v flock >/dev/null || exit 2
+flock -n 9 || exit 0
+# Monotonic per-boot cooldown; no dependency on NTP/time-zone changes.
+read -r now rest < "$UPTIME" || exit 2
+now=${now%%.*}
+case "$now" in ''|*[!0-9]*) exit 2 ;; esac
+last=0
+[ ! -r "$STATE/last-attempt" ] || read -r last < "$STATE/last-attempt"
+case "$last" in ''|*[!0-9]*) log 'invalid cooldown state; no automatic reload'; exit 2 ;; esac
+[ "$last" = 0 ] || [ "$((now - last))" -ge 300 ] || exit 0
 sleep 30
-missing=0
-nft list chain inet fw4 dstnat 2>/dev/null | grep -qE "jump openclash" || missing=1
-ip rule show 2>/dev/null | grep -q 0x162 || missing=1
-[ "$missing" = 1 ] || exit 0
-logger -t ax6-openclash-fw-health "firewall rules missing, triggering manual reload"
-/etc/init.d/openclash reload manual >/dev/null 2>&1
+probe
+status=$?
+case "$status" in 0|3) exit 0 ;; 1) ;; *) log "no safe repair after recheck: $DIAGNOSTIC"; exit 2 ;; esac
+[ "$original" = "$OBSERVED" ] || { log 'configuration/LAN changed; defer repair'; exit 2; }
+contract || { log 'init contract changed before repair; no reload'; exit 2; }
+read -r now rest < "$UPTIME" || exit 2
+now=${now%%.*}
+case "$now" in ''|*[!0-9]*) exit 2 ;; esac
+printf '%s\n' "$now" > "$STATE/last-attempt" || exit 2
+log 'owned ingress/policy routes still inconsistent; one manual reload'
+"$INIT" reload manual >/dev/null 2>&1 || { log 'manual reload failed'; exit 1; }
+probe
+status=$?
+[ "$status" = 0 ] || { log "post-reload verification failed ($status): $DIAGNOSTIC"; exit 1; }
+log 'owned ingress/policy routes verified after reload (not a full proxy test)'

@@ -776,6 +776,18 @@ jobs:
             > image-verify/proxy-lan-scope
           cmp AX6-IPQ/files/usr/libexec/ax6-openclash-lan-scope image-verify/proxy-lan-scope
           awk '$NF == "squashfs-root/usr/libexec/ax6-openclash-lan-scope" { n++; if ($1 != "-rwxr-xr-x") bad=1 } END { exit (n != 1 || bad) }' image-verify/rootfs-files.txt
+          for path in usr/sbin/ax6-openclash-fw-health usr/libexec/ax6-openclash-fw-check.uc; do
+            unsquashfs -cat "$rootfs" "$path" > "image-verify/${path##*/}"
+            cmp "AX6-IPQ/files/$path" "image-verify/${path##*/}"
+            mode=-rw-r--r--
+            [ "$path" != usr/sbin/ax6-openclash-fw-health ] || mode=-rwxr-xr-x
+            awk -v path="squashfs-root/$path" -v mode="$mode" '$NF == path { n++; if ($1 != mode) bad=1 } END { exit (n != 1 || bad) }' image-verify/rootfs-files.txt
+          done
+          for path in usr/bin/ucode usr/bin/flock; do
+            awk -v path="squashfs-root/$path" '$NF == path { n++ } END { exit (n != 1) }' image-verify/rootfs-files.txt
+          done
+          unsquashfs -cat "$rootfs" usr/lib/opkg/info/ucode-mod-fs.control > image-verify/ucode-mod-fs.control
+          grep -Fxq 'Package: ucode-mod-fs' image-verify/ucode-mod-fs.control
           # These gates cover generated entry rules, not real device throughput.
           unsquashfs -cat "$rootfs" etc/sysupgrade.conf \
             > image-verify/sysupgrade.conf

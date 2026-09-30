@@ -36,6 +36,34 @@ def fixture():
 
 
 class Contract(unittest.TestCase):
+    def test_r11_probe_replaces_weak_counter_sentinel(self):
+        original = fixture() + '# AX6 R-11 v2\n' + proxy.R11_OLD + ' :\nfi\n'
+        result = proxy.transform(original)
+        self.assertNotIn(proxy.R11_OLD, result)
+        self.assertEqual(result.count(proxy.R11_NEW), 1)
+        self.assertEqual(proxy.transform(result), result)
+        with self.assertRaises(ValueError):
+            proxy.check(result.replace(proxy.R11_NEW, proxy.R11_OLD))
+
+    def test_r11_upgrade_of_prior_scoped_candidate_and_drift(self):
+        prior = proxy.transform(fixture()) + '# AX6 R-11 v2\n' + proxy.R11_OLD + ' :\nfi\n'
+        self.assertIn(proxy.R11_NEW, proxy.transform(prior))
+        for changed in ('', proxy.R11_OLD * 2, 'if nft list ruleset; then\n'):
+            with self.assertRaises(ValueError):
+                proxy.transform(fixture() + '# AX6 R-11 v2\n' + changed + ' :\nfi\n')
+
+    def test_r11_skips_only_a_healthy_probe(self):
+        with tempfile.TemporaryDirectory() as folder:
+            probe = Path(folder) / 'probe'
+            probe.write_text('#!/bin/sh\n[ "$1" = --probe ] || exit 99\nexit "$PROBE_STATUS"\n')
+            probe.chmod(0o755)
+            for status in (0, 1, 2, 3, 127):
+                result = subprocess.run(SHELL + ['-c', proxy.R11_NEW + 'echo skip\nelse\necho restore\nfi'],
+                                        env={**os.environ, 'AX6_FW_HEALTH_BIN': str(probe), 'PROBE_STATUS': str(status)},
+                                        text=True, capture_output=True, timeout=10)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout.strip(), 'skip' if status == 0 else 'restore')
+
     def test_actual_or_fixture_idempotent(self):
         original = ACTUAL or fixture()
         result = proxy.transform(original)
