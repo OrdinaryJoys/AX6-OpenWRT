@@ -21,7 +21,7 @@ jobs:
         run: |
           set -eo pipefail
           sudo apt-get -qq update
-          sudo apt-get -qq install -y busybox device-tree-compiler shellcheck yamllint
+          sudo apt-get -qq install -y busybox device-tree-compiler shellcheck yamllint nftables iproute2
           # actionlint
           bash <(curl --proto '=https' --tlsv1.2 -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) 1.7.0
           sudo mv actionlint /usr/local/bin/
@@ -35,6 +35,7 @@ jobs:
           sh tests/test-openvpn-defaults.sh
           sh tests/test-openclash-dns-health.sh
           python3 tests/test-openclash-dns-scope.py
+          AX6_TEST_SHELL='busybox ash' python3 tests/test-openclash-proxy-scope.py
           python3 tests/test-rps-image-mode-gate.py
           python3 tests/test-openclash-dns-policy-probe.py
           sh tests/test-ax6-dns-source-contract.sh
@@ -65,6 +66,27 @@ jobs:
           sh AX6-IPQ/tests/test-ax6-nss-frequency-ab.sh
           sh AX6-IPQ/tests/test-ax6-reload-matrix-validate.sh
           sh AX6-IPQ/tests/test-ax6-udp-baseline-fixture.sh
+
+      - name: OpenClash upstream ingress and isolated nft packets
+        run: |
+          set -eo pipefail
+          # Resolve master for this test, not a permanent plugin version pin.
+          ref=$(git ls-remote https://github.com/vernesong/OpenClash.git refs/heads/master | awk '$2 == "refs/heads/master" {print $1}')
+          [[ "$ref" =~ ^[0-9a-f]{40}$ ]]
+          echo "OpenClash ingress test source=$ref"
+          testdir=$(mktemp -d)
+          trap 'rm -rf "$testdir"' EXIT
+          curl --proto '=https' --tlsv1.2 -fsSL --connect-timeout 15 --max-time 90 \
+            "https://raw.githubusercontent.com/vernesong/OpenClash/$ref/luci-app-openclash/root/etc/init.d/openclash" \
+            -o "$testdir/openclash"
+          sh .github/scripts/inject-openclash-zerotier-hook.sh "$testdir/openclash"
+          sh .github/scripts/inject-openclash-rom-core-guard.sh apply "$testdir/openclash"
+          sh .github/scripts/inject-openclash-r11-reload-fix.sh "$testdir/openclash"
+          python3 .github/scripts/inject-openclash-dns-scope.py apply "$testdir/openclash"
+          python3 .github/scripts/inject-openclash-proxy-scope.py apply "$testdir/openclash"
+          AX6_TEST_SHELL='busybox ash' python3 tests/test-openclash-proxy-scope.py "$testdir/openclash"
+          python3 tests/test-openclash-dns-scope.py "$testdir/openclash"
+          sudo python3 tests/test-openclash-proxy-netns.py "$testdir/openclash"
 
       - name: Locked ECM service callbacks (BusyBox ash)
         run: |

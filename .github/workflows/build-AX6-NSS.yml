@@ -400,6 +400,8 @@ jobs:
           openclash_init=openwrt/package/luci-app-openclash/root/etc/init.d/openclash
           python3 .github/scripts/inject-openclash-dns-scope.py check "$openclash_init"
           python3 tests/test-openclash-dns-scope.py "$openclash_init"
+          python3 .github/scripts/inject-openclash-proxy-scope.py check "$openclash_init"
+          python3 tests/test-openclash-proxy-scope.py "$openclash_init"
 
       - name: Verify compatible package security backport
         run: |
@@ -768,7 +770,13 @@ jobs:
           python3 .github/scripts/inject-openclash-dns-scope.py check \
             image-verify/openclash-init
           python3 tests/test-openclash-dns-scope.py image-verify/openclash-init
-          # Scope is local DNS redirect ingress, not every proxy/WAN chain.
+          python3 .github/scripts/inject-openclash-proxy-scope.py check image-verify/openclash-init
+          python3 tests/test-openclash-proxy-scope.py image-verify/openclash-init
+          unsquashfs -cat "$rootfs" usr/libexec/ax6-openclash-lan-scope \
+            > image-verify/proxy-lan-scope
+          cmp AX6-IPQ/files/usr/libexec/ax6-openclash-lan-scope image-verify/proxy-lan-scope
+          awk '$NF == "squashfs-root/usr/libexec/ax6-openclash-lan-scope" { n++; if ($1 != "-rwxr-xr-x") bad=1 } END { exit (n != 1 || bad) }' image-verify/rootfs-files.txt
+          # These gates cover generated entry rules, not real device throughput.
           unsquashfs -cat "$rootfs" etc/sysupgrade.conf \
             > image-verify/sysupgrade.conf
           cmp -s AX6-IPQ/files/etc/sysupgrade.conf image-verify/sysupgrade.conf || {

@@ -1,0 +1,91 @@
+#!/bin/sh
+# Resolve only the logical LAN. Emit nft syntax, never change the firewall.
+# iif + iifname prevents a deleted device's name being reused with old rules.
+# shellcheck disable=SC3043 # OpenWrt BusyBox ash supports local variables.
+set -f
+export LC_ALL=C
+NET_ROOT=${AX6_SCOPE_NET_ROOT:-/sys/class/net}
+VLAN_ROOT=${AX6_SCOPE_VLAN_ROOT:-/proc/net/vlan}
+NETWORK_LIB=${AX6_SCOPE_NETWORK_LIB:-/lib/functions/network.sh}
+UCI=${AX6_SCOPE_UCI:-uci}
+
+fail() {
+	printf '%s\n' "AX6 proxy LAN scope: $*" >&2
+	exit 1
+}
+
+valid_name() {
+	case "$1" in ''|*[!a-zA-Z0-9_.:-]*) return 1 ;; esac
+	[ "${#1}" -le 15 ]
+}
+
+valid_index() {
+	case "$1" in ''|*[!0-9]*|0) return 1 ;; esac
+}
+
+# Bridges/VLANs must lead to real Ethernet or Wi-Fi devices, never a TAP,
+# WireGuard, TUN, veth or unknown virtual port. Check WAN at every layer.
+physical_lan() {
+	local dev="$1" depth="$2" child count=0 kind
+	valid_name "$dev" && [ "$depth" -le 8 ] || return 1
+	case " $excluded " in *" $dev "*) return 1 ;; esac
+	case "$dev" in lo|zt*|utun*|tun*|tap*|wg*) return 1 ;; esac
+	kind=$(cat "$NET_ROOT/$dev/type") || return 1
+	[ "$kind" = 1 ] || return 1
+	[ ! -e "$NET_ROOT/$dev/tun_flags" ] || return 1
+	if [ -d "$NET_ROOT/$dev/bridge" ]; then
+		# Globbing is enabled only for validated sysfs paths, not UCI input.
+		set +f
+		for child in "$NET_ROOT/$dev/brif/"*; do
+			[ -e "$child" ] || continue
+			physical_lan "${child##*/}" "$((depth + 1))" || { set -f; return 1; }
+		done
+		set -f
+		return 0
+	fi
+	[ ! -e "$NET_ROOT/$dev/device" ] || return 0
+	# A VLAN has one lower device; multi-lower virtual devices need review.
+	[ -r "$VLAN_ROOT/$dev" ] || return 1
+	set +f
+	for child in "$NET_ROOT/$dev/"lower_*; do
+		[ -e "$child" ] || continue
+		count=$((count + 1))
+		physical_lan "${child##*/lower_}" "$((depth + 1))" || { set -f; return 1; }
+	done
+	set -f
+	[ "$count" -eq 1 ]
+}
+
+[ "$#" -eq 0 ] || fail 'no configurable non-LAN allowlist is supported'
+"$UCI" -q export network >/dev/null || fail 'network configuration unavailable'
+[ -r "$NETWORK_LIB" ] || fail 'network helper unavailable'
+# shellcheck disable=SC1090
+. "$NETWORK_LIB" || fail 'cannot load network helper'
+for function in network_flush_cache network_get_device network_get_physdev; do
+	command -v "$function" >/dev/null || fail "missing $function"
+done
+network_flush_cache
+device=
+network_get_device device lan && valid_name "$device" || fail 'LAN device unresolved'
+index=$(cat "$NET_ROOT/$device/ifindex") || fail 'LAN device absent'
+valid_index "$index" || fail 'LAN index invalid'
+excluded='lo wan wan6'
+for interface in wan wan6; do
+	for function in network_get_device network_get_physdev; do
+		wan_device=
+		if "$function" wan_device "$interface" && [ -n "$wan_device" ]; then
+			valid_name "$wan_device" || fail 'invalid WAN device'
+			excluded="$excluded $wan_device"
+		fi
+	done
+	# Also reject a configured but currently down WAN physical device.
+	wan_device=$("$UCI" -q get "network.$interface.device") || wan_device=
+	if [ -n "$wan_device" ]; then
+		valid_name "$wan_device" || fail 'unresolved WAN device alias'
+		excluded="$excluded $wan_device"
+	fi
+done
+physical_lan "$device" 0 || fail 'LAN contains WAN or an unreviewed virtual device'
+current=$(cat "$NET_ROOT/$device/ifindex") || fail 'LAN disappeared during resolution'
+[ "$current" = "$index" ] || fail 'LAN was recreated during resolution'
+printf 'iifname "%s" meta iif %s\n' "$device" "$index"
