@@ -543,6 +543,21 @@ jobs:
           python3 tests/test-ecm-rawip-rmnet.py
           sh tests/test-set-irq-affinity-device-discovery.sh
           sh tests/test-nss-drv-sysctl-log-level.sh
+          python3 tests/test-service-lifecycle.py
+          echo "=== hostapd prepare and APuP/RRM regressions ==="
+          make package/network/services/hostapd/prepare V=s
+          mapfile -d '' hostapd_apup_files < <(
+            find build_dir -type f -path '*/hostapd-*/src/ap/apup.c' -print0
+          )
+          if [ "${#hostapd_apup_files[@]}" -eq 0 ]; then
+            echo "::error::No prepared hostapd APuP source found"
+            exit 1
+          fi
+          # hostapd may prepare several selected package variants.
+          for hostapd_apup_file in "${hostapd_apup_files[@]}"; do
+            hostapd_dir=${hostapd_apup_file%/src/ap/apup.c}
+            python3 tests/test-hostapd-targeted-regressions.py "$hostapd_dir"
+          done
           echo "=== mac80211 prepare and recovery reset/crash regression ==="
           make package/kernel/mac80211/prepare V=s
           mapfile -d '' ath11k_core_files < <(

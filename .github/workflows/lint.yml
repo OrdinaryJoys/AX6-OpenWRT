@@ -308,6 +308,8 @@ jobs:
           # shellcheck disable=SC2016 # Match literal prepared-source commands.
           for regression_gate in \
             'python3 openwrt/tests/test-download-cache.py' \
+            'python3 tests/test-service-lifecycle.py' \
+            'python3 tests/test-hostapd-targeted-regressions.py "$hostapd_dir"' \
             'python3 tests/test-ath11k-recovery-reset-guard.py "$backports_dir"' \
             'python3 tests/test-ath11k-rx-alignment.py "$backports_dir"' \
             'python3 tests/test-nss-fraglist-accounting.py "$nss_drv_dir"'; do
