@@ -21,7 +21,7 @@ jobs:
         run: |
           set -eo pipefail
           sudo apt-get -qq update
-          sudo apt-get -qq install -y busybox device-tree-compiler shellcheck yamllint
+          sudo apt-get -qq install -y busybox device-tree-compiler shellcheck yamllint libjson-c-dev pkg-config
           # actionlint
           bash <(curl --proto '=https' --tlsv1.2 -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) 1.7.0
           sudo mv actionlint /usr/local/bin/
@@ -40,6 +40,7 @@ jobs:
           python3 tests/test-rps-image-mode-gate.py
           # Offline only: ownership remains blocked; never apply in DIY/rootfs.
           python3 tests/test-ax6-sqm-transaction.py --shell /bin/bash
+          python3 tests/test-ax6-sqm-ownership-protocol.py
           python3 tests/test-openclash-dns-policy-probe.py
           sh tests/test-ax6-dns-source-contract.sh
           sh tests/test-openclash-archive.sh
@@ -70,6 +71,12 @@ jobs:
           sh AX6-IPQ/tests/test-ax6-reload-matrix-validate.sh
           sh AX6-IPQ/tests/test-ax6-udp-baseline-fixture.sh
 
+      - name: Locked SQM offline contracts (BusyBox ash, no kernel actions)
+        run: |
+          set -eo pipefail
+          busybox | sed -n '1p'
+          python3 tests/test-ax6-sqm-transaction.py --shell 'busybox ash'
+
       - name: Locked ECM and complete RPS callbacks (BusyBox ash)
         run: |
           set -eo pipefail
@@ -83,7 +90,7 @@ jobs:
           git -C "$fixture" config remote.origin.partialclonefilter blob:none
           git -C "$fixture" fetch --depth=1 --filter=blob:none origin "$SOURCE_COMMIT"
           git -C "$fixture" sparse-checkout set \
-            tests package/base-files/files/etc package/base-files/files/lib package/system/procd/files \
+            tests package/base-files/files/etc package/base-files/files/lib package/system/procd package/libs/libubox \
             package/qca-nss/qca-nss-ecm/files \
             target/linux/qualcommax/base-files/etc/init.d \
             target/linux/qualcommax/base-files/usr/libexec/platform
@@ -94,6 +101,7 @@ jobs:
           ECM_TEST_SHELL='busybox ash' python3 "$fixture/tests/test-ecm-offload-errors.py" "$fixture"
           IRQ_TEST_SCRIPT="$fixture/target/linux/qualcommax/base-files/etc/init.d/set-irq-affinity" \
             RPS_TEST_SHELL='busybox ash' python3 "$fixture/tests/test-set-irq-affinity-policy-errors.py"
+          ECM_TEST_SHELL='busybox ash' bash .github/scripts/test-ax6-real-jshn.sh "$fixture"
 
       - name: Actionlint
         run: actionlint -color .github/workflows/*.yml

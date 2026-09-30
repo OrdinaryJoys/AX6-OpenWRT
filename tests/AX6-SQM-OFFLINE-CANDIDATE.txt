@@ -19,8 +19,11 @@ ownership_gate=FAIL_NOT_IMPLEMENTED. Do not wire it into production image builds
 Verification
   python3 tests/test-ax6-sqm-transaction.py
   python3 tests/test-ax6-sqm-transaction.py --shell /bin/bash
+  python3 tests/test-ax6-sqm-transaction.py --shell 'busybox ash'
 Default shell is host Bash; Dash is explicitly refused because locked NSS code
-uses ash-compatible [[ ]] syntax. This is not target BusyBox evidence. Ten
+uses ash-compatible [[ ]] syntax. A quoted command supports Linux BusyBox ash;
+the Lint job runs both host Bash and runner BusyBox, not the AX6 binary/config.
+No real kernel ownership follows from either interpreter's passing fixtures. Ten
 original fixture scripts are checked against the committed SHA256SUMS.txt.
 No real network, tc, module, UCI, procd, or router actions are run.
 The test report separates bounded passing contracts from BASELINE_NEGATIVE_CONTROL
@@ -65,7 +68,7 @@ Blocking omissions
    object refusal, reverse-order compensation, and retained failed cleanup state.
 3. No atomicity across netlink commands or multiple interface instances. No
    SIGKILL/crash-durability/stale-lock/ifindex-reuse recovery claim.
-4. No full procd envelope error contract; no real CAKE/NSS kernel, target BusyBox,
+4. No full procd envelope error contract; no real CAKE/NSS kernel, exact target BusyBox,
    interface lifecycle, load, latency, or on-device performance acceptance.
 
 This prototype is useful for reviewing and reusing the bounded fixes, but MUST

@@ -222,6 +222,7 @@ d168a3176e2c6694f7b17ed4696dcaa5057635e6120c9659bb2a0ff1d6ba9c12  tests/test-apc
 1cf898e04f9e8be828d240be3731071ffbd7cc9293adc20d7260a46eeba9c939  tests/test-dns-redirect-scope.sh
 6efdf777649e205df42cb8f59092f079c9f31d6d2b3b564e6a09c2b4e7c990ec  tests/test-download-cache.py
 a7c1287b9691f082ca08ed445aa4c3ef3e09d65a0f0b59a6a6e1f0d173ff8499  tests/test-ecm-offload-errors.py
+c4dea8e506f6c6e38ba0479d8782754ee3a9a79778d4b098f48defb000280098  tests/test-ecm-procd-real-jshn.py
 aa20c01c54b863b988f634df03de330c24112dff2956bb95ccfc0c27d6bf46dd  tests/test-ecm-rawip-rmnet.py
 5d4b50b8345c6645f35c30619e55cffc7d0a510616f633ec6fa4763a92ebaa4b  tests/test-ecm-reload-errors.py
 749cf9fa4d0f30d05b145530acb21cf421545a78bb40b30187f4a6925b3a91e4  tests/test-ecm-rps-ownership.py

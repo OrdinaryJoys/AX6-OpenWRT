@@ -26,6 +26,7 @@ NEW = FIX.transforms(OLD)
 RESULTS = []
 KNOWN = []
 SHELL = '/bin/sh'
+SHELL_ARGV = ['/bin/sh']
 RUN_CWD = None
 
 
@@ -79,7 +80,7 @@ OUTPUT_TARGET=/dev/null
 
 
 def run(label, body, expected=0, contains=(), absent=(), environment=None, known=False):
-    result = subprocess.run([SHELL], input=MOCK + '\n' + body, text=True,
+    result = subprocess.run(SHELL_ARGV, input=MOCK + '\n' + body, text=True,
                             capture_output=True, timeout=15, cwd=RUN_CWD,
                             env={'PATH': '/usr/bin:/bin', **(environment or {})})
     ok = result.returncode == expected and all(s in result.stdout for s in contains) and all(s not in result.stdout for s in absent)
@@ -125,7 +126,7 @@ def test_injector(folder):
         pass
     require('all-file preflight prevents partial writes on drift', all((staged / p).read_bytes() == value for p, value in snapshots.items()))
     for name, text in NEW.items():
-        result = subprocess.run([SHELL, '-n'], input=text, text=True, capture_output=True)
+        result = subprocess.run([*SHELL_ARGV, '-n'], input=text, text=True, capture_output=True)
         require('shell syntax ' + name, result.returncode == 0)
 
 
@@ -335,12 +336,28 @@ sqm_stop
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--shell', default='/bin/bash', help='ash-compatible shell executable; default host bash, not target proof')
+    parser.add_argument('--shell', default='/bin/bash', help='ash-compatible shell command, e.g. "busybox ash"; default host Bash, not target proof')
     args = parser.parse_args()
-    SHELL = args.shell
+    try:
+        SHELL_ARGV = shlex.split(args.shell)
+    except ValueError as error:
+        parser.error('invalid selected shell command: ' + str(error))
+    if not SHELL_ARGV:
+        parser.error('selected shell command is empty')
+    shell_path = shutil.which(SHELL_ARGV[0])
+    if not shell_path:
+        parser.error('selected shell executable was not found')
+    # Child fixtures use a restricted PATH. Resolve only the executable here,
+    # and shell-quote every argument when invoking nested locked entry points.
+    SHELL_ARGV[0] = str(Path(shell_path).resolve())
+    SHELL = shlex.join(SHELL_ARGV)
     # Locked NSS code uses ash's [[ ... ]] extension. Dash may print an error
     # yet return success later, falsely greening mocks; reject it up front.
-    probe = subprocess.run([SHELL, '-c', '[[ 1 == 1 ]]'], text=True, capture_output=True)
+    try:
+        probe = subprocess.run([*SHELL_ARGV, '-c', '[[ 1 == 1 ]]'], text=True,
+                               capture_output=True, timeout=5)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        parser.error('selected shell preflight failed: ' + str(error))
     if probe.returncode != 0 or probe.stderr.strip():
         parser.error('selected shell lacks required ash-compatible [[ ]] semantics')
     with tempfile.TemporaryDirectory(prefix='ax6-sqm-offline-') as tmp:
