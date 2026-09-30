@@ -62,15 +62,22 @@ else:
  try:
   if proto=='tcp': s.connect((dest,int(port)))
   else: s.sendto(b'AX6 ingress fixture',(dest,int(port)))
- except OSError: pass
+ except OSError as error: print(repr(error))
  s.close()
 '''
-        run('ip', 'netns', 'exec', peer, sys.executable, '-c', code, str(family), protocol, destination, str(port))
+        return run('ip', 'netns', 'exec', peer, sys.executable, '-c', code, str(family), protocol, destination, str(port))
 
     def expect(peer, family, proto, allowed, **kwargs):
         before = count()
-        packet(peer, family, proto, **kwargs)
+        sender = packet(peer, family, proto, **kwargs)
         after = count()
+        if (after > before) != allowed:
+            print('Sender:', sender, flush=True)
+            print(ns('nft', '-a', 'list', 'ruleset'), flush=True)
+            print(ns('ip', '-s', 'link'), flush=True)
+            print(run('ip', '-n', peer, 'route', 'show'), flush=True)
+            print(run('ip', '-n', peer, '-s', 'link'), flush=True)
+            print(ns('cat', '/proc/net/snmp'), flush=True)
         assert (after > before) == allowed, (mode, peer, family, proto, allowed, before, after)
 
     try:
