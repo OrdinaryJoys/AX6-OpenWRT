@@ -100,10 +100,12 @@ else:
         index = json.loads(ns('ip', '-j', 'link', 'show', 'lan'))[0]['ifindex']
         with tempfile.TemporaryDirectory(prefix='ax6-nft-scope-') as folder:
             resolver = Path(folder) / 'resolver'
-            resolver.write_text(f'#!/bin/sh\nprintf \'iifname "lan" meta iif {index}\\n\'\n')
+            resolver_text = f'#!/bin/sh\nprintf \'iifname "lan" meta iif {index}\\n\'\n'
+            resolver.write_text(resolver_text)
             resolver.chmod(0o755)
             total = 0
             for mode in ('redirect', 'tun', 'mixed'):
+                resolver.write_text(resolver_text)
                 ns('nft', '-f', '-', input='''flush ruleset
 table inet fw4 {
  counter admitted {}
@@ -160,8 +162,10 @@ table inet fw4 {
                 # A stale index cannot authorize an interface just by its name.
                 ns('ip', 'link', 'set', 'lan', 'name', 'oldlan')
                 expect(peers['lan'], 4, 'udp', False)
-                ns('ip', 'link', 'add', 'lan', 'type', 'dummy')
-                ns('ip', 'link', 'del', 'lan')
+                ns('ip', 'link', 'set', 'wan', 'name', 'lan')
+                expect(peers['wan'], 4, 'udp', False)
+                expect(peers['wan'], 6, 'udp', False)
+                ns('ip', 'link', 'set', 'lan', 'name', 'wan')
                 ns('ip', 'link', 'set', 'oldlan', 'name', 'lan')
                 # Positive control: excluded peers can send to this hook. An
                 # unscoped legacy jump must produce the forbidden admission.
@@ -169,7 +173,16 @@ table inet fw4 {
                    'meta l4proto udp counter jump openclash_mangle')
                 expect(peers['wan'], 4, 'udp', True)
                 expect(peers['zt'], 6, 'udp', True)
-            print(f'PASS {total} real packet admission assertions; 3 reload/rename checks (counter sinks, not full proxy delivery)')
+                # An unresolved LAN must remove both stale scoped rules and
+                # the deliberately added unscoped legacy rule, preserving lo.
+                resolver.write_text('#!/bin/sh\nexit 1\n')
+                ns('env', f'AX6_PROXY_SCOPE_BIN={resolver}', 'PROXY_FWMARK=0x162', 'sh', '-c', code)
+                for peer in peers.values():
+                    for family in (4, 6):
+                        expect(peer, family, 'udp', False)
+                for family, address in ((4, '127.0.0.1'), (6, '::1')):
+                    expect(router, family, 'udp', True, destination=address, port=54322)
+            print(f'PASS {total} main packet assertions; 3 reload/name-reuse/resolver-failure suites (counter sinks, not full proxy delivery)')
     finally:
         for name in reversed(created):
             subprocess.run(['ip', 'netns', 'del', name], check=False, capture_output=True)

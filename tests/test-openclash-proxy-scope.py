@@ -30,7 +30,9 @@ def fixture():
     text = dns.transform(dns_test.fixture())
     rules = ''.join(f"   nft 'add rule inet fw4 {chain} {body}'\n" * count
                     for (chain, body), count in proxy.ENTRIES.items())
-    return text + 'proxy_entries()\n{\n' + rules + '}\n'
+    callers = ''.join(f'caller_{index}()\n{{\n' + proxy.FIREWALL_CALL +
+                      '      LOG_TIP "success"\n}\n' for index in range(4))
+    return text + 'proxy_entries()\n{\n' + rules + '}\n' + callers
 
 
 class Contract(unittest.TestCase):
@@ -45,6 +47,7 @@ class Contract(unittest.TestCase):
     def test_non_entry_bytes_unchanged(self):
         original = fixture()
         result = proxy.transform(original).replace(proxy.HELPERS, '').replace(proxy.CALL, '')
+        result = result.replace(proxy.FIREWALL_GUARD, proxy.FIREWALL_CALL)
         for line in result.splitlines(keepends=True):
             found = proxy.SCOPED.fullmatch(line.rstrip('\n'))
             if found:
@@ -73,6 +76,15 @@ class Contract(unittest.TestCase):
                            'tcp dport 443 redirect to :7892'):
             with self.subTest(expression=expression), self.assertRaises(ValueError):
                 proxy.transform(fixture() + f"nft 'add rule inet fw4 mangle_prerouting {expression}'\n")
+
+    def test_firewall_caller_drift_rejected(self):
+        for text in (fixture().replace(proxy.FIREWALL_CALL, '', 1),
+                     fixture() + ' set_firewall extra\n'):
+            with self.assertRaises(ValueError):
+                proxy.transform(text)
+        patched = proxy.transform(fixture())
+        with self.assertRaises(ValueError):
+            proxy.check(patched.replace(proxy.FIREWALL_GUARD, proxy.FIREWALL_CALL, 1))
 
 
 class Resolver(unittest.TestCase):
@@ -278,6 +290,23 @@ esac
     def test_add_failure_preserved(self):
         self.assertNotEqual(self.generate(ADD_FAIL='7').returncode, 0)
         self.assertEqual(len(self.calls.read_text().splitlines()), 1)
+
+    def test_firewall_caller_does_not_mask_failure(self):
+        # Execute all four real guarded call statements. This is a bounded
+        # caller test, not a full OpenClash start/reload dispatcher simulation.
+        text = proxy.transform(ACTUAL or fixture())
+        calls = [line for line in text.splitlines(keepends=True) if line == proxy.FIREWALL_GUARD]
+        self.assertEqual(len(calls), 4)
+        for index, call in enumerate(calls):
+            for status in (0, 7, 23):
+                with self.subTest(caller=index, status=status):
+                    code = ('LOG_ERROR() { echo error; return 19; };\n'
+                            f'set_firewall() {{ return {status}; }}\n'
+                            'caller() {\n' + call + 'echo success\n}\ncaller\n')
+                    result = self.run_code(code)
+                    self.assertEqual(result.returncode, status, result.stderr)
+                    self.assertEqual('success' in result.stdout, status == 0)
+                    self.assertEqual('error' in result.stdout, status != 0)
 
 
 if __name__ == '__main__':

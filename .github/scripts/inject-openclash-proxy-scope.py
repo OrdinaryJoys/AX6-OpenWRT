@@ -14,7 +14,19 @@ END = '# AX6 proxy ingress scope v1 end'
 ANCHOR = 'fw4_has_dns_hijack_rule()\n'
 START = '   ax6_dns_scope_prepare || return 1\n'
 CALL = '   ax6_proxy_scope_prepare || return 1\n'
+FIREWALL_CALL = '      set_firewall\n'
+FIREWALL_GUARD = '      ax6_proxy_apply_firewall || return $?\n'
 HELPERS = r'''# AX6 proxy ingress scope v1 begin
+ax6_proxy_apply_firewall()
+{
+   local status=0
+   set_firewall || status=$?
+   if [ "$status" -ne 0 ]; then
+      LOG_ERROR "AX6 firewall installation failed ($status); no success recorded"
+   fi
+   return "$status"
+}
+
 ax6_proxy_scope_prepare()
 {
    local rules handles handle chain batch=""
@@ -85,6 +97,14 @@ SCOPED = re.compile(r"^(\s*)ax6_proxy_scope_jump '(dstnat|mangle_prerouting)' '(
 TARGET = re.compile(r'\b(?:jump|goto) (openclash(?:_v6|_mangle|_mangle_v6)?)(?:\s|[\'\"]|$)')
 
 
+def firewall_callers(text, scoped):
+    expected = FIREWALL_GUARD if scoped else FIREWALL_CALL
+    calls = [line for line in text.replace(HELPERS, '').splitlines(keepends=True)
+             if re.match(r'^\s*(?:set_firewall|ax6_proxy_apply_firewall)(?:\s|$)', line)]
+    if calls != [expected] * 4:
+        raise ValueError('Firewall caller contract changed or lost failure propagation')
+
+
 def entries(text, scoped=False):
     found = Counter()
     # Do not mistake the reconciliation awk pattern for a generated rule.
@@ -107,6 +127,7 @@ def entries(text, scoped=False):
 def check(text):
     if text.count(HELPERS) != 1 or text.count(START + CALL) != 1:
         raise ValueError('Proxy scope helper or ordering changed')
+    firewall_callers(text, scoped=True)
     entries(text, scoped=True)
 
 
@@ -116,6 +137,7 @@ def transform(text):
         return text
     if text.count(ANCHOR) != 1 or text.count(START) != 1:
         raise ValueError('DNS scope must be installed first; upstream anchor drifted')
+    firewall_callers(text, scoped=False)
     entries(text)
     lines = []
     for line in text.splitlines(keepends=True):
@@ -125,6 +147,7 @@ def transform(text):
                     ' || return 1\n')
         lines.append(line)
     result = ''.join(lines).replace(ANCHOR, HELPERS + ANCHOR).replace(START, START + CALL)
+    result = result.replace(FIREWALL_CALL, FIREWALL_GUARD)
     check(result)
     return result
 
