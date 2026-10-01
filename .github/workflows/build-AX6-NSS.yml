@@ -569,6 +569,24 @@ jobs:
           find dl -size -1024c -exec ls -l {} \;
           find dl -size -1024c -exec rm -f {} \;
 
+      - name: Prepare locked native host tools before Vim source preparation
+        working-directory: ./openwrt
+        run: |
+          set -euo pipefail
+          mkdir -p ../vim-evidence
+          host_jobs=$(nproc)
+          [[ "$host_jobs" =~ ^[1-9][0-9]*$ ]] || { echo '::error::Invalid host tool job count'; exit 2; }
+          # Native dependency graph: tools/install requires tools/compile,
+          # which installs staged m4/autoconf before the recipe invokes them.
+          make -j"$host_jobs" tools/install V=s 2>&1 | tee ../vim-evidence/host-tools.log
+          for tool_name in m4 autoconf; do
+            test -x "staging_dir/host/bin/$tool_name"
+            "staging_dir/host/bin/$tool_name" --version > "../vim-evidence/host-$tool_name-version.txt"
+          done
+          test "$(head -n 1 ../vim-evidence/host-m4-version.txt)" = 'm4 (GNU M4) 1.4.21'
+          test "$(head -n 1 ../vim-evidence/host-autoconf-version.txt)" = 'autoconf (GNU Autoconf) 2.72'
+          sha256sum staging_dir/host/bin/m4 staging_dir/host/bin/autoconf > ../vim-evidence/HOST-TOOLS-SHA256.txt
+
       - name: Prepare selected Vim source and verify the selective security patch
         working-directory: ./openwrt
         run: |

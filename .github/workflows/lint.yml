@@ -97,6 +97,7 @@ jobs:
           python3 tests/test-vim-security-backport.py
           python3 tests/test-vim-rootfs.py
           python3 tests/test-ax6-kernel-evidence.py
+          python3 tests/test-vim-host-tools-wiring.py
           sh tests/test-openclash-zerotier-bypass.sh
           sh tests/test-ax6-config-audit-zerotier.sh
           sh tests/test-ax6-boot-guard.sh
