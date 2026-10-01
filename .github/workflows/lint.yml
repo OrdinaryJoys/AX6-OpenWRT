@@ -118,13 +118,18 @@ jobs:
           git -C "$fixture" fetch --depth=1 --filter=blob:none origin "$SOURCE_COMMIT"
           git -C "$fixture" sparse-checkout set \
             tests include package/base-files/files/etc package/base-files/files/lib \
+            package/system/procd package/libs/libubox \
             package/qca-nss/qca-nss-ecm/files \
+            target/linux/qualcommax/base-files/etc/init.d \
             target/linux/qualcommax/base-files/usr/libexec/platform
           git -C "$fixture" checkout --detach FETCH_HEAD
           test "$(git -C "$fixture" rev-parse HEAD)" = "$SOURCE_COMMIT"
           ECM_TEST_SHELL='busybox ash' python3 "$fixture/tests/test-ecm-service-errors.py" "$fixture"
           python3 "$fixture/tests/test-ecm-reload-errors.py" "$fixture"
           ECM_TEST_SHELL='busybox ash' python3 "$fixture/tests/test-ecm-offload-errors.py" "$fixture"
+          IRQ_TEST_SCRIPT="$fixture/target/linux/qualcommax/base-files/etc/init.d/set-irq-affinity" \
+            RPS_TEST_SHELL='busybox ash' python3 "$fixture/tests/test-set-irq-affinity-policy-errors.py"
+          ECM_TEST_SHELL='busybox ash' bash .github/scripts/test-ax6-real-jshn.sh "$fixture"
           # These negative controls reproduce unsafe upgrade boundaries.
           # Passing is NOT a plugin upgrade/deployment safety certificate.
           ref=$(git ls-remote https://github.com/vernesong/OpenClash.git refs/heads/master | awk '$2 == "refs/heads/master" {print $1}')

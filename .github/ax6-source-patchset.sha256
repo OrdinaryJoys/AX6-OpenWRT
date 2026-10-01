@@ -115,10 +115,10 @@ a65bb3d49039034afcf48c51dc1f417d2dbdacf9e444d03599827f587ee1e5f9  package/qca-ns
 5ba4dab15aa37b2ca220d1419c0d7633b662ea6d2faa04d102067bc654cde7ca  package/qca-nss/qca-nss-drv/patches/018-fix-napi-request-irq-unwind.patch
 3c153fe095fe82dd1e3a5f5364f04c6d16254d980b3d4e7dc5b307eba120258a  package/qca-nss/qca-nss-drv/patches/019-fix-n2h-pool-dma-unwind.patch
 3455b7338980f2464407859e7510fd5ae456ccaae3970559e4cbdae751bd1b7a  package/qca-nss/qca-nss-drv/patches/022-lower-sysctl-read-log-level.patch
-ebc1623ff6c94004fd7c9d5d8263d2e98d053f08d8c7b21cd49bc90374d7f414  package/qca-nss/qca-nss-ecm/Makefile
+30e87a7f296eceeb6d236f6e7dc8edf25e76f0e4287bfbc085b22c805928af81  package/qca-nss/qca-nss-ecm/Makefile
 2438ccfa97b0fa4e6f3cb333de8d0c8fcb05c46b6bcfdca93f4f75ae390920d9  package/qca-nss/qca-nss-ecm/files/disable_offloads.hotplug
 055e4f85038ff06f449a9512eaf8d14f6e8bfea2c92a0a38a964a5a2e433eb69  package/qca-nss/qca-nss-ecm/files/disable_offloads.sh
-0bc9a98f29c600264f73424899af81ce25b81e710febe92464b3c5b2255c58c6  package/qca-nss/qca-nss-ecm/files/qca-nss-ecm.init
+2663692c4e3206eca00f58454207b8dfc26c7937cf8b273233fe325948886fd0  package/qca-nss/qca-nss-ecm/files/qca-nss-ecm.init
 22b40538dcae6851ecdae4b8e1d96bc8a7a745672ab83177e38cf8f7345045a7  package/qca-nss/qca-nss-ecm/patches/026-frontends-nss-respect-bridge-port-vlan-tagging-for-vlan-over-bridge.patch
 95307ad7ade437e6c7f22a51d7a830726dd0c8d9008dcfed67c62f9372a8dc9d  package/qca-nss/qca-nss-ecm/patches/027-fix-multicast-destination-count-signedness.patch
 449132502ad5a8793dc91563903338f2df45eb5fead4064a1f4ddc6299c1d5c2  package/qca-nss/qca-nss-ecm/tests/test-disable-offloads.sh
@@ -190,7 +190,7 @@ f7ac998c2c380329c6978e7635492397a32ae083bf2eced6247d36b8571c6590  target/linux/g
 bd34c6115540057aada210cbd6613447d6da2ca0a660f57f5a73b3eafcc736c8  target/linux/ipq40xx/patches-6.18/900-PCI-qcom-add-hack-compatible-for-ipq4019-Lantiq-DSL.patch
 aa1f7a31dc6854706c06a7b5f8f3e8b364775ee7e74f33c51cc29aad88608848  target/linux/mediatek/patches-6.18/901-arm-add-cmdline-override.patch
 39be2c2d8c8db515f10789d3627007bd68a03b13a45dbf7d18505cd748f4cca5  target/linux/qualcommax/base-files/etc/hotplug.d/net/25-set-irq-affinity
-b927e925449d9754799a01c1500397992cc01e0dbb311909a2ba43b0ce4192bc  target/linux/qualcommax/base-files/etc/init.d/set-irq-affinity
+261cd7abaf55cce3e404be2d98b04aa863c5eb428c684f28d24baee5745d17e6  target/linux/qualcommax/base-files/etc/init.d/set-irq-affinity
 a37651513da86703d89f6a066c935ab1d36cd2712bea4756a396d7e5aff355f0  target/linux/qualcommax/base-files/usr/libexec/platform/packet-steering.sh
 feb92e1ae70a4ed6b231f9a7cd754ee307cda5f9c656e2269103412fee7ffc25  target/linux/qualcommax/dts/ipq8071-ax3600-stock.dts
 5105286478646d2d09a230abf5ed5d17919367eb25372c2c246a7dfa3dd254a2  target/linux/qualcommax/dts/ipq8071-ax6-stock.dts
@@ -222,10 +222,11 @@ d168a3176e2c6694f7b17ed4696dcaa5057635e6120c9659bb2a0ff1d6ba9c12  tests/test-apc
 1cf898e04f9e8be828d240be3731071ffbd7cc9293adc20d7260a46eeba9c939  tests/test-dns-redirect-scope.sh
 6efdf777649e205df42cb8f59092f079c9f31d6d2b3b564e6a09c2b4e7c990ec  tests/test-download-cache.py
 a7c1287b9691f082ca08ed445aa4c3ef3e09d65a0f0b59a6a6e1f0d173ff8499  tests/test-ecm-offload-errors.py
+c4dea8e506f6c6e38ba0479d8782754ee3a9a79778d4b098f48defb000280098  tests/test-ecm-procd-real-jshn.py
 aa20c01c54b863b988f634df03de330c24112dff2956bb95ccfc0c27d6bf46dd  tests/test-ecm-rawip-rmnet.py
-f13170c06029ac94a84bf6f5ba22fe37ce6a444d70cce6220a8a28ed5eed285a  tests/test-ecm-reload-errors.py
+5d4b50b8345c6645f35c30619e55cffc7d0a510616f633ec6fa4763a92ebaa4b  tests/test-ecm-reload-errors.py
 749cf9fa4d0f30d05b145530acb21cf421545a78bb40b30187f4a6925b3a91e4  tests/test-ecm-rps-ownership.py
-f8a66ff87005847f7e245984860e29f669ace7f6e74e67104cba780b05cff392  tests/test-ecm-service-errors.py
+df6082b3a7127f71f84ece40539d5423dd901be233cf063d45ca34c8d6aef68f  tests/test-ecm-service-errors.py
 95fd90143506de7cb941a7c9fb1429944b69e148b6f807358913416250724266  tests/test-edma-correctness-prerequisites.sh
 e9c94e16c7092cb391d4b37c3dcdb8204939ae8eb6cd2531919a32cacf4cb27b  tests/test-hostapd-targeted-regressions.py
 ebf0dfc23432f67e5a1de0402f5fd44b4687e1186e4856453ed8536d2cef9e76  tests/test-nss-drv-sysctl-log-level.sh
@@ -235,4 +236,5 @@ d87d154839098d9ae17c0833c33a8b2d33c470dc8236e5e3cbc1b555ad51002e  tests/test-nss
 e41f80bc362099361e25beb557ec9e520a80963392acfdc6ac00e1076edbc043  tests/test-qca-nss-pbuf-readback.sh
 94cd3d9e1ee2180182209066e162ccbbae4d8bc930c829f77ebe494e0427ee47  tests/test-qcom-hwspinlock-regmap-boundary.sh
 e1f5d595b6231c68961febfa292f71497080a8355cbe3ad3df6cf245ee9431f9  tests/test-service-lifecycle.py
-ca9a298ac2cfec82b8ae42777eb19749667ff3edec1d242bb1f79b05f0396b93  tests/test-set-irq-affinity-device-discovery.sh
+85279c212348f5798d0a1486310d2d7dfc13dc02c87361bd419db32e611f970f  tests/test-set-irq-affinity-device-discovery.sh
+57a687a231ef26d21a57a686cda4198ca88cee167107e4622b7353569db3dd70  tests/test-set-irq-affinity-policy-errors.py

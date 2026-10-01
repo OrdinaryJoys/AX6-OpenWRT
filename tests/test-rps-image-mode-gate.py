@@ -36,3 +36,26 @@ with tempfile.TemporaryDirectory(prefix='ax6-rps-mode-') as directory:
         assert (result.returncode == 0) == expected, (name, result.stdout, result.stderr)
         print('PASS', name)
 print('SUMMARY 8 rootfs permission gate cases passed')
+
+# The real procd library is INSTALL_DATA. Reject executable/writable, backup,
+# duplicate and symlink records instead of applying the 0755 script contract.
+data_path = 'squashfs-root/lib/functions/procd.sh'
+data_cases = [
+    ('exact data library', listing('-rw-r--r--', data_path), True),
+    ('executable library', listing('-rwxr-xr-x', data_path), False),
+    ('world-writable library', listing('-rw-rw-rw-', data_path), False),
+    ('missing library', '', False),
+    ('backup-only library', listing('-rw-r--r--', data_path + '.bak'), False),
+    ('duplicate library', listing('-rw-r--r--', data_path) * 2, False),
+    ('symlink library', listing('lrwxrwxrwx', data_path).rstrip() + ' -> /other\n', False),
+]
+with tempfile.TemporaryDirectory(prefix='ax6-procd-mode-') as directory:
+    fixture = Path(directory) / 'image-verify/rootfs-files.txt'
+    fixture.parent.mkdir()
+    for library in ('lib/functions/procd.sh', 'lib/functions.sh'):
+        for name, contents, expected in data_cases:
+            fixture.write_text(contents.replace(data_path, 'squashfs-root/' + library))
+            result = subprocess.run(['bash', '-eu', '-c', function + '\nrequire_rps_datafile ' + library], cwd=directory, capture_output=True, text=True)
+            assert (result.returncode == 0) == expected, (library, name, result.stdout, result.stderr)
+            print('PASS', library, name)
+print('SUMMARY 14 rootfs data-library gate cases passed')
