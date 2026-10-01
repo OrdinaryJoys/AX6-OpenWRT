@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "package": "vim",
+  "version": "9.2.1014",
+  "release": 2,
+  "xxd_version": "2026.06.16",
+  "base_feed_commit": "03d8b9d71b5e27972e4111ebe39898d093544c92",
+  "upstream_package_commit": "1da75e82a7510d41b9b9b492ed5ea5a64f9f3f12",
+  "upstream_package_url": "https://github.com/openwrt/packages/commit/1da75e82a7510d41b9b9b492ed5ea5a64f9f3f12",
+  "source_tag": "v9.2.1014",
+  "source_tag_object": "1859e6b0ae87ee56f617ec2c64bcd4009362d369",
+  "source_commit": "e41756455701b9419f2493ab2e2e0f01557fe939",
+  "source_archive": "vim-9.2.1014.tar.zst",
+  "source_archive_url": "https://sources.openwrt.org/vim-9.2.1014.tar.zst",
+  "source_mirror_sha256": "e42ba0798c07030376bb39a446badd3f937d41382e29582b39ee57c7c6cf1be5",
+  "sign_jump_backport_commit": "2942c934ec7c68791b9da7ab6c29ae4987f7a2fb",
+  "sign_jump_backport_url": "https://github.com/vim/vim/commit/2942c934ec7c68791b9da7ab6c29ae4987f7a2fb",
+  "advisory_url": "https://github.com/vim/vim/security/advisories/GHSA-x9jf-rjm6-vxqh",
+  "base_recipe_sha256": "6a2b3f74ded8047d612b2b22aafc262ee5f778e7ed845b40c5669697d99231a8",
+  "desired_recipe_sha256": "62e0fe75af2b93b66095423b240e55530062c6337da55db37e68936e76808b68",
+  "recipe_delta_sha256": "b2a18091aa577af7b57147481e5b0eeb9445360f5c40d5e557b1daeaac0dd5f6",
+  "base_patchset": {
+    "010-no-msgfmt.patch": "fa8a90b245dac8629107d1a57a95a10a3c8d1752f67aa13b6dc4aad87022b901",
+    "020-remove-helptags-generation.patch": "ea64614484a6a3f5bb57ba3f0d646d64325c809098d262a9ed348d1f694582cc"
+  },
+  "source_patch_name": "030-sign-jump-ex-command-injection.patch",
+  "source_patch_sha256": "43cec0afc5e93a206356d403e6ce0c097fd841b9c8c38e647782ae1e33c7c85a",
+  "prepared_files": {
+    "src/sign.c": "d8bdf04d0d258d5450e3ea6c6b973f9b9a359ff3f7c34dca585864cf801d2993",
+    "src/testdir/test_signs.vim": "e063a31fe30a5ff601faaba866deabbc0064c48e842ad3f4a320289cf45f3478",
+    "src/version.c": "3d52029db2f5ebf58b348e103c6449fcc44d12b1970bccf372df06be617f6aa9"
+  },
+  "claim_boundary": "9.2.1014 plus selective sign.c/test_signs fix, not full 9.2.1090. Helper validates local pinned bytes, not remote signature authenticity or AX6 binary behavior."
+}

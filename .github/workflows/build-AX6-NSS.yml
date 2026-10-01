@@ -165,6 +165,9 @@ jobs:
             LUCI_FEED_URL LUCI_FEED_TRACKING_BRANCH LUCI_FEED_COMMIT \
             PACKAGES_FEED_URL PACKAGES_FEED_COMMIT PACKAGES_FEED_POLICY \
             CGI_IO_SECURITY_BACKPORT_COMMIT \
+            VIM_PACKAGE_VERSION VIM_PACKAGE_RELEASE VIM_PACKAGE_BACKPORT_COMMIT \
+            VIM_SOURCE_COMMIT VIM_SOURCE_MIRROR_SHA256 \
+            VIM_SIGN_JUMP_BACKPORT_COMMIT VIM_SIGN_JUMP_BACKPORT_SHA256 \
             ROUTING_FEED_URL ROUTING_FEED_COMMIT ROUTING_FEED_POLICY \
             TELEPHONY_FEED_URL TELEPHONY_FEED_COMMIT \
             VIDEO_FEED_URL VIDEO_FEED_COMMIT VIDEO_FEED_POLICY \
@@ -184,6 +187,7 @@ jobs:
           for name in \
             SOURCE_BASE_COMMIT SOURCE_COMMIT SQM_SCRIPTS_NSS_COMMIT LUCI_FEED_COMMIT \
             PACKAGES_FEED_COMMIT CGI_IO_SECURITY_BACKPORT_COMMIT \
+            VIM_PACKAGE_BACKPORT_COMMIT VIM_SOURCE_COMMIT VIM_SIGN_JUMP_BACKPORT_COMMIT \
             ROUTING_FEED_COMMIT TELEPHONY_FEED_COMMIT \
             VIDEO_FEED_COMMIT ARGON_THEME_COMMIT ARGON_CONFIG_COMMIT; do
             value="${!name}"
@@ -196,6 +200,11 @@ jobs:
             echo "::error::SOURCE_PATCHSET_MANIFEST_SHA256 must be a 64-character lowercase SHA256"
             exit 1
           fi
+
+          for name in VIM_SOURCE_MIRROR_SHA256 VIM_SIGN_JUMP_BACKPORT_SHA256; do
+            value="${!name}"
+            [[ "$value" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::$name must be SHA256"; exit 1; }
+          done
 
       - name: Clone locked source code
         run: |
@@ -414,6 +423,23 @@ jobs:
             echo "::error file=$cgi_makefile::obsolete cgi-io source remains after security backport"
             exit 1
           fi
+          python3 AX6-IPQ/scripts/apply-vim-security-backport.py check openwrt/feeds/packages
+          python3 tests/test-vim-security-backport.py
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          provenance = json.loads(Path('AX6-IPQ/package-patches/vim/provenance.json').read_text())
+          keys = {
+              'VIM_PACKAGE_VERSION': 'version', 'VIM_PACKAGE_RELEASE': 'release',
+              'VIM_PACKAGE_BACKPORT_COMMIT': 'upstream_package_commit',
+              'VIM_SOURCE_COMMIT': 'source_commit', 'VIM_SOURCE_MIRROR_SHA256': 'source_mirror_sha256',
+              'VIM_SIGN_JUMP_BACKPORT_COMMIT': 'sign_jump_backport_commit',
+              'VIM_SIGN_JUMP_BACKPORT_SHA256': 'source_patch_sha256',
+          }
+          for key, field in keys.items():
+              if os.environ.get(key) != str(provenance[field]):
+                  raise SystemExit('Vim build lock/provenance mismatch: ' + key)
+          PY
 
       - name: Verify tracked OpenClash inputs
         run: |
@@ -542,6 +568,30 @@ jobs:
           make download -j8
           find dl -size -1024c -exec ls -l {} \;
           find dl -size -1024c -exec rm -f {} \;
+
+      - name: Prepare selected Vim source and verify the selective security patch
+        working-directory: ./openwrt
+        run: |
+          set -eo pipefail
+          mkdir -p ../vim-evidence
+          make -j1 package/feeds/packages/vim/prepare V=s 2>&1 | tee ../vim-evidence/prepare.log
+          mapfile -d '' vim_sign_files < <(
+            find build_dir -type f -path '*/target-*/vim-9.2.1014/src/sign.c' -print0
+          )
+          test "${#vim_sign_files[@]}" -eq 1 || { echo '::error::Expected one target Vim source'; exit 1; }
+          vim_source=${vim_sign_files[0]%/src/sign.c}
+          python3 ../AX6-IPQ/scripts/apply-vim-security-backport.py prepared "$vim_source" \
+            | tee ../vim-evidence/prepared-source.json
+          cp ../AX6-IPQ/package-patches/vim/provenance.json ../vim-evidence/provenance.json
+
+      - name: Preserve Vim prepare evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: AX6_NSS_${{ env.VARIANT_TAG }}_VIM_PREPARE_EVIDENCE_${{ github.sha }}
+          path: vim-evidence/
+          if-no-files-found: warn  # Preparation may not have started.
+          retention-days: 14
 
       - name: Fast gate — NSS patch prepare (P0-D.6)
         working-directory: ./openwrt
@@ -757,6 +807,47 @@ jobs:
             exit 1
           }
           unsquashfs -ll "$rootfs" > image-verify/rootfs-files.txt
+          python3 .github/scripts/verify-vim-rootfs.py \
+            --rootfs "$rootfs" --packages-root openwrt/bin/packages \
+            --output image-verify/vim-rootfs.json
+          # Retain selected IPKs plus their *original* full feed indexes for
+          # independent post-download revalidation, not just the CI JSON.
+          python3 - <<'PY'
+          import gzip, hashlib, json, shutil, stat
+          from pathlib import Path
+          root = Path('openwrt/bin/packages').absolute()
+          out = Path('vim-package-evidence')
+          out.mkdir(mode=0o700)
+          report = json.loads(Path('image-verify/vim-rootfs.json').read_text())
+          for package in report['packages']:
+              source = Path(package['ipk_path']).absolute()
+              relative = source.relative_to(root)
+              if not stat.S_ISREG(source.lstat().st_mode):
+                  raise SystemExit('Vim evidence IPK is not regular')
+              if hashlib.sha256(source.read_bytes()).hexdigest() != package['ipk_sha256']:
+                  raise SystemExit('Vim evidence IPK changed since verification')
+              target = out / 'offline-packages' / relative
+              target.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copyfile(source, target)
+              for name in ('Packages', 'Packages.gz'):
+                  index = source.parent / name
+                  if name == 'Packages' and not index.exists():
+                      raise SystemExit('Original Vim index disappeared since verification')
+                  if index.exists() or index.is_symlink():
+                      if not stat.S_ISREG(index.lstat().st_mode):
+                          raise SystemExit('Vim evidence index is not regular')
+                      index_bytes = index.read_bytes()
+                      if name.endswith('.gz'):
+                          index_bytes = gzip.decompress(index_bytes)
+                      if hashlib.sha256(index_bytes).hexdigest() != package['index_sha256']:
+                          raise SystemExit('Vim evidence index changed since verification')
+                      shutil.copyfile(index, target.parent / name)
+          shutil.copyfile('image-verify/vim-rootfs.json', out / 'ROOTFS-CONSISTENCY.json')
+          shutil.copyfile('vim-evidence/prepared-source.json', out / 'PREPARED-SOURCE.json')
+          shutil.copyfile('AX6-IPQ/package-patches/vim/provenance.json', out / 'PROVENANCE.json')
+          with (out / 'SCOPE.txt').open('x') as stream:
+              stream.write('Selected Vim-family IPKs and unchanged original full feed indexes. Other indexed IPKs are intentionally not included. Not a complete offline feed or hardware approval.\n')
+          PY
 
           unsquashfs -cat "$rootfs" lib/upgrade/keep.d/luci-app-openclash \
             > image-verify/openclash-keep
@@ -1230,6 +1321,15 @@ jobs:
           fi
           echo "Final rootfs validation: PASS"
 
+      - name: Preserve actual Vim package payloads for independent revalidation
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: AX6_NSS_${{ env.VARIANT_TAG }}_VIM_PACKAGE_EVIDENCE_${{ github.sha }}
+          path: vim-package-evidence/
+          if-no-files-found: warn  # Rootfs validation may not have started.
+          retention-days: 14
+
       - name: Bind final STOCK FIT, recovery DTB and offline module payloads
         if: env.VARIANT_TAG == 'STOCK'
         run: |
@@ -1299,6 +1399,23 @@ jobs:
             test -s image-verify/artifact-consistency/verification.json
             cp image-verify/artifact-consistency/verification.json upload/upgrade/ARTIFACT-CONSISTENCY.json
             cp image-verify/artifact-consistency/verification.json upload/recovery/ARTIFACT-CONSISTENCY.json
+            # Retain the actual build-dir DTB separately from final FIT extraction.
+            mapfile -d '' compiled_stock_dtbs < <(
+              find openwrt/build_dir -type f \
+                -path '*/linux-qualcommax_ipq807x/image-ipq8071-ax6-stock.dtb' -print0
+            )
+            test "${#compiled_stock_dtbs[@]}" -eq 1
+            cp "${compiled_stock_dtbs[0]}" upload/upgrade/COMPILED-AX6-STOCK.dtb
+            cp "${compiled_stock_dtbs[0]}" upload/recovery/COMPILED-AX6-STOCK.dtb
+            python3 .github/scripts/collect-ax6-kernel-evidence.py \
+              --build-dir openwrt/build_dir --output-dir image-verify/kernel-evidence
+            tar -czf image-verify/KERNEL-EVIDENCE.tar.gz -C image-verify/kernel-evidence .
+            for destination in upload/upgrade upload/recovery; do
+              cp image-verify/KERNEL-EVIDENCE.tar.gz "$destination/"
+              cp image-verify/vim-rootfs.json "$destination/VIM-ROOTFS-CONSISTENCY.json"
+              cp vim-evidence/prepared-source.json "$destination/VIM-PREPARED-SOURCE.json"
+              cp AX6-IPQ/package-patches/vim/provenance.json "$destination/VIM-PROVENANCE.json"
+            done
           fi
 
           cd upload/upgrade
@@ -1329,6 +1446,13 @@ jobs:
             echo "PACKAGES_FEED_COMMIT=$PACKAGES_FEED_COMMIT"
             echo "PACKAGES_FEED_POLICY=$PACKAGES_FEED_POLICY"
             echo "CGI_IO_SECURITY_BACKPORT_COMMIT=$CGI_IO_SECURITY_BACKPORT_COMMIT"
+            echo "VIM_PACKAGE_VERSION=$VIM_PACKAGE_VERSION"
+            echo "VIM_PACKAGE_RELEASE=$VIM_PACKAGE_RELEASE"
+            echo "VIM_PACKAGE_BACKPORT_COMMIT=$VIM_PACKAGE_BACKPORT_COMMIT"
+            echo "VIM_SOURCE_COMMIT=$VIM_SOURCE_COMMIT"
+            echo "VIM_SOURCE_MIRROR_SHA256=$VIM_SOURCE_MIRROR_SHA256"
+            echo "VIM_SIGN_JUMP_BACKPORT_COMMIT=$VIM_SIGN_JUMP_BACKPORT_COMMIT"
+            echo "VIM_SIGN_JUMP_BACKPORT_SHA256=$VIM_SIGN_JUMP_BACKPORT_SHA256"
             echo "ROUTING_FEED_URL=$ROUTING_FEED_URL"
             echo "ROUTING_FEED_COMMIT=$ROUTING_FEED_COMMIT"
             echo "ROUTING_FEED_POLICY=$ROUTING_FEED_POLICY"

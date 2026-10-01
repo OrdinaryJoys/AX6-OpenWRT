@@ -58,6 +58,10 @@ CGI_IO_BACKPORT_PATCH="$REPO_ROOT/AX6-IPQ/package-patches/cgi-io/100-fix-malform
 }
 "$CGI_IO_BACKPORT_HELPER" feeds/packages "$CGI_IO_BACKPORT_PATCH"
 
+# Keep the compatibility feed pin; change only its selected Vim recipe and
+# selective official sign_jump fix. Unknown/partial package bytes fail closed.
+python3 "$REPO_ROOT/AX6-IPQ/scripts/apply-vim-security-backport.py" apply feeds/packages
+
 # ZeroTier explicitly requests its UDP socket buffer, so changing the global
 # rmem_default cannot fix receive-queue overflow. Install an AX6-scoped package
 # patch whose hunk encodes the exact upstream 1 MiB constant. Patch application

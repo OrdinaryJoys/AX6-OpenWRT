@@ -94,6 +94,9 @@ jobs:
           sh tests/test-zerotier-health.sh
           sh tests/test-zerotier-buffer-patch.sh
           sh tests/test-cgi-io-security-backport.sh
+          python3 tests/test-vim-security-backport.py
+          python3 tests/test-vim-rootfs.py
+          python3 tests/test-ax6-kernel-evidence.py
           sh tests/test-openclash-zerotier-bypass.sh
           sh tests/test-ax6-config-audit-zerotier.sh
           sh tests/test-ax6-boot-guard.sh
@@ -392,6 +395,9 @@ jobs:
             LUCI_FEED_URL LUCI_FEED_TRACKING_BRANCH LUCI_FEED_COMMIT \
             PACKAGES_FEED_URL PACKAGES_FEED_COMMIT PACKAGES_FEED_POLICY \
             CGI_IO_SECURITY_BACKPORT_COMMIT \
+            VIM_PACKAGE_VERSION VIM_PACKAGE_RELEASE VIM_PACKAGE_BACKPORT_COMMIT \
+            VIM_SOURCE_COMMIT VIM_SOURCE_MIRROR_SHA256 \
+            VIM_SIGN_JUMP_BACKPORT_COMMIT VIM_SIGN_JUMP_BACKPORT_SHA256 \
             ROUTING_FEED_URL ROUTING_FEED_COMMIT ROUTING_FEED_POLICY \
             TELEPHONY_FEED_URL TELEPHONY_FEED_COMMIT \
             VIDEO_FEED_URL VIDEO_FEED_COMMIT VIDEO_FEED_POLICY \
@@ -410,6 +416,7 @@ jobs:
           for name in \
             SOURCE_BASE_COMMIT SOURCE_COMMIT SQM_SCRIPTS_NSS_COMMIT LUCI_FEED_COMMIT \
             PACKAGES_FEED_COMMIT CGI_IO_SECURITY_BACKPORT_COMMIT \
+            VIM_PACKAGE_BACKPORT_COMMIT VIM_SOURCE_COMMIT VIM_SIGN_JUMP_BACKPORT_COMMIT \
             ROUTING_FEED_COMMIT TELEPHONY_FEED_COMMIT \
             VIDEO_FEED_COMMIT ARGON_THEME_COMMIT ARGON_CONFIG_COMMIT; do
             value="${!name}"
@@ -491,6 +498,24 @@ jobs:
             echo "::error file=$backport::fixed cgi-io source revision is missing"
             exit 1
           }
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          provenance = json.loads(Path('AX6-IPQ/package-patches/vim/provenance.json').read_text())
+          keys = {
+              'VIM_PACKAGE_VERSION': 'version', 'VIM_PACKAGE_RELEASE': 'release',
+              'VIM_PACKAGE_BACKPORT_COMMIT': 'upstream_package_commit',
+              'VIM_SOURCE_COMMIT': 'source_commit', 'VIM_SOURCE_MIRROR_SHA256': 'source_mirror_sha256',
+              'VIM_SIGN_JUMP_BACKPORT_COMMIT': 'sign_jump_backport_commit',
+              'VIM_SIGN_JUMP_BACKPORT_SHA256': 'source_patch_sha256',
+          }
+          for key, field in keys.items():
+              if os.environ.get(key) != str(provenance[field]):
+                  raise SystemExit('Vim build lock/provenance mismatch: ' + key)
+          PY
+          grep -Fq 'apply-vim-security-backport.py" apply feeds/packages' AX6-IPQ/diy.sh
+          grep -Fq 'apply-vim-security-backport.py check openwrt/feeds/packages' "$workflow"
+          grep -Fq "apply-vim-security-backport.py prepared \"\$vim_source\"" "$workflow"
           case "$SOURCE_TRACKING_BRANCH" in
             codex/*|rc-safe/*|rc-perf/*|fix/*|build/*)
               ;;

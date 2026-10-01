@@ -1,0 +1,27 @@
+Subject: vim: use official 9.2.1014 package update plus separately recorded sign fix
+Base-feed: immortalwrt/packages@03d8b9d71b5e27972e4111ebe39898d093544c92
+Upstream-recipe: openwrt/packages@1da75e82a7510d41b9b9b492ed5ea5a64f9f3f12
+Local-release: 2, to distinguish the selective 2942c934 backport from upstream -r1
+
+--- a/Makefile
++++ b/Makefile
+@@ -6,15 +6,15 @@
+ include $(TOPDIR)/rules.mk
+ 
+ PKG_NAME:=vim
+-PKG_VERSION:=9.2.0
+-PKG_XXD_VERSION:=2025.11.26
+-PKG_RELEASE:=1
++PKG_VERSION:=9.2.1014
++PKG_XXD_VERSION:=2026.06.16
++PKG_RELEASE:=2
+ VIMVER:=92
+ 
+ PKG_SOURCE_PROTO:=git
+ PKG_SOURCE_URL:=https://github.com/vim/vim.git
+ PKG_SOURCE_VERSION=v$(PKG_VERSION)
+-PKG_MIRROR_HASH:=92c6fe490fba758bc0a626863713d65c078d2abdbd030e9e423bdf372565d58e
++PKG_MIRROR_HASH:=e42ba0798c07030376bb39a446badd3f937d41382e29582b39ee57c7c6cf1be5
+ 
+ PKG_MAINTAINER:=Alexandru Ardelean <ardeleanalex@gmail.com>
+ PKG_LICENSE:=Vim

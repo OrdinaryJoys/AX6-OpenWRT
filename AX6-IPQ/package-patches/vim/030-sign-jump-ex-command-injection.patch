@@ -1,0 +1,58 @@
+From: Christian Brabandt <cb@256bit.org>
+Subject: [PATCH] sign: use direct buffer editing for sign_jump
+Origin: https://github.com/vim/vim/commit/2942c934ec7c68791b9da7ab6c29ae4987f7a2fb
+Security-advisory: https://github.com/vim/vim/security/advisories/GHSA-x9jf-rjm6-vxqh
+
+Selective backport to v9.2.1014 (e41756455701b9419f2493ab2e2e0f01557fe939).
+Only the upstream src/sign.c and src/testdir/test_signs.vim changes are
+included. The sign.c hunk location is adjusted from 1329 to 1313. Do not
+include src/version.c or claim that all upstream patches through 1090 exist.
+
+--- a/src/sign.c
++++ b/src/sign.c
+@@ -1313,13 +1313,10 @@ sign_jump(int sign_id, char_u *sign_group, buf_T *buf)
+             emsg(_(e_cannot_jump_to_buffer_that_does_not_have_name));
+             return -1;
+         }
+-        char_u *cmd = alloc(STRLEN(buf->b_fname) + 25);
+-        if (cmd == NULL)
++        setpcmark();
++        if (do_ecmd(buf->b_fnum, NULL, NULL, NULL, lnum,
++                    buf_hide(curbuf) ? ECMD_HIDE : 0, curwin) == FAIL)
+             return -1;
+-
+-        sprintf((char *)cmd, "e +%ld %s", (long)lnum, buf->b_fname);
+-        do_cmdline_cmd(cmd);
+-        vim_free(cmd);
+     }
+ # ifdef FEAT_FOLDING
+     foldOpenCursor();
+--- a/src/testdir/test_signs.vim
++++ b/src/testdir/test_signs.vim
+@@ -2163,4 +2163,26 @@ func Test_sign_signcolumn_change_no_clear()
+   bwipe!
+ endfunc
+ 
++" A buffer name containing a bar must not be interpreted as an Ex command
++" separator when jumping to a sign in a buffer that is not displayed.
++func Test_sign_jump_name_with_bar()
++  CheckFeature signs
++
++  let bufnr = bufadd('Xsign|call setline(1, "PWNED")')
++  call bufload(bufnr)
++  call setbufline(bufnr, 1, ['one', 'two', 'three'])
++
++  sign define sjTest text=x
++  call sign_place(1, '', 'sjTest', bufnr, #{lnum: 2})
++
++  call sign_jump(1, '', bufnr)
++
++  call assert_equal(bufnr, bufnr('%'))
++  call assert_equal(2, line('.'))
++  call assert_equal('two', getline(2))
++
++  call sign_undefine('sjTest')
++  exe 'bwipe! ' .. bufnr
++endfunc
++
+ " vim: shiftwidth=2 sts=2 expandtab

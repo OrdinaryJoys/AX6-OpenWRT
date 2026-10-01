@@ -422,7 +422,8 @@ def verify_images(args):
               'sysupgrade_sha256': sha(Path(args.sysupgrade).read_bytes()), 'rootfs_sha256': sha(rootfs),
               'recovery_itb_sha256': sha(itb.read_bytes()), 'factory_ubi_sha256': sha(ubi.read_bytes()),
               'factory_ubi_bytes': ubi.stat().st_size,
-              'coverage_limits': ['factory UBI volume payload not decoded', 'no firmware signature authentication',
+              'coverage_limits': ['module ELF header identity only; no internal ELF/vermagic/symbol ABI validation',
+                                  'factory UBI volume payload not decoded', 'no firmware signature authentication',
                                   'no sysupgrade -T, boot, flash, hardware, or performance test',
                                   'initramfs kernel is intentionally not required to equal sysupgrade kernel']}
     (output / 'verification.json').write_text(json.dumps(report, indent=2) + '\n')
