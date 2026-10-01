@@ -712,7 +712,16 @@ jobs:
         run: |
           set -eo pipefail
           echo "$(nproc) thread compile"
-          make -j"$(nproc)" V=s || make -j1 V=s
+          bash ../.github/scripts/compile-ax6-with-evidence.sh "$(nproc)" ../build-evidence
+
+      - name: Preserve compile attempts even after failure
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: AX6_NSS_${{ env.VARIANT_TAG }}_COMPILE_EVIDENCE_${{ github.sha }}
+          path: build-evidence/
+          if-no-files-found: warn  # Compilation may not have started.
+          retention-days: 14
 
       - name: Validate compiled AX6 stock device trees
         if: env.VARIANT_TAG == 'STOCK'
@@ -1221,6 +1230,30 @@ jobs:
           fi
           echo "Final rootfs validation: PASS"
 
+      - name: Bind final STOCK FIT, recovery DTB and offline module payloads
+        if: env.VARIANT_TAG == 'STOCK'
+        run: |
+          set -eo pipefail
+          python3 tests/test-ax6-artifact-checks.py
+          mapfile -d '' stock_images < <(
+            find openwrt/bin/targets -type f -name '*-redmi_ax6-stock-squashfs-sysupgrade.bin' -print0
+          )
+          mapfile -d '' stock_dtbs < <(
+            find openwrt/build_dir -type f \
+              -path '*/linux-qualcommax_ipq807x/image-ipq8071-ax6-stock.dtb' -print0
+          )
+          test "${#stock_images[@]}" -eq 1
+          test "${#stock_dtbs[@]}" -eq 1
+          python3 .github/scripts/verify-ax6-artifacts.py images \
+            --sysupgrade "${stock_images[0]}" \
+            --recovery-dir "$(dirname "${stock_images[0]}")" \
+            --packages-dir openwrt/bin/targets/qualcommax/ipq807x/packages \
+            --compiled-dtb "${stock_dtbs[0]}" \
+            --dtb-check-script AX6-IPQ/scripts/check-ax6-stock-compiled-dtb.sh \
+            --output-dir image-verify/artifact-consistency
+          # This is an offline consistency gate, not signature authentication,
+          # factory UBI payload decoding, bootability or an on-device sysupgrade -T.
+
       - name: Stage release artifacts + checksums
         run: |
           set -eo pipefail
@@ -1257,6 +1290,16 @@ jobs:
             \( -name '*-squashfs-factory.ubi' \
                -o -name '*-initramfs-uImage.itb' \) \
             -exec cp {} upload/recovery/ \;
+
+          mapfile -d '' recovery_itbs < <(find upload/recovery -maxdepth 1 -type f -name '*-initramfs-uImage.itb' -print0)
+          mapfile -d '' recovery_ubis < <(find upload/recovery -maxdepth 1 -type f -name '*-squashfs-factory.ubi' -print0)
+          test "${#recovery_itbs[@]}" -eq 1 || { echo '::error::Recovery must contain exactly one initramfs ITB'; exit 1; }
+          test "${#recovery_ubis[@]}" -eq 1 || { echo '::error::Recovery must contain exactly one factory UBI'; exit 1; }
+          if [ "$VARIANT_TAG" = STOCK ]; then
+            test -s image-verify/artifact-consistency/verification.json
+            cp image-verify/artifact-consistency/verification.json upload/upgrade/ARTIFACT-CONSISTENCY.json
+            cp image-verify/artifact-consistency/verification.json upload/recovery/ARTIFACT-CONSISTENCY.json
+          fi
 
           cd upload/upgrade
           manifest_file=$(basename "${device_manifests[0]}")
@@ -1332,6 +1375,7 @@ jobs:
             find . -maxdepth 1 -type f \
               \( -name '*.ubi' -o -name '*.itb' \) -print0
           )
+          test "${#recovery_images[@]}" -eq 2
           printf '%s\n' \
             'RECOVERY IMAGES - NOT FOR LUCI OR NORMAL SYSUPGRADE' \
             'factory.ubi and initramfs ITB have different bootloader/recovery purposes.' \
@@ -1365,7 +1409,7 @@ jobs:
         with:
           name: AX6_NSS_${{ env.VARIANT_TAG }}_KMOD_${{ github.sha }}
           path: upload/kmod/*
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 90
 
       - name: Upload validated sysupgrade artifact

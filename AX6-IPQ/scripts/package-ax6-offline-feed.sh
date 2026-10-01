@@ -7,9 +7,14 @@ SOURCE_DIR="${1:?usage: package-ax6-offline-feed.sh SOURCE_DIR OUTPUT_DIR}"
 OUTPUT_DIR="${2:?usage: package-ax6-offline-feed.sh SOURCE_DIR OUTPUT_DIR}"
 PACKAGES_DIR="$OUTPUT_DIR/packages"
 PACKAGES_INDEX="$SOURCE_DIR/Packages"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 
 [ -d "$SOURCE_DIR" ] || { echo "package source directory is missing: $SOURCE_DIR" >&2; exit 1; }
 [ -s "$PACKAGES_INDEX" ] || { echo "target package index is missing" >&2; exit 1; }
+
+# Check the original index, not only newly generated transport checksums.
+# The verifier reads IPK control/data archives without extracting or executing them.
+python3 "$REPO_ROOT/.github/scripts/verify-ax6-artifacts.py" packages "$SOURCE_DIR"
 
 mkdir -p "$OUTPUT_DIR"
 if find "$OUTPUT_DIR" -mindepth 1 -print -quit | grep -q .; then
@@ -66,6 +71,8 @@ if [ -f "$PACKAGES_DIR/Packages.gz" ]; then
         exit 1
     }
 fi
+
+python3 "$REPO_ROOT/.github/scripts/verify-ax6-artifacts.py" packages "$PACKAGES_DIR"
 
 find "$PACKAGES_DIR" -type f -exec sha256sum {} + |
     sed "s#$OUTPUT_DIR/##" > "$OUTPUT_DIR/KMOD-SHA256SUMS.txt"

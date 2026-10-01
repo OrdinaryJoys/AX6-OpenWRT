@@ -17,19 +17,54 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
 
-      - name: Install tools
+      - name: Refresh APT index (bounded)
+        timeout-minutes: 4
         run: |
           set -eo pipefail
-          sudo apt-get -qq update
-          sudo apt-get -qq install -y busybox device-tree-compiler shellcheck yamllint nftables iproute2 cmake libjson-c-dev
-          # actionlint
-          bash <(curl --proto '=https' --tlsv1.2 -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) 1.7.0
-          sudo mv actionlint /usr/local/bin/
+          sudo timeout --kill-after=15s 180s apt-get \
+            -o Acquire::Retries=2 -o Acquire::http::Timeout=20 \
+            -o Acquire::https::Timeout=20 -o APT::Update::Error-Mode=any update
+
+      - name: Install APT dependencies (bounded, no blind dpkg retry)
+        timeout-minutes: 5
+        run: |
+          set -eo pipefail
+          sudo env DEBIAN_FRONTEND=noninteractive timeout --kill-after=15s 240s apt-get \
+            -o Acquire::Retries=2 -o Acquire::http::Timeout=20 \
+            -o Acquire::https::Timeout=20 install -y \
+            busybox device-tree-compiler shellcheck yamllint libjson-c-dev pkg-config iproute2 kmod nftables cmake
+
+      - name: Install pinned actionlint (bounded and SHA256 verified)
+        timeout-minutes: 3
+        run: |
+          set -eo pipefail
+          test "$(uname -m)" = x86_64
+          actionlint_dir=$(mktemp -d "$RUNNER_TEMP/ax6-actionlint.XXXXXXXX")
+          trap 'rm -rf "$actionlint_dir"' EXIT
+          actionlint_asset=actionlint_1.7.0_linux_amd64.tar.gz
+          timeout --kill-after=10s 150s curl \
+            --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --connect-timeout 15 --max-time 45 --retry 2 \
+            --retry-delay 2 --retry-max-time 120 --fail --show-error --location \
+            "https://github.com/rhysd/actionlint/releases/download/v1.7.0/$actionlint_asset" \
+            --output "$actionlint_dir/$actionlint_asset"
+          (
+            cd "$actionlint_dir"
+            # Official v1.7.0 release checksum; no mutable installer execution.
+            printf '%s  %s\n' \
+              8aae9148f61952d11a97651852fdc7dffd2b762ed3cdd28b3c2232ae5f55d4db \
+              "$actionlint_asset" | sha256sum --check --strict -
+          )
+          tar -xzf "$actionlint_dir/$actionlint_asset" -C "$actionlint_dir" actionlint
+          sudo install -m 0755 "$actionlint_dir/actionlint" /usr/local/bin/actionlint
+          test "$(actionlint -version | sed -n '1p')" = 1.7.0
 
       - name: Shellcheck (errors only block)
         run: |
           set -eo pipefail
-          find . -type f \( -name "*.sh" -o -path "*/uci-defaults/*" -o -path "*/hotplug.d/*" -o -path "*/sbin/*" -o -path "*/usr/sbin/*" -o -path "*/usr/bin/*" \) ! -path "./.git/*" -print0 | \
+          # Byte-exact historical SQM fixtures have their dedicated provenance gates.
+          # Keep test data out of generic shellcheck; never install it into rootfs.
+          find . -type f \( -name "*.sh" -o -path "*/uci-defaults/*" -o -path "*/hotplug.d/*" -o -path "*/sbin/*" -o -path "*/usr/sbin/*" -o -path "*/usr/bin/*" \) ! -path "./.git/*" ! -path "./tests/fixtures/sqm-locked/*" -print0 | \
             xargs -0 -P4 shellcheck -S error -f gcc
           sh tests/test-vlan-add.sh
           sh tests/test-openvpn-defaults.sh
@@ -37,6 +72,14 @@ jobs:
           python3 tests/test-openclash-dns-scope.py
           AX6_TEST_SHELL='busybox ash' python3 tests/test-openclash-proxy-scope.py
           python3 tests/test-rps-image-mode-gate.py
+          python3 tests/test-ax6-artifact-checks.py
+          python3 tests/test-ax6-compile-evidence.py
+          # Offline only: ownership remains blocked; never apply in DIY/rootfs.
+          python3 tests/test-ax6-sqm-transaction.py --shell /bin/bash
+          python3 tests/test-ax6-sqm-ownership-protocol.py
+          PYTHONDONTWRITEBYTECODE=1 python3 tests/test-ax6-sqm-link-inventory.py
+          PYTHONDONTWRITEBYTECODE=1 python3 tests/test-ax6-sqm-durable-journal.py
+          PYTHONDONTWRITEBYTECODE=1 python3 tests/test-ax6-sqm-journal-crash.py --self-test
           python3 tests/test-openclash-dns-policy-probe.py
           sh tests/test-ax6-dns-source-contract.sh
           sh tests/test-openclash-archive.sh
@@ -66,6 +109,12 @@ jobs:
           sh AX6-IPQ/tests/test-ax6-nss-frequency-ab.sh
           sh AX6-IPQ/tests/test-ax6-reload-matrix-validate.sh
           sh AX6-IPQ/tests/test-ax6-udp-baseline-fixture.sh
+
+      - name: Locked SQM offline contracts (BusyBox ash, no kernel actions)
+        run: |
+          set -eo pipefail
+          busybox | sed -n '1p'
+          python3 tests/test-ax6-sqm-transaction.py --shell 'busybox ash'
 
       - name: Build locked target-version ucode for health fixtures
         run: |
@@ -149,6 +198,60 @@ jobs:
 
       - name: Actionlint
         run: actionlint -color .github/workflows/*.yml
+
+      - name: SQM real kernel objects in a new isolated namespace
+        run: |
+          set -eo pipefail
+          mkdir -p "$RUNNER_TEMP/ax6-sqm-kernel-evidence"
+          sudo env GITHUB_ACTIONS="$GITHUB_ACTIONS" RUNNER_ENVIRONMENT="$RUNNER_ENVIRONMENT" \
+            bash .github/scripts/prepare-ax6-sqm-kernel-ci.sh \
+            2>&1 | tee "$RUNNER_TEMP/ax6-sqm-kernel-evidence/preparation.log"
+          kernel_status=0
+          sudo env AX6_SQM_KERNEL_ISOLATED_TEST=1 \
+            GITHUB_ACTIONS="$GITHUB_ACTIONS" RUNNER_ENVIRONMENT="$RUNNER_ENVIRONMENT" \
+            python3 tests/test-ax6-sqm-kernel-isolation.py \
+            --report "$RUNNER_TEMP/ax6-sqm-kernel-evidence/result.json" || kernel_status=$?
+          if [[ -f "$RUNNER_TEMP/ax6-sqm-kernel-evidence/result.json" ]]; then
+            sudo chown "$(id -u):$(id -g)" "$RUNNER_TEMP/ax6-sqm-kernel-evidence/result.json"
+          fi
+          exit "$kernel_status"
+
+      - name: Save isolated SQM kernel evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: ax6-sqm-kernel-evidence
+          path: ${{ runner.temp }}/ax6-sqm-kernel-evidence/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: SQM durable journal and real worker SIGKILL (isolated, test only)
+        timeout-minutes: 4
+        run: |
+          set -eo pipefail
+          mkdir -p "$RUNNER_TEMP/ax6-sqm-journal-crash-evidence"
+          # Recheck module preparation and host link identity; never unload.
+          sudo env GITHUB_ACTIONS="$GITHUB_ACTIONS" RUNNER_ENVIRONMENT="$RUNNER_ENVIRONMENT" \
+            bash .github/scripts/prepare-ax6-sqm-kernel-ci.sh \
+            2>&1 | tee "$RUNNER_TEMP/ax6-sqm-journal-crash-evidence/preparation.log"
+          crash_status=0
+          sudo env AX6_SQM_JOURNAL_CRASH_TEST=1 PYTHONDONTWRITEBYTECODE=1 \
+            GITHUB_ACTIONS="$GITHUB_ACTIONS" RUNNER_ENVIRONMENT="$RUNNER_ENVIRONMENT" \
+            RUNNER_TEMP="$RUNNER_TEMP" python3 tests/test-ax6-sqm-journal-crash.py \
+            --report "$RUNNER_TEMP/ax6-sqm-journal-crash-evidence/result.json" || crash_status=$?
+          if [[ -f "$RUNNER_TEMP/ax6-sqm-journal-crash-evidence/result.json" ]]; then
+            sudo chown "$(id -u):$(id -g)" "$RUNNER_TEMP/ax6-sqm-journal-crash-evidence/result.json"
+          fi
+          exit "$crash_status"
+
+      - name: Save SQM journal crash evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: ax6-sqm-journal-crash-evidence
+          path: ${{ runner.temp }}/ax6-sqm-journal-crash-evidence/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Yamllint (relaxed)
         run: yamllint -d relaxed .github/
@@ -429,6 +532,11 @@ jobs:
             'python3 tests/test-ecm-reload-errors.py' \
             'python3 tests/test-ecm-service-errors.py' \
             'python3 tests/test-ecm-offload-errors.py' \
+            "RPS_TEST_SHELL='busybox ash' python3 tests/test-set-irq-affinity-policy-errors.py" \
+            "RPS_TEST_SHELL='busybox ash' python3 openwrt/tests/test-set-irq-affinity-policy-errors.py" \
+            'unsquashfs -cat "$rootfs" lib/functions/procd.sh' \
+            'require_rps_datafile lib/functions/procd.sh' \
+            'require_rps_datafile lib/functions.sh' \
             'python3 openwrt/tests/test-ecm-service-errors.py "$rps_fixture"' \
             'python3 openwrt/tests/test-ecm-reload-errors.py "$rps_fixture"' \
             'python3 openwrt/tests/test-ecm-rps-ownership.py "$rps_fixture"' \

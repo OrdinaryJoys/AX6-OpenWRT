@@ -1,0 +1,90 @@
+AX6 SQM ownership: a minimal OFFLINE protocol, not a deployed repair
+
+Status: OFFLINE_ONLY_NOT_DEPLOYABLE. No real backend or cleanup CLI exists.
+Automatic compensation is denied even in the mock; explicit simulation consent
+is required. This does not replace or enable the previous SQM injector.
+
+What this stage adds
+1. An instance/run identity plus boot/netns/device/ifindex and a deliberately
+   MOCK-ONLY incarnation. An ifindex alone is not an incarnation identifier.
+2. A write-before-effect intent, then a successful exact receipt. No receipt is
+   fabricated from command exit=0. Lost replies or journal publication failures
+   leave unknown intents and prohibit automatic retry/cleanup.
+3. Explicit dependency references: parent receipts must already be committed;
+   missing/foreign/replaced parents and cycles/out-of-order plans are refused.
+   The mock validates the complete ancestor receipt chain, not just kind.
+4. Explicit simulation compensation in reverse successful order. The mock
+   atomically checks device, owner/run, resource parameters, token, ancestors
+   and foreign children before removal. Failure stops parent deletion and keeps
+   remaining receipts; definite no-effect failures permit explicit retry.
+5. Regression counterexamples for unsafe compare-delete and the REAL locked
+   legacy stop function, with all tc/ip/module effects mocked.
+
+Files and command
+  .github/scripts/ax6-sqm-ownership-protocol.py
+  tests/test-ax6-sqm-ownership-protocol.py
+  python3 -B tests/test-ax6-sqm-ownership-protocol.py
+
+The protocol module itself uses no filesystem, subprocess, network or kernel
+API. MemoryJournal is failure-injectable volatile TEST storage; its revision
+check is not a filesystem lock or an on-router durability implementation.
+MockBackend lives only in the test. It supplies imaginary atomic exact-undo
+receipts. This requirement is NOT an assertion that tc/netlink implements CAS.
+The small example models three symbolic creates on one existing interface. It
+does not translate all NSS/CAKE commands or represent IFB creation/up, module
+loading, link attributes, iptables rewinds, real filter identifiers or rates.
+
+Locked source facts, not repaired by this protocol
+Generic: tohojo/sqm-scripts 20ba92639546075d8e39346dcb88a3cdfe8ee903.
+NSS: qosmio/sqm-scripts-nss 4b4ed8639229be5e70cf94b73cdf7dbc09e66d5d.
+Raw fixtures remain unmodified and SHA-checked by the previous injector.
+NSS creates six nsstbl/nssprio/leaf objects plus nssfq_codel for each direction.
+Ingress performs IFB add/up, ingress qdisc, auto-identified u32/nssmirred filter,
+then the seven-object IFB subtree. Current filter add does not provide an exact
+explicit filter handle/priority. Current stop enumerates parents and removes
+root/ingress, while masking some errors; it may also unload shared modules.
+Generic code can adopt a discovered IFB and uses broad root/ingress deletion.
+The new protocol does not make any of these production paths safe.
+
+Real-backend gap and next isolated validation stage
+A. Use an explicitly authorised disposable Linux VM/network namespace. Create
+   only new veth/dummy/IFB devices there; do not move physical/control interfaces.
+   Begin with generic CAKE. That cannot validate NSS hardware qdisc semantics.
+B. Inventory the exact target tc and kernel features. Capture full identities
+   for qdisc/filter/class/action, explicit handles/parent/chain/pref/protocol,
+   ACKs, and parameter dumps. Netlink ACK/echo plus rereading is evidence of an
+   operation, NOT an unforgeable creator token or atomic compare-and-delete.
+C. Decide a defensible ownership boundary. An exclusive supervisor inside a
+   private namespace can constrain cooperating clients in an experiment, but
+   its lock does not constrain arbitrary CAP_NET_ADMIN actors. If ownership
+   cannot be established, leave cleanup denied. Do not silently lower the
+   protocol to a kind/handle comparison or ignore a missing/recreated object.
+D. Implement separately reviewed durable journal storage (no-follow paths,
+   exact owner/mode, lock/revision rules, atomic publication plus file/directory
+   fsync where required). Exercise every ACK/journal crash window; ambiguous
+   outcomes require reconciliation, not speculative deletion or resource reuse.
+E. Only then adapt each real create/undo operation, including IFB identity/up,
+   shared modules and filter IDs. No unconditional module unload, adoption or
+   replace. Inject same-handle foreign replacements, ifindex reuse, foreign
+   descendants, SIGKILL and journal failures. Assert foreign objects survive.
+F. Integrate into the two locked packages only after backend proof. Real NSS
+   target testing, BusyBox integration and CAKE/NSS behavior/performance remain
+   separate authorised gates. This phase performs none of A-F on any machine.
+
+Primary reference inspection (2026-09-30)
+https://github.com/torvalds/linux/blob/v6.18/net/sched/sch_api.c
+  tc_get_qdisc obtains a device by ifindex; deletion selects existing qdisc by
+  parent/handle/kind and grafts NULL. This inspected path has no equivalent of
+  our mock owner/run/incarnation token. v6.18 is a reference, not byte evidence
+  for the patched AX6 firmware. This is a scope-limited inference from code.
+https://github.com/iproute2/iproute2/blob/main/tc/tc_qdisc.c
+  do_qdisc distinguishes exclusive create, replace and RTM_DELQDISC. This is a
+  freshly read upstream reference, not a pinned target tc capability report.
+https://github.com/qosmio/sqm-scripts-nss/blob/4b4ed8639229be5e70cf94b73cdf7dbc09e66d5d/nss-zk.qos
+https://github.com/tohojo/sqm-scripts/blob/20ba92639546075d8e39346dcb88a3cdfe8ee903/src/functions.sh
+
+Non-claims
+No complete SQM repair, durable ownership, kernel atomicity, production-ready
+rollback, multi-interface transaction, namespace performance, hardware NSS or
+router test has been demonstrated. Passing model contracts are not additional
+fixed router defects. The earlier OFFLINE_ONLY release block is unchanged.

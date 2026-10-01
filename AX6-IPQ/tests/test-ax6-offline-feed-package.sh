@@ -9,21 +9,7 @@ trap 'rm -rf "$WORK"' EXIT
 
 make_source() {
     local source="$1"
-    mkdir -p "$source"
-    printf 'kmod fixture\n' > "$source/kmod-fixture_1_aarch64.ipk"
-    printf 'dependency fixture\n' > "$source/runtime-dependency_1_aarch64.ipk"
-    cat > "$source/Packages" <<'EOF'
-Package: kmod-fixture
-Version: 1
-Filename: kmod-fixture_1_aarch64.ipk
-
-Package: runtime-dependency
-Version: 1
-Filename: runtime-dependency_1_aarch64.ipk
-EOF
-    gzip -c "$source/Packages" > "$source/Packages.gz"
-    cp "$source/Packages" "$source/Packages.manifest"
-    printf 'fixture signature\n' > "$source/Packages.sig"
+    python3 "$ROOT/tests/test-ax6-artifact-checks.py" --make-feed "$source"
 }
 
 source_ok="$WORK/source-ok"
