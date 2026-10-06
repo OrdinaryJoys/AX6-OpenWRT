@@ -808,7 +808,10 @@ jobs:
 
       - name: Validate final rootfs contents
         run: |
-          set -eo pipefail
+          set -Eeuo pipefail
+          # Fail with the exact failing gate instead of a silent awk/test exit.
+          # This block inspects public build files; do not enable global xtrace.
+          trap 'rc=$?; printf "::error::Rootfs validation failed rc=%s line=%s command=%s\n" "$rc" "$LINENO" "$BASH_COMMAND" >&2; exit "$rc"' ERR
           mapfile -d '' images < <(
             find openwrt/bin/targets -type f -name '*-squashfs-sysupgrade.bin' -print0
           )
@@ -902,9 +905,10 @@ jobs:
             [ "$path" != usr/sbin/ax6-openclash-fw-health ] || mode=-rwxr-xr-x
             awk -v path="squashfs-root/$path" -v mode="$mode" '$NF == path { n++; if ($1 != mode) bad=1 } END { exit (n != 1 || bad) }' image-verify/rootfs-files.txt
           done
-          for path in usr/bin/ucode usr/bin/flock; do
-            awk -v path="squashfs-root/$path" '$NF == path { n++ } END { exit (n != 1) }' image-verify/rootfs-files.txt
-          done
+          # The locked BusyBox flock is a link: $NF is its target, not its path.
+          # Check only the exact reviewed link and its regular executable target.
+          python3 .github/scripts/verify-openclash-rootfs-entrypoints.py \
+            image-verify/rootfs-files.txt > image-verify/openclash-entrypoints.json
           unsquashfs -cat "$rootfs" usr/lib/opkg/info/ucode-mod-fs.control > image-verify/ucode-mod-fs.control
           grep -Fxq 'Package: ucode-mod-fs' image-verify/ucode-mod-fs.control
           # These gates cover generated entry rules, not real device throughput.
@@ -1338,6 +1342,15 @@ jobs:
             echo "EXPAND UBI size: ${factory_size}/${expand_partition_size} bytes"
           fi
           echo "Final rootfs validation: PASS"
+
+      - name: Preserve rootfs diagnostic evidence even after validation failure
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: AX6_NSS_${{ env.VARIANT_TAG }}_ROOTFS_EVIDENCE_${{ github.sha }}
+          path: image-verify/
+          if-no-files-found: warn  # The rootfs gate may not have started.
+          retention-days: 14
 
       - name: Preserve actual Vim package payloads for independent revalidation
         if: always()
