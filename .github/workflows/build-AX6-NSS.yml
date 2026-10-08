@@ -1176,6 +1176,15 @@ jobs:
             sh tests/test-pbuf-fixture.sh
           unsquashfs -cat "$rootfs" usr/lib/opkg/status \
             > image-verify/opkg-status
+          # Each Actions run step has its own shell; do not reuse collector arrays.
+          # Capture find's status before parsing, including partial-scan failures.
+          find openwrt/bin/targets -type f -name '*-squashfs-sysupgrade.bin' -print0 \
+            > image-verify/sysupgrade-images.nul
+          mapfile -d '' images < image-verify/sysupgrade-images.nul
+          if [ "${#images[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one sysupgrade image, found ${#images[@]}"
+            exit 1
+          fi
           target_dir=$(dirname "${images[0]}")
           mapfile -d '' device_manifests < <(
             find "$target_dir" -maxdepth 1 -type f -name '*.manifest' -print0

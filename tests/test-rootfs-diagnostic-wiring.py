@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Inspect the exact workflow block and exercise its ERR trap in isolation."""
 import json
+import os
 from pathlib import Path
+import shlex
 import subprocess
+import tempfile
 import textwrap
 
 root = Path(__file__).resolve().parents[1]
@@ -55,6 +58,28 @@ assert workflow.index('      - name: Compile firmware\n') < workflow.index(kerne
 assert workflow.index(kernel_marker) < workflow.index('      - name: Preserve compile attempts even after failure\n')
 assert workflow.index(kernel_marker) < workflow.index('      - name: Validate final rootfs contents\n')
 
+# Re-execute the exact local selectors and manifest gate in a fresh step shell.
+# The collector's shell array must not be assumed to survive an Actions boundary.
+image_marker = '# Each Actions run step has its own shell; do not reuse collector arrays.\n'
+assert script.count(image_marker) == 1
+assert script.count("mapfile -d '' images") == 1
+assert script.index("mapfile -d '' images") < script.index('target_dir=$(dirname "${images[0]}")')
+assert 'find openwrt/bin/targets -type f' in script
+assert 'mapfile -d \'\' images < image-verify/sysupgrade-images.nul' in script
+assert 'if [ "${#images[@]}" -ne 1 ]; then' in script
+assert 'if [ "${#roots[@]}" -ne 1 ]; then' in script
+assert 'target_dir=$(dirname "${roots[0]}")' not in script
+assert 'target_dir=$(dirname "$rootfs")' not in script
+root_selector = "mapfile -d '' roots" + script.split("mapfile -d '' roots", 1)[1].split('unsquashfs -ll', 1)[0]
+manifest_gate = image_marker + script.split(image_marker, 1)[1].split('openclash_version=', 1)[0]
+old_manifest_gate = 'target_dir=$(dirname "${images[0]}")' + manifest_gate.split('target_dir=$(dirname "${images[0]}")', 1)[1]
+collection_script = textwrap.dedent(collection.split('        run: |\n', 1)[1])
+collector_selector = collection_script.split('mkdir -p image-verify', 1)[0]
+bash = shlex.split(os.environ.get('AX6_TEST_BASH', 'bash'))
+capability = subprocess.run(bash + ['-c', "mapfile -d '' values < /dev/null"],
+                            capture_output=True, text=True, timeout=10)
+assert capability.returncode == 0, 'These exact workflow selectors require Bash with mapfile -d (Actions Bash or AX6_TEST_BASH).'
+
 rows = []
 cases = [
     ('valid', 'true', 0),
@@ -64,7 +89,7 @@ cases = [
     ('child-failure', "bash -c 'exit 13'", 13),
 ]
 for name, command, expected in cases:
-    result = subprocess.run(['bash', '-c', prefix + command + '\nprintf completed'],
+    result = subprocess.run(bash + ['-c', prefix + command + '\nprintf completed'],
                             capture_output=True, text=True, timeout=10)
     assert result.returncode == expected, (name, result.returncode, result.stderr)
     if expected:
@@ -74,5 +99,94 @@ for name, command, expected in cases:
     else:
         assert result.stdout == 'completed' and result.stderr == ''
     rows.append({'case': name, 'rc': result.returncode, 'matched': True})
-print(json.dumps({'scope': 'Exact workflow diagnostic prefix with controlled host commands; no rootfs, target execution or Actions upload',
-                  'cases': rows}, indent=2))
+
+scope_rows = []
+scope_cases = [
+    ('fresh-step-valid', 0, ''),
+    ('nul-path-with-space-and-newline', 0, ''),
+    ('valid-plus-directory-and-symlink', 0, ''),
+    ('removed-local-selector-regression', 1, 'images[0]: unbound variable'),
+    ('zero-images', 1, 'Expected exactly one sysupgrade image, found 0'),
+    ('two-images', 1, 'Expected exactly one sysupgrade image, found 2'),
+    ('directory-image-only', 1, 'Expected exactly one sysupgrade image, found 0'),
+    ('symlink-image-only', 1, 'Expected exactly one sysupgrade image, found 0'),
+    ('partial-image-scan-fails', 7, 'Rootfs validation failed rc=7'),
+    ('zero-retained-roots', 1, 'Expected exactly one retained root filesystem, found 0'),
+    ('two-retained-roots', 1, 'Expected exactly one retained root filesystem, found 2'),
+    ('zero-manifests', 1, 'Expected exactly one device package manifest, found 0'),
+    ('two-manifests', 1, 'Expected exactly one device package manifest, found 2'),
+    ('mismatched-manifest', 1, 'device manifest does not match'),
+    ('manifest-only-in-rootfs-directory', 1, 'Expected exactly one device package manifest, found 0'),
+]
+for name, expected, diagnostic in scope_cases:
+    with tempfile.TemporaryDirectory(prefix='ax6-rootfs-step-scope-') as tmp:
+        fixture = Path(tmp)
+        target = fixture / 'openwrt/bin/targets/qualcommax/ipq807x'
+        if name == 'nul-path-with-space-and-newline':
+            target = target / 'with space\nand newline'
+        target.mkdir(parents=True)
+        image = target / 'ax6-squashfs-sysupgrade.bin'
+        image.write_bytes(b'controlled image-path fixture, not firmware')
+        retained = fixture / 'image-verify/extracted'
+        retained.mkdir(parents=True)
+        retained_root = retained / 'root'
+        retained_root.write_bytes(b'controlled retained-path fixture, not SquashFS')
+        manifest = target / 'ax6.manifest'
+        manifest.write_text('vim-fuller - 9.2.1014-r2\n')
+        (fixture / 'image-verify/opkg-status').write_text(
+            'Package: vim-fuller\nVersion: 9.2.1014-r2\nStatus: install ok installed\n\n')
+        (fixture / '.github').mkdir()
+        (fixture / '.github/scripts').symlink_to(root / '.github/scripts', target_is_directory=True)
+        environment = os.environ.copy()
+        environment.pop('images', None)
+        # A completed first shell really defines images, then exits. Only files persist.
+        prior = subprocess.run(bash + ['-c', collector_selector + '\ndeclare -p images'],
+                               cwd=fixture, env=environment, capture_output=True, text=True, timeout=10)
+        assert prior.returncode == 0 and 'declare -a images=' in prior.stdout, (name, prior.stderr)
+        extra = ''
+        gate = manifest_gate
+        if name == 'removed-local-selector-regression':
+            gate = old_manifest_gate
+        elif name in ('zero-images', 'directory-image-only', 'symlink-image-only'):
+            image.unlink()
+            if name == 'directory-image-only':
+                image.mkdir()
+            elif name == 'symlink-image-only':
+                image.symlink_to(retained_root)
+        elif name == 'two-images':
+            (target / 'other-squashfs-sysupgrade.bin').write_bytes(b'second candidate')
+        elif name == 'valid-plus-directory-and-symlink':
+            (target / 'dir-squashfs-sysupgrade.bin').mkdir()
+            (target / 'link-squashfs-sysupgrade.bin').symlink_to(image)
+        elif name == 'partial-image-scan-fails':
+            extra = ('find() { if [ "$1" = openwrt/bin/targets ]; then '
+                     "printf '%s\\0' openwrt/bin/targets/qualcommax/ipq807x/ax6-squashfs-sysupgrade.bin; "
+                     'return 7; fi; command find "$@"; }\n')
+        elif name == 'zero-retained-roots':
+            retained_root.unlink()
+        elif name == 'two-retained-roots':
+            (retained / 'other').mkdir()
+            (retained / 'other/root').write_bytes(b'second retained root')
+        elif name in ('zero-manifests', 'manifest-only-in-rootfs-directory'):
+            manifest.unlink()
+            if name == 'manifest-only-in-rootfs-directory':
+                (retained / 'ax6.manifest').write_text('vim-fuller - 9.2.1014-r2\n')
+        elif name == 'two-manifests':
+            (target / 'other.manifest').write_text('vim-fuller - 9.2.1014-r2\n')
+        elif name == 'mismatched-manifest':
+            manifest.write_text('vim-fuller - 9.2.1014-r3\n')
+        result = subprocess.run(bash + ['-c', prefix + extra + root_selector + gate + '\nprintf completed'],
+                                cwd=fixture, env=environment, capture_output=True, text=True, timeout=10)
+        assert result.returncode == expected, (name, result.returncode, result.stdout, result.stderr)
+        if expected:
+            assert diagnostic in result.stdout + result.stderr, (name, result.stdout, result.stderr)
+            assert 'completed' not in result.stdout and 'inventory: PASS' not in result.stdout, (name, result.stdout)
+        else:
+            assert 'Device manifest/rootfs package inventory: PASS' in result.stdout, (name, result.stdout)
+            assert result.stdout.endswith('completed') and result.stderr == '', (name, result.stderr)
+        scope_rows.append({'case': name, 'prior_step_rc': prior.returncode,
+                           'rc': result.returncode, 'matched': True,
+                           'expected_diagnostic': diagnostic,
+                           'stdout': result.stdout, 'stderr': result.stderr})
+print(json.dumps({'scope': 'Exact workflow diagnostic prefix, retained-root selector, fresh-step image selector and real device-manifest gate with controlled host files; no rootfs acceptance, target execution or Actions upload',
+                  'trap_cases': rows, 'step_scope_cases': scope_rows}, indent=2))
