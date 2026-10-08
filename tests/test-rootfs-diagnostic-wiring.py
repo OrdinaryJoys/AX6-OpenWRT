@@ -11,7 +11,7 @@ marker = '      - name: Validate final rootfs contents\n'
 assert workflow.count(marker) == 1
 block = workflow.split(marker, 1)[1].split('\n      - name:', 1)[0]
 script = textwrap.dedent(block.split('        run: |\n', 1)[1])
-prefix = script.split("mapfile -d '' images", 1)[0]
+prefix = script.split("mapfile -d '' roots", 1)[0]
 assert 'set -Eeuo pipefail' in prefix
 assert 'trap ' in prefix and ' ERR\n' in prefix
 assert 'set -x' not in prefix
@@ -26,6 +26,34 @@ assert workflow.index(marker) > workflow.index('      - name: Validate final roo
 assert workflow.index(marker) < workflow.index('      - name: Bind final STOCK FIT')
 assert 'if: always()' in upload and 'path: image-verify/' in upload
 assert 'ROOTFS_EVIDENCE_${{ github.sha }}' in upload
+collect = 'python3 .github/scripts/collect-vim-package-evidence.py'
+verify = 'python3 .github/scripts/verify-vim-rootfs.py'
+collection_marker = '      - name: Preserve original Vim inputs before DTB and rootfs gates\n'
+assert workflow.count(collection_marker) == 1
+collection = workflow.split(collection_marker, 1)[1].split('\n      - name:', 1)[0]
+assert collection.count(collect) == 1 and script.count(verify) == 1
+assert collect not in script
+assert "if: ${{ !cancelled() && steps.compile_firmware.outcome == 'success' }}" in collection
+assert 'id: compile_firmware' in workflow
+assert workflow.index(collection_marker) < workflow.index('      - name: Validate compiled AX6 stock device trees\n')
+assert workflow.index(collection_marker) < workflow.index('      - name: Validate final rootfs contents\n')
+assert 'unsquashfs -ll' not in collection
+assert '--output vim-package-evidence' in collection
+assert 'test "${#roots[@]}" -eq 1' in collection
+assert '--packages-root vim-package-evidence/offline-packages' in script
+assert 'cp image-verify/vim-rootfs.json vim-package-evidence/ROOTFS-CONSISTENCY.json' in script
+vim_upload_marker = '      - name: Preserve actual Vim package payloads for independent revalidation\n'
+vim_upload = workflow.split(vim_upload_marker, 1)[1].split('\n      - name:', 1)[0]
+assert 'if: always()' in vim_upload and 'path: vim-package-evidence/' in vim_upload
+kernel_marker = '      - name: Preserve generated kernel and compiled stock DTB before rootfs gates\n'
+assert workflow.count(kernel_marker) == 1
+kernel = workflow.split(kernel_marker, 1)[1].split('\n      - name:', 1)[0]
+assert "if: success() && env.VARIANT_TAG == 'STOCK'" in kernel
+assert '--output-dir build-evidence/kernel-evidence' in kernel
+assert 'build-evidence/COMPILED-AX6-STOCK.dtb' in kernel
+assert workflow.index('      - name: Compile firmware\n') < workflow.index(kernel_marker)
+assert workflow.index(kernel_marker) < workflow.index('      - name: Preserve compile attempts even after failure\n')
+assert workflow.index(kernel_marker) < workflow.index('      - name: Validate final rootfs contents\n')
 
 rows = []
 cases = [

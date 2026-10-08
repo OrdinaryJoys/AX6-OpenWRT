@@ -96,6 +96,7 @@ jobs:
           sh tests/test-cgi-io-security-backport.sh
           python3 tests/test-vim-security-backport.py
           python3 tests/test-vim-rootfs.py
+          python3 tests/test-vim-package-evidence.py
           python3 tests/test-ax6-kernel-evidence.py
           python3 tests/test-vim-host-tools-wiring.py
           python3 tests/test-openclash-rootfs-entrypoints.py

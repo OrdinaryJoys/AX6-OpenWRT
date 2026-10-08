@@ -93,6 +93,30 @@ def exact_runtime_dependency(value):
             'vim-fuller must have one exact vim-runtime (= ' + VERSION + ') dependency')
 
 
+def dependency_atoms(value):
+    """Compare the selected packages' dependency grammar, not opkg's spacing.
+
+    Locked opkg 80503d94 reserializes '=VERSION' as '= VERSION'. Preserve
+    clause order, duplicates, package names, operators and version bytes;
+    never sort, deduplicate, drop a constraint or accept an alternative.
+    Unsupported grammar fails closed rather than guessing equivalence.
+    """
+    require(isinstance(value, str) and len(value) <= 65536 and
+            all(c in '\t ' or 33 <= ord(c) <= 126 for c in value),
+            'unsupported dependency grammar')
+    if not value.strip(' \t'):
+        return ()
+    pattern = re.compile(r'[ \t]*([A-Za-z0-9][A-Za-z0-9+_.-]*)'
+                         r'(?:[ \t]*\([ \t]*(<=|>=|=|<|>)[ \t]*'
+                         r'([A-Za-z0-9][A-Za-z0-9.+:~_-]*)[ \t]*\))?[ \t]*')
+    result = []
+    for clause in value.split(','):
+        match = pattern.fullmatch(clause)
+        require(match is not None, 'unsupported dependency grammar')
+        result.append(match.groups())
+    return tuple(result)
+
+
 def selected_ipks(directory, names=PACKAGES):
     root = Path(directory)
     require(root.is_dir() and not root.is_symlink(), 'packages-root is not a regular directory')
@@ -171,8 +195,9 @@ def package_contract(packages, status):
         require(control.get('Architecture') and control['Architecture'] == current.get('Architecture'),
                 'Vim control/status architecture differs')
         arch.add(control['Architecture'])
-        require(' '.join(control.get('Depends', '').split()) == ' '.join(current.get('Depends', '').split()),
-                'Vim control/status dependency metadata differs')
+        require(dependency_atoms(control.get('Depends', '')) ==
+                dependency_atoms(current.get('Depends', '')),
+                'Vim control/status dependency metadata differs: ' + name)
     require(arch == {'aarch64_cortex-a53'}, 'Vim packages are not the expected AArch64 target architecture')
     exact_runtime_dependency(packages['vim-fuller']['control'].get('Depends', ''))
     exact_runtime_dependency(installed['vim-fuller'].get('Depends', ''))
@@ -210,7 +235,7 @@ def payload_contract(packages):
 
 
 def verify_payload(packages, status, listing, rootcat):
-    package_contract(packages, status)
+    installed = package_contract(packages, status)
     entries, owners = payload_contract(packages)
     actual = listing_entries(listing, set(entries))
     regular, reports = [], []
@@ -252,6 +277,11 @@ def verify_payload(packages, status, listing, rootcat):
                     task.cancel()
                 raise
     return {'status': 'PASS_VIM_IPK_ROOTFS_BINDING_ONLY', 'version': VERSION,
+            'dependency_binding': [{'name': name,
+                                    'control': packages[name]['control'].get('Depends', ''),
+                                    'installed_status': installed[name].get('Depends', ''),
+                                    'atoms': dependency_atoms(installed[name].get('Depends', ''))}
+                                   for name in packages],
             'packages': [{'name': name, 'ipk_path': packages[name].get('path'),
                           'ipk_sha256': packages[name].get('sha256'),
                           'index_path': packages[name].get('index_path'),

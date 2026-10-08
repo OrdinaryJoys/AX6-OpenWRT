@@ -776,11 +776,30 @@ jobs:
           echo "All regression assertions passed."
 
       - name: Compile firmware
+        id: compile_firmware
         working-directory: ./openwrt
         run: |
           set -eo pipefail
           echo "$(nproc) thread compile"
           bash ../.github/scripts/compile-ax6-with-evidence.sh "$(nproc)" ../build-evidence
+
+      - name: Preserve generated kernel and compiled stock DTB before rootfs gates
+        if: success() && env.VARIANT_TAG == 'STOCK'
+        run: |
+          set -eo pipefail
+          # Collection is not ABI/DTB acceptance. Preserve these inputs even
+          # when a later rootfs/package validator rejects the candidate.
+          python3 .github/scripts/collect-ax6-kernel-evidence.py \
+            --build-dir openwrt/build_dir --output-dir build-evidence/kernel-evidence
+          mapfile -d '' compiled_stock_dtbs < <(
+            find openwrt/build_dir -type f \
+              -path '*/linux-qualcommax_ipq807x/image-ipq8071-ax6-stock.dtb' -print0
+          )
+          test "${#compiled_stock_dtbs[@]}" -eq 1
+          test ! -e build-evidence/COMPILED-AX6-STOCK.dtb
+          cp "${compiled_stock_dtbs[0]}" build-evidence/COMPILED-AX6-STOCK.dtb
+          sha256sum build-evidence/COMPILED-AX6-STOCK.dtb \
+            > build-evidence/COMPILED-AX6-STOCK.dtb.sha256
 
       - name: Preserve compile attempts even after failure
         if: always()
@@ -790,6 +809,26 @@ jobs:
           path: build-evidence/
           if-no-files-found: warn  # Compilation may not have started.
           retention-days: 14
+
+      - name: Preserve original Vim inputs before DTB and rootfs gates
+        if: ${{ !cancelled() && steps.compile_firmware.outcome == 'success' }}
+        run: |
+          set -Eeuo pipefail
+          # Independent diagnostics still run if another preservation step fails.
+          # Collection does not accept the DTB, package payload or rootfs.
+          mapfile -d '' images < <(
+            find openwrt/bin/targets -type f -name '*-squashfs-sysupgrade.bin' -print0
+          )
+          test "${#images[@]}" -eq 1
+          mkdir -p image-verify
+          tar -xf "${images[0]}" -C image-verify
+          mapfile -d '' roots < <(find image-verify -type f -name root -print0)
+          test "${#roots[@]}" -eq 1
+          python3 .github/scripts/collect-vim-package-evidence.py \
+            --rootfs "${roots[0]}" --packages-root openwrt/bin/packages \
+            --prepared-source vim-evidence/prepared-source.json \
+            --provenance AX6-IPQ/package-patches/vim/provenance.json \
+            --output vim-package-evidence
 
       - name: Validate compiled AX6 stock device trees
         if: env.VARIANT_TAG == 'STOCK'
@@ -812,63 +851,18 @@ jobs:
           # Fail with the exact failing gate instead of a silent awk/test exit.
           # This block inspects public build files; do not enable global xtrace.
           trap 'rc=$?; printf "::error::Rootfs validation failed rc=%s line=%s command=%s\n" "$rc" "$LINENO" "$BASH_COMMAND" >&2; exit "$rc"' ERR
-          mapfile -d '' images < <(
-            find openwrt/bin/targets -type f -name '*-squashfs-sysupgrade.bin' -print0
-          )
-          if [ "${#images[@]}" -ne 1 ]; then
-            echo "::error::Expected exactly one squashfs sysupgrade image, found ${#images[@]}"
+          mapfile -d '' roots < <(find image-verify -type f -name root -print0)
+          if [ "${#roots[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one retained root filesystem, found ${#roots[@]}"
             exit 1
           fi
-
-          mkdir -p image-verify
-          tar -xf "${images[0]}" -C image-verify
-          rootfs="$(find image-verify -type f -name root -print -quit)"
-          [ -n "$rootfs" ] || {
-            echo "::error::Sysupgrade image does not contain a root filesystem"
-            exit 1
-          }
+          rootfs="${roots[0]}"
           unsquashfs -ll "$rootfs" > image-verify/rootfs-files.txt
+          # Validate the same originals retained before all DTB/rootfs gates.
           python3 .github/scripts/verify-vim-rootfs.py \
-            --rootfs "$rootfs" --packages-root openwrt/bin/packages \
+            --rootfs "$rootfs" --packages-root vim-package-evidence/offline-packages \
             --output image-verify/vim-rootfs.json
-          # Retain selected IPKs plus their *original* full feed indexes for
-          # independent post-download revalidation, not just the CI JSON.
-          python3 - <<'PY'
-          import gzip, hashlib, json, shutil, stat
-          from pathlib import Path
-          root = Path('openwrt/bin/packages').absolute()
-          out = Path('vim-package-evidence')
-          out.mkdir(mode=0o700)
-          report = json.loads(Path('image-verify/vim-rootfs.json').read_text())
-          for package in report['packages']:
-              source = Path(package['ipk_path']).absolute()
-              relative = source.relative_to(root)
-              if not stat.S_ISREG(source.lstat().st_mode):
-                  raise SystemExit('Vim evidence IPK is not regular')
-              if hashlib.sha256(source.read_bytes()).hexdigest() != package['ipk_sha256']:
-                  raise SystemExit('Vim evidence IPK changed since verification')
-              target = out / 'offline-packages' / relative
-              target.parent.mkdir(parents=True, exist_ok=True)
-              shutil.copyfile(source, target)
-              for name in ('Packages', 'Packages.gz'):
-                  index = source.parent / name
-                  if name == 'Packages' and not index.exists():
-                      raise SystemExit('Original Vim index disappeared since verification')
-                  if index.exists() or index.is_symlink():
-                      if not stat.S_ISREG(index.lstat().st_mode):
-                          raise SystemExit('Vim evidence index is not regular')
-                      index_bytes = index.read_bytes()
-                      if name.endswith('.gz'):
-                          index_bytes = gzip.decompress(index_bytes)
-                      if hashlib.sha256(index_bytes).hexdigest() != package['index_sha256']:
-                          raise SystemExit('Vim evidence index changed since verification')
-                      shutil.copyfile(index, target.parent / name)
-          shutil.copyfile('image-verify/vim-rootfs.json', out / 'ROOTFS-CONSISTENCY.json')
-          shutil.copyfile('vim-evidence/prepared-source.json', out / 'PREPARED-SOURCE.json')
-          shutil.copyfile('AX6-IPQ/package-patches/vim/provenance.json', out / 'PROVENANCE.json')
-          with (out / 'SCOPE.txt').open('x') as stream:
-              stream.write('Selected Vim-family IPKs and unchanged original full feed indexes. Other indexed IPKs are intentionally not included. Not a complete offline feed or hardware approval.\n')
-          PY
+          cp image-verify/vim-rootfs.json vim-package-evidence/ROOTFS-CONSISTENCY.json
 
           unsquashfs -cat "$rootfs" lib/upgrade/keep.d/luci-app-openclash \
             > image-verify/openclash-keep

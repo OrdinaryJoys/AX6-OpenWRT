@@ -167,6 +167,51 @@ class Tests(unittest.TestCase):
     def test_dependency_status_differs(self):
         self.reject('dependency metadata differs', status_text=status(self.p).replace('libc, ', '', 1))
 
+    def test_real_opkg_constraint_spacing(self):
+        # Real 37564920412 control has '=9.2.1014-r2', while opkg status
+        # writes '= 9.2.1014-r2'. Previous fixtures copied control verbatim.
+        self.p['vim-fuller']['control']['Depends'] = 'vim-runtime (=9.2.1014-r2), libc, vim-runtime'
+        current = status(self.p).replace('(=9.2.1014-r2)', '(= 9.2.1014-r2)')
+        self.assertTrue(self.check(status_text=current)['status'].startswith('PASS_'))
+
+    def test_dependency_atoms_only_spacing_changes(self):
+        original = 'vim-runtime (=9.2.1014-r2), libc, vim-runtime'
+        for value in ['vim-runtime (= 9.2.1014-r2), libc, vim-runtime',
+                      ' vim-runtime\t( =\t9.2.1014-r2 ),\tlibc , vim-runtime ']:
+            with self.subTest(value=value):
+                self.assertEqual(V.dependency_atoms(original), V.dependency_atoms(value))
+
+    def test_dependency_atom_empty(self):
+        self.assertEqual(V.dependency_atoms(''), ())
+        self.assertEqual(V.dependency_atoms(' \t '), ())
+
+    def test_dependency_metadata_semantic_changes_refused(self):
+        current = status(self.p)
+        original = 'vim-runtime (= 9.2.1014-r2), libc, vim-runtime'
+        for altered in ['vim-runtime (>= 9.2.1014-r2), libc, vim-runtime',
+                        'vim-runtime (= 9.2.1014-r1), libc, vim-runtime',
+                        'vim-runtime, libc, vim-runtime',
+                        'vim-runtime (= 9.2.1014-r2), libother, vim-runtime',
+                        'libc, vim-runtime (= 9.2.1014-r2), vim-runtime',
+                        'vim-runtime (= 9.2.1014-r2), libc',
+                        'vim-runtime (= 9.2.1014-r2), libc, vim-runtime, vim-runtime']:
+            with self.subTest(altered=altered):
+                self.reject('dependency metadata differs', status_text=current.replace(original, altered))
+
+    def test_dependency_unsupported_grammar_fail_closed(self):
+        for value in ['libc,', ',libc', 'libc,,vim-runtime', 'libc | libother',
+                      'libc (== 1)', 'libc (>> 1)', 'libc (<< 1)', 'libc (=)',
+                      'libc (= 1 2)', 'libc (= 1) ignored', 'libc\n', 'libc\r',
+                      'libc\x00', 'libc\u00a0', 'libc [arm64]', '+libc',
+                      'libc (= $version)', 'libc (= 1/2)', 'x' * 65537]:
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(V.Invalid, 'unsupported dependency grammar'):
+                    V.dependency_atoms(value)
+
+    def test_dependency_atoms_preserve_operator_version_order_multiplicity(self):
+        self.assertEqual(V.dependency_atoms('libc (>=1.2:3~rc-4), libc, libncurses6'),
+                         (('libc', '>=', '1.2:3~rc-4'), ('libc', None, None), ('libncurses6', None, None)))
+
     def test_exact_dependency_negatives(self):
         for dep in ['libc', 'vim-runtime', 'vim-runtime (>= ' + V.VERSION + ')',
                     'vim-runtime (= 9.2.0-r1)', 'vim-runtime (= ' + V.VERSION + ') | libc',
@@ -175,7 +220,7 @@ class Tests(unittest.TestCase):
             with self.subTest(dep=dep):
                 p = fixture()
                 p['vim-fuller']['control']['Depends'] = dep
-                self.reject('one exact vim-runtime', packages=p)
+                self.reject('one exact vim-runtime|unsupported dependency grammar', packages=p)
 
     def test_exact_dependency_without_redundant_bare_clause(self):
         self.p['vim-fuller']['control']['Depends'] = 'libc, vim-runtime (= ' + V.VERSION + ')'
