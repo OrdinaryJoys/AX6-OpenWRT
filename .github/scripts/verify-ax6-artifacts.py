@@ -334,6 +334,127 @@ CORE_PACKAGES = ('kmod-qca-nss-ecm', 'kmod-qca-nss-drv', 'kmod-qca-nss-dp',
                  'kmod-qca-ssdk', 'kmod-ath11k', 'kmod-ath11k-ahb', 'kmod-mac80211')
 
 
+def verify_module_elf(data, path, kernel_release):
+    """Parse module structure and metadata, not kernel symbol/config ABI or signatures."""
+    try:
+        from elftools.common.exceptions import ELFError
+        from elftools.elf.constants import SH_FLAGS
+        from elftools.elf.elffile import ELFFile
+        from elftools.elf.relocation import RelocationSection
+        from elftools.elf.sections import SymbolTableSection
+    except ImportError as error:
+        raise Invalid('ELF parser unavailable; install .github/ax6-artifact-requirements.txt') from error
+    try:
+        require(64 <= len(data) <= 64 * 1024 * 1024, 'unsupported module size')
+        elf = ELFFile(io.BytesIO(data))
+        header = elf.header
+        require(elf.elfclass == 64 and elf.little_endian and header['e_machine'] == 'EM_AARCH64',
+                'module is not AArch64 little-endian ELF64')
+        require(header['e_type'] == 'ET_REL' and header['e_version'] == 'EV_CURRENT' and
+                header['e_ident']['EI_VERSION'] == 'EV_CURRENT', 'invalid module ELF type/version')
+        require(header['e_ehsize'] == 64 and header['e_shentsize'] == 64 and
+                header['e_phnum'] == 0, 'invalid module header sizes/program headers')
+        count = elf.num_sections()
+        require(1 < count <= 16384 and header['e_shoff'] >= 64 and
+                header['e_shoff'] + count * 64 <= len(data), 'module section table outside file')
+        # Check every raw section boundary before accessing string tables or data.
+        # The private raw-header accessor is covered by the hash-pinned parser tests.
+        sections = [elf._get_section_header(index) for index in range(count)]
+        require(sections[0]['sh_type'] == 'SHT_NULL' and sections[0]['sh_size'] == 0 and
+                sections[0]['sh_addr'] == 0, 'invalid module null section')
+        require(sum(section['sh_type'] == 'SHT_SYMTAB' for section in sections) == 1,
+                'module must contain exactly one symbol table')
+        for section in sections:
+            # Linux consumes these sections as raw bytes, not decompressed data.
+            if section['sh_flags'] & SH_FLAGS.SHF_COMPRESSED:
+                require(not section['sh_flags'] & SH_FLAGS.SHF_ALLOC and
+                        section['sh_type'] not in ('SHT_SYMTAB', 'SHT_DYNSYM', 'SHT_STRTAB', 'SHT_REL', 'SHT_RELA'),
+                        'compressed load/metadata section is unsupported')
+            if section['sh_type'] != 'SHT_NOBITS':
+                require(section['sh_offset'] + section['sh_size'] <= len(data),
+                        'module section payload outside file')
+        string_index = elf.get_shstrndx()
+        require(0 < string_index < count and sections[string_index]['sh_type'] == 'SHT_STRTAB' and
+                not sections[string_index]['sh_flags'] & 0x800, 'invalid section name string table')
+        name_header = sections[string_index]
+        name_table = data[name_header['sh_offset']:name_header['sh_offset'] + name_header['sh_size']]
+        require(name_table and name_table[0] == 0 and name_table[-1] == 0,
+                'unterminated/invalid section name string table')
+        for section in sections:
+            offset = section['sh_name']
+            require(offset < len(name_table) and name_table.find(b'\0', offset) >= 0,
+                    'section name outside string table')
+        named = {}
+        for section in elf.iter_sections():
+            require(section.name not in named, 'duplicate module section name')
+            named[section.name] = section
+            if isinstance(section, SymbolTableSection):
+                require(section['sh_entsize'] == 24 and section['sh_size'] % 24 == 0 and
+                        section.num_symbols() <= 1000000, 'invalid module symbol table size')
+                link = section['sh_link']
+                require(0 < link < count and sections[link]['sh_type'] == 'SHT_STRTAB' and
+                        not sections[link]['sh_flags'] & 0x800, 'invalid symbol name string table')
+                strings = sections[link]
+                symbol_names = data[strings['sh_offset']:strings['sh_offset'] + strings['sh_size']]
+                require(symbol_names and symbol_names[0] == 0 and symbol_names[-1] == 0,
+                        'unterminated/invalid symbol name string table')
+                for symbol in section.iter_symbols():
+                    index = symbol['st_shndx']
+                    require(not isinstance(index, int) or 0 <= index < count,
+                            'symbol references nonexistent section')
+                    offset = symbol['st_name']
+                    require(offset < len(symbol_names) and symbol_names.find(b'\0', offset) >= 0,
+                            'symbol name outside string table')
+                    _ = symbol.name
+            if isinstance(section, RelocationSection):
+                entry_size = 24 if section.is_RELA() else 16
+                require(section['sh_entsize'] == entry_size and section['sh_size'] % entry_size == 0,
+                        'invalid module relocation table size')
+                target, link = section['sh_info'], section['sh_link']
+                require(0 < target < count and 0 < link < count and
+                        sections[link]['sh_type'] == 'SHT_SYMTAB', 'invalid relocation section references')
+                symbols = elf.get_section(link)
+                require(symbols['sh_entsize'] == 24 and symbols['sh_size'] % 24 == 0,
+                        'invalid relocation symbol table')
+                for relocation in section.iter_relocations():
+                    require(relocation['r_info_sym'] < symbols.num_symbols() and
+                            relocation['r_offset'] < sections[target]['sh_size'],
+                            'relocation symbol or target offset outside section')
+        require(all(name in named for name in ('.modinfo', '.gnu.linkonce.this_module', '.symtab')),
+                'required kernel module sections missing')
+        require(isinstance(named['.symtab'], SymbolTableSection) and
+                named['.symtab']['sh_type'] == 'SHT_SYMTAB' and
+                named['.symtab'].num_symbols() > 0, 'invalid required module symbol table')
+        require(named['.gnu.linkonce.this_module']['sh_type'] == 'SHT_PROGBITS' and
+                named['.gnu.linkonce.this_module']['sh_size'] > 0 and
+                named['.gnu.linkonce.this_module']['sh_flags'] & SH_FLAGS.SHF_ALLOC and
+                not named['.gnu.linkonce.this_module']['sh_flags'] & SH_FLAGS.SHF_COMPRESSED,
+                'invalid required module descriptor section')
+        info = named['.modinfo']
+        require(info['sh_type'] == 'SHT_PROGBITS' and not info['sh_flags'] & 0x800 and
+                0 < info['sh_size'] <= 1024 * 1024, 'invalid module metadata section')
+        payload = info.data()
+        require(payload.endswith(b'\0'), 'unterminated module metadata')
+        records = {}
+        for entry in payload.split(b'\0'):
+            if not entry:
+                continue
+            key, separator, value = entry.partition(b'=')
+            require(separator and key, 'malformed module metadata record')
+            records.setdefault(key.decode('ascii'), []).append(value.decode('utf-8'))
+        magic = records.get('vermagic', [])
+        require(len(magic) == 1 and magic[0].split() and magic[0].split()[0] == kernel_release,
+                'internal module vermagic release differs/missing')
+        expected_name = PurePosixPath(path).stem.replace('-', '_')
+        require(records.get('name') == [expected_name], 'internal module name differs/missing')
+        return {'name': expected_name, 'vermagic': magic[0], 'section_count': count,
+                'modversions_section_present': '__versions' in named}
+    except Invalid as error:
+        raise Invalid(path + ': ' + str(error)) from error
+    except (ELFError, ValueError, UnicodeError, KeyError, IndexError, struct.error) as error:
+        raise Invalid(path + ': malformed module ELF: ' + str(error)) from error
+
+
 def verify_modules(packages, rootcat, root_module_paths=None):
     installed = {}
     for record in fields(rootcat('usr/lib/opkg/status').decode('utf-8')):
@@ -368,16 +489,18 @@ def verify_modules(packages, rootcat, root_module_paths=None):
         if found:
             module_packages += 1
         for path, data in found:
-            require(path.startswith('lib/modules/' + kernel_release + '/') and len(data) >= 20 and data[:6] == b'\x7fELF\x02\x01' and
-                    struct.unpack_from('<H', data, 18)[0] == 183, 'module is not AArch64 ELF64: ' + path)
+            require(path.startswith('lib/modules/' + kernel_release + '/'), 'module release directory differs: ' + path)
+            metadata = verify_module_elf(data, path, kernel_release)
             require(path not in module_paths, 'module payload claimed by multiple packages: ' + path)
             require(rootcat(path) == data, 'module IPK/rootfs bytes differ: ' + path)
             module_paths.add(path)
-            modules.append({'package': name, 'path': path, 'sha256': sha(data), 'bytes': len(data)})
+            modules.append({'package': name, 'path': path, 'sha256': sha(data), 'bytes': len(data), **metadata})
+    vermagic_values = sorted({module['vermagic'] for module in modules})
+    require(len(vermagic_values) == 1, 'installed modules have inconsistent internal vermagic')
     if root_module_paths is not None:
         require(module_paths == set(root_module_paths), 'rootfs module path inventory differs from installed IPK payloads')
     return {'installed_kmod_packages': len(installed_kmods), 'module_packages': module_packages,
-            'module_count': len(modules), 'modules': modules}
+            'module_count': len(modules), 'vermagic_values': vermagic_values, 'modules': modules}
 
 
 def module_paths_from_listing(listing):
@@ -422,7 +545,7 @@ def verify_images(args):
               'sysupgrade_sha256': sha(Path(args.sysupgrade).read_bytes()), 'rootfs_sha256': sha(rootfs),
               'recovery_itb_sha256': sha(itb.read_bytes()), 'factory_ubi_sha256': sha(ubi.read_bytes()),
               'factory_ubi_bytes': ubi.stat().st_size,
-              'coverage_limits': ['module ELF header identity only; no internal ELF/vermagic/symbol ABI validation',
+              'coverage_limits': ['module structure, internal name/release and mutual vermagic only; no full kernel config/symbol ABI validation',
                                   'factory UBI volume payload not decoded', 'no firmware signature authentication',
                                   'no sysupgrade -T, boot, flash, hardware, or performance test',
                                   'initramfs kernel is intentionally not required to equal sysupgrade kernel']}

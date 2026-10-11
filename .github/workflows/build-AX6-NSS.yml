@@ -151,6 +151,19 @@ jobs:
           sudo -E apt-get -qq clean
           sudo chown -R "$USER":"$(id -gn)" "$GITHUB_WORKSPACE"
 
+      - name: Install hash-verified host-only ELF parser
+        timeout-minutes: 3
+        run: |
+          set -eo pipefail
+          parser_dir=$(mktemp -d "$RUNNER_TEMP/ax6-artifact-python.XXXXXXXX")
+          python3 -m venv "$parser_dir"
+          timeout --kill-after=10s 120s "$parser_dir/bin/python3" -m pip \
+            --isolated --disable-pip-version-check install \
+            --index-url https://pypi.org/simple --timeout 20 --retries 1 \
+            --require-hashes --only-binary=:all: --no-deps \
+            -r .github/ax6-artifact-requirements.txt
+          echo "AX6_ARTIFACT_PYTHON=$parser_dir/bin/python3" >> "$GITHUB_ENV"
+
       - name: Load and verify build lock
         run: |
           set -eo pipefail
@@ -1368,7 +1381,8 @@ jobs:
         if: env.VARIANT_TAG == 'STOCK'
         run: |
           set -eo pipefail
-          python3 tests/test-ax6-artifact-checks.py
+          "$AX6_ARTIFACT_PYTHON" tests/test-ax6-artifact-checks.py
+          "$AX6_ARTIFACT_PYTHON" tests/test-ax6-module-elf.py
           mapfile -d '' stock_images < <(
             find openwrt/bin/targets -type f -name '*-redmi_ax6-stock-squashfs-sysupgrade.bin' -print0
           )
@@ -1378,7 +1392,7 @@ jobs:
           )
           test "${#stock_images[@]}" -eq 1
           test "${#stock_dtbs[@]}" -eq 1
-          python3 .github/scripts/verify-ax6-artifacts.py images \
+          "$AX6_ARTIFACT_PYTHON" .github/scripts/verify-ax6-artifacts.py images \
             --sysupgrade "${stock_images[0]}" \
             --recovery-dir "$(dirname "${stock_images[0]}")" \
             --packages-dir openwrt/bin/targets/qualcommax/ipq807x/packages \
