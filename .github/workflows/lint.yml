@@ -124,6 +124,7 @@ jobs:
           sh tests/test-nss-monitor.sh
           sh tests/test-source-patchset-generator.sh
           sh AX6-IPQ/tests/test-source-semantic-lock.sh
+          python3 tests/test-nss-regression-grep.py
           bash AX6-IPQ/tests/test-ax6-perf-fixture.sh
           bash AX6-IPQ/tests/test-ax6-perf-tool-hardening.sh
           bash AX6-IPQ/tests/test-ax6-offline-feed-package.sh
@@ -596,7 +597,7 @@ jobs:
             '--candidate-only --candidate "$nss_drv_dir"' \
             '--output "$GITHUB_WORKSPACE/nss-containment-evidence/drv"' \
             'python3 tests/test-nss-fraglist-accounting.py "$nss_drv_dir"'; do
-            grep -Fq "$regression_gate" "$workflow" || {
+            grep -Fq -- "$regression_gate" "$workflow" || {
               echo "::error file=$workflow::missing source regression gate: $regression_gate"
               exit 1
             }
