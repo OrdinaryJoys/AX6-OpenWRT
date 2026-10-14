@@ -1,0 +1,34 @@
+add_router_dns_hijack_nft()
+{
+   local family="$1" dnsport dnsproto daddr_match router_dns_rules handle
+
+   if [ "$router_self_proxy" != 1 ]; then
+      return
+   fi
+   if [ "$enable_redirect_dns" -eq 1 ]; then
+      dnsport="$DNSPORT"
+   elif [ "$enable_redirect_dns" -eq 2 ]; then
+      dnsport="$dns_port"
+   else
+      return
+   fi
+
+   if [ "$family" = "ipv6" ]; then
+      dnsproto="meta nfproto {ipv6} ip6 nexthdr {tcp,udp}"
+      daddr_match="ip6 daddr fd7a:115c:a1e0::/48"
+      router_dns_rules=$(nft -a list chain inet fw4 nat_output 2>/dev/null |grep 'OpenClash Router DNS Hijack' |grep 'ip6 nexthdr')
+   else
+      dnsproto="meta nfproto {ipv4} meta l4proto {tcp,udp}"
+      daddr_match="ip daddr 100.64.0.0/10"
+      router_dns_rules=$(nft -a list chain inet fw4 nat_output 2>/dev/null |grep 'OpenClash Router DNS Hijack' |grep -v 'ip6 nexthdr')
+   fi
+
+   nft 'add chain inet fw4 nat_output { type nat hook output priority -1; }'
+
+   for handle in $(echo "$router_dns_rules" |awk -F '# handle ' '{print$2}'); do
+      nft delete rule inet fw4 nat_output handle "$handle"
+   done
+
+   nft insert rule inet fw4 nat_output position 0 $dnsproto th dport 53 fib daddr type local meta skgid != 65534 counter redirect to "$dnsport" comment \"OpenClash Router DNS Hijack\"
+   nft insert rule inet fw4 nat_output position 0 $dnsproto th dport 53 $daddr_match meta skgid != 65534 counter redirect to "$dnsport" comment \"OpenClash Router DNS Hijack\"
+} >/dev/null 2>&1

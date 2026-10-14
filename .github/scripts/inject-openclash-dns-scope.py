@@ -6,6 +6,7 @@ Only the two prerouting DNS redirect modes are covered. Generic proxy/TProxy
 rules and router-origin OUTPUT rules deliberately retain their own policy.
 """
 import argparse
+import hashlib
 import re
 from pathlib import Path
 
@@ -66,6 +67,40 @@ GUARD = '[ -n "$AX6_DNS_SCOPE" ] && '
 SCOPE = '"$AX6_DNS_SCOPE" '
 RULE = re.compile(r"^(?P<indent>\s*)(?P<guard>\[ -n \"\$AX6_DNS_SCOPE\" \] && )?nft (?P<body>.*)$")
 PREFIX = re.compile(r"^((?:insert|add) rule inet fw4 (?:dstnat|openclash_dns_redirect)(?: position 0)? )")
+# Upstream 7144dd introduced a parameterized router-origin helper; 407ebe4
+# changed its private-target/stub policy. This reviewed current helper is NOT
+# semantically equivalent to the old four inline sites. Preserve it verbatim,
+# never apply ingress scope to OUTPUT, and reject unknown future helper drift.
+# SHA is the full function including its final newline, from e553e82 init.
+REVIEWED_ROUTER_OUTPUT_SHA256 = '341697912c521a8b3d975ef29d8bc7f6b978aec577580ed942acca78e8228103'
+ROUTER_OUTPUT_HELPER = re.compile(
+    r'^add_router_dns_hijack_nft\(\)\n\{\n.*?^\} >/dev/null 2>&1\n', re.M | re.S)
+
+
+def router_output_contract(text):
+    # Recognize ownership/port before checking the reviewed grammar, so an
+    # extra udp/tcp producer or an owned rule with a changed port cannot hide.
+    output = tuple(l for l in text.splitlines() if 'nft ' in l and
+                   'rule inet fw4 nat_output ' in l and
+                   (re.search(r'\b(?:th|tcp|udp) dport 53(?:\s|$)', l) or
+                    'OpenClash Router DNS Hijack' in l or 'OpenClash DNS Hijack' in l))
+    if any('AX6_DNS_SCOPE' in l or 'iifname' in l for l in output):
+        raise ValueError('Router-origin DNS OUTPUT rules carry ingress scope')
+    if 'add_router_dns_hijack_nft' not in text:
+        if len(output) != 4:
+            raise ValueError('Router-origin DNS OUTPUT rules drifted')
+        return output, '', ()
+    helpers = ROUTER_OUTPUT_HELPER.findall(text)
+    if (len(helpers) != 1 or len(output) != 2 or
+            hashlib.sha256(helpers[0].encode()).hexdigest() != REVIEWED_ROUTER_OUTPUT_SHA256):
+        raise ValueError('Router-origin DNS OUTPUT helper changed or has extra producers')
+    calls = tuple(re.findall(r'^[ \t]*add_router_dns_hijack_nft[ \t]+[^\n]*$', text, re.M))
+    # Only one definition and the two exact standalone calls are reviewed.
+    # Inline/conditional/substitution calls must not bypass the line inventory.
+    if len(re.findall(r'\badd_router_dns_hijack_nft\b', text)) != 3 or sorted(call.strip() for call in calls) != [
+            'add_router_dns_hijack_nft ipv4', 'add_router_dns_hijack_nft ipv6']:
+        raise ValueError('Router-origin DNS OUTPUT helper family callers drifted')
+    return output, helpers[0], calls
 
 
 def relevant(line):
@@ -112,9 +147,7 @@ def check(text):
     for match, body in counts(text):
         if not match['guard'] or not PREFIX.sub('', body, count=1).startswith(SCOPE):
             raise ValueError('Inbound DNS rule lacks nonempty guard or exact ingress scope')
-    output = [l for l in text.splitlines() if 'nft ' in l and 'rule inet fw4 nat_output ' in l and re.search(r'\bth dport 53(?:\s|$)', l)]
-    if len(output) != 4 or any('AX6_DNS_SCOPE' in l or 'iifname' in l for l in output):
-        raise ValueError('Router-origin DNS OUTPUT rules drifted')
+    router_output_contract(text)
 
 
 def transform(text):
@@ -124,6 +157,7 @@ def transform(text):
     if text.count(ANCHOR) != 1 or text.count(START) != 1:
         raise ValueError('OpenClash fw4 anchors changed')
     counts(text)
+    original_output = router_output_contract(text)
     lines = []
     for line in text.splitlines(keepends=True):
         found = relevant(line.rstrip('\n'))
@@ -134,6 +168,8 @@ def transform(text):
         lines.append(line)
     result = ''.join(lines).replace(ANCHOR, HELPERS + ANCHOR).replace(START, START + CALL)
     check(result)
+    if router_output_contract(result) != original_output:
+        raise ValueError('Injection changed router-origin DNS OUTPUT contract')
     return result
 
 
