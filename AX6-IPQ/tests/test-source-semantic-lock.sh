@@ -21,18 +21,20 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 
 # ---------------------------------------------------------------------------
-# Scratch source tree with six Makefiles and the ath11k backport markers
+# Scratch source tree with seven Makefiles and the ath11k backport markers
 # ---------------------------------------------------------------------------
 mk_tree() { # hostapd_release drv_release ecm_release clients_release mcs_release [mac80211_release] [dup_flag]
     tree="$tmp/tree"
     rm -rf "$tree"
     mkdir -p "$tree/package/kernel/mac80211/patches/ath11k" \
              "$tree/package/network/services/hostapd" \
+             "$tree/package/qca-nss/qca-nss-dp" \
              "$tree/package/qca-nss/qca-nss-drv" \
              "$tree/package/qca-nss/qca-nss-ecm" \
              "$tree/package/qca-nss/qca-nss-clients" \
              "$tree/package/qca-nss/qca-mcs"
     echo "PKG_RELEASE:=${6:-4}" > "$tree/package/kernel/mac80211/Makefile"
+    echo "PKG_RELEASE:=2" > "$tree/package/qca-nss/qca-nss-dp/Makefile"
     printf '%s\n' \
         'From 7a246c72132eb943b5844ba79dad597b47429dba Mon Sep 17 00:00:00 2001' \
         'kcalloc(svc_rdy_ext->tot_phy_id,' \
@@ -53,6 +55,7 @@ mk_lock() { # hostapd drv ecm clients mcs [mac80211]
     {
         echo "SOURCE_MAC80211_PKG_RELEASE=${6:-4}"
         echo "SOURCE_HOSTAPD_PKG_RELEASE=$1"
+        echo "SOURCE_QCA_NSS_DP_PKG_RELEASE=2"
         echo "SOURCE_QCA_NSS_DRV_PKG_RELEASE=$2"
         echo "SOURCE_QCA_NSS_ECM_PKG_RELEASE=$3"
         echo "SOURCE_QCA_NSS_CLIENTS_PKG_RELEASE=$4"
@@ -119,6 +122,7 @@ mk_tree 2 20 10 14 3
 printf '%s\n' \
     'SOURCE_MAC80211_PKG_RELEASE=4' \
     'SOURCE_HOSTAPD_PKG_RELEASE=2' \
+    'SOURCE_QCA_NSS_DP_PKG_RELEASE=2' \
     'SOURCE_QCA_NSS_DRV_PKG_RELEASE=20' > "$lock"
 run_expect_fail "negative: lock missing ecm release fails" "$VERIFY" "$tmp/tree" "$lock"
 
@@ -158,6 +162,20 @@ run_expect_fail "negative: Linux 6.18-incompatible kzalloc_objs backport fails" 
 # ---------------------------------------------------------------------------
 # 9. workflow 不再出现 release 硬编码 → 真实文件检查
 # ---------------------------------------------------------------------------
+mk_tree 2 20 10 14 3
+mk_lock 2 20 10 14 3
+printf '%s\n' 'SOURCE_QCA_NSS_DP_PKG_RELEASE=1' > "$tmp/dp-old-lock"
+sed '/^SOURCE_QCA_NSS_DP_PKG_RELEASE=/d' "$lock" >> "$tmp/dp-old-lock"
+run_expect_fail "negative: dp source=2 lock=1 fails" "$VERIFY" "$tmp/tree" "$tmp/dp-old-lock"
+printf '%s\n' 'PKG_RELEASE:=0' > "$tmp/tree/package/qca-nss/qca-nss-dp/Makefile"
+run_expect_fail "negative: zero dp release fails" "$VERIFY" "$tmp/tree" "$lock"
+mk_tree 2 20 10 14 3
+printf '%s\n' 'PKG_RELEASE:=99' >> "$tmp/tree/package/qca-nss/qca-nss-dp/Makefile"
+run_expect_fail "negative: duplicated dp source release fails" "$VERIFY" "$tmp/tree" "$lock"
+mk_tree 2 20 10 14 3
+sed '/^SOURCE_QCA_NSS_DP_PKG_RELEASE=/d' "$lock" > "$tmp/dp-missing-lock"
+run_expect_fail "negative: missing dp lock release fails" "$VERIFY" "$tmp/tree" "$tmp/dp-missing-lock"
+
 for wf in build-AX6-NSS.yml lint.yml; do
     if grep -Eq "PKG_RELEASE:=[0-9]+|release must be [0-9]+" "$REPO_ROOT/.github/workflows/$wf"; then
         bad "$wf still hardcodes a package release"
@@ -178,7 +196,7 @@ else
     bad "build workflow runs the qca-mcs source gate"
 fi
 for name in \
-    SOURCE_MAC80211_PKG_RELEASE SOURCE_HOSTAPD_PKG_RELEASE SOURCE_QCA_NSS_DRV_PKG_RELEASE \
+    SOURCE_MAC80211_PKG_RELEASE SOURCE_HOSTAPD_PKG_RELEASE SOURCE_QCA_NSS_DP_PKG_RELEASE SOURCE_QCA_NSS_DRV_PKG_RELEASE \
     SOURCE_QCA_NSS_ECM_PKG_RELEASE SOURCE_QCA_NSS_CLIENTS_PKG_RELEASE \
     SOURCE_QCA_MCS_PKG_RELEASE; do
     if grep -Fq "echo \"$name=\$$name\"" \

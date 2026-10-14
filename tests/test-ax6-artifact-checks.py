@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Offline parser/consistency negative controls; no kernel or network commands."""
 import copy
+import base64
 import gzip
 import hashlib
 import importlib.util
@@ -118,10 +119,11 @@ def link_archive(name, target, *, hard=False, child=None):
 def module_fixture():
     packages, root = {}, {}
     statuses = ['Package: kernel\nVersion: 6.18.38~fixture-r1\nStatus: install ok installed']
+    # Real Clang-generated ELF structure; synthetic metadata, never loadable.
+    reference = base64.b64decode((ROOT / 'tests/fixtures/module-elf/fixture.b64').read_bytes())
+    assert checks.sha(reference) == 'b09ab82afeb97f1368eef789aca0a62970a8783ae6cb744e446e82751cab7a6b'
     for index, name in enumerate(checks.CORE_PACKAGES + ('kmod-noncore', 'kmod-meta')):
-        elf = bytearray(b'\0' * 64)
-        elf[:6] = b'\x7fELF\x02\x01'
-        struct.pack_into('<H', elf, 18, 183)
+        elf = reference.replace(b'name=module0\0', f'name=module{index}\0'.encode(), 1)
         path = f'lib/modules/6.18.38/module{index}.ko'
         payload = checks.tar_members(tar([(path, bytes(elf))])) if name != 'kmod-meta' else {}
         packages[name] = {'control': {'Version': 'v1', 'Architecture': 'aarch64_cortex-a53',

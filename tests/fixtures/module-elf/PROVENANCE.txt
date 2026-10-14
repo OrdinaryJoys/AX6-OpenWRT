@@ -1,0 +1,11 @@
+Host-only parser fixture; NOT a loadable kernel module or production driver.
+
+Generated from fixture.c using Apple Clang's AArch64 Linux ELF backend:
+  clang --target=aarch64-linux-gnu -O2 -fno-ident -c fixture.c -o fixture.o
+fixture.b64 is base64 of the generated object; no binary is executed.
+Decoded SHA256:
+  b09ab82afeb97f1368eef789aca0a62970a8783ae6cb744e446e82751cab7a6b
+
+The fake __this_module payload deliberately does not claim kernel ABI validity.
+Tests mutate real ELF headers/sections and synthetic .modinfo bytes in memory.
+Historical actual AX6 modules must additionally pass independently offline.

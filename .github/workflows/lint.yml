@@ -32,7 +32,20 @@ jobs:
           sudo env DEBIAN_FRONTEND=noninteractive timeout --kill-after=15s 240s apt-get \
             -o Acquire::Retries=2 -o Acquire::http::Timeout=20 \
             -o Acquire::https::Timeout=20 install -y \
-            busybox device-tree-compiler shellcheck yamllint libjson-c-dev pkg-config iproute2 kmod nftables cmake
+            busybox device-tree-compiler shellcheck yamllint libjson-c-dev pkg-config iproute2 kmod nftables cmake python3-venv
+
+      - name: Install hash-verified host-only ELF parser
+        timeout-minutes: 3
+        run: |
+          set -eo pipefail
+          parser_dir=$(mktemp -d "$RUNNER_TEMP/ax6-artifact-python.XXXXXXXX")
+          python3 -m venv "$parser_dir"
+          timeout --kill-after=10s 120s "$parser_dir/bin/python3" -m pip \
+            --isolated --disable-pip-version-check install \
+            --index-url https://pypi.org/simple --timeout 20 --retries 1 \
+            --require-hashes --only-binary=:all: --no-deps \
+            -r .github/ax6-artifact-requirements.txt
+          echo "AX6_ARTIFACT_PYTHON=$parser_dir/bin/python3" >> "$GITHUB_ENV"
 
       - name: Install pinned actionlint (bounded and SHA256 verified)
         timeout-minutes: 3
@@ -72,7 +85,8 @@ jobs:
           python3 tests/test-openclash-dns-scope.py
           AX6_TEST_SHELL='busybox ash' python3 tests/test-openclash-proxy-scope.py
           python3 tests/test-rps-image-mode-gate.py
-          python3 tests/test-ax6-artifact-checks.py
+          "$AX6_ARTIFACT_PYTHON" tests/test-ax6-artifact-checks.py
+          "$AX6_ARTIFACT_PYTHON" tests/test-ax6-module-elf.py
           python3 tests/test-ax6-compile-evidence.py
           # Offline only: ownership remains blocked; never apply in DIY/rootfs.
           python3 tests/test-ax6-sqm-transaction.py --shell /bin/bash
@@ -101,6 +115,7 @@ jobs:
           python3 tests/test-vim-host-tools-wiring.py
           python3 tests/test-openclash-rootfs-entrypoints.py
           python3 tests/test-rootfs-diagnostic-wiring.py
+          python3 tests/test-ax6-artifact-python-wiring.py
           sh tests/test-openclash-zerotier-bypass.sh
           sh tests/test-ax6-config-audit-zerotier.sh
           sh tests/test-ax6-boot-guard.sh
@@ -408,7 +423,7 @@ jobs:
             ARGON_THEME_URL ARGON_THEME_COMMIT ARGON_THEME_VERSION \
             ARGON_CONFIG_URL ARGON_CONFIG_COMMIT \
             OPENCLASH_URL OPENCLASH_REF \
-            SOURCE_MAC80211_PKG_RELEASE SOURCE_HOSTAPD_PKG_RELEASE SOURCE_QCA_NSS_DRV_PKG_RELEASE \
+            SOURCE_MAC80211_PKG_RELEASE SOURCE_HOSTAPD_PKG_RELEASE SOURCE_QCA_NSS_DP_PKG_RELEASE SOURCE_QCA_NSS_DRV_PKG_RELEASE \
             SOURCE_QCA_NSS_ECM_PKG_RELEASE SOURCE_QCA_NSS_CLIENTS_PKG_RELEASE \
             SOURCE_QCA_MCS_PKG_RELEASE; do
             value="${!name:-}"
@@ -430,7 +445,7 @@ jobs:
             }
           done
           for name in \
-            SOURCE_MAC80211_PKG_RELEASE SOURCE_HOSTAPD_PKG_RELEASE SOURCE_QCA_NSS_DRV_PKG_RELEASE \
+            SOURCE_MAC80211_PKG_RELEASE SOURCE_HOSTAPD_PKG_RELEASE SOURCE_QCA_NSS_DP_PKG_RELEASE SOURCE_QCA_NSS_DRV_PKG_RELEASE \
             SOURCE_QCA_NSS_ECM_PKG_RELEASE SOURCE_QCA_NSS_CLIENTS_PKG_RELEASE \
             SOURCE_QCA_MCS_PKG_RELEASE; do
             value="${!name}"
@@ -574,6 +589,12 @@ jobs:
             'python3 tests/test-hostapd-targeted-regressions.py "$hostapd_dir"' \
             'python3 tests/test-ath11k-recovery-reset-guard.py "$backports_dir"' \
             'python3 tests/test-ath11k-rx-alignment.py "$backports_dir"' \
+            'PYTHONDONTWRITEBYTECODE=1 python3 tests/nss-dp-containment/test-nss-dp-detach-quarantine.py' \
+            '--candidate-only --candidate "$nss_dp_dir"' \
+            '--output "$GITHUB_WORKSPACE/nss-containment-evidence/dp"' \
+            'PYTHONDONTWRITEBYTECODE=1 python3 tests/nss-drv-containment/test-nss-drv-containment.py' \
+            '--candidate-only --candidate "$nss_drv_dir"' \
+            '--output "$GITHUB_WORKSPACE/nss-containment-evidence/drv"' \
             'python3 tests/test-nss-fraglist-accounting.py "$nss_drv_dir"'; do
             grep -Fq "$regression_gate" "$workflow" || {
               echo "::error file=$workflow::missing source regression gate: $regression_gate"

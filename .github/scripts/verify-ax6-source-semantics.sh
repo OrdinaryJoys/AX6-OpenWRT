@@ -12,7 +12,7 @@
 #
 # Behavior:
 #   1. Reads SOURCE_MAC80211_PKG_RELEASE / SOURCE_HOSTAPD_PKG_RELEASE /
-#      SOURCE_QCA_NSS_DRV_PKG_RELEASE /
+#      SOURCE_QCA_NSS_DP_PKG_RELEASE / SOURCE_QCA_NSS_DRV_PKG_RELEASE /
 #      SOURCE_QCA_NSS_ECM_PKG_RELEASE / SOURCE_QCA_NSS_CLIENTS_PKG_RELEASE /
 #      SOURCE_QCA_MCS_PKG_RELEASE
 #      from the lock (must be positive ints).
@@ -81,6 +81,7 @@ compare() { # label lock_var src_mk
 
 exp_hostapd=$(lock_var SOURCE_HOSTAPD_PKG_RELEASE)
 exp_mac80211=$(lock_var SOURCE_MAC80211_PKG_RELEASE)
+exp_dp=$(lock_var SOURCE_QCA_NSS_DP_PKG_RELEASE)
 exp_drv=$(lock_var SOURCE_QCA_NSS_DRV_PKG_RELEASE)
 exp_ecm=$(lock_var SOURCE_QCA_NSS_ECM_PKG_RELEASE)
 exp_clients=$(lock_var SOURCE_QCA_NSS_CLIENTS_PKG_RELEASE)
@@ -90,6 +91,8 @@ compare mac80211 "$exp_mac80211" \
     "$(src_release "$source_root/package/kernel/mac80211/Makefile")"
 compare hostapd "$exp_hostapd" \
     "$(src_release "$source_root/package/network/services/hostapd/Makefile")"
+compare qca-nss-dp "$exp_dp" \
+    "$(src_release "$source_root/package/qca-nss/qca-nss-dp/Makefile")"
 compare qca-nss-drv "$exp_drv" \
     "$(src_release "$source_root/package/qca-nss/qca-nss-drv/Makefile")"
 compare qca-nss-ecm "$exp_ecm" \
@@ -124,4 +127,4 @@ if [ "$FAIL" -ne 0 ]; then
     echo "AX6 source semantics: FAIL (see per-component messages above)" >&2
     exit 1
 fi
-echo "AX6 source semantics: PASS (mac80211=$exp_mac80211 hostapd=$exp_hostapd drv=$exp_drv ecm=$exp_ecm clients=$exp_clients mcs=$exp_mcs)"
+echo "AX6 source semantics: PASS (mac80211=$exp_mac80211 hostapd=$exp_hostapd dp=$exp_dp drv=$exp_drv ecm=$exp_ecm clients=$exp_clients mcs=$exp_mcs)"

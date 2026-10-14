@@ -151,6 +151,19 @@ jobs:
           sudo -E apt-get -qq clean
           sudo chown -R "$USER":"$(id -gn)" "$GITHUB_WORKSPACE"
 
+      - name: Install hash-verified host-only ELF parser
+        timeout-minutes: 3
+        run: |
+          set -eo pipefail
+          parser_dir=$(mktemp -d "$RUNNER_TEMP/ax6-artifact-python.XXXXXXXX")
+          python3 -m venv "$parser_dir"
+          timeout --kill-after=10s 120s "$parser_dir/bin/python3" -m pip \
+            --isolated --disable-pip-version-check install \
+            --index-url https://pypi.org/simple --timeout 20 --retries 1 \
+            --require-hashes --only-binary=:all: --no-deps \
+            -r .github/ax6-artifact-requirements.txt
+          echo "AX6_ARTIFACT_PYTHON=$parser_dir/bin/python3" >> "$GITHUB_ENV"
+
       - name: Load and verify build lock
         run: |
           set -eo pipefail
@@ -174,7 +187,7 @@ jobs:
             ARGON_THEME_URL ARGON_THEME_COMMIT ARGON_THEME_VERSION \
             ARGON_CONFIG_URL ARGON_CONFIG_COMMIT \
             OPENCLASH_URL OPENCLASH_REF \
-            SOURCE_MAC80211_PKG_RELEASE SOURCE_HOSTAPD_PKG_RELEASE SOURCE_QCA_NSS_DRV_PKG_RELEASE \
+            SOURCE_MAC80211_PKG_RELEASE SOURCE_HOSTAPD_PKG_RELEASE SOURCE_QCA_NSS_DP_PKG_RELEASE SOURCE_QCA_NSS_DRV_PKG_RELEASE \
             SOURCE_QCA_NSS_ECM_PKG_RELEASE SOURCE_QCA_NSS_CLIENTS_PKG_RELEASE \
             SOURCE_QCA_MCS_PKG_RELEASE; do
             value="${!name:-}"
@@ -660,6 +673,21 @@ jobs:
           python3 tests/test-ath11k-rx-alignment.py "$backports_dir"
           echo "=== qca-nss-dp prepare (patch apply check) ==="
           make package/qca-nss/qca-nss-dp/prepare V=s
+          mapfile -d '' nss_dp_dirs < <(
+            find build_dir -type d -name 'qca-nss-dp-*' -print0
+          )
+          if [ "${#nss_dp_dirs[@]}" -ne 1 ]; then
+            echo "::error::Expected one prepared NSS dataplane directory; found ${#nss_dp_dirs[@]}"
+            exit 1
+          fi
+          nss_dp_dir=${nss_dp_dirs[0]}
+          test -s "$nss_dp_dir/nss_dp_main.c"
+          mkdir -p ../nss-containment-evidence
+          PYTHONDONTWRITEBYTECODE=1 python3 tests/nss-dp-containment/test-nss-dp-detach-quarantine.py \
+            --candidate-only --candidate "$nss_dp_dir" \
+            --output "$GITHUB_WORKSPACE/nss-containment-evidence/dp"
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover \
+            -s tests/nss-dp-containment -p test_extract_prepared_c.py -v
           echo "=== qca-nss-drv prepare (patch apply check) ==="
           make package/qca-nss/qca-nss-drv/prepare V=s
           mapfile -d '' nss_drv_dirs < <(
@@ -671,6 +699,13 @@ jobs:
           fi
           nss_drv_dir=${nss_drv_dirs[0]}
           test -s "$nss_drv_dir/nss_core.c"
+          PYTHONDONTWRITEBYTECODE=1 python3 tests/nss-drv-containment/test-nss-drv-containment.py \
+            --candidate-only --candidate "$nss_drv_dir" \
+            --output "$GITHUB_WORKSPACE/nss-containment-evidence/drv"
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover \
+            -s tests/nss-drv-containment -p test_driver_extraction.py -v
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover \
+            -s tests/nss-drv-containment -p test_extract_prepared_c.py -v
           python3 tests/test-nss-fraglist-accounting.py "$nss_drv_dir"
           echo "=== qca-nss-ecm prepare (patch apply check) ==="
           make package/qca-nss/qca-nss-ecm/prepare V=s
@@ -695,6 +730,15 @@ jobs:
           fi
           echo "All NSS patches applied successfully."
           echo "(Module compile requires full toolchain — done in Compile firmware step.)"
+
+      - name: Preserve NSS containment host evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: AX6_NSS_${{ env.VARIANT_TAG }}_CONTAINMENT_HOST_EVIDENCE_${{ github.sha }}
+          path: nss-containment-evidence/
+          if-no-files-found: warn  # NSS preparation may not have started.
+          retention-days: 14
 
       - name: Regression assertions — 007/008, 012, 018/019 (P0-D.3-5)
         working-directory: ./openwrt
@@ -1368,7 +1412,8 @@ jobs:
         if: env.VARIANT_TAG == 'STOCK'
         run: |
           set -eo pipefail
-          python3 tests/test-ax6-artifact-checks.py
+          "$AX6_ARTIFACT_PYTHON" tests/test-ax6-artifact-checks.py
+          "$AX6_ARTIFACT_PYTHON" tests/test-ax6-module-elf.py
           mapfile -d '' stock_images < <(
             find openwrt/bin/targets -type f -name '*-redmi_ax6-stock-squashfs-sysupgrade.bin' -print0
           )
@@ -1378,7 +1423,7 @@ jobs:
           )
           test "${#stock_images[@]}" -eq 1
           test "${#stock_dtbs[@]}" -eq 1
-          python3 .github/scripts/verify-ax6-artifacts.py images \
+          "$AX6_ARTIFACT_PYTHON" .github/scripts/verify-ax6-artifacts.py images \
             --sysupgrade "${stock_images[0]}" \
             --recovery-dir "$(dirname "${stock_images[0]}")" \
             --packages-dir openwrt/bin/targets/qualcommax/ipq807x/packages \
@@ -1467,6 +1512,7 @@ jobs:
             echo "SOURCE_PATCHSET_MANIFEST_SHA256=$SOURCE_PATCHSET_MANIFEST_SHA256"
             echo "SOURCE_MAC80211_PKG_RELEASE=$SOURCE_MAC80211_PKG_RELEASE"
             echo "SOURCE_HOSTAPD_PKG_RELEASE=$SOURCE_HOSTAPD_PKG_RELEASE"
+            echo "SOURCE_QCA_NSS_DP_PKG_RELEASE=$SOURCE_QCA_NSS_DP_PKG_RELEASE"
             echo "SOURCE_QCA_NSS_DRV_PKG_RELEASE=$SOURCE_QCA_NSS_DRV_PKG_RELEASE"
             echo "SOURCE_QCA_NSS_ECM_PKG_RELEASE=$SOURCE_QCA_NSS_ECM_PKG_RELEASE"
             echo "SOURCE_QCA_NSS_CLIENTS_PKG_RELEASE=$SOURCE_QCA_NSS_CLIENTS_PKG_RELEASE"
