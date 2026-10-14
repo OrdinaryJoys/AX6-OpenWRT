@@ -6,6 +6,7 @@ temporary directory. Never run opkg, apk, the updater or a real service. The job
 tests stub flock to inspect restart ordering, not to prove concurrency safety.
 """
 import fcntl
+import hashlib
 import os
 from pathlib import Path
 import re
@@ -13,9 +14,26 @@ import shlex
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
 
 SHELL = shlex.split(os.environ.get('AX6_TEST_SHELL', 'sh'))
+# Primary 631d7065 (0.47.159) moved backend choice outside the version function.
+# These are the exact reviewed installer initializer bytes, not a fabricated
+# PKG_TYPE assignment or execution of the updater/installer itself.
+PKG_TYPE_INITIALIZER = '''if [ -x "/usr/bin/apk" ]; then
+   PKG_TYPE="apk"
+else
+   PKG_TYPE="opkg"
+fi
+'''
+INSTALLER_ANCHOR = '   cat > /tmp/openclash_update.sh <<"EOF"\n'
+# Refuse to execute an unknown future version-function body even inside the
+# sandbox. These are exact c3a33c1 (legacy) and e553e82 (current) definitions.
+VERSION_FUNCTION_SHA256 = {
+    'legacy': 'cb59e869fa56cab7010b196a7dcff54e8a6f3959320e3a0a7cac3d81f1763beb',
+    'current': '1af94ccdf7fa503e72cd114abf47b8595dc25799bc0d3b460d8e6b25cae618fc',
+}
 
 
 def function(source, name):
@@ -24,6 +42,34 @@ def function(source, name):
     if len(found) != 1:
         raise ValueError(f'Expected one reviewed function: {name}')
     return found[0]
+
+
+def backend_initializer(source):
+    body = function(source, 'check_install_success')
+    layout = 'current' if '$PKG_TYPE' in body else 'legacy'
+    if hashlib.sha256(body.encode()).hexdigest() != VERSION_FUNCTION_SHA256[layout]:
+        raise ValueError('Reviewed version function body changed; fresh review required')
+    if '$PKG_TYPE' not in body:
+        if (body.count('if [ -x "/bin/opkg" ]; then') != 1 or
+                body.count('elif [ -x "/usr/bin/apk" ]; then') != 1):
+            raise ValueError('Legacy version backend layout changed')
+        return ''
+    if body.count('if [ "$PKG_TYPE" = "opkg" ]; then') != 1:
+        raise ValueError('Version backend global consumer changed')
+    if source.count(INSTALLER_ANCHOR) != 1:
+        raise ValueError('Generated installer boundary changed')
+    installer, delimiter, _ = source.split(INSTALLER_ANCHOR, 1)[1].partition('\nEOF\n')
+    if not delimiter:
+        raise ValueError('Generated installer closing delimiter changed')
+    before_check = installer.split(body, 1)
+    if (len(before_check) != 2 or
+            before_check[0].count(PKG_TYPE_INITIALIZER) != 1 or
+            installer.count(PKG_TYPE_INITIALIZER) != 1 or
+            source.count(PKG_TYPE_INITIALIZER) != 2):
+        raise ValueError('Reviewed APK-first installer initializer changed or ambiguous')
+    # Return the actual source slice, preserving its complete control flow.
+    start = before_check[0].index(PKG_TYPE_INITIALIZER)
+    return before_check[0][start:start + len(PKG_TYPE_INITIALIZER)]
 
 
 class UpgradeBoundaries(unittest.TestCase):
@@ -38,6 +84,7 @@ class UpgradeBoundaries(unittest.TestCase):
             function(cls.functions, name)
         function(cls.ps, 'dec_job_counter_and_restart')
         function(cls.updater, 'check_install_success')
+        cls.pkg_type_initializer = backend_initializer(cls.updater)
 
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix='ax6-upgrade-')
@@ -58,7 +105,7 @@ class UpgradeBoundaries(unittest.TestCase):
 
     def run_shell(self, text, **variables):
         env = os.environ.copy()
-        for name in ('IPKG_INSTROOT', 'PKG_UPGRADE', 'pkgname'):
+        for name in ('IPKG_INSTROOT', 'PKG_UPGRADE', 'pkgname', 'PKG_TYPE'):
             env.pop(name, None)
         env.update({k: str(v) for k, v in variables.items()})
         env['AX6_TEST_EVENTS'] = str(self.events)
@@ -194,14 +241,33 @@ class UpgradeBoundaries(unittest.TestCase):
         self.assertEqual(events, [])
         self.assertEqual(jobs.read_text(), '0 1\n')
 
-    def version_check(self, installed, status=0):
-        self.write(self.root / 'bin/opkg', '#!/bin/sh\n'
-                   f'echo "Version: {installed}"\nexit {status}\n', executable=True)
+    def version_check(self, installed, status=0, manager='opkg', output=True,
+                      both_backends=False, initialize=True, expected_manager=None):
+        self.assertIn(manager, ('opkg', 'apk'))
+        # Sentinels always shadow any host opkg/apk. Only projected presence
+        # probes choose the reviewed source branch; no real manager can run.
+        for backend in ('opkg', 'apk'):
+            self.write(self.root / 'backend-mocks' / backend, '#!/bin/sh\n'
+                       f'echo "backend:{backend}:$*" >> "$AX6_TEST_EVENTS"\nexit 99\n', executable=True)
+        managers = ('opkg', 'apk') if both_backends else (manager,)
+        for backend in managers:
+            path = 'bin/opkg' if backend == 'opkg' else 'usr/bin/apk'
+            version = f'Version: {installed}' if backend == 'opkg' else f'luci-app-openclash-{installed}-r1 installed'
+            stdout = f'echo "{version}"\n' if output else ''
+            self.write(self.root / path, '#!/bin/sh\n'
+                       f'echo "backend:{backend}:$*" >> "$AX6_TEST_EVENTS"\n'
+                       + stdout + f'exit {status}\n', executable=True)
         (self.root / 'var/lock').mkdir(parents=True)
-        text = self.project(function(self.updater, 'check_install_success'))
+        initializer = self.pkg_type_initializer if initialize else ''
+        text = self.project(initializer + function(self.updater, 'check_install_success'))
         text += 'check_install_success 1.2.3\n'
-        env_path = str(self.root / 'bin') + os.pathsep + os.environ['PATH']
-        return self.run_shell(text, PATH=env_path)[0]
+        env_path = os.pathsep.join([str(self.root / 'bin'), str(self.root / 'usr/bin'),
+                                   str(self.root / 'backend-mocks'), os.environ['PATH']])
+        result, events = self.run_shell(text, PATH=env_path)
+        expected = expected_manager or manager
+        argv = 'status luci-app-openclash' if expected == 'opkg' else 'list luci-app-openclash'
+        self.assertEqual(events, [f'backend:{expected}:{argv}'])
+        return result
 
     def test_version_check_matches_without_content_or_start_proof(self):
         self.assertEqual(self.version_check('1.2.3').returncode, 0)
@@ -211,6 +277,60 @@ class UpgradeBoundaries(unittest.TestCase):
 
     def test_version_pipeline_loses_status_failure(self):
         self.assertEqual(self.version_check('1.2.3', status=42).returncode, 0)
+
+    def test_apk_version_check_matches_without_content_or_start_proof(self):
+        self.assertEqual(self.version_check('1.2.3', manager='apk').returncode, 0)
+
+    def test_apk_version_check_rejects_other_version(self):
+        self.assertEqual(self.version_check('1.2.2', manager='apk').returncode, 1)
+
+    def test_apk_version_pipeline_loses_status_failure(self):
+        self.assertEqual(self.version_check('1.2.3', status=42, manager='apk').returncode, 0)
+
+    def test_opkg_empty_output_rejected(self):
+        self.assertEqual(self.version_check('1.2.3', output=False).returncode, 1)
+
+    def test_apk_empty_output_rejected(self):
+        self.assertEqual(self.version_check('1.2.3', manager='apk', output=False).returncode, 1)
+
+    def test_opkg_failure_with_empty_output_rejected(self):
+        self.assertEqual(self.version_check('1.2.3', status=42, output=False).returncode, 1)
+
+    def test_apk_failure_with_empty_output_rejected(self):
+        self.assertEqual(self.version_check('1.2.3', status=42, manager='apk', output=False).returncode, 1)
+
+    def test_ambient_backend_is_isolated(self):
+        if not self.pkg_type_initializer:
+            self.skipTest('Legacy source has no global initializer; not current-backend coverage')
+        with mock.patch.dict(os.environ, {'PKG_TYPE': 'apk'}):
+            self.assertEqual(self.version_check('1.2.3', manager='opkg').returncode, 0)
+
+    def test_current_selector_prefers_apk_when_both_present(self):
+        if not self.pkg_type_initializer:
+            self.skipTest('Legacy source prefers opkg; not current APK-first coverage')
+        self.assertEqual(self.version_check('1.2.3', manager='apk', both_backends=True).returncode, 0)
+
+    def test_missing_initializer_reproduces_method_failure(self):
+        if not self.pkg_type_initializer:
+            self.skipTest('Legacy function performs its own probes')
+        # With mock opkg present but omitted required global, the actual
+        # current function reaches only the failing private APK sentinel.
+        self.assertEqual(self.version_check('1.2.3', initialize=False,
+                                          expected_manager='apk').returncode, 1)
+
+    def test_backend_initializer_drift_is_rejected(self):
+        if not self.pkg_type_initializer:
+            self.skipTest('Legacy source uses the reviewed in-function probe layout')
+        negatives = (
+            self.updater.replace(PKG_TYPE_INITIALIZER, '', 1),
+            self.updater.replace(INSTALLER_ANCHOR, INSTALLER_ANCHOR + PKG_TYPE_INITIALIZER, 1),
+            self.updater.replace('if [ -x "/usr/bin/apk" ]; then', 'if [ -x "/usr/bin/apk2" ]; then'),
+            self.updater.replace('PKG_TYPE="apk"', 'PKG_TYPE="unknown"'),
+            self.updater.replace('if [ "$PKG_TYPE" = "opkg" ]; then', 'if [ "$PKG_TYPE" = "apk" ]; then'),
+        )
+        for bad in negatives:
+            with self.assertRaises(ValueError):
+                backend_initializer(bad)
 
     def test_unlinking_lock_allows_a_second_inode_lock(self):
         path = self.root / 'package.lock'
