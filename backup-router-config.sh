@@ -232,5 +232,6 @@ say "The router login password hash and generated OpenClash data were not archiv
 say "The forensic snapshot is deliberately blocked from whole-system restore."
 say "Before flashing, validate this directory with:"
 say "  ./preflight-router-restore.sh '$BACKUP_DIR'"
-say "After a clean manual installation and base-network validation, restore OpenClash with:"
-say "  ./deploy-openclash-runtime.sh '$ROUTER' '$BACKUP_DIR'"
+say "Review this backup offline before any separately approved restoration:"
+say "  ./deploy-openclash-runtime.sh --check '$BACKUP_DIR'"
+say "Offline PASS does not authorize --apply, firmware flashing or a reboot."

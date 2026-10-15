@@ -86,8 +86,11 @@ entries have not been changed by the offline candidate work.
 6. Restore ZeroTier identity only. Then configure the network ID using the new
    package defaults and verify the interface, firewall zone, route table,
    secondary port and OpenClash bypass before proceeding.
-7. Restore OpenClash only through `deploy-openclash-runtime.sh`. Require its
-   DNS health and `ax6-config-audit` checks to pass.
+7. First validate OpenClash data using `deploy-openclash-runtime.sh --check BACKUP`.
+   This is offline only and is not permission to restore. The implicit legacy
+   restore invocation is retired. The replacement transaction engine remains
+   unreleased pending exact Linux/BusyBox and composed lifecycle review; do not
+   invoke its remote helper directly. See `tools/AX6_RESTORE_SAFETY.md`.
 8. Recreate DHCP reservations, WiFi credentials, VLANs, UPnP and optional
    services one package at a time against the new defaults. Validate LAN and
    WAN after each stage. Do not copy old `network`, `firewall`, `dhcp`,

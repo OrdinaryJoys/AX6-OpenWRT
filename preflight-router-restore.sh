@@ -3,6 +3,8 @@
 # Usage: ./preflight-router-restore.sh backup_directory
 set -eu
 
+SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+
 BACKUP_DIR="${1:-}"
 FORENSIC_ARCHIVE="FORENSIC-CONFIG-SNAPSHOT.tar.gz.blocked"
 WARNING_MARKER="DO-NOT-RESTORE-WHOLE-BACKUP.txt"
@@ -34,6 +36,9 @@ grep -Fq 'forensic snapshot must never be restored whole' "$BACKUP_DIR/MANIFEST.
     fail "manifest does not prohibit whole restore"
 
 [ -s "$BACKUP_DIR/SHA256SUMS.txt" ] || fail "missing SHA256SUMS.txt"
+# Parse paths and the complete checksum inventory before any legacy checksum CLI.
+python3 -B "$SCRIPT_DIR/tools/ax6_restore.py" check-backup "$BACKUP_DIR" >/dev/null || \
+    fail "structured backup validation failed"
 if command -v sha256sum >/dev/null 2>&1; then
     (cd "$BACKUP_DIR" && sha256sum -c SHA256SUMS.txt >/dev/null) || \
         fail "backup checksum verification failed"

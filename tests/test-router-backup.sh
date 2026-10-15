@@ -1,6 +1,9 @@
 #!/bin/sh
 set -eu
 
+# Avoid macOS AppleDouble metadata in synthetic portable router archives.
+export COPYFILE_DISABLE=1
+
 # shellcheck disable=SC1007 # Keep cd output independent of a caller-provided CDPATH.
 ROOT=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/router-backup-test.XXXXXX")

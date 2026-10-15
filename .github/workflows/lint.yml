@@ -1217,6 +1217,9 @@ jobs:
           backup="backup-router-config.sh"
           deploy="deploy-openclash-runtime.sh"
           preflight="preflight-router-restore.sh"
+          controller="tools/ax6-openclash-restore.py"
+          remote="tools/ax6-openclash-restore-remote.sh"
+          validator="tools/ax6_restore.py"
           test -x "$backup"
           test -x "$deploy"
           test -x "$preflight"
@@ -1236,41 +1239,54 @@ jobs:
           grep -Fq 'ssh-authorized-keys.tar.gz' "$backup" "$preflight"
           grep -Fq 'zerotier-identity.tar.gz' "$backup" "$preflight"
           grep -Fq 'openclash-runtime.tar.gz' "$backup"
-          grep -Fq 'openclash-runtime.tar.gz' "$deploy"
+          grep -Fq 'openclash-runtime.tar.gz' "$validator"
           grep -Fq '/etc/openclash/overwrite' "$backup"
-          grep -Fq '/etc/openclash/overwrite' "$deploy"
-          grep -Fq 'OpenClash archive contains paths outside the restore allowlist' "$deploy"
-          grep -Fq 'OpenClash archive contains links or special files' "$deploy"
-          grep -Fq 'rollback_on_error' "$deploy"
-          grep -Fq 'previous OpenClash state restored' "$deploy"
-          grep -Fq '    rm -rf' "$deploy"
-          grep -Fq 'OpenClash core: disabled by restored configuration' "$deploy"
-          grep -Fq 'OpenClash core, DNS and firewall contract: ready' "$deploy"
-          grep -Fq '/sbin/ax6-config-audit -q' "$deploy"
-          grep -Fq '/sbin/ax6-config-audit -v' "$deploy"
-          grep -Fq 'StrictHostKeyChecking=yes' "$backup" "$deploy"
-          # shellcheck disable=SC2016 # Match the literal known_hosts option in both scripts.
-          grep -Fq 'UserKnownHostsFile="$SSH_KNOWN_HOSTS"' "$backup" "$deploy"
-          if grep -Fq 'ax6-config-audit -v || true' "$deploy"; then
-            echo "::error file=$deploy::restore must not ignore final configuration audit failures"
+          grep -Fq 'etc/openclash/overwrite' "$validator"
+          grep -Fq 'ax6-openclash-restore.py' "$deploy"
+          grep -Fq -- '--check' "$deploy"
+          grep -Fq 'StrictHostKeyChecking=yes' "$controller"
+          grep -Fq 'IdentitiesOnly=yes' "$controller"
+          grep -Fq 'check_backup(options.backup)' "$controller"
+          grep -Fq 'APPLY_RELEASED = False' "$controller"
+          grep -Fq 'timeout 10 /usr/sbin/ax6-openclash-fw-health --probe' "$remote"
+          grep -Fq '/sbin/ax6-config-audit -q' "$remote"
+          grep -Fq 'REMOTE_STATE_UNKNOWN_MANUAL_REVIEW_REQUIRED' "$controller"
+          if grep -Fq 'cron restart' "$remote" || grep -Fq 'crontab.txt' "$controller"; then
+            echo "::error::restore must neither restart crond nor import legacy backup cron rows"
             exit 1
           fi
-          grep -Fq 'The complete sysupgrade archive was not restored automatically.' "$deploy"
-          grep -Fq 'redundant OpenClash core already exists in overlay' "$deploy"
+          sh -n "$remote"
+          evidence="$RUNNER_TEMP/ax6-restore-validation"
+          mkdir -p "$evidence"
+          sha256sum "$backup" "$deploy" "$preflight" "$controller" "$remote" "$validator" \
+            tests/test-router-restore.py tests/test-router-backup.sh tests/test-router-restore-preflight.sh \
+            .github/workflows/lint.yml > "$evidence/source-files.sha256"
+          AX6_TEST_REPORT="$evidence/native.json" python3 -B tests/test-router-restore.py
+          AX6_TEST_REPORT="$evidence/busybox.json" AX6_TEST_BUSYBOX=1 AX6_TEST_SHELL='busybox ash' \
+            python3 -B tests/test-router-restore.py
           grep -Fq 'overlay contains a redundant' AX6-IPQ/files/sbin/ax6-config-audit
           grep -Fq 'legacy sysupgrade policy keeps core/Geo/cache' AX6-IPQ/files/sbin/ax6-config-audit
           grep -Fq 'ax6-backup-*/' .gitignore
-          if grep -Fq '        /etc/openclash/proxy_provider' "$backup" "$deploy" ||
-             grep -Fq '        /etc/openclash/rule_provider' "$backup" "$deploy" ||
-             grep -Fq '        /usr/share/openclash/fix_dot.sh' "$backup" "$deploy"; then
+          if grep -Fq '        /etc/openclash/proxy_provider' "$backup" "$remote" ||
+             grep -Fq '        /etc/openclash/rule_provider' "$backup" "$remote" ||
+             grep -Fq '        /usr/share/openclash/fix_dot.sh' "$backup" "$remote"; then
             echo "::error::OpenClash restore scope must exclude generated providers and package scripts"
             exit 1
           fi
-          if grep -Eq 'el1si7d_doggygosubs|head -[0-9]+ /etc/openclash/config' "$backup" "$deploy"; then
+          if grep -Eq 'el1si7d_doggygosubs|head -[0-9]+ /etc/openclash/config' "$backup" "$remote"; then
             echo "::error::router maintenance scripts must not hard-code a subscription filename or truncate backups"
             exit 1
           fi
           grep -Fq 'blacklist nf_flow_table' AX6-IPQ/files/etc/modprobe.d/nss-no-flow.conf
+
+      - name: Save restore tool validation evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: ax6-restore-tool-evidence
+          path: ${{ runner.temp }}/ax6-restore-validation/
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Build dependency installation policy check
         run: |
