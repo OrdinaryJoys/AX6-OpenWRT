@@ -93,7 +93,8 @@ def archive(data, policy="openclash"):
     if policy == "openclash":
         require(bool(members.get(ROOTS[0])), "missing OpenClash UCI configuration")
     elif policy == "ssh":
-        require(len(members) == 1, "SSH archive is not authorized_keys-only")
+        require(len(members) == 1 and bool(members.get("etc/dropbear/authorized_keys")),
+                "SSH archive is not nonempty authorized_keys-only")
     elif policy == "zerotier":
         require(len(members) == 2 and bool(members.get("etc/zerotier/identity.secret")), "ZeroTier secret identity is incomplete")
     return members

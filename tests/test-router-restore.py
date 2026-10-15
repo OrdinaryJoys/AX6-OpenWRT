@@ -26,6 +26,7 @@ spec = importlib.util.spec_from_file_location("restore", ROOT / "tools/ax6-openc
 restore = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(restore)
 SCENARIOS = []
+PRECONDITIONS = []
 
 
 def tar_bytes(files, extra=None):
@@ -241,6 +242,20 @@ class ArchiveTests(unittest.TestCase):
                 with self.subTest(field=field):
                     with self.assertRaises(InvalidBackup): restore.approved(report, path)
 
+    def test_identity_role_completeness_is_not_crypto_validation(self):
+        with self.assertRaises(InvalidBackup):
+            archive(tar_bytes({'etc/dropbear/authorized_keys': b''}), 'ssh')
+        with self.assertRaises(InvalidBackup):
+            archive(tar_bytes({'etc/zerotier/identity.public': b'public', 'etc/zerotier/identity.secret': b''}), 'zerotier')
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp) / 'backup'; backup(directory)
+            (directory / 'zerotier-identity.tar.gz').write_bytes(tar_bytes({
+                'etc/zerotier/identity.public': b'', 'etc/zerotier/identity.secret': b'synthetic secret'}))
+            rehash(directory)
+            report, _ = check_backup(directory)
+            self.assertTrue(report['zerotier_public_empty'])
+            self.assertFalse(report['zerotier_crypto_validated'])
+
     def test_apply_is_unreleased_even_with_a_valid_receipt(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); backup(root / 'backup')
@@ -284,7 +299,7 @@ class ArchiveTests(unittest.TestCase):
 class TransactionTests(unittest.TestCase):
     def fixture(self, temp, fault='', enabled=1, baseline=0):
         base = Path(temp); fixture = base / 'router'; fixture.mkdir()
-        for directory in ('etc/config', 'etc/openclash/config', 'etc/openclash/custom', 'etc/openclash/overwrite',
+        for directory in ('etc/config', 'etc/openclash/config', 'etc/openclash/custom', 'etc/openclash/overwrite', 'etc/openclash/core',
                           'etc/crontabs', 'rom/etc/openclash/core', 'lib/upgrade/keep.d', 'proc/sys/kernel/random', 'bin'):
             (fixture / directory).mkdir(parents=True, exist_ok=True)
         (fixture / 'proc/sys/kernel/random/boot_id').write_text('synthetic-boot\n')
@@ -293,6 +308,7 @@ class TransactionTests(unittest.TestCase):
         (fixture / 'etc/openclash/config/old.yaml').write_text('old data')
         (fixture / 'etc/crontabs/root').write_text('7 * * * * /unrelated/job\n*/2 * * * * /usr/sbin/ax6-openclash-fw-health\n')
         (fixture / 'rom/etc/openclash/core/clash_meta').write_bytes(b'synthetic core')
+        (fixture / 'etc/openclash/core/clash_meta').write_bytes(b'synthetic core')
         (fixture / 'lib/upgrade/keep.d/luci-app-openclash').write_text(''.join(str(fixture) + '/' + name + '/\n' for name in ROOTS[1:]))
         mock = fixture / 'bin/mock'; mock.write_text(MOCK); mock.chmod(0o700)
         for command in ('uci', 'pidof', 'crontab', 'df', 'nft', 'ip', 'sleep', 'timeout', 'mv', 'tar'):
@@ -390,6 +406,39 @@ class TransactionTests(unittest.TestCase):
             with self.subTest(fault=fault): self.exercise(fault)
     def test_disabled_residual_is_not_a_success(self): self.exercise('disabled-residual', enabled=0)
 
+    def test_target_preconditions_do_not_reach_stop(self):
+        cases = ('missing-init', 'missing-fw-probe', 'auditor-mode', 'core-drift', 'dangling-overlay-core',
+                 'regular-overlay-core', 'symlink-custom', 'existing-transaction', 'wrong-keep')
+        for case in cases:
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as temp:
+                transaction = self.fixture(temp)
+                router = transaction.fixture
+                config_before = (router / 'etc/config/openclash').read_bytes()
+                if case == 'missing-init': (router / 'etc/init.d/openclash').unlink()
+                elif case == 'missing-fw-probe': (router / 'usr/sbin/ax6-openclash-fw-health').unlink()
+                elif case == 'auditor-mode': (router / 'sbin/ax6-config-audit').chmod(0o600)
+                elif case == 'core-drift': (router / 'etc/openclash/core/clash_meta').write_bytes(b'unreviewed core')
+                elif case in ('dangling-overlay-core', 'regular-overlay-core'):
+                    overlay = router / 'overlay/upper/etc/openclash/core/clash_meta'
+                    overlay.parent.mkdir(parents=True)
+                    if case.startswith('dangling'): overlay.symlink_to(router / 'absent-core')
+                    else: overlay.write_bytes(b'synthetic core')
+                elif case == 'symlink-custom':
+                    (router / 'etc/openclash/custom').rmdir()
+                    (router / 'etc/openclash/custom').symlink_to(router / 'etc/openclash/core')
+                elif case == 'existing-transaction':
+                    work = router / 'etc/.ax6-openclash-restore'; work.mkdir()
+                    (work / 'token').write_text('another owner')
+                elif case == 'wrong-keep': (router / 'lib/upgrade/keep.d/luci-app-openclash').write_text('/etc/openclash/\n')
+                with contextlib.redirect_stdout(io.StringIO()): code = transaction.execute()
+                events = (router / 'events').read_text() if (router / 'events').exists() else ''
+                self.assertEqual(code, 2)
+                self.assertNotIn('init stop', events)
+                self.assertNotIn('tar -xzf', events)
+                self.assertEqual((router / 'etc/config/openclash').read_bytes(), config_before)
+                if case == 'existing-transaction': self.assertEqual((work / 'token').read_text(), 'another owner')
+                PRECONDITIONS.append({'case': case, 'target_data_unchanged': True, 'reached_stop': False})
+
 
 if __name__ == '__main__':
     result = unittest.main(exit=False).result
@@ -398,5 +447,5 @@ if __name__ == '__main__':
             'shell': os.environ.get('AX6_TEST_SHELL', '/bin/sh'), 'test_groups': result.testsRun,
             'busybox_applets_requested': os.environ.get('AX6_TEST_BUSYBOX') == '1',
             'failures': len(result.failures), 'errors': len(result.errors),
-            'skipped': len(result.skipped), 'scenarios': SCENARIOS}, indent=2) + '\n')
+            'skipped': len(result.skipped), 'scenarios': SCENARIOS, 'preconditions': PRECONDITIONS}, indent=2) + '\n')
     sys.exit(0 if result.wasSuccessful() else 1)

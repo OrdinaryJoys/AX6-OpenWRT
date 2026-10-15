@@ -62,8 +62,12 @@ rom_contract() {
         [ -x "$path" ] || return 1
     done
     [ "$(hash /etc/init.d/openclash)" = "$INIT_SHA" ] || return 1
+    [ -f /etc/openclash/core/clash_meta ] && [ ! -L /etc/openclash/core/clash_meta ] || return 1
+    [ -d /etc/openclash/core ] && [ ! -L /etc/openclash/core ] || return 1
     [ "$(hash /rom/etc/openclash/core/clash_meta)" = "$CORE_SHA" ] || return 1
+    cmp -s /etc/openclash/core/clash_meta /rom/etc/openclash/core/clash_meta || return 1
     [ ! -e /overlay/upper/etc/openclash/core/clash_meta ] || return 1
+    [ ! -L /overlay/upper/etc/openclash/core/clash_meta ] || return 1
     sh -n /etc/init.d/openclash || return 1
     for marker in 'AX6 proxy ingress scope v1 begin' 'AX6 DNS ingress scope v1 begin' \
         'AX6 R-11 v2' 'avoid copying the immutable ROM core' 'ax6-openclash-zerotier-bypass'; do
