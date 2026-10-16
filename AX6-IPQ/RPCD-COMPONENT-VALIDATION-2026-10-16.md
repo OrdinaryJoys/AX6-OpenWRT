@@ -24,6 +24,11 @@ the patched allocation/free control. These use the stock shared libraries in
 an isolated VM with no NIC/shares/disks, not the AX6 target kernel or hardware.
 Local gate fixtures are not evidence of a successful target compiler or image.
 
+Individual package compilation does not inherit the full world's toolchain
+stamp dependency. The workflow explicitly builds `toolchain/install` before
+the rpcd component step, using fail-propagating pipefail and retained logs.
+This prerequisite does not alter source pins, drivers or runtime configuration.
+
 Known open gates: daemon restart durability, LuCI/CGI/Argon frontend integration,
 configuration recovery release, existing W04/throughput/real-network symptoms.
 No subscription/overwrite edits or geography auto-update changes are included.

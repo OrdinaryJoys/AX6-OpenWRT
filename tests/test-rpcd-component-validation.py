@@ -19,6 +19,17 @@ SPEC.loader.exec_module(GATE)
 
 
 class Gates(unittest.TestCase):
+    def test_workflow_builds_target_toolchain_before_individual_components(self):
+        workflow = (ROOT / '.github/workflows/build-AX6-NSS.yml').read_text()
+        bootstrap = 'make -C openwrt -j2 toolchain/install V=s 2>&1 | tee rpcd-toolchain-evidence/install.log'
+        components = 'python3 .github/scripts/validate-rpcd-components.py build openwrt rpcd-component-evidence'
+        self.assertEqual(workflow.count(bootstrap), 1)
+        self.assertEqual(workflow.count(components), 1)
+        self.assertLess(workflow.index(bootstrap), workflow.index(components))
+        step = workflow.split('      - name: Build target toolchain before rpcd components\n', 1)[1].split('      - name:', 1)[0]
+        self.assertIn('set -euo pipefail', step)
+        self.assertIn('path: rpcd-toolchain-evidence/', workflow)
+
     def test_stock_selections(self):
         for variant in ('stock', 'expand'):
             config = (ROOT / ('AX6-IPQ/.config-' + variant)).read_text()

@@ -624,6 +624,21 @@ jobs:
           if-no-files-found: warn  # Preparation may not have started.
           retention-days: 14
 
+      - name: Build target toolchain before rpcd components
+        run: |
+          set -euo pipefail
+          mkdir -p rpcd-toolchain-evidence
+          make -C openwrt -j2 toolchain/install V=s 2>&1 | tee rpcd-toolchain-evidence/install.log
+
+      - name: Preserve rpcd target toolchain evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: AX6_NSS_${{ env.VARIANT_TAG }}_RPCD_TOOLCHAIN_EVIDENCE_${{ github.sha }}
+          path: rpcd-toolchain-evidence/
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Validate target rpcd ON and OFF components
         run: |
           set -euo pipefail
@@ -743,7 +758,7 @@ jobs:
             exit 1
           fi
           echo "All NSS patches applied successfully."
-          echo "(Module compile requires full toolchain — done in Compile firmware step.)"
+          echo "(NSS module compilation is performed in the full Compile firmware step.)"
 
       - name: Preserve NSS containment host evidence even on failure
         if: always()
