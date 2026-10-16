@@ -106,6 +106,7 @@ class Gates(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / 'OFF').mkdir()
+            (root / 'ON').mkdir()
             config = root / 'config'
             config.write_text((ROOT / 'AX6-IPQ/.config-stock').read_text())
             records, contents, listing, statuses = {}, {}, [], []
@@ -128,7 +129,17 @@ class Gates(unittest.TestCase):
                 statuses.append(text + 'Status: hold ok installed\n')
             status = '\n'.join(statuses).encode()
             listing_text = ('\n'.join(listing) + '\n').encode()
-            (root / 'components.json').write_text(json.dumps({'modes': {'ON': {}, 'OFF': {'packages': records}}}))
+            modes = {}
+            for mode in ('ON', 'OFF'):
+                content = bytes(binary) + mode.encode()
+                (root / mode / 'rpcd.unstripped').write_bytes(content)
+                (root / mode / 'CMakeCache.txt').write_text('CHECKED_UCI_SUPPORT:BOOL=' + mode + '\n')
+                plugins = {}
+                for module in GATE.MODULES:
+                    (root / mode / (module + '.so')).write_bytes(content)
+                    plugins[module] = GATE.sha(content)
+                modes[mode] = {'binary_sha256': GATE.sha(content), 'packages': records, 'plugins': plugins}
+            (root / 'components.json').write_text(json.dumps({'modes': modes}))
 
             def output(argv):
                 if argv[1] == '-ll':
@@ -145,6 +156,15 @@ class Gates(unittest.TestCase):
                 listing_text = listing_text.replace(b'-rwxr-xr-x', b'lrwxrwxrwx', 1)
                 with self.assertRaises(ValueError):
                     GATE.rootfs(root / 'image', root, config)
+
+    def test_rootfs_rejects_empty_component_receipts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config = root / 'config'
+            config.write_text((ROOT / 'AX6-IPQ/.config-stock').read_text())
+            (root / 'components.json').write_text(json.dumps({'modes': {'ON': {'packages': {}}, 'OFF': {'packages': {}}}}))
+            with self.assertRaisesRegex(ValueError, 'package set is incomplete'):
+                GATE.rootfs(root / 'image', root, config)
 
 
 if __name__ == '__main__':

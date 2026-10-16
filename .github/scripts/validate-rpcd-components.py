@@ -150,6 +150,16 @@ def rootfs(image, out, config_path):
     require(not checked_mode(config_path.read_text()), 'final firmware experimental API is ON')
     data = json.loads((out / 'components.json').read_text())
     require(set(data['modes']) == {'ON', 'OFF'}, 'both target component modes required')
+    expected = package_set(config_path.read_text())
+    for mode in ('ON', 'OFF'):
+        record = data['modes'][mode]
+        require(set(record['packages']) == set(expected), 'component package set is incomplete: ' + mode)
+        require(set(record['plugins']) == set(MODULES), 'component plugin set is incomplete: ' + mode)
+        require('CHECKED_UCI_SUPPORT:BOOL=' + mode in (out / mode / 'CMakeCache.txt').read_text().splitlines(), 'archived CMake mode drift')
+        require(elf((out / mode / 'rpcd.unstripped').read_bytes()) == record['binary_sha256'], 'archived core ELF drift')
+        for module in MODULES:
+            require(elf((out / mode / (module + '.so')).read_bytes()) == record['plugins'][module], 'archived plugin ELF drift')
+    require(data['modes']['ON']['binary_sha256'] != data['modes']['OFF']['binary_sha256'], 'identical ON/OFF evidence')
     report = {}
     wanted = [r['payload_path'] for r in data['modes']['OFF']['packages'].values()]
     entries = VIM.listing_entries(subprocess.check_output(['unsquashfs', '-ll', str(image)]).decode(), wanted)
