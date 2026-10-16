@@ -624,6 +624,20 @@ jobs:
           if-no-files-found: warn  # Preparation may not have started.
           retention-days: 14
 
+      - name: Validate target rpcd ON and OFF components
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/validate-rpcd-components.py build openwrt rpcd-component-evidence
+
+      - name: Preserve rpcd component evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: AX6_NSS_${{ env.VARIANT_TAG }}_RPCD_COMPONENT_EVIDENCE_${{ github.sha }}
+          path: rpcd-component-evidence/
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Fast gate — NSS patch prepare (P0-D.6)
         working-directory: ./openwrt
         run: |
@@ -902,6 +916,9 @@ jobs:
           fi
           rootfs="${roots[0]}"
           unsquashfs -ll "$rootfs" > image-verify/rootfs-files.txt
+          python3 .github/scripts/validate-rpcd-components.py rootfs \
+            "$rootfs" rpcd-component-evidence openwrt/.config
+          cp rpcd-component-evidence/ROOTFS-CONSISTENCY.json image-verify/rpcd-rootfs.json
           # Validate the same originals retained before all DTB/rootfs gates.
           python3 .github/scripts/verify-vim-rootfs.py \
             --rootfs "$rootfs" --packages-root vim-package-evidence/offline-packages \

@@ -127,6 +127,14 @@ da85c66ec9b7c19bfa709e8d93585315bf7e2234985523b33fb5bbd8eda52df4  package/qca-ns
 95307ad7ade437e6c7f22a51d7a830726dd0c8d9008dcfed67c62f9372a8dc9d  package/qca-nss/qca-nss-ecm/patches/027-fix-multicast-destination-count-signedness.patch
 449132502ad5a8793dc91563903338f2df45eb5fead4064a1f4ddc6299c1d5c2  package/qca-nss/qca-nss-ecm/tests/test-disable-offloads.sh
 ddb52cdf907a45761b7c3e394db4c29eeae5d268f3e00ed86e3eabf6fd641055  package/qca-nss/qca-ssdk/patches/009-feature-nss-dp-netdev-mac-sync.patch
+cf4dd1b5e975aaec31995b4fbc49ffddcc970d9a5e8a99a0120b92721871f13b  package/system/rpcd/AX6-VALIDATION.md
+561e9a433484a0622e6ab119cbb5c42cd584355d0438661c998a504fb7c739ed  package/system/rpcd/Makefile
+ccd7731c4f16043f347ac5bb86ffd198be9bf371624061f8fd349cd4674da6e3  package/system/rpcd/patches/010-file-resolved-path-acl.patch
+b725c884e0bba41212149bbcbb056a4c059d13dd8c13953755b1c5eaaa605530  package/system/rpcd/patches/011-file-empty-data.patch
+79b8796ce7903c34a32d2ae13899049bcc6a046e470ca1134c497ef885c767a1  package/system/rpcd/patches/012-ucode-switch-default.patch
+aa64a59ae58b54d5bdf7603710b04c31b5651f0de41e71fd76551dd8d2a2d455  package/system/rpcd/patches/013-session-private-dirname.patch
+e3fc9809e06328f183446c7bd0880ed581b0d33ad56e042c3893558100a92499  package/system/rpcd/patches/014-checked-uci-experimental-default-off.patch
+b0c9db161f732588f40e216cedf6e63e94d94198a46e1a33bd5a5a4040b5c5f6  package/system/rpcd/provenance.json
 b187ecd16255a6386cf15dcb90c999d79ada51e5015d9d06df7a588ceb221932  package/system/ubus/Makefile
 ac85f667032f61de480a13d5fe0377afead2bba8fe5b964717389cf435120194  scripts/download.pl
 0ce26e852ca0b03f4450d00ec9e98d2e4387f288cf581524a664243f7896c79c  target/linux/airoha/patches-6.18/096-v6.19-net-airoha-Add-missing-stats-to-ethtool_eth_mac_stat.patch
