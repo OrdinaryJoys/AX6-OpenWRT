@@ -130,11 +130,12 @@ da85c66ec9b7c19bfa709e8d93585315bf7e2234985523b33fb5bbd8eda52df4  package/qca-ns
 95307ad7ade437e6c7f22a51d7a830726dd0c8d9008dcfed67c62f9372a8dc9d  package/qca-nss/qca-nss-ecm/patches/027-fix-multicast-destination-count-signedness.patch
 729dbe7f96d28c8a7ffa122eeb39b37de90e708513ced37c9880a1dd14f61e46  package/qca-nss/qca-nss-ecm/patches/028-classifier-preserve-explicit-directional-udp-priorities.patch
 449132502ad5a8793dc91563903338f2df45eb5fead4064a1f4ddc6299c1d5c2  package/qca-nss/qca-nss-ecm/tests/test-disable-offloads.sh
-f8eecfb55736fa439d6e876effc3a2a3670734c1acd6ef96308800fc2181cf5c  package/qca-nss/qca-ssdk/Makefile
+99f69d716bc57a83c628798d31ec96d624954d8586ec7c94635ade53b676b5dd  package/qca-nss/qca-ssdk/Makefile
 ddb52cdf907a45761b7c3e394db4c29eeae5d268f3e00ed86e3eabf6fd641055  package/qca-nss/qca-ssdk/patches/009-feature-nss-dp-netdev-mac-sync.patch
 cc93fdd230cd3718c3a02ce74fed5d7c881df132a6db529a10d01963f23f30e8  package/qca-nss/qca-ssdk/patches/020-mib-complete-diagnostics-and-propagate-errors.patch
 fa50c93922d26938758145daea49b03884b97ed43c738ed664fe4e224086d6ac  package/qca-nss/qca-ssdk/patches/021-ssdk-hppe-return-chain.patch
 a0b093aa5846bb139c425dd937f6ffbc0b2b0c3b8df75fb89d93b1978ca5e0eb  package/qca-nss/qca-ssdk/patches/022-ssdk-mib-work-lifetime.patch
+7c551f6ad1e187f91f017b5a7644bc0bed28f15b401004006a31a8a89300c9a1  package/qca-nss/qca-ssdk/patches/023-ssdk-ref-mib-format.patch
 cf4dd1b5e975aaec31995b4fbc49ffddcc970d9a5e8a99a0120b92721871f13b  package/system/rpcd/AX6-VALIDATION.md
 561e9a433484a0622e6ab119cbb5c42cd584355d0438661c998a504fb7c739ed  package/system/rpcd/Makefile
 ccd7731c4f16043f347ac5bb86ffd198be9bf371624061f8fd349cd4674da6e3  package/system/rpcd/patches/010-file-resolved-path-acl.patch
@@ -284,4 +285,4 @@ e41f80bc362099361e25beb557ec9e520a80963392acfdc6ac00e1076edbc043  tests/test-qca
 e1f5d595b6231c68961febfa292f71497080a8355cbe3ad3df6cf245ee9431f9  tests/test-service-lifecycle.py
 85279c212348f5798d0a1486310d2d7dfc13dc02c87361bd419db32e611f970f  tests/test-set-irq-affinity-device-discovery.sh
 57a687a231ef26d21a57a686cda4198ca88cee167107e4622b7353569db3dd70  tests/test-set-irq-affinity-policy-errors.py
-9de297e2270036da16d14fff9e0136da7d31760d40c50399c49f45f75c3eac43  tests/test-ssdk-mib-errors.py
+0339af376c1999c241d8f7edd27db17aec97746a289f36d53a13caef04cdb550  tests/test-ssdk-mib-errors.py
