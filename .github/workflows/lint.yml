@@ -120,6 +120,7 @@ jobs:
           sh tests/test-openclash-zerotier-bypass.sh
           sh tests/test-ax6-config-audit-zerotier.sh
           sh tests/test-ax6-boot-guard.sh
+          AX6_TEST_SHELL='busybox ash' sh tests/test-ax6-boot-guard.sh
           sh tests/test-ax6-stock-compiled-dtb.sh
           sh tests/test-pbuf-fixture.sh
           sh tests/test-nss-monitor.sh
@@ -945,7 +946,7 @@ jobs:
           grep -Fq 'arp_ignore:1' "$helper"
           grep -Fq '/usr/sbin/ax6-network-invariants --all' "$service"
           grep -Fq '. /lib/netifd/offload/disable_offloads.sh' "$service"
-          grep -Fqx '        disable_offload' "$service"
+          grep -Fqx '            disable_offload' "$service"
           if grep -Eq '^[[:space:]]*disable_offload[[:space:]]+br-lan[[:space:]]*$' "$service"; then
             echo "::error file=$service::parameterless helper already includes configured br-lan; do not process it twice"
             exit 1
@@ -1056,9 +1057,9 @@ jobs:
             exit 1
           fi
           guard=AX6-IPQ/files/etc/init.d/ax6-boot-guard
-          grep -Fq 'network.globals.packet_steering' "$guard"
-          grep -Fq 'for option in flow_offloading flow_offloading_hw' "$guard"
-          grep -Fq 'firewall.@defaults[0].' "$guard"
+          grep -Fq 'section=network.globals; rules=packet_steering:0' "$guard"
+          grep -Fq 'flow_offloading:0 flow_offloading_hw:0' "$guard"
+          grep -Fq 'firewall.@defaults[0]' "$guard"
           grep -q 'ax6-config-audit' AX6-IPQ/files/sbin/nss-check
           if grep -RqE \
             'uci([[:space:]]+-q)?[[:space:]]+set "network\.\$\{d\}\.(packet_steering|flow_offloading|flow_offloading_hw)=0"' \

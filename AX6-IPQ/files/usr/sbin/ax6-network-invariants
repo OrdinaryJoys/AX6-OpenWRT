@@ -1,11 +1,19 @@
 #!/bin/sh
+# shellcheck shell=ash
 
 set -u
 
 IPV4_CONF_ROOT="${AX6_IPV4_CONF_ROOT:-/proc/sys/net/ipv4/conf}"
+status=0
+[ -d "$IPV4_CONF_ROOT" ] || exit 1
+
+failed() {
+    [ "$status" -ne 0 ] || status="$1"
+    printf '%s\n' "ax6-network-invariants: $2" >&2
+}
 
 apply_interface() {
-    interface="$1"
+    local interface="$1" directory setting name value file current rc
     directory="$IPV4_CONF_ROOT/$interface"
 
     [ "$interface" != "lo" ] || return 0
@@ -19,9 +27,22 @@ apply_interface() {
         value="${setting##*:}"
         file="$directory/$name"
 
-        [ -w "$file" ] || continue
-        current="$(cat "$file" 2>/dev/null)"
-        [ "$current" = "$value" ] || printf '%s\n' "$value" > "$file"
+        if ! current=$(cat "$file" 2>/dev/null); then
+            [ -d "$directory" ] || return 0
+            failed 1 "cannot read $file"
+            continue
+        fi
+        [ "$current" != "$value" ] || continue
+        if printf '%s\n' "$value" > "$file"; then
+            if current=$(cat "$file" 2>/dev/null) && [ "$current" = "$value" ]; then
+                continue
+            fi
+            rc=1
+        else
+            rc=$?
+        fi
+        [ -d "$directory" ] || return 0
+        failed "$rc" "write/readback failed: $file"
     done
 }
 
@@ -42,3 +63,4 @@ case "${1:-all}" in
         done
         ;;
 esac
+exit "$status"

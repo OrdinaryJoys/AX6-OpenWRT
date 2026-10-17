@@ -700,6 +700,21 @@ jobs:
           backports_dir=${ath11k_core_files[0]%/drivers/net/wireless/ath/ath11k/core.c}
           python3 tests/test-ath11k-recovery-reset-guard.py "$backports_dir"
           python3 tests/test-ath11k-rx-alignment.py "$backports_dir"
+          echo "=== core-flow correctness (modeled source regressions, not module tests) ==="
+          mkdir -p "$GITHUB_WORKSPACE/core-flow-evidence"
+          python3 tests/test-ath11k-tx-pool-errors.py "$backports_dir" \
+            --output "$GITHUB_WORKSPACE/core-flow-evidence/wifi"
+          make package/qca-nss/qca-ssdk/prepare V=s
+          mapfile -d '' ssdk_mib_files < <(find build_dir -type f -path '*/qca-ssdk-*/src/fal/fal_mib.c' -print0)
+          test "${#ssdk_mib_files[@]}" -eq 1
+          ssdk_dir=${ssdk_mib_files[0]%/src/fal/fal_mib.c}
+          python3 tests/test-ssdk-mib-errors.py "$ssdk_dir" | tee "$GITHUB_WORKSPACE/core-flow-evidence/ssdk.log"
+          make package/qca-nss/qca-nss-ecm/prepare V=s
+          mapfile -d '' ecm_dscp_files < <(find build_dir -type f -path '*/qca-nss-ecm-*/ecm_classifier_dscp.c' -print0)
+          test "${#ecm_dscp_files[@]}" -eq 1
+          ecm_dir=${ecm_dscp_files[0]%/ecm_classifier_dscp.c}
+          python3 tests/test-ecm-directional-qos.py --source "$ecm_dir" \
+            --output "$GITHUB_WORKSPACE/core-flow-evidence/ecm.json"
           echo "=== qca-nss-dp prepare (patch apply check) ==="
           make package/qca-nss/qca-nss-dp/prepare V=s
           mapfile -d '' nss_dp_dirs < <(
@@ -1639,6 +1654,15 @@ jobs:
 
       - name: Get current date
         run: echo "CURRENT_DATE=$(date '+%Y%m%d%H%M%S')" >> "$GITHUB_ENV"
+
+      - name: Upload core flow regression evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: AX6_CORE_FLOW_${{ github.sha }}
+          path: core-flow-evidence/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Upload kmod packages
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1

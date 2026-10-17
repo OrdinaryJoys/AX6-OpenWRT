@@ -1,58 +1,109 @@
 #!/bin/sh /etc/rc.common
-# AX6 Boot Guard — enforce only settings that conflict directly with NSS.
-# Scenario-dependent WiFi, VLAN, firewall and service policy is audit-only.
-# START=12: before network(20) / firewall so they read the corrected NSS UCI.
-# shellcheck disable=SC2034  # START/STOP read by /etc/rc.common framework
+# Enforce only NSS-owned settings, before network/firewall consume the UCI.
+# shellcheck shell=ash
+# shellcheck disable=SC2034 # Read by rc.common.
 START=12
 
-start() {
-    # 1. packet_steering 必须 =0 (NSS 硬件卸载需要)
-    cur=$(uci -q get network.globals.packet_steering 2>/dev/null)
-    [ "$cur" != "0" ] && uci set network.globals.packet_steering='0' && CHANGED=1
+guard_error() {
+    logger -t ax6-boot-guard -p user.err "$*" || :
+}
 
-    # 2. firewall4 software/hardware flow offload conflicts with NSS ECM.
-    for option in flow_offloading flow_offloading_hw; do
-        [ "$(uci -q get "firewall.@defaults[0].${option}")" != "0" ] &&
-            uci -q set "firewall.@defaults[0].${option}=0" && FIREWALL_CHANGED=1
+guard_package() {
+    local package="$1" snapshot pending section rules option key expected current
+    local changed=0 status=0 rc d
+
+    # Never commit someone else's pending edits or invent missing sections.
+    pending=$(uci -q changes "$package") || return "$?"
+    if [ -n "$pending" ]; then
+        guard_error "$package: pending UCI edits; left untouched"
+        return 1
+    fi
+    uci -q show "$package" >/dev/null || return "$?"
+    case "$package" in
+        network) section=network.globals; rules=packet_steering:0 ;;
+        firewall)
+            section='firewall.@defaults[0]'
+            rules='flow_offloading:0 flow_offloading_hw:0'
+            ;;
+        ecm)
+            section=ecm.general
+            rules='disable_offloads:1 disable_gro_list:1 offload_host_ifaces:br-lan offload_physical_policy:report'
+            ;;
+        *) return 64 ;;
+    esac
+    uci -q get "$section" >/dev/null || return "$?"
+    # Snapshot success distinguishes absent optional keys from failed reads.
+    snapshot=$(uci -q show "$section") || return "$?"
+    section=${snapshot%%=*}
+    for option in $rules; do
+        key="$section.${option%%:*}"
+        expected="${option#*:}"
+        if printf '%s\n' "$snapshot" | awk -v p="$key=" 'index($0,p)==1 {found=1} END {exit !found}'; then
+            current=$(uci -q get "$key") || {
+                rc=$?; [ "$status" -ne 0 ] || status=$rc; continue;
+            }
+            [ "$current" != "$expected" ] || continue
+        fi
+        if uci -q set "$key=$expected"; then
+            changed=1
+            current=$(uci -q get "$key") && [ "$current" = "$expected" ] || {
+                rc=$?; [ "$status" -ne 0 ] || status=$rc;
+            }
+        else
+            rc=$?; [ "$status" -ne 0 ] || status=$rc
+        fi
     done
 
-    # 3. ECM: preserve a conservative router-host path without blanket-changing
-    # physical NSS data-plane ports. These four values are also a retained-config
-    # migration: older installs do not have the two per-interface policy keys.
-    # disable_gro_list=1 remains the package's conservative UDP/DHCP default.
-    for ecm_opt in \
-        disable_offloads:1 \
-        disable_gro_list:1 \
-        offload_host_ifaces:br-lan \
-        offload_physical_policy:report; do
-        key="${ecm_opt%%:*}"
-        expected="${ecm_opt##*:}"
-        [ "$(uci -q get "ecm.general.${key}")" != "$expected" ] &&
-            uci -q set "ecm.general.${key}=${expected}" && ECM_CHANGED=1
-    done
-
-    # 4. Remove obsolete device-level copies. netifd/firewall only consume the
-    # global packet_steering and firewall defaults above.
-    for d in $(uci -q show network 2>/dev/null | awk -F'[.=]' '/=device$/{print $2}'); do
-        for option in packet_steering flow_offloading flow_offloading_hw; do
-            if uci -q get "network.${d}.${option}" >/dev/null 2>&1; then
-                uci -q delete "network.${d}.${option}" && CHANGED=1
-            fi
+    if [ "$package" = network ]; then
+        snapshot=$(uci -q show network) || {
+            rc=$?; [ "$status" -ne 0 ] || status=$rc; return "$status";
+        }
+        for d in $(printf '%s\n' "$snapshot" | awk -F'[.=]' '/=device$/{print $2}'); do
+            for option in packet_steering flow_offloading flow_offloading_hw; do
+                key="network.${d}.${option}"
+                if printf '%s\n' "$snapshot" | awk -v p="$key=" 'index($0,p)==1 {found=1} END {exit !found}'; then
+                    if uci -q delete "$key"; then
+                        changed=1
+                        current=$(uci -q show "network.$d") &&
+                            ! printf '%s\n' "$current" | awk -v p="$key=" 'index($0,p)==1 {found=1} END {exit !found}' || {
+                            rc=$?; [ "$status" -ne 0 ] || status=$rc;
+                        }
+                    else
+                        rc=$?; [ "$status" -ne 0 ] || status=$rc
+                    fi
+                fi
+            done
         done
+    fi
+    [ "$status" -eq 0 ] || return "$status"
+    [ "$changed" -eq 1 ] || return 0
+    uci -q commit "$package" || return "$?"
+    pending=$(uci -q changes "$package") || return "$?"
+    [ -z "$pending" ] || return 1
+    for option in $rules; do
+        current=$(uci -q get "$section.${option%%:*}") || return "$?"
+        [ "$current" = "${option#*:}" ] || return 1
     done
+    if [ "$package" = network ]; then
+        snapshot=$(uci -q show network) || return "$?"
+        for d in $(printf '%s\n' "$snapshot" | awk -F'[.=]' '/=device$/{print $2}'); do
+            for option in packet_steering flow_offloading flow_offloading_hw; do
+                ! printf '%s\n' "$snapshot" | awk -v p="network.${d}.${option}=" \
+                    'index($0,p)==1 {found=1} END {exit !found}' || return 1
+            done
+        done
+    fi
+    logger -t ax6-boot-guard "$package: NSS-owned settings committed and verified" || :
+}
 
-    # 5. Only commit settings owned by the NSS data path.
-    if [ "${CHANGED:-0}" = "1" ]; then
-        uci commit network
-        logger -t ax6-boot-guard "Corrected NSS-incompatible settings (likely from sysupgrade with preserved config)"
-    fi
-    if [ "${FIREWALL_CHANGED:-0}" = "1" ]; then
-        uci commit firewall
-        logger -t ax6-boot-guard "Disabled firewall flow offload so NSS ECM remains the only offload owner"
-    fi
-    if [ "${ECM_CHANGED:-0}" = "1" ]; then
-        uci commit ecm
-        logger -t ax6-boot-guard \
-            "Enforced AX6 ECM host-path policy and report-only physical-port policy"
-    fi
+start() {
+    local package status=0 rc
+    for package in network firewall ecm; do
+        guard_package "$package" || {
+            rc=$?
+            guard_error "$package: enforcement failed ($rc); no reload/rollback attempted"
+            [ "$status" -ne 0 ] || status=$rc
+        }
+    done
+    return "$status"
 }

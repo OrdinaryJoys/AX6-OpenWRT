@@ -1,11 +1,13 @@
 #!/bin/sh /etc/rc.common
+# shellcheck shell=ash
 # Apply IPv4 router invariants after netifd has created the initial interfaces.
 
 # shellcheck disable=SC2034
 START=95
 
 start() {
-    /usr/sbin/ax6-network-invariants --all
+    local status=0 rc
+    /usr/sbin/ax6-network-invariants --all || status=$?
 
     # qca-nss-ecm applies this policy during its earlier startup, but qca-nss-dp
     # and netifd can recreate or retune netdev features afterwards. Reapply the
@@ -14,12 +16,21 @@ start() {
     # netdev is processed once in this pass.
     if [ -r /lib/netifd/offload/disable_offloads.sh ]; then
         # shellcheck disable=SC1091
-        . /lib/netifd/offload/disable_offloads.sh
-        disable_offload
+        # Isolate source-time globals and fatal dot/parse errors, too.
+        (
+            . /lib/netifd/offload/disable_offloads.sh || exit "$?"
+            disable_offload
+        ) || {
+            rc=$?; [ "$status" -ne 0 ] || status=$rc
+        }
     else
         logger -t ax6-network-invariants -p user.error \
-            "missing /lib/netifd/offload/disable_offloads.sh"
+            "missing /lib/netifd/offload/disable_offloads.sh" || :
+        [ "$status" -ne 0 ] || status=1
     fi
+    [ "$status" -eq 0 ] || logger -t ax6-network-invariants -p user.err \
+        "startup policy failed ($status)" || :
+    return "$status"
 }
 
 reload() {

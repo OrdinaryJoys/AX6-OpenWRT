@@ -1,4 +1,5 @@
-bd1e4627b312f2e3dc08de5b776dc13a5e74a882e77406019cee61e51d83b89f  package/kernel/mac80211/Makefile
+85a04425bef187b67ae846b7a24c12419a47c98443442cb35009db5f0b119830  docs/AX6_CORE_FLOW_REPAIR_2026-10-17.md
+8f06b27d3ba6b61514cec44a5e1ba9e0881db632eff02487c6a834ffa6d1a693  package/kernel/mac80211/Makefile
 80587244b81f5303ce9479e21ef90c3a3b78b310ec63d0b814e26eb8f73733dd  package/kernel/mac80211/files/pbuf.uci
 a41393d099f74a901cce379418a418f12badef665354fa15acb7bb855e8775e1  package/kernel/mac80211/files/qca-nss-pbuf.init
 865ea34a7d98208c6533fed5aeabf551adb61f2c344d1c768a99e778df10cff6  package/kernel/mac80211/patches/ath11k/102-wifi-ath11k-fix-stride-mismatch-in-mac_phy_caps_parse.patch
@@ -47,6 +48,8 @@ c0358cf9fb30703ac55c747882b1f10e8dd5a04649792c84d61b443aa627c264  package/kernel
 6c70b7ee48bd63dfa82135a7b212db8fb36597ff2906f77a6237a5ca260b7a63  package/kernel/mac80211/patches/nss/ath11k/999-931-ath11k-guard-ce-send-reap-against-cleared-srng.patch
 d137cf75f41dc1de76caf7e21692ec09ce64e5a70a8b27ab3212f5fa68ee7629  package/kernel/mac80211/patches/nss/ath11k/999-932-ath11k-quiesce-irqs-before-recovery-ring-reset.patch
 fbc202d5cf8597525dfda7d3b24e33016f6713f2fc0b784a461d811682f137db  package/kernel/mac80211/patches/nss/ath11k/999-933-ath11k-nss-configure-wifili-tx-desc-from-dt.patch
+a3daaf508acdc1a7689a52748fc116ade5d38d2cb8f0a54102a394b8a612b84a  package/kernel/mac80211/patches/nss/ath11k/999-935-ath11k-start-the-HTT-tx-completion-with-no-msdu.patch
+097ca30981b5629d3ee60f342a0000b823bde41e41bf7de3d5cce9127ee5f9ba  package/kernel/mac80211/patches/nss/ath11k/999-936-ath11k-drop-the-vif-from-pending-tx-frames-in-the-bitmap-pool.patch
 b2406698a34a741031e020161c0070ade51ca67c47258e0cbd5d4ba23d75a93c  package/kernel/mac80211/patches/nss/subsys/199-001-mac80211-add-nss-support.patch
 058b5b54d98fe2cf769eb7ffd9b2a52404de02c96629637d3cf5604aeff68332  package/kernel/mac80211/patches/nss/subsys/203-mac80211-ath11k-fw-dynamic-muedca.patch
 9c0e4703c4fa67c1ef7f984ea8dd02d9fb3f56575604da889b4855f5f1de037c  package/kernel/mac80211/patches/nss/subsys/235-001-mac80211-add-AP_VLAN-iftype-support-on-NSS-offload-case.patch
@@ -119,14 +122,17 @@ da85c66ec9b7c19bfa709e8d93585315bf7e2234985523b33fb5bbd8eda52df4  package/qca-ns
 3c153fe095fe82dd1e3a5f5364f04c6d16254d980b3d4e7dc5b307eba120258a  package/qca-nss/qca-nss-drv/patches/019-fix-n2h-pool-dma-unwind.patch
 3455b7338980f2464407859e7510fd5ae456ccaae3970559e4cbdae751bd1b7a  package/qca-nss/qca-nss-drv/patches/022-lower-sysctl-read-log-level.patch
 92f2a80f43e74753d00103243c6156c95bb6b854b344b6018799ab2df9cd08d9  package/qca-nss/qca-nss-drv/patches/023-ipq807x-host-only-detach-containment.patch
-30e87a7f296eceeb6d236f6e7dc8edf25e76f0e4287bfbc085b22c805928af81  package/qca-nss/qca-nss-ecm/Makefile
+046af002b8947810aace7af1c9292bd6c2954592706261f242cc062004e218e0  package/qca-nss/qca-nss-ecm/Makefile
 2438ccfa97b0fa4e6f3cb333de8d0c8fcb05c46b6bcfdca93f4f75ae390920d9  package/qca-nss/qca-nss-ecm/files/disable_offloads.hotplug
 055e4f85038ff06f449a9512eaf8d14f6e8bfea2c92a0a38a964a5a2e433eb69  package/qca-nss/qca-nss-ecm/files/disable_offloads.sh
 2663692c4e3206eca00f58454207b8dfc26c7937cf8b273233fe325948886fd0  package/qca-nss/qca-nss-ecm/files/qca-nss-ecm.init
 22b40538dcae6851ecdae4b8e1d96bc8a7a745672ab83177e38cf8f7345045a7  package/qca-nss/qca-nss-ecm/patches/026-frontends-nss-respect-bridge-port-vlan-tagging-for-vlan-over-bridge.patch
 95307ad7ade437e6c7f22a51d7a830726dd0c8d9008dcfed67c62f9372a8dc9d  package/qca-nss/qca-nss-ecm/patches/027-fix-multicast-destination-count-signedness.patch
+729dbe7f96d28c8a7ffa122eeb39b37de90e708513ced37c9880a1dd14f61e46  package/qca-nss/qca-nss-ecm/patches/028-classifier-preserve-explicit-directional-udp-priorities.patch
 449132502ad5a8793dc91563903338f2df45eb5fead4064a1f4ddc6299c1d5c2  package/qca-nss/qca-nss-ecm/tests/test-disable-offloads.sh
+51d073f8c01a64ad49b67c0c9885fe3677bc84dcdbaf712791a8bf0554beacd9  package/qca-nss/qca-ssdk/Makefile
 ddb52cdf907a45761b7c3e394db4c29eeae5d268f3e00ed86e3eabf6fd641055  package/qca-nss/qca-ssdk/patches/009-feature-nss-dp-netdev-mac-sync.patch
+cc93fdd230cd3718c3a02ce74fed5d7c881df132a6db529a10d01963f23f30e8  package/qca-nss/qca-ssdk/patches/020-mib-complete-diagnostics-and-propagate-errors.patch
 cf4dd1b5e975aaec31995b4fbc49ffddcc970d9a5e8a99a0120b92721871f13b  package/system/rpcd/AX6-VALIDATION.md
 561e9a433484a0622e6ab119cbb5c42cd584355d0438661c998a504fb7c739ed  package/system/rpcd/Makefile
 ccd7731c4f16043f347ac5bb86ffd198be9bf371624061f8fd349cd4674da6e3  package/system/rpcd/patches/010-file-resolved-path-acl.patch
@@ -250,12 +256,15 @@ b759838d6cc515b7c5d96cd9068579f02e0ef8b6a819f13d52f5a6dea458bcc4  tests/nss-drv-
 ceac7f66fc6afa08f792f1cddddab5647d0e346c009786592a09525e49969221  tests/nss-drv-containment/test_candidate_only_cli.py
 05b767a3f50cbdb8eeefd360661952a1c50eaf4e5693beb8a58638ec5e3bfca3  tests/nss-drv-containment/test_driver_extraction.py
 90431405d61a70db6346fe7f423af360e8005ca9415893d60bde36c4e76e5b96  tests/nss-drv-containment/test_extract_prepared_c.py
+938961c7fc1a1c3a3ea4568e8356c2fa899c59ff291d877996f8c79f142a1dc8  tests/prepare-core-flow-validation.py
 d168a3176e2c6694f7b17ed4696dcaa5057635e6120c9659bb2a0ff1d6ba9c12  tests/test-apcs-regmap-boundary.sh
 673e403c22f08f85e64e8550f9f22b0ef3c7b9bc6cd67ea04e0c21fe1274719c  tests/test-ath11k-nss-tx-desc-profile.sh
 675227e4bd77baad4400294697736c5e5ec22664d06fcdbb673423aa7bad53d7  tests/test-ath11k-recovery-reset-guard.py
 8c7dcf6be69bb7891a4bf3e28d10355ec6470f240d18b2aa47552513cceb7e04  tests/test-ath11k-rx-alignment.py
+41fba829fdc1439150a49568da7aa648041d22d02e3da679fc6e6125c538a108  tests/test-ath11k-tx-pool-errors.py
 1cf898e04f9e8be828d240be3731071ffbd7cc9293adc20d7260a46eeba9c939  tests/test-dns-redirect-scope.sh
 6efdf777649e205df42cb8f59092f079c9f31d6d2b3b564e6a09c2b4e7c990ec  tests/test-download-cache.py
+a6fbd46b6d1469ca0c3ed4b0535e88861df07b37baba7528becdb60eb2efa88a  tests/test-ecm-directional-qos.py
 a7c1287b9691f082ca08ed445aa4c3ef3e09d65a0f0b59a6a6e1f0d173ff8499  tests/test-ecm-offload-errors.py
 c4dea8e506f6c6e38ba0479d8782754ee3a9a79778d4b098f48defb000280098  tests/test-ecm-procd-real-jshn.py
 aa20c01c54b863b988f634df03de330c24112dff2956bb95ccfc0c27d6bf46dd  tests/test-ecm-rawip-rmnet.py
@@ -273,3 +282,4 @@ e41f80bc362099361e25beb557ec9e520a80963392acfdc6ac00e1076edbc043  tests/test-qca
 e1f5d595b6231c68961febfa292f71497080a8355cbe3ad3df6cf245ee9431f9  tests/test-service-lifecycle.py
 85279c212348f5798d0a1486310d2d7dfc13dc02c87361bd419db32e611f970f  tests/test-set-irq-affinity-device-discovery.sh
 57a687a231ef26d21a57a686cda4198ca88cee167107e4622b7353569db3dd70  tests/test-set-irq-affinity-policy-errors.py
+9de297e2270036da16d14fff9e0136da7d31760d40c50399c49f45f75c3eac43  tests/test-ssdk-mib-errors.py
