@@ -68,14 +68,14 @@ def package_set(config):
     return result
 
 
-def record_packages(root, out, wanted):
+def record_packages(root, out, wanted, expected_release):
     result = {}
     for name, payload_path in wanted.items():
         paths = sorted((root / 'bin').rglob(name + '_*.ipk'))
         require(len(paths) == 1, 'expected unique target IPK for ' + name)
         control, payload = ART.read_ipk(paths[0].read_bytes())
         require(control.get('Package') == name and control.get('Architecture') == 'aarch64_cortex-a53', 'package identity/architecture mismatch')
-        require(control.get('Version', '').endswith('-r2'), 'rpcd release must be r2')
+        require(control.get('Version', '').endswith('-r%d' % expected_release), 'rpcd release mismatch: expected r%d' % expected_release)
         require(payload_path in payload and payload[payload_path][0].isfile(), 'missing regular ELF payload')
         info, data = payload[payload_path]
         require(info.mode & 0o777 == 0o755, 'unexpected ELF mode')
@@ -134,7 +134,7 @@ def build(root, out):
                 shutil.copy2(plugin, destination / plugin.name)
             binary = cache.parent / 'rpcd'
             shutil.copy2(binary, destination / 'rpcd.unstripped')
-            records = record_packages(root, destination, wanted)
+            records = record_packages(root, destination, wanted, provenance['package_release'])
             modes[mode] = {'binary_sha256': elf(binary.read_bytes()), 'plugins': plugins, 'packages': records,
                            'source_files': provenance['prepared_files'], 'config_sha256': sha(final_config.encode())}
             (out / 'components.json').write_text(json.dumps({'schema': 1, 'modes': modes}, indent=2) + '\n')
