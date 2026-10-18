@@ -295,5 +295,5 @@ e41f80bc362099361e25beb557ec9e520a80963392acfdc6ac00e1076edbc043  tests/test-qca
 e1f5d595b6231c68961febfa292f71497080a8355cbe3ad3df6cf245ee9431f9  tests/test-service-lifecycle.py
 85279c212348f5798d0a1486310d2d7dfc13dc02c87361bd419db32e611f970f  tests/test-set-irq-affinity-device-discovery.sh
 57a687a231ef26d21a57a686cda4198ca88cee167107e4622b7353569db3dd70  tests/test-set-irq-affinity-policy-errors.py
-a660bf75bc30da15a83e7a277c62cff8bbd5c88dcd346ca320e6d8b738845794  tests/test-ssdk-mib-errors.py
+f88cb609c177047cc3378a2eaa0f3f2a01b5d510bce1e73006086dfa606d433a  tests/test-ssdk-mib-errors.py
 810d6c58587f8b3b78a5f492e61504666cbef8437f78d8893e05c97b56c77062  tests/test-ssdk-mib-read-clear.py
