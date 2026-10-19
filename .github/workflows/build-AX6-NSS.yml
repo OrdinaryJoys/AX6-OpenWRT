@@ -704,11 +704,23 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/core-flow-evidence"
           python3 tests/test-ath11k-tx-pool-errors.py "$backports_dir" \
             --output "$GITHUB_WORKSPACE/core-flow-evidence/wifi"
+          python3 tests/test-ath11k-qmi-ownership.py "$backports_dir" \
+            --output "$GITHUB_WORKSPACE/core-flow-evidence/wifi-qmi-ownership"
+          python3 tests/test-ath11k-ahb-irq-errors.py "$backports_dir" \
+            --output "$GITHUB_WORKSPACE/core-flow-evidence/wifi-ahb-irq-errors"
+          python3 tests/test-ath11k-ahb-providers.py "$backports_dir" --mutations --sanitize \
+            --output "$GITHUB_WORKSPACE/core-flow-evidence/wifi-ahb-provider-ownership"
+          python3 tests/test-ath11k-ce-retry.py "$backports_dir" --mutations --sanitize \
+            --output "$GITHUB_WORKSPACE/core-flow-evidence/wifi-ce-retry-lifecycle"
+          python3 tests/test-ath11k-pcic-irq-errors.py "$backports_dir" --mutations \
+            --output "$GITHUB_WORKSPACE/core-flow-evidence/wifi-pcic-irq-errors"
           make package/qca-nss/qca-ssdk/prepare V=s
           mapfile -d '' ssdk_mib_files < <(find build_dir -type f -path '*/qca-ssdk-*/src/fal/fal_mib.c' -print0)
           test "${#ssdk_mib_files[@]}" -eq 1
           ssdk_dir=${ssdk_mib_files[0]%/src/fal/fal_mib.c}
           python3 tests/test-ssdk-mib-errors.py "$ssdk_dir" | tee "$GITHUB_WORKSPACE/core-flow-evidence/ssdk.log"
+          python3 tests/test-ssdk-mib-read-clear.py "$ssdk_dir" \
+            --output "$GITHUB_WORKSPACE/core-flow-evidence/ssdk-read-clear"
           make package/qca-nss/qca-nss-ecm/prepare V=s
           mapfile -d '' ecm_dscp_files < <(find build_dir -type f -path '*/qca-nss-ecm-*/ecm_classifier_dscp.c' -print0)
           test "${#ecm_dscp_files[@]}" -eq 1
@@ -726,6 +738,8 @@ jobs:
           fi
           nss_dp_dir=${nss_dp_dirs[0]}
           test -s "$nss_dp_dir/nss_dp_main.c"
+          python3 tests/test-nss-dp-statistics.py "$nss_dp_dir" --ssdk "$ssdk_dir" \
+            --output "$GITHUB_WORKSPACE/core-flow-evidence/dp-statistics"
           mkdir -p ../nss-containment-evidence
           PYTHONDONTWRITEBYTECODE=1 python3 tests/nss-dp-containment/test-nss-dp-detach-quarantine.py \
             --candidate-only --candidate "$nss_dp_dir" \
