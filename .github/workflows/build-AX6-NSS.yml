@@ -720,6 +720,8 @@ jobs:
             --output "$GITHUB_WORKSPACE/core-flow-evidence/wifi-dp-allocation"
           python3 tests/test-ath11k-srng-allocation.py "$backports_dir" --mutations --sanitize \
             --output "$GITHUB_WORKSPACE/core-flow-evidence/wifi-srng-allocation"
+          python3 tests/test-ath11k-core-ownership.py "$backports_dir" --mutations --sanitize \
+            --output "$GITHUB_WORKSPACE/core-flow-evidence/wifi-core-ownership"
           make package/qca-nss/qca-ssdk/prepare V=s
           mapfile -d '' ssdk_mib_files < <(find build_dir -type f -path '*/qca-ssdk-*/src/fal/fal_mib.c' -print0)
           test "${#ssdk_mib_files[@]}" -eq 1
