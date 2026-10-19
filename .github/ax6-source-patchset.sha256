@@ -1,6 +1,7 @@
 85a04425bef187b67ae846b7a24c12419a47c98443442cb35009db5f0b119830  docs/AX6_CORE_FLOW_REPAIR_2026-10-17.md
 decc55f33428d194e6cd55132d001a389f04f53cdce4a69a9468fdd5da75255e  docs/AX6_MIB_READ_CLEAR_VALIDITY_2026-10-18.md
-5035b2abc6bbd18395bdfb13cc63bdf66170b09b315a83cbbd567a7f4c389e43  package/kernel/mac80211/Makefile
+d4639ff15a00647950d932982a94e5685440f6e63871bc3865dfc995653a575a  docs/AX6_PCI_SSR_SHUTDOWN_2026-10-19.md
+6cf9f38f0ee28f2c28d99ea16d89bfbcb500812f5460565e7810f1b09ba1ffeb  package/kernel/mac80211/Makefile
 80587244b81f5303ce9479e21ef90c3a3b78b310ec63d0b814e26eb8f73733dd  package/kernel/mac80211/files/pbuf.uci
 a41393d099f74a901cce379418a418f12badef665354fa15acb7bb855e8775e1  package/kernel/mac80211/files/qca-nss-pbuf.init
 865ea34a7d98208c6533fed5aeabf551adb61f2c344d1c768a99e778df10cff6  package/kernel/mac80211/patches/ath11k/102-wifi-ath11k-fix-stride-mismatch-in-mac_phy_caps_parse.patch
@@ -63,6 +64,7 @@ ad0546fb2faf54332da232cacb98f4cef506171c5e62e0f2630ad28e77c49cd7  package/kernel
 acc15a592dd066e735d1abef58092dbb6d4ea257b0fc45edc11f54fb37827030  package/kernel/mac80211/patches/nss/ath11k/999-946-ath11k-pcic-partial-irq-ownership.patch
 7e0a3898c44589b9b7f4d9f1b763a632171e7a156a0dc71e35f54ee6b0fe35ba  package/kernel/mac80211/patches/nss/ath11k/999-947-ath11k-ahb-provider-ownership.patch
 4517728e3c7ca70ce40a89dafe01bf5fcc1278c1e78f6da8c9786dfa517a1756  package/kernel/mac80211/patches/nss/ath11k/999-948-ath11k-drain-ce-retry-before-pipe-cleanup.patch
+d933f1504ad93d02e8f683a2a31fa15570ef0d2feb2e33b492b128644399ff7b  package/kernel/mac80211/patches/nss/ath11k/999-949-ath11k-cancel-ssr-before-pci-shutdown.patch
 b2406698a34a741031e020161c0070ade51ca67c47258e0cbd5d4ba23d75a93c  package/kernel/mac80211/patches/nss/subsys/199-001-mac80211-add-nss-support.patch
 058b5b54d98fe2cf769eb7ffd9b2a52404de02c96629637d3cf5604aeff68332  package/kernel/mac80211/patches/nss/subsys/203-mac80211-ath11k-fw-dynamic-muedca.patch
 9c0e4703c4fa67c1ef7f984ea8dd02d9fb3f56575604da889b4855f5f1de037c  package/kernel/mac80211/patches/nss/subsys/235-001-mac80211-add-AP_VLAN-iftype-support-on-NSS-offload-case.patch
@@ -260,6 +262,8 @@ d7857543eef8198c9936572e220cabe9c5639305d977518ee2e30647c97eddca  target/linux/q
 22438bec89821434c1a82a672cce721d256e71dcb34b4807e878cc9e8b6086b7  tests/ath11k-ahb-irq/provider-stubs.c
 7b5b45d38ca54d54b8d6be3ed7b0c8b16781bf71e9fea3fc8b52109a48619297  tests/ath11k-ce-retry/README.md
 8fd6adc9c4f16458cee7e3fbe20f6d830c678bdcf20143922b16566131704d74  tests/ath11k-ce-retry/host-fixture.c
+d8850a5446299c686b1fcc2c175b6f55f5dfc59dd8cdfc000668cb36713acdc5  tests/ath11k-pci-ssr/README.md
+dcbb13c1211cf537f0b8282f63d064e7bdf7afcf17a8441b95a794cfe1f08a96  tests/ath11k-pci-ssr/host-fixture.c
 1b2828501583d952d54619067e97c5778e3a3f9d52d7dbe55c74aa5ce87c0fd5  tests/ath11k-pcic-irq/README.md
 de2d060ff6d9f8421557e14b3256d036453144b4c490be8813e21e02e069d921  tests/ath11k-pcic-irq/host-fixture.c
 60a2ee5f01c2c3b6a819b38787dfdae9362acdd5472784f7042782c4c5710b5b  tests/fixtures/dns-redirect-scope/logger.sh
@@ -298,6 +302,7 @@ d168a3176e2c6694f7b17ed4696dcaa5057635e6120c9659bb2a0ff1d6ba9c12  tests/test-apc
 5b04a2cd3047d5f8bbc4ef15be8d10d13fbd681444debae33ff22c0fed2556cf  tests/test-ath11k-ahb-providers.py
 1a957964d62f2d81faca67d7d3f35ff42bfccdcb6b6a4dcc4eca8104a3470100  tests/test-ath11k-ce-retry.py
 673e403c22f08f85e64e8550f9f22b0ef3c7b9bc6cd67ea04e0c21fe1274719c  tests/test-ath11k-nss-tx-desc-profile.sh
+e2aa30656e266f3a0f15200373d22e7fe1affa10b620c39a17ceca2f9f09ef16  tests/test-ath11k-pci-ssr.py
 35cb6c312b8ac10ad7841af97b97264f09aaa8cb52cc426fc2a71e29e9487e71  tests/test-ath11k-pcic-irq-errors.py
 82936934c1c3070fb3146888daca83f4c1ef4b3111e4bcc284e0ea13ade078a0  tests/test-ath11k-qmi-ownership.py
 675227e4bd77baad4400294697736c5e5ec22664d06fcdbb673423aa7bad53d7  tests/test-ath11k-recovery-reset-guard.py
