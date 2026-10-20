@@ -131,6 +131,9 @@ def build(root, out):
                 run(['python3', '-B', 'tests/test-rpcd-journal-recovery.py', str(cache.parent),
                      '--mutations', '--sanitize', '--output', str(out / 'journal-recovery-host')],
                     'journal-recovery-host')
+                run(['python3', '-B', 'tests/test-rpcd-storage-paths.py', str(cache.parent),
+                     '--mutations', '--sanitize', '--output', str(out / 'storage-paths-host')],
+                    'storage-paths-host')
             plugins = {}
             for module in MODULES:
                 plugin = cache.parent / (module + '.so')

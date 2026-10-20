@@ -19,6 +19,13 @@ SPEC.loader.exec_module(GATE)
 
 
 class Gates(unittest.TestCase):
+    def test_storage_host_gate_uses_bound_prepared_input(self):
+        script = (ROOT / '.github/scripts/validate-rpcd-components.py').read_text()
+        gate = "run(['python3', '-B', 'tests/test-rpcd-storage-paths.py', str(cache.parent),"
+        self.assertEqual(script.count(gate), 1)
+        self.assertLess(script.index('prepared(cache.parent, provenance)'), script.index(gate))
+        self.assertIn("'--mutations', '--sanitize', '--output', str(out / 'storage-paths-host')", script)
+
     def test_journal_host_gate_uses_bound_prepared_input(self):
         script = (ROOT / '.github/scripts/validate-rpcd-components.py').read_text()
         binding = 'prepared(cache.parent, provenance)'
