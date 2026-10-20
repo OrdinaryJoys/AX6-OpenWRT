@@ -19,6 +19,15 @@ SPEC.loader.exec_module(GATE)
 
 
 class Gates(unittest.TestCase):
+    def test_journal_host_gate_uses_bound_prepared_input(self):
+        script = (ROOT / '.github/scripts/validate-rpcd-components.py').read_text()
+        binding = 'prepared(cache.parent, provenance)'
+        gate = "run(['python3', '-B', 'tests/test-rpcd-journal-recovery.py', str(cache.parent),"
+        self.assertEqual(script.count(gate), 1)
+        self.assertLess(script.index(binding), script.index(gate))
+        self.assertIn("'--mutations', '--sanitize', '--output', str(out / 'journal-recovery-host')", script)
+        self.assertIn("for mode, enabled in [('ON', True), ('OFF', False)]", script)
+
     def test_workflow_builds_target_toolchain_before_individual_components(self):
         workflow = (ROOT / '.github/workflows/build-AX6-NSS.yml').read_text()
         bootstrap = 'make -C openwrt -j2 toolchain/install V=s 2>&1 | tee rpcd-toolchain-evidence/install.log'

@@ -14,7 +14,8 @@
 #   1. Reads SOURCE_MAC80211_PKG_RELEASE / SOURCE_HOSTAPD_PKG_RELEASE /
 #      SOURCE_QCA_NSS_DP_PKG_RELEASE / SOURCE_QCA_NSS_DRV_PKG_RELEASE /
 #      SOURCE_QCA_NSS_ECM_PKG_RELEASE / SOURCE_QCA_NSS_CLIENTS_PKG_RELEASE /
-#      SOURCE_QCA_MCS_PKG_RELEASE
+#      SOURCE_QCA_MCS_PKG_RELEASE / SOURCE_QCA_NSS_SSDK_PKG_RELEASE /
+#      SOURCE_RPCD_PKG_RELEASE
 #      from the lock (must be positive ints).
 #   2. Reads the single authoritative PKG_RELEASE:=N from each Makefile.
 #   3. Missing, duplicated, non-numeric or mismatched values fail with a
@@ -34,7 +35,12 @@ lock_file="$2"
 # ---------------------------------------------------------------------------
 lock_var() { # name
     name="$1"
-    value=$(sed -n "s/^$name=//p" "$lock_file" | tail -1)
+    count=$(grep -c "^$name=" "$lock_file" || true)
+    if [ "$count" -ne 1 ]; then
+        echo "FAIL: $name must occur exactly once in $(basename "$lock_file")" >&2
+        exit 1
+    fi
+    value=$(sed -n "s/^$name=//p" "$lock_file")
     if [ -z "$value" ]; then
         echo "FAIL: $name is missing from $(basename "$lock_file")" >&2
         exit 1
@@ -86,6 +92,8 @@ exp_drv=$(lock_var SOURCE_QCA_NSS_DRV_PKG_RELEASE)
 exp_ecm=$(lock_var SOURCE_QCA_NSS_ECM_PKG_RELEASE)
 exp_clients=$(lock_var SOURCE_QCA_NSS_CLIENTS_PKG_RELEASE)
 exp_mcs=$(lock_var SOURCE_QCA_MCS_PKG_RELEASE)
+exp_ssdk=$(lock_var SOURCE_QCA_NSS_SSDK_PKG_RELEASE)
+exp_rpcd=$(lock_var SOURCE_RPCD_PKG_RELEASE)
 
 compare mac80211 "$exp_mac80211" \
     "$(src_release "$source_root/package/kernel/mac80211/Makefile")"
@@ -101,6 +109,38 @@ compare qca-nss-clients "$exp_clients" \
     "$(src_release "$source_root/package/qca-nss/qca-nss-clients/Makefile")"
 compare qca-mcs "$exp_mcs" \
     "$(src_release "$source_root/package/qca-nss/qca-mcs/Makefile")"
+compare qca-ssdk "$exp_ssdk" \
+    "$(src_release "$source_root/package/qca-nss/qca-ssdk/Makefile")"
+compare rpcd "$exp_rpcd" \
+    "$(src_release "$source_root/package/system/rpcd/Makefile")"
+
+if ! python3 - "$source_root/package/system/rpcd/provenance.json" "$exp_rpcd" <<'PY'
+import json
+from pathlib import Path
+import sys
+
+try:
+    def unique_fields(pairs):
+        record = {}
+        for name, value in pairs:
+            if name in record:
+                raise ValueError('duplicate JSON field: ' + name)
+            record[name] = value
+        return record
+
+    record = json.loads(Path(sys.argv[1]).read_text(), object_pairs_hook=unique_fields)
+    if type(record.get('package_release')) is not int or record['package_release'] != int(sys.argv[2]):
+        raise ValueError('package release differs from lock')
+    if record.get('default_checked_support') is not False:
+        raise ValueError('checked support must remain OFF')
+except (OSError, ValueError, TypeError, AttributeError) as error:
+    print('FAIL: rpcd provenance: ' + str(error), file=sys.stderr)
+    sys.exit(1)
+print('OK: rpcd provenance release and default OFF')
+PY
+then
+    FAIL=1
+fi
 
 # Linux 6.18 predates kzalloc_objs(). The upstream ath11k fix must therefore
 # retain its official provenance while using the equivalent kcalloc() form.
@@ -127,4 +167,4 @@ if [ "$FAIL" -ne 0 ]; then
     echo "AX6 source semantics: FAIL (see per-component messages above)" >&2
     exit 1
 fi
-echo "AX6 source semantics: PASS (mac80211=$exp_mac80211 hostapd=$exp_hostapd dp=$exp_dp drv=$exp_drv ecm=$exp_ecm clients=$exp_clients mcs=$exp_mcs)"
+echo "AX6 source semantics: PASS (mac80211=$exp_mac80211 hostapd=$exp_hostapd dp=$exp_dp drv=$exp_drv ecm=$exp_ecm clients=$exp_clients mcs=$exp_mcs ssdk=$exp_ssdk rpcd=$exp_rpcd)"

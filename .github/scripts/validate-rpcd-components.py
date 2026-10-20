@@ -127,6 +127,10 @@ def build(root, out):
             require('CHECKED_UCI_SUPPORT:BOOL=' + mode in cache.read_text().splitlines(), 'CMake mode mismatch')
             shutil.copy2(cache, destination / cache.name)
             prepared(cache.parent, provenance)
+            if enabled:
+                run(['python3', '-B', 'tests/test-rpcd-journal-recovery.py', str(cache.parent),
+                     '--mutations', '--sanitize', '--output', str(out / 'journal-recovery-host')],
+                    'journal-recovery-host')
             plugins = {}
             for module in MODULES:
                 plugin = cache.parent / (module + '.so')

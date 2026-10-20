@@ -21,7 +21,7 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 
 # ---------------------------------------------------------------------------
-# Scratch source tree with seven Makefiles and the ath11k backport markers
+# Scratch source tree with nine Makefiles and the ath11k backport markers
 # ---------------------------------------------------------------------------
 mk_tree() { # hostapd_release drv_release ecm_release clients_release mcs_release [mac80211_release] [dup_flag]
     tree="$tmp/tree"
@@ -32,9 +32,15 @@ mk_tree() { # hostapd_release drv_release ecm_release clients_release mcs_releas
              "$tree/package/qca-nss/qca-nss-drv" \
              "$tree/package/qca-nss/qca-nss-ecm" \
              "$tree/package/qca-nss/qca-nss-clients" \
-             "$tree/package/qca-nss/qca-mcs"
+             "$tree/package/qca-nss/qca-mcs" \
+             "$tree/package/qca-nss/qca-ssdk" \
+             "$tree/package/system/rpcd"
     echo "PKG_RELEASE:=${6:-4}" > "$tree/package/kernel/mac80211/Makefile"
     echo "PKG_RELEASE:=2" > "$tree/package/qca-nss/qca-nss-dp/Makefile"
+    echo "PKG_RELEASE:=8" > "$tree/package/qca-nss/qca-ssdk/Makefile"
+    echo "PKG_RELEASE:=7" > "$tree/package/system/rpcd/Makefile"
+    printf '%s\n' '{"package_release":7,"default_checked_support":false}' \
+        > "$tree/package/system/rpcd/provenance.json"
     printf '%s\n' \
         'From 7a246c72132eb943b5844ba79dad597b47429dba Mon Sep 17 00:00:00 2001' \
         'kcalloc(svc_rdy_ext->tot_phy_id,' \
@@ -60,6 +66,8 @@ mk_lock() { # hostapd drv ecm clients mcs [mac80211]
         echo "SOURCE_QCA_NSS_ECM_PKG_RELEASE=$3"
         echo "SOURCE_QCA_NSS_CLIENTS_PKG_RELEASE=$4"
         echo "SOURCE_QCA_MCS_PKG_RELEASE=$5"
+        echo "SOURCE_QCA_NSS_SSDK_PKG_RELEASE=8"
+        echo "SOURCE_RPCD_PKG_RELEASE=7"
     } > "$lock"
 }
 
@@ -198,7 +206,7 @@ fi
 for name in \
     SOURCE_MAC80211_PKG_RELEASE SOURCE_HOSTAPD_PKG_RELEASE SOURCE_QCA_NSS_DP_PKG_RELEASE SOURCE_QCA_NSS_DRV_PKG_RELEASE \
     SOURCE_QCA_NSS_ECM_PKG_RELEASE SOURCE_QCA_NSS_CLIENTS_PKG_RELEASE \
-    SOURCE_QCA_MCS_PKG_RELEASE; do
+    SOURCE_QCA_MCS_PKG_RELEASE SOURCE_QCA_NSS_SSDK_PKG_RELEASE SOURCE_RPCD_PKG_RELEASE; do
     if grep -Fq "echo \"$name=\$$name\"" \
         "$REPO_ROOT/.github/workflows/build-AX6-NSS.yml"; then
         ok "artifact BUILD-LOCK records $name"
