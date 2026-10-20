@@ -769,6 +769,16 @@ jobs:
           python3 tests/test-ath11k-nss-init-ownership.py "$backports_dir" \
             --driver-prepared "$nss_drv_dir" --mutations --sanitize \
             --output "$GITHUB_WORKSPACE/core-flow-evidence/wifi-nss-init-ownership"
+          mapfile -d '' linux_list_headers < <(
+            find build_dir/target-aarch64_cortex-a53_musl/linux-qualcommax_ipq807x \
+              -mindepth 4 -maxdepth 4 -type f -path '*/linux-*/include/linux/list.h' -print0
+          )
+          test "${#linux_list_headers[@]}" -eq 1
+          test -s "${linux_list_headers[0]}"
+          echo "=== NSS conditional mesh dump ownership (host contracts) ==="
+          python3 tests/test-ath11k-mesh-dump-ownership.py "$backports_dir" \
+            --driver-prepared "$nss_drv_dir" --linux-list-header "${linux_list_headers[0]}" \
+            --mutations --sanitize --output "$GITHUB_WORKSPACE/core-flow-evidence/wifi-mesh-dump-ownership"
           PYTHONDONTWRITEBYTECODE=1 python3 tests/nss-drv-containment/test-nss-drv-containment.py \
             --candidate-only --candidate "$nss_drv_dir" \
             --output "$GITHUB_WORKSPACE/nss-containment-evidence/drv"

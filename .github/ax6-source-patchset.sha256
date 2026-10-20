@@ -1,10 +1,11 @@
 85a04425bef187b67ae846b7a24c12419a47c98443442cb35009db5f0b119830  docs/AX6_CORE_FLOW_REPAIR_2026-10-17.md
 ed40cb6578f84e42d1ef9c234894345f1dbfea33a3c82beccea5fcf67c8f9596  docs/AX6_CORE_START_OWNERSHIP_2026-10-20.md
 f1cc570627ee835c8e6d9c50a55117b20d2871ccc92d828ec6d5a12b6689fe6e  docs/AX6_DP_ALLOCATION_UNWIND_2026-10-19.md
+3ea4b97566ca307319b6a42ee55813852baf9ab8cd941981e3a497f73ab7bcda  docs/AX6_MESH_DUMP_OWNERSHIP_2026-10-20.md
 decc55f33428d194e6cd55132d001a389f04f53cdce4a69a9468fdd5da75255e  docs/AX6_MIB_READ_CLEAR_VALIDITY_2026-10-18.md
 b9031ede1152574bd3b30086b7c0cfcc66744aa7ae6c42dafbafd405509fec4a  docs/AX6_NSS_INIT_OWNERSHIP_2026-10-20.md
 d4639ff15a00647950d932982a94e5685440f6e63871bc3865dfc995653a575a  docs/AX6_PCI_SSR_SHUTDOWN_2026-10-19.md
-86cf5c6e8f52e119f744b7f8a4160f40b74ad4fdde7ba09f72a258b5500a9071  package/kernel/mac80211/Makefile
+9a9131c3a5cac79f43d405cdb3fc38d711e2b1eadbc633796e5ee071cd8092b3  package/kernel/mac80211/Makefile
 80587244b81f5303ce9479e21ef90c3a3b78b310ec63d0b814e26eb8f73733dd  package/kernel/mac80211/files/pbuf.uci
 a41393d099f74a901cce379418a418f12badef665354fa15acb7bb855e8775e1  package/kernel/mac80211/files/qca-nss-pbuf.init
 865ea34a7d98208c6533fed5aeabf551adb61f2c344d1c768a99e778df10cff6  package/kernel/mac80211/patches/ath11k/102-wifi-ath11k-fix-stride-mismatch-in-mac_phy_caps_parse.patch
@@ -72,6 +73,7 @@ bad5917ac01e085261836ed3509419dc5427fa6b707292f8b892c6c0cdb40b4f  package/kernel
 c588188fa93fbcd1e07ddf9421d4216a7357c2d27f238df8ed87cabd1de1d1a8  package/kernel/mac80211/patches/nss/ath11k/999-951-ath11k-roll-back-failed-srng-setup.patch
 fb96263a0d8e488f316b31deb56cfd3b544f7a072f0f972869fc2e6b3a9c40b1  package/kernel/mac80211/patches/nss/ath11k/999-952-ath11k-preserve-recovery-mac-ownership.patch
 ad95cec37f6d3a79b9382c7a3202b35254107990bbea1c9ebc5408260d7b4019  package/kernel/mac80211/patches/nss/ath11k/999-953-ath11k-pair-nss-init-registration-and-dma-ownership.patch
+340abdd89b135bfdb36a61250b867b16c492d91fb702b6e208012b50b1f194c9  package/kernel/mac80211/patches/nss/ath11k/999-954-ath11k-initialize-and-detach-mesh-dump-ownership.patch
 b2406698a34a741031e020161c0070ade51ca67c47258e0cbd5d4ba23d75a93c  package/kernel/mac80211/patches/nss/subsys/199-001-mac80211-add-nss-support.patch
 058b5b54d98fe2cf769eb7ffd9b2a52404de02c96629637d3cf5604aeff68332  package/kernel/mac80211/patches/nss/subsys/203-mac80211-ath11k-fw-dynamic-muedca.patch
 9c0e4703c4fa67c1ef7f984ea8dd02d9fb3f56575604da889b4855f5f1de037c  package/kernel/mac80211/patches/nss/subsys/235-001-mac80211-add-AP_VLAN-iftype-support-on-NSS-offload-case.patch
@@ -274,6 +276,8 @@ d7857543eef8198c9936572e220cabe9c5639305d977518ee2e30647c97eddca  target/linux/q
 582e9f1ec791167e33ef8fecf6a9d94f33815c0bf60f07271b0af78a3753d27e  tests/ath11k-dp-allocation/README.md
 d640a5121f7cce42910dfa5b5aea6e0f3843f233b0f7b5813f2670aa7bda12a6  tests/ath11k-dp-allocation/host-fixture.c
 a1a8f75e73a7bebf53fc39cb2ad7a3b447c1cf099a94e22e9982017c6695b9a7  tests/ath11k-dp-allocation/srng-fixture.c
+8e910f1d67f79a32842e8d2039a9ec709fd74ad4573c848edf23f005f6be16ff  tests/ath11k-mesh-dump-ownership/README.md
+a64f4def7ce2f64dbe203dcdf9d9297515b07b0887814a932b88ef01f280b964  tests/ath11k-mesh-dump-ownership/host-fixture.c
 f30fc63e3b831fb429362a64cfc6b244e5f839cab39b55348346d142be48f5c6  tests/ath11k-nss-init-ownership/README.md
 b8835311bed48b69c00246f410b7dec8ed132d2af2cf1ba5599e62aac35d5068  tests/ath11k-nss-init-ownership/host-fixture.c
 d8850a5446299c686b1fcc2c175b6f55f5dfc59dd8cdfc000668cb36713acdc5  tests/ath11k-pci-ssr/README.md
@@ -317,6 +321,7 @@ d168a3176e2c6694f7b17ed4696dcaa5057635e6120c9659bb2a0ff1d6ba9c12  tests/test-apc
 1a957964d62f2d81faca67d7d3f35ff42bfccdcb6b6a4dcc4eca8104a3470100  tests/test-ath11k-ce-retry.py
 c462da64fffce8e0017c1910c0ec31639c87ed0a363afb25e4f57b4a1029a16d  tests/test-ath11k-core-ownership.py
 068a96b7599643bbbbb3525967b8a12bdb3dd360ea78390a4765236224a279e7  tests/test-ath11k-dp-allocation.py
+8d83451dd5e27fb4f205c15a2326f09f0e9c48209507c9ba04e63163844070bb  tests/test-ath11k-mesh-dump-ownership.py
 9e6fc9b1957527d96e8328d44ac799092e6a7f3ee2eaa61db2caa1a2b1813443  tests/test-ath11k-nss-init-ownership.py
 673e403c22f08f85e64e8550f9f22b0ef3c7b9bc6cd67ea04e0c21fe1274719c  tests/test-ath11k-nss-tx-desc-profile.sh
 e2aa30656e266f3a0f15200373d22e7fe1affa10b620c39a17ceca2f9f09ef16  tests/test-ath11k-pci-ssr.py
