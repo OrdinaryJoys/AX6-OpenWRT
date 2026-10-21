@@ -8,7 +8,7 @@ d4639ff15a00647950d932982a94e5685440f6e63871bc3865dfc995653a575a  docs/AX6_PCI_S
 91a38a53203933b4cecb6731df6e9f094174e87980bc108fdd0f18ee6fe8b663  docs/AX6_RPCD_JOURNAL_RECOVERY_2026-10-20.md
 dad4b748dadec8b8cbc250f3cd77430aff67a96b5a498ea840428ce285527876  docs/AX6_RPCD_PUBLICATION_2026-10-21.md
 808e1bbb9d5debf2a2e20ba0da7a8d3314952160513e6bb9873bb532f334b788  docs/AX6_RPCD_STORAGE_PATHS_2026-10-20.md
-9a9131c3a5cac79f43d405cdb3fc38d711e2b1eadbc633796e5ee071cd8092b3  package/kernel/mac80211/Makefile
+386f0d3ab54571c6759c519eda85529c6389e40fc8233663fe676cfd3fb065ac  package/kernel/mac80211/Makefile
 80587244b81f5303ce9479e21ef90c3a3b78b310ec63d0b814e26eb8f73733dd  package/kernel/mac80211/files/pbuf.uci
 a41393d099f74a901cce379418a418f12badef665354fa15acb7bb855e8775e1  package/kernel/mac80211/files/qca-nss-pbuf.init
 865ea34a7d98208c6533fed5aeabf551adb61f2c344d1c768a99e778df10cff6  package/kernel/mac80211/patches/ath11k/102-wifi-ath11k-fix-stride-mismatch-in-mac_phy_caps_parse.patch
@@ -77,6 +77,7 @@ c588188fa93fbcd1e07ddf9421d4216a7357c2d27f238df8ed87cabd1de1d1a8  package/kernel
 fb96263a0d8e488f316b31deb56cfd3b544f7a072f0f972869fc2e6b3a9c40b1  package/kernel/mac80211/patches/nss/ath11k/999-952-ath11k-preserve-recovery-mac-ownership.patch
 ad95cec37f6d3a79b9382c7a3202b35254107990bbea1c9ebc5408260d7b4019  package/kernel/mac80211/patches/nss/ath11k/999-953-ath11k-pair-nss-init-registration-and-dma-ownership.patch
 340abdd89b135bfdb36a61250b867b16c492d91fb702b6e208012b50b1f194c9  package/kernel/mac80211/patches/nss/ath11k/999-954-ath11k-initialize-and-detach-mesh-dump-ownership.patch
+6d848fec342fea468fecbbd8115207af0fe823fba46284bb12273c77099c936d  package/kernel/mac80211/patches/nss/ath11k/999-955-ath11k-balance-link-descriptor-bh-release.patch
 b2406698a34a741031e020161c0070ade51ca67c47258e0cbd5d4ba23d75a93c  package/kernel/mac80211/patches/nss/subsys/199-001-mac80211-add-nss-support.patch
 058b5b54d98fe2cf769eb7ffd9b2a52404de02c96629637d3cf5604aeff68332  package/kernel/mac80211/patches/nss/subsys/203-mac80211-ath11k-fw-dynamic-muedca.patch
 9c0e4703c4fa67c1ef7f984ea8dd02d9fb3f56575604da889b4855f5f1de037c  package/kernel/mac80211/patches/nss/subsys/235-001-mac80211-add-AP_VLAN-iftype-support-on-NSS-offload-case.patch
@@ -132,7 +133,7 @@ fc9f1630547033428f4bdf7200a3b9f90d2a3d4321681891010d8f71be13f1a9  package/networ
 9f9fe8a246cd6020dc1824f9cc84967079a890713eb9504f0d55f901301e1c2f  package/qca-nss/qca-nss-clients/patches/011-act_nssmirred-fix-action-list-corruption-on-release.patch
 a3450da6e7b815cc7b49edaf84c79749d7a0b09d619331ae9633d5c83d47cd96  package/qca-nss/qca-nss-clients/patches/012-nss_qdisc-guard-stats-attach-detach-against-noop-root.patch
 fe4144c5ebbcb41dfcb68bdb141dc319a6b5aa3cbf869bf69c00e5e1b4fd3f8f  package/qca-nss/qca-nss-clients/patches/013-netlink-require-admin-for-rule-injection.patch
-c26bbe850fb4db7739697bb29684f95ba18f7a1770d90c222835824753fb2d66  package/qca-nss/qca-nss-dp/Makefile
+2e9ec2b61c4f1337287d6aa6991a47c855258a1fc42de4ea9775c3e0aa475498  package/qca-nss/qca-nss-dp/Makefile
 9cecc83ee00068a4179788e259cfbd94ad0b8a3a7cb9d4f84766323343c53b13  package/qca-nss/qca-nss-dp/patches/004-phydev-clear-on-connect-failure.patch
 9b3ae37671d339b623b8f1bcd2d098423027c18d13d227eaab5e4025a74a08f2  package/qca-nss/qca-nss-dp/patches/006-ratelimit-edma-warnings.patch
 b707f08756dc6da47ab9bfec313b13b901298ae15c2dd4a2757d710407496c47  package/qca-nss/qca-nss-dp/patches/007-fix-tx-ring-modulo.patch
@@ -140,6 +141,7 @@ b707f08756dc6da47ab9bfec313b13b901298ae15c2dd4a2757d710407496c47  package/qca-ns
 0de2c7a7c86d44569575a54f33e0089aa5477ddb466b8eae0b70ca86c699350d  package/qca-nss/qca-nss-dp/patches/009-ipq807x-fail-closed-data-plane-detach.patch
 5d24fda47a44f2cd895e3ac709b4ba6e6f6d75138447bb4b75fefa797188feec  package/qca-nss/qca-nss-dp/patches/010-ipq807x-suppress-independent-dp-unbind.patch
 978a43a62a6fe91cd38c4d1f961ff408a0c5925b7971b62a5ce052776c57f426  package/qca-nss/qca-nss-dp/patches/011-stats-last-good-and-error-mapping.patch
+6ca62bce19ed97148bd25bf6565121d339942fcca79e7d73f1549b4f6b6806a5  package/qca-nss/qca-nss-dp/patches/012-qcom-ethtool-u64-mib-counters.patch
 024eaf5d16df93e58e86496c5f5b72e5bc908ddb2048b188c585f4ad4145a1d0  package/qca-nss/qca-nss-drv/Makefile
 883e5a15e50e586715913aaaa434bef4cd87a6c49a0375a7f148ea2907ce10ee  package/qca-nss/qca-nss-drv/files/skb_recycler.uci
 b919564f02592086017328b5181fdbabf2f9314db933ee9e0d4486c966bd29e2  package/qca-nss/qca-nss-drv/patches/012-fix-autoscale-stats-and-current-freq-read.patch
@@ -271,6 +273,7 @@ d7857543eef8198c9936572e220cabe9c5639305d977518ee2e30647c97eddca  target/linux/q
 0d2c6c10060b657ef5a42f22a2d004416aa011394aed1d5de83d0afc644a7199  target/linux/starfive/patches-6.18/0010-uart-8250-add-reset-operation-in-runtime-PM.patch
 03e9cef71841f5f7dd20dfbf926c1ab2381befcc80489940124b7e88f4147c87  target/linux/starfive/patches-6.18/1002-serial-8250_dw-Add-starfive-jh7100-hsuart-compatible.patch
 32037bd705c5abb2642be761d570216da2ac63ed11213b6c849940411f42e16a  tests/CORE_FLOW_REPAIR_SCOPE_2026-10-19.md
+66fcab168a254640f4306dd2f79df36b2c93622904bba8677c759fe63c8842fe  tests/QCOM_MIB_WIDTH.md
 3d5e49a3fa4606f1ef02ae24b2509aa4cde689ef3bad310b59d9f40bba995f44  tests/ath11k-ahb-irq/README.md
 7210c649782469886926fddd1c142510ea46354bff73cee20e0d9dd837df8e14  tests/ath11k-ahb-irq/host-fixture.c
 7d0d982e46f9352f1c0f2609856a617e8e71da955afcb47b78307839cebca8a0  tests/ath11k-ahb-irq/provider-cases.c
@@ -286,6 +289,8 @@ a1a8f75e73a7bebf53fc39cb2ad7a3b447c1cf099a94e22e9982017c6695b9a7  tests/ath11k-d
 a64f4def7ce2f64dbe203dcdf9d9297515b07b0887814a932b88ef01f280b964  tests/ath11k-mesh-dump-ownership/host-fixture.c
 f30fc63e3b831fb429362a64cfc6b244e5f839cab39b55348346d142be48f5c6  tests/ath11k-nss-init-ownership/README.md
 b8835311bed48b69c00246f410b7dec8ed132d2af2cf1ba5599e62aac35d5068  tests/ath11k-nss-init-ownership/host-fixture.c
+ce999908793c71cf36198803e0f48c12d6513148311e1846cd6592cfbfa1bc81  tests/ath11k-nss-link-return/README.md
+41b37b3511efccf86643691be6191177f0748018b8f92b851ce3392634f99df0  tests/ath11k-nss-link-return/host-fixture.c
 d8850a5446299c686b1fcc2c175b6f55f5dfc59dd8cdfc000668cb36713acdc5  tests/ath11k-pci-ssr/README.md
 dcbb13c1211cf537f0b8282f63d064e7bdf7afcf17a8441b95a794cfe1f08a96  tests/ath11k-pci-ssr/host-fixture.c
 1b2828501583d952d54619067e97c5778e3a3f9d52d7dbe55c74aa5ce87c0fd5  tests/ath11k-pcic-irq/README.md
@@ -335,6 +340,7 @@ c462da64fffce8e0017c1910c0ec31639c87ed0a363afb25e4f57b4a1029a16d  tests/test-ath
 068a96b7599643bbbbb3525967b8a12bdb3dd360ea78390a4765236224a279e7  tests/test-ath11k-dp-allocation.py
 8d83451dd5e27fb4f205c15a2326f09f0e9c48209507c9ba04e63163844070bb  tests/test-ath11k-mesh-dump-ownership.py
 9e6fc9b1957527d96e8328d44ac799092e6a7f3ee2eaa61db2caa1a2b1813443  tests/test-ath11k-nss-init-ownership.py
+cd5d53f9b25c7789023e0df0bd4cce4aee60a2381116db270ce194e6afe5a3d7  tests/test-ath11k-nss-link-return.py
 673e403c22f08f85e64e8550f9f22b0ef3c7b9bc6cd67ea04e0c21fe1274719c  tests/test-ath11k-nss-tx-desc-profile.sh
 e2aa30656e266f3a0f15200373d22e7fe1affa10b620c39a17ceca2f9f09ef16  tests/test-ath11k-pci-ssr.py
 35cb6c312b8ac10ad7841af97b97264f09aaa8cb52cc426fc2a71e29e9487e71  tests/test-ath11k-pcic-irq-errors.py
@@ -361,6 +367,7 @@ d87d154839098d9ae17c0833c33a8b2d33c470dc8236e5e3cbc1b555ad51002e  tests/test-nss
 1f081094f359c94f74e38efcad5d2e2ba740c814325fd8e937d6f12927ef4b74  tests/test-qca-mcs-log-level.sh
 e41f80bc362099361e25beb557ec9e520a80963392acfdc6ac00e1076edbc043  tests/test-qca-nss-pbuf-readback.sh
 94cd3d9e1ee2180182209066e162ccbbae4d8bc930c829f77ebe494e0427ee47  tests/test-qcom-hwspinlock-regmap-boundary.sh
+59a111877b424721a022a0e943042cd606df7dcd646e47e609ddc5545e2a5e7e  tests/test-qcom-mib-width.py
 c0bc5849c71257ac0097ae8e39daf784f4ed4c40eaaac1bfdedbf4142d090f52  tests/test-rpcd-journal-publication.py
 b6fcda02328453dc4a6b88172b6ba999bc3c4d197b49f99031147a54234b1471  tests/test-rpcd-journal-recovery.py
 3351ed07d59817dcea0f3493e201bc0f8c93214bc8012b2e08bdd607891418d3  tests/test-rpcd-storage-paths.py

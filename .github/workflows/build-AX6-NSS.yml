@@ -722,6 +722,8 @@ jobs:
             --output "$GITHUB_WORKSPACE/core-flow-evidence/wifi-srng-allocation"
           python3 tests/test-ath11k-core-ownership.py "$backports_dir" --mutations --sanitize \
             --output "$GITHUB_WORKSPACE/core-flow-evidence/wifi-core-ownership"
+          python3 tests/test-ath11k-nss-link-return.py "$backports_dir" --mutations --sanitize \
+            --output "$GITHUB_WORKSPACE/core-flow-evidence/wifi-nss-link-return"
           make package/qca-nss/qca-ssdk/prepare V=s
           mapfile -d '' ssdk_mib_files < <(find build_dir -type f -path '*/qca-ssdk-*/src/fal/fal_mib.c' -print0)
           test "${#ssdk_mib_files[@]}" -eq 1
@@ -748,6 +750,8 @@ jobs:
           test -s "$nss_dp_dir/nss_dp_main.c"
           python3 tests/test-nss-dp-statistics.py "$nss_dp_dir" --ssdk "$ssdk_dir" \
             --output "$GITHUB_WORKSPACE/core-flow-evidence/dp-statistics"
+          python3 tests/test-qcom-mib-width.py "$nss_dp_dir" --ssdk "$ssdk_dir" --mutations --sanitize \
+            --output "$GITHUB_WORKSPACE/core-flow-evidence/qcom-mib-width"
           mkdir -p ../nss-containment-evidence
           PYTHONDONTWRITEBYTECODE=1 python3 tests/nss-dp-containment/test-nss-dp-detach-quarantine.py \
             --candidate-only --candidate "$nss_dp_dir" \
