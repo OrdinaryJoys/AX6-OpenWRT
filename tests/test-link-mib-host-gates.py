@@ -21,10 +21,14 @@ MARKER = '      - name: ' + GATE + '\n'
 WIFI = 'test-ath11k-nss-link-return.py'
 QCOM = 'test-qcom-mib-width.py'
 N2H = 'test-nss-n2h-sysctl-errors.py'
+PBUF = 'test-qca-nss-pbuf-reload.py'
 EVIDENCE = '$GITHUB_WORKSPACE/core-flow-evidence/'
-DESTINATIONS = {WIFI: 'wifi-nss-link-return', QCOM: 'qcom-mib-width', N2H: 'nss-n2h-sysctl-errors'}
+DESTINATIONS = {WIFI: 'wifi-nss-link-return', QCOM: 'qcom-mib-width',
+                N2H: 'nss-n2h-sysctl-errors', PBUF: 'pbuf-reload'}
 CONSUMERS = {'backports_dir': WIFI, 'ssdk_dir': QCOM, 'nss_dp_dir': QCOM, 'nss_drv_dir': N2H}
 CALLS = {
+    PBUF: ('python3 tests/' + PBUF + ' --mutations '
+           '--output "' + EVIDENCE + 'pbuf-reload"'),
     WIFI: ('python3 tests/' + WIFI + ' "$backports_dir" --mutations --sanitize '
            '--output "' + EVIDENCE + 'wifi-nss-link-return"'),
     QCOM: ('python3 tests/' + QCOM + ' "$nss_dp_dir" --ssdk "$ssdk_dir" '
@@ -215,7 +219,7 @@ def validate(workflow):
         index = indices[0]
         require(lines[index] == expected, 'call: changed argv/flags/output ' + filename)
         calls[filename] = index
-    require(spans['backports_dir'][1] < calls[WIFI] < spans['ssdk_dir'][0]
+    require(spans['backports_dir'][1] < calls[PBUF] < calls[WIFI] < spans['ssdk_dir'][0]
             <= spans['ssdk_dir'][1] < spans['nss_dp_dir'][0]
             <= spans['nss_dp_dir'][1] < calls[QCOM] < spans['nss_drv_dir'][0]
             <= spans['nss_drv_dir'][1] < calls[N2H],
@@ -340,14 +344,26 @@ class HostGateBindings(unittest.TestCase):
     def test_actual_workflow_positive(self):
         result = validate(self.workflow)
         self.assertEqual(set(result['producers']), set(ARRAYS))
-        self.assertEqual(set(result['calls']), {WIFI, QCOM, N2H})
+        self.assertEqual(set(result['calls']), {PBUF, WIFI, QCOM, N2H})
 
     def test_comments_are_not_executable_producers_or_calls(self):
         decoys = '\n'.join('          # ' + line for line in
-                           (CALLS[WIFI], CALLS[QCOM], CALLS[N2H], 'ssdk_dir=/old/baseline')) + '\n'
+                           (*CALLS.values(), 'ssdk_dir=/old/baseline')) + '\n'
         text = replace_once(self.workflow, '          make package/kernel/mac80211/prepare V=s',
                             decoys + '          make package/kernel/mac80211/prepare V=s')
         validate(text)
+
+    def test_output_mutations_preserve_script_and_other_arguments(self):
+        for filename, short in ((PBUF, 'pbuf'), (WIFI, 'wifi'), (QCOM, 'qcom'), (N2H, 'n2h')):
+            modified = MUTATIONS[short + '_shared_output'](self.workflow)
+            prefix = 'python3 tests/' + filename + ' '
+            calls = [line for line in logical_lines(gate_script(modified)) if line.startswith(prefix)]
+            self.assertEqual(len(calls), 1, short)
+            before, after = shlex.split(CALLS[filename]), shlex.split(calls[0])
+            output = before.index('--output') + 1
+            self.assertNotEqual(before[output], after[output], short)
+            after[output] = before[output]
+            self.assertEqual(before, after, short)
 
 
 MUTATIONS = {
@@ -422,8 +438,8 @@ for filename, short, source in ((WIFI, 'wifi', 'backports_dir'), (QCOM, 'qcom', 
             ('duplicate_output_flag', ' --mutations', ' --output /old/prepared --mutations'),
             ('swallowed_failure', physical_call(filename), physical_call(filename) + ' || true'),
             ('output_in_old_audit', EVIDENCE, '/old/audit/'),
-            ('shared_output', DESTINATIONS[filename],
-             'qcom-mib-width' if short == 'wifi' else 'wifi-nss-link-return'),
+            ('shared_output', EVIDENCE + DESTINATIONS[filename],
+             EVIDENCE + ('qcom-mib-width' if short == 'wifi' else 'wifi-nss-link-return')),
             ('echo_instead_of_call', 'python3 tests/', 'echo python3 tests/')):
         MUTATIONS[short + '_' + label] = edit_call(filename, old, new)
     MUTATIONS[short + '_deleted_call'] = edit_call(filename, physical_call(filename), '')
@@ -436,6 +452,53 @@ for filename, short, source in ((WIFI, 'wifi', 'backports_dir'), (QCOM, 'qcom', 
         lambda t, f=filename: replace_once(
             replace_once(t, '          ' + physical_call(f) + '\n', ''), MARKER,
             '      - name: Stale shell variables\n        run: |\n          ' + CALLS[f] + '\n\n' + MARKER))
+
+# PBUF reads the installed init in its own source tree, not a prepared backports
+# directory. Protect that actual argv rather than inventing a directory argument
+# or a sanitizer flag the shell-only runner does not support.
+for label, old, new in (
+        ('missing_mutations', ' --mutations', ''),
+        ('extra_baseline', ' --mutations', ' --baseline /old/prepared --mutations'),
+        ('wrong_script', 'tests/' + PBUF, 'tests/old/' + PBUF),
+        ('missing_output', ' --output ', ' --missing-output '),
+        ('duplicate_output', ' --mutations', ' --output /old/prepared --mutations'),
+        ('old_output', EVIDENCE, '/old/audit/'),
+        ('shared_output', EVIDENCE + 'pbuf-reload', EVIDENCE + 'wifi-nss-link-return'),
+        ('nested_output', EVIDENCE + 'pbuf-reload', EVIDENCE + 'wifi-nss-link-return/child'),
+        ('echo', 'python3 tests/', 'echo python3 tests/'),
+        ('quoted_echo', physical_call(PBUF), 'echo "' + CALLS[PBUF].replace('"', chr(92) + '"') + '"'),
+        ('comment', 'python3 ', '# python3 '),
+        ('deleted', physical_call(PBUF), ''),
+        ('swallowed_failure', physical_call(PBUF), physical_call(PBUF) + ' || true')):
+    MUTATIONS['pbuf_' + label] = edit_call(PBUF, old, new)
+MUTATIONS['pbuf_duplicate_call'] = insert_before_call(PBUF, CALLS[PBUF])
+MUTATIONS['pbuf_before_prepare'] = move_call(PBUF, '          make package/kernel/mac80211/prepare V=s\n')
+MUTATIONS['pbuf_after_wifi'] = move_call(PBUF, '          make package/qca-nss/qca-ssdk/prepare V=s\n')
+MUTATIONS['pbuf_moved_to_other_step'] = lambda t: replace_once(
+    replace_once(t, '          ' + physical_call(PBUF) + '\n', ''), MARKER,
+    '      - name: Wrong source tree\n        run: |\n          ' + CALLS[PBUF] + '\n\n' + MARKER)
+MUTATIONS['pbuf_duplicate_in_other_step'] = lambda t: replace_once(
+    t, MARKER, '      - name: Duplicate PBUF\n        run: |\n          ' + CALLS[PBUF] + '\n\n' + MARKER)
+MUTATIONS['pbuf_known_false_branch'] = lambda t: replace_once(
+    t, '          ' + physical_call(PBUF),
+    '          if [ "${#ath11k_core_files[@]}" -ne 1 ]; then\n          ' + physical_call(PBUF) + '\n          fi')
+for label, opening, closing in (
+        ('uncalled_function', 'unused_pbuf() {', '}'),
+        ('heredoc', "cat <<'PBUF_NOT_EXECUTED'", 'PBUF_NOT_EXECUTED'),
+        ('quoted_string', "echo '", "'")):
+    MUTATIONS['pbuf_' + label] = lambda t, a=opening, b=closing: replace_once(
+        t, '          ' + physical_call(PBUF),
+        '          ' + a + '\n          ' + physical_call(PBUF) + '\n          ' + b)
+for label, replacement in (
+        ('same_output', EVIDENCE + 'pbuf-reload'),
+        ('nested_output', EVIDENCE + 'pbuf-reload/child'),
+        ('parent_output', '$GITHUB_WORKSPACE/core-flow-evidence'),
+        ('aliased_output', '${GITHUB_WORKSPACE}/core-flow-evidence/pbuf-reload'),
+        ('dotdot_output', EVIDENCE + 'unrelated/../pbuf-reload')):
+    MUTATIONS['pbuf_neighbor_' + label] = lambda t, value=replacement: replace_once(
+        t, EVIDENCE + 'dp-statistics"', value + '"')
+MUTATIONS['pbuf_neighbor_equals_output'] = lambda t: replace_once(
+    t, '--output "' + EVIDENCE + 'dp-statistics"', '--output="' + EVIDENCE + 'pbuf-reload"')
 
 for name, array in ARRAYS.items():
     filename = CONSUMERS[name]
