@@ -22,19 +22,27 @@ WIFI = 'test-ath11k-nss-link-return.py'
 QCOM = 'test-qcom-mib-width.py'
 N2H = 'test-nss-n2h-sysctl-errors.py'
 PBUF = 'test-qca-nss-pbuf-reload.py'
+PBUF_START = 'test-qca-nss-pbuf-start.py'
+IGS = 'test-nss-igs-interface-errors.py'
 EVIDENCE = '$GITHUB_WORKSPACE/core-flow-evidence/'
 DESTINATIONS = {WIFI: 'wifi-nss-link-return', QCOM: 'qcom-mib-width',
-                N2H: 'nss-n2h-sysctl-errors', PBUF: 'pbuf-reload'}
-CONSUMERS = {'backports_dir': WIFI, 'ssdk_dir': QCOM, 'nss_dp_dir': QCOM, 'nss_drv_dir': N2H}
+                N2H: 'nss-n2h-sysctl-errors', PBUF: 'pbuf-reload',
+                PBUF_START: 'pbuf-start', IGS: 'nss-igs-interface-errors'}
+CONSUMERS = {'backports_dir': WIFI, 'ssdk_dir': QCOM, 'nss_dp_dir': QCOM,
+             'nss_drv_dir': N2H, 'nss_clients_dir': IGS}
 CALLS = {
     PBUF: ('python3 tests/' + PBUF + ' --mutations '
            '--output "' + EVIDENCE + 'pbuf-reload"'),
+    PBUF_START: ('python3 tests/' + PBUF_START + ' --mutations '
+                '--output "' + EVIDENCE + 'pbuf-start"'),
     WIFI: ('python3 tests/' + WIFI + ' "$backports_dir" --mutations --sanitize '
            '--output "' + EVIDENCE + 'wifi-nss-link-return"'),
     QCOM: ('python3 tests/' + QCOM + ' "$nss_dp_dir" --ssdk "$ssdk_dir" '
            '--mutations --sanitize --output "' + EVIDENCE + 'qcom-mib-width"'),
     N2H: ('python3 tests/' + N2H + ' "$nss_drv_dir" --mutations --sanitize '
           '--output "' + EVIDENCE + 'nss-n2h-sysctl-errors"'),
+    IGS: ('python3 tests/' + IGS + ' "$nss_clients_dir" --driver "$nss_drv_dir" --mutations --sanitize '
+          '--output "' + EVIDENCE + 'nss-igs-interface-errors"'),
 }
 # Each producer includes the real prepare, NUL selector, exact-one guard and
 # assignment in one contiguous sequence. A comment/echo elsewhere cannot supply it.
@@ -80,9 +88,18 @@ PRODUCERS = {
         nss_drv_dir=${nss_drv_dirs[0]}
         test -s "$nss_drv_dir/nss_core.c"
     ''',
+    'nss_clients_dir': '''
+        make package/qca-nss/qca-nss-clients/prepare V=s
+        mapfile -d '' nss_clients_files < <(
+        find build_dir -type f -path '*/qca-nss-clients-*/nss_qdisc/igs/nss_ifb.c' -print0
+        )
+        test "${#nss_clients_files[@]}" -eq 1
+        nss_clients_dir=${nss_clients_files[0]%/nss_qdisc/igs/nss_ifb.c}
+    ''',
 }
 ARRAYS = {'backports_dir': 'ath11k_core_files', 'ssdk_dir': 'ssdk_mib_files',
-          'nss_dp_dir': 'nss_dp_dirs', 'nss_drv_dir': 'nss_drv_dirs'}
+          'nss_dp_dir': 'nss_dp_dirs', 'nss_drv_dir': 'nss_drv_dirs',
+          'nss_clients_dir': 'nss_clients_files'}
 # Non-test shell syntax already surrounding the protected producers. Keeping the
 # prefix closed prevents entire valid-looking chains hidden in strings/functions.
 ADJACENT_SHELL = '''
@@ -219,10 +236,11 @@ def validate(workflow):
         index = indices[0]
         require(lines[index] == expected, 'call: changed argv/flags/output ' + filename)
         calls[filename] = index
-    require(spans['backports_dir'][1] < calls[PBUF] < calls[WIFI] < spans['ssdk_dir'][0]
+    require(spans['backports_dir'][1] < calls[PBUF] < calls[PBUF_START] < calls[WIFI] < spans['ssdk_dir'][0]
             <= spans['ssdk_dir'][1] < spans['nss_dp_dir'][0]
             <= spans['nss_dp_dir'][1] < calls[QCOM] < spans['nss_drv_dir'][0]
-            <= spans['nss_drv_dir'][1] < calls[N2H],
+            <= spans['nss_drv_dir'][1] < calls[N2H] < spans['nss_clients_dir'][0]
+            <= spans['nss_clients_dir'][1] < calls[IGS],
             'order: require prepare/unique selection/assignment before consumers')
 
     # A second producer or write must not silently replace the selected input.
@@ -249,7 +267,7 @@ def validate(workflow):
         critical.update((start, start + 1, end))
         known_syntax.update(lines[start:end + 1])
     stack = []
-    for i, line in enumerate(lines[:calls[N2H] + 1]):
+    for i, line in enumerate(lines[:max(calls.values()) + 1]):
         if line not in known_syntax:
             recognize_command(line)
         if i in critical:
@@ -344,7 +362,7 @@ class HostGateBindings(unittest.TestCase):
     def test_actual_workflow_positive(self):
         result = validate(self.workflow)
         self.assertEqual(set(result['producers']), set(ARRAYS))
-        self.assertEqual(set(result['calls']), {PBUF, WIFI, QCOM, N2H})
+        self.assertEqual(set(result['calls']), {PBUF, PBUF_START, WIFI, QCOM, N2H, IGS})
 
     def test_comments_are_not_executable_producers_or_calls(self):
         decoys = '\n'.join('          # ' + line for line in
@@ -354,7 +372,8 @@ class HostGateBindings(unittest.TestCase):
         validate(text)
 
     def test_output_mutations_preserve_script_and_other_arguments(self):
-        for filename, short in ((PBUF, 'pbuf'), (WIFI, 'wifi'), (QCOM, 'qcom'), (N2H, 'n2h')):
+        for filename, short in ((PBUF, 'pbuf'), (PBUF_START, 'pbuf_start'), (WIFI, 'wifi'),
+                                (QCOM, 'qcom'), (N2H, 'n2h'), (IGS, 'igs')):
             modified = MUTATIONS[short + '_shared_output'](self.workflow)
             prefix = 'python3 tests/' + filename + ' '
             calls = [line for line in logical_lines(gate_script(modified)) if line.startswith(prefix)]
@@ -427,7 +446,7 @@ MUTATIONS = {
 }
 
 for filename, short, source in ((WIFI, 'wifi', 'backports_dir'), (QCOM, 'qcom', 'nss_dp_dir'),
-                                (N2H, 'n2h', 'nss_drv_dir')):
+                                (N2H, 'n2h', 'nss_drv_dir'), (IGS, 'igs', 'nss_clients_dir')):
     for flag in ('--mutations', '--sanitize'):
         MUTATIONS[short + '_missing_' + flag[2:]] = edit_call(filename, ' ' + flag, '')
     for label, old, new in (
@@ -500,6 +519,36 @@ for label, replacement in (
 MUTATIONS['pbuf_neighbor_equals_output'] = lambda t: replace_once(
     t, '--output "' + EVIDENCE + 'dp-statistics"', '--output="' + EVIDENCE + 'pbuf-reload"')
 
+for label, old, new in (
+        ('missing_mutations', ' --mutations', ''),
+        ('extra_sanitizer', ' --mutations', ' --mutations --sanitize'),
+        ('extra_prepared', ' --mutations', ' "$backports_dir" --mutations'),
+        ('missing_output', ' --output ', ' --missing-output '),
+        ('duplicate_output', ' --mutations', ' --output /old/audit --mutations'),
+        ('old_output', EVIDENCE, '/old/audit/'),
+        ('shared_output', EVIDENCE + 'pbuf-start', EVIDENCE + 'wifi-nss-link-return'),
+        ('comment', 'python3 ', '# python3 '),
+        ('echo', 'python3 tests/', 'echo python3 tests/'),
+        ('deleted', physical_call(PBUF_START), ''),
+        ('swallowed_failure', physical_call(PBUF_START), physical_call(PBUF_START) + ' || true')):
+    MUTATIONS['pbuf_start_' + label] = edit_call(PBUF_START, old, new)
+MUTATIONS['pbuf_start_duplicate'] = insert_before_call(PBUF_START, CALLS[PBUF_START])
+MUTATIONS['pbuf_start_before_reload'] = move_call(PBUF_START, '          ' + physical_call(PBUF) + '\n')
+MUTATIONS['pbuf_start_false_branch'] = lambda t: replace_once(
+    t, '          ' + physical_call(PBUF_START),
+    '          if false; then\n          ' + physical_call(PBUF_START) + '\n          fi')
+for label, replacement in (('same', EVIDENCE + 'pbuf-start'),
+                           ('nested', EVIDENCE + 'pbuf-start/child'),
+                           ('alias', '${GITHUB_WORKSPACE}/core-flow-evidence/pbuf-start')):
+    MUTATIONS['pbuf_start_neighbor_' + label] = lambda t, value=replacement: replace_once(
+        t, EVIDENCE + 'dp-statistics"', value + '"')
+for label, old, new in (
+        ('missing_driver', ' --driver "$nss_drv_dir"', ''),
+        ('wrong_driver', ' --driver "$nss_drv_dir"', ' --driver "$nss_clients_dir"'),
+        ('old_driver', ' --driver "$nss_drv_dir"', ' --driver /old/prepared'),
+        ('unquoted_driver', ' --driver "$nss_drv_dir"', ' --driver $nss_drv_dir')):
+    MUTATIONS['igs_' + label] = edit_call(IGS, old, new)
+
 for name, array in ARRAYS.items():
     filename = CONSUMERS[name]
     prepare = logical_lines(PRODUCERS[name])[0]
@@ -531,6 +580,13 @@ for label, old, new in (
         ('ssdk_non_nul_selector', "mapfile -d '' ssdk_mib_files", 'mapfile -t ssdk_mib_files'),
         ('dp_non_nul_selector', "mapfile -d '' nss_dp_dirs", 'mapfile -t nss_dp_dirs'),
         ('drv_non_nul_selector', "mapfile -d '' nss_drv_dirs", 'mapfile -t nss_drv_dirs')):
+    MUTATIONS[label] = lambda t, a=old, b=new: replace_once(t, a, b)
+
+for label, old, new in (
+        ('clients_old_discovery', "find build_dir -type f -path '*/qca-nss-clients-", "find old-prepared -type f -path '*/qca-nss-clients-"),
+        ('clients_non_unique', 'test "${#nss_clients_files[@]}" -eq 1', 'test "${#nss_clients_files[@]}" -gt 0'),
+        ('clients_wrong_slot', 'nss_clients_dir=${nss_clients_files[0]%', 'nss_clients_dir=${nss_clients_files[1]%'),
+        ('clients_non_nul', "mapfile -d '' nss_clients_files", 'mapfile -t nss_clients_files')):
     MUTATIONS[label] = lambda t, a=old, b=new: replace_once(t, a, b)
 
 

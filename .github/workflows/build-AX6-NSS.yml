@@ -700,6 +700,8 @@ jobs:
           backports_dir=${ath11k_core_files[0]%/drivers/net/wireless/ath/ath11k/core.c}
           python3 tests/test-qca-nss-pbuf-reload.py --mutations \
             --output "$GITHUB_WORKSPACE/core-flow-evidence/pbuf-reload"
+          python3 tests/test-qca-nss-pbuf-start.py --mutations \
+            --output "$GITHUB_WORKSPACE/core-flow-evidence/pbuf-start"
           python3 tests/test-ath11k-recovery-reset-guard.py "$backports_dir"
           python3 tests/test-ath11k-rx-alignment.py "$backports_dir"
           echo "=== core-flow correctness (modeled source regressions, not module tests) ==="
@@ -773,6 +775,14 @@ jobs:
           test -s "$nss_drv_dir/nss_core.c"
           python3 tests/test-nss-n2h-sysctl-errors.py "$nss_drv_dir" --mutations --sanitize \
             --output "$GITHUB_WORKSPACE/core-flow-evidence/nss-n2h-sysctl-errors"
+          make package/qca-nss/qca-nss-clients/prepare V=s
+          mapfile -d '' nss_clients_files < <(
+            find build_dir -type f -path '*/qca-nss-clients-*/nss_qdisc/igs/nss_ifb.c' -print0
+          )
+          test "${#nss_clients_files[@]}" -eq 1
+          nss_clients_dir=${nss_clients_files[0]%/nss_qdisc/igs/nss_ifb.c}
+          python3 tests/test-nss-igs-interface-errors.py "$nss_clients_dir" --driver "$nss_drv_dir" --mutations --sanitize \
+            --output "$GITHUB_WORKSPACE/core-flow-evidence/nss-igs-interface-errors"
           echo "=== NSS init registration and descriptor ownership (host contracts) ==="
           python3 tests/test-ath11k-nss-init-ownership.py "$backports_dir" \
             --driver-prepared "$nss_drv_dir" --mutations --sanitize \
