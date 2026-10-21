@@ -90,6 +90,7 @@ jobs:
           python3 tests/test-ax6-compile-evidence.py
           python3 -B tests/test-rpcd-component-validation.py
           python3 -B tests/test-source-release-semantics.py
+          python3 -B tests/test-link-mib-host-gates.py
           # Offline only: ownership remains blocked; never apply in DIY/rootfs.
           python3 tests/test-ax6-sqm-transaction.py --shell /bin/bash
           python3 tests/test-ax6-sqm-ownership-protocol.py

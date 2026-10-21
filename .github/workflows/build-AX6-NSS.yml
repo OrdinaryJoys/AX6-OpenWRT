@@ -698,6 +698,8 @@ jobs:
             exit 1
           fi
           backports_dir=${ath11k_core_files[0]%/drivers/net/wireless/ath/ath11k/core.c}
+          python3 tests/test-qca-nss-pbuf-reload.py --mutations \
+            --output "$GITHUB_WORKSPACE/core-flow-evidence/pbuf-reload"
           python3 tests/test-ath11k-recovery-reset-guard.py "$backports_dir"
           python3 tests/test-ath11k-rx-alignment.py "$backports_dir"
           echo "=== core-flow correctness (modeled source regressions, not module tests) ==="
@@ -769,6 +771,8 @@ jobs:
           fi
           nss_drv_dir=${nss_drv_dirs[0]}
           test -s "$nss_drv_dir/nss_core.c"
+          python3 tests/test-nss-n2h-sysctl-errors.py "$nss_drv_dir" --mutations --sanitize \
+            --output "$GITHUB_WORKSPACE/core-flow-evidence/nss-n2h-sysctl-errors"
           echo "=== NSS init registration and descriptor ownership (host contracts) ==="
           python3 tests/test-ath11k-nss-init-ownership.py "$backports_dir" \
             --driver-prepared "$nss_drv_dir" --mutations --sanitize \
