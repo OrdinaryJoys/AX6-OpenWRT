@@ -25,13 +25,14 @@ PBUF = 'test-qca-nss-pbuf-reload.py'
 PBUF_START = 'test-qca-nss-pbuf-start.py'
 IGS = 'test-nss-igs-interface-errors.py'
 ADMISSION = 'test-nss-igs-action-admission.py'
+SYNC = 'test-nss-igs-sync-completion.py'
 EVIDENCE = '$GITHUB_WORKSPACE/core-flow-evidence/'
 DESTINATIONS = {WIFI: 'wifi-nss-link-return', QCOM: 'qcom-mib-width',
                 N2H: 'nss-n2h-sysctl-errors', PBUF: 'pbuf-reload',
                 PBUF_START: 'pbuf-start', IGS: 'nss-igs-interface-errors',
-                ADMISSION: 'nss-igs-action-admission'}
+                ADMISSION: 'nss-igs-action-admission', SYNC: 'nss-igs-sync-completion'}
 CONSUMERS = {'backports_dir': WIFI, 'ssdk_dir': QCOM, 'nss_dp_dir': QCOM,
-             'nss_drv_dir': N2H, 'nss_clients_dir': ADMISSION}
+             'nss_drv_dir': N2H, 'nss_clients_dir': SYNC}
 CALLS = {
     PBUF: ('python3 tests/' + PBUF + ' --mutations '
            '--output "' + EVIDENCE + 'pbuf-reload"'),
@@ -45,8 +46,10 @@ CALLS = {
           '--output "' + EVIDENCE + 'nss-n2h-sysctl-errors"'),
     IGS: ('python3 tests/' + IGS + ' "$nss_clients_dir" --driver "$nss_drv_dir" --mutations --sanitize '
           '--output "' + EVIDENCE + 'nss-igs-interface-errors"'),
-    ADMISSION: ('python3 tests/' + ADMISSION + ' "$nss_clients_dir" --mutations --sanitize '
+    ADMISSION: ('python3 tests/' + ADMISSION + ' "$nss_clients_dir" --cc cc --mutations --sanitize '
                 '--output "' + EVIDENCE + 'nss-igs-action-admission"'),
+    SYNC: ('python3 tests/' + SYNC + ' "$nss_clients_dir" --cc cc --mutations --sanitize '
+           '--output "' + EVIDENCE + 'nss-igs-sync-completion"'),
 }
 # Each producer includes the real prepare, NUL selector, exact-one guard and
 # assignment in one contiguous sequence. A comment/echo elsewhere cannot supply it.
@@ -244,7 +247,7 @@ def validate(workflow):
             <= spans['ssdk_dir'][1] < spans['nss_dp_dir'][0]
             <= spans['nss_dp_dir'][1] < calls[QCOM] < spans['nss_drv_dir'][0]
             <= spans['nss_drv_dir'][1] < calls[N2H] < spans['nss_clients_dir'][0]
-            <= spans['nss_clients_dir'][1] < calls[IGS] < calls[ADMISSION],
+            <= spans['nss_clients_dir'][1] < calls[IGS] < calls[ADMISSION] < calls[SYNC],
             'order: require prepare/unique selection/assignment before consumers')
 
     # A second producer or write must not silently replace the selected input.
@@ -366,7 +369,7 @@ class HostGateBindings(unittest.TestCase):
     def test_actual_workflow_positive(self):
         result = validate(self.workflow)
         self.assertEqual(set(result['producers']), set(ARRAYS))
-        self.assertEqual(set(result['calls']), {PBUF, PBUF_START, WIFI, QCOM, N2H, IGS, ADMISSION})
+        self.assertEqual(set(result['calls']), {PBUF, PBUF_START, WIFI, QCOM, N2H, IGS, ADMISSION, SYNC})
 
     def test_comments_are_not_executable_producers_or_calls(self):
         decoys = '\n'.join('          # ' + line for line in
@@ -378,7 +381,7 @@ class HostGateBindings(unittest.TestCase):
     def test_output_mutations_preserve_script_and_other_arguments(self):
         for filename, short in ((PBUF, 'pbuf'), (PBUF_START, 'pbuf_start'), (WIFI, 'wifi'),
                                 (QCOM, 'qcom'), (N2H, 'n2h'), (IGS, 'igs'),
-                                (ADMISSION, 'admission')):
+                                (ADMISSION, 'admission'), (SYNC, 'sync')):
             modified = MUTATIONS[short + '_shared_output'](self.workflow)
             prefix = 'python3 tests/' + filename + ' '
             calls = [line for line in logical_lines(gate_script(modified)) if line.startswith(prefix)]
@@ -452,7 +455,8 @@ MUTATIONS = {
 
 for filename, short, source in ((WIFI, 'wifi', 'backports_dir'), (QCOM, 'qcom', 'nss_dp_dir'),
                                 (N2H, 'n2h', 'nss_drv_dir'), (IGS, 'igs', 'nss_clients_dir'),
-                                (ADMISSION, 'admission', 'nss_clients_dir')):
+                                (ADMISSION, 'admission', 'nss_clients_dir'),
+                                (SYNC, 'sync', 'nss_clients_dir')):
     for flag in ('--mutations', '--sanitize'):
         MUTATIONS[short + '_missing_' + flag[2:]] = edit_call(filename, ' ' + flag, '')
     for label, old, new in (
@@ -562,6 +566,19 @@ MUTATIONS['admission_before_interface_gate'] = move_call(
 MUTATIONS['admission_false_branch'] = lambda t: replace_once(
     t, '          ' + physical_call(ADMISSION),
     '          if false; then\n          ' + physical_call(ADMISSION) + '\n          fi')
+
+MUTATIONS['sync_before_clients_prepare'] = move_call(
+    SYNC, '          make package/qca-nss/qca-nss-clients/prepare V=s\n')
+MUTATIONS['sync_before_admission_gate'] = move_call(
+    SYNC, '          ' + physical_call(ADMISSION) + '\n')
+MUTATIONS['sync_false_branch'] = lambda t: replace_once(
+    t, '          ' + physical_call(SYNC),
+    '          if false; then\n          ' + physical_call(SYNC) + '\n          fi')
+
+for filename, short in ((ADMISSION, 'admission'), (SYNC, 'sync')):
+    MUTATIONS[short + '_missing_host_compiler'] = edit_call(filename, ' --cc cc', '')
+    MUTATIONS[short + '_mac_compiler'] = edit_call(filename, ' --cc cc', ' --cc /opt/homebrew/bin/gcc-16')
+    MUTATIONS[short + '_target_compiler'] = edit_call(filename, ' --cc cc', ' --cc aarch64-openwrt-linux-gcc')
 
 for name, array in ARRAYS.items():
     filename = CONSUMERS[name]
