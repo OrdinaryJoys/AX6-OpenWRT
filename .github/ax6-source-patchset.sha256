@@ -129,13 +129,14 @@ fc9f1630547033428f4bdf7200a3b9f90d2a3d4321681891010d8f71be13f1a9  package/networ
 52142184273b7a18d653b0738ddf7001e3ae6fe1fb57fc2151db843d2a8506f3  package/network/services/hostapd/patches/780-Implement-APuP-Access-Point-Micro-Peering.patch
 06d18f192575204060dff23c52e1b98056cd7a25e1a6f24c2f563fa68214d377  package/qca-nss/qca-mcs/Makefile
 91378a047f9ef290f4b2400701a3d94721eccb64ec188f866a6284707c0e5c49  package/qca-nss/qca-mcs/patches/009-quiet-unconfigured-wifi-leave-events.patch
-17aab34186054103daa776425fc511c5eccce3569ead9bf40b57a44c16f180df  package/qca-nss/qca-nss-clients/Makefile
+96b1bd002407549883b84d9c51c4e5b301e0e2d374af86d4bb0a81874bfb1163  package/qca-nss/qca-nss-clients/Makefile
 9f9fe8a246cd6020dc1824f9cc84967079a890713eb9504f0d55f901301e1c2f  package/qca-nss/qca-nss-clients/patches/011-act_nssmirred-fix-action-list-corruption-on-release.patch
 a3450da6e7b815cc7b49edaf84c79749d7a0b09d619331ae9633d5c83d47cd96  package/qca-nss/qca-nss-clients/patches/012-nss_qdisc-guard-stats-attach-detach-against-noop-root.patch
 fe4144c5ebbcb41dfcb68bdb141dc319a6b5aa3cbf869bf69c00e5e1b4fd3f8f  package/qca-nss/qca-nss-clients/patches/013-netlink-require-admin-for-rule-injection.patch
 8d19eb48d8d59f250ce7d4b80f1dec7d95bc6a4d1c671a994a0403d425579485  package/qca-nss/qca-nss-clients/patches/014-igs-preserve-interface-lookup-errors.patch
 4d205ce44462c9fa285b804ce8ca32b738817c0e6e78bd303706fff1ecad4718  package/qca-nss/qca-nss-clients/patches/015-igs-reserve-action-before-interface-config.patch
 826f6a81edd82ac3fc8a21e1bea7909a33ae55a13ea87755f6b4cc67903b3d18  package/qca-nss/qca-nss-clients/patches/016-igs-preserve-early-synchronous-replies.patch
+353ed8a90b07a4ebaffe9e0c8e9d61db5f83200b1beb5e2bb67fe8c987d41490  package/qca-nss/qca-nss-clients/patches/017-igs-reserve-binding-before-firmware-configuration.patch
 2e9ec2b61c4f1337287d6aa6991a47c855258a1fc42de4ea9775c3e0aa475498  package/qca-nss/qca-nss-dp/Makefile
 9cecc83ee00068a4179788e259cfbd94ad0b8a3a7cb9d4f84766323343c53b13  package/qca-nss/qca-nss-dp/patches/004-phydev-clear-on-connect-failure.patch
 9b3ae37671d339b623b8f1bcd2d098423027c18d13d227eaab5e4025a74a08f2  package/qca-nss/qca-nss-dp/patches/006-ratelimit-edma-warnings.patch
@@ -278,7 +279,7 @@ d7857543eef8198c9936572e220cabe9c5639305d977518ee2e30647c97eddca  target/linux/q
 03e9cef71841f5f7dd20dfbf926c1ab2381befcc80489940124b7e88f4147c87  target/linux/starfive/patches-6.18/1002-serial-8250_dw-Add-starfive-jh7100-hsuart-compatible.patch
 32037bd705c5abb2642be761d570216da2ac63ed11213b6c849940411f42e16a  tests/CORE_FLOW_REPAIR_SCOPE_2026-10-19.md
 83cd242a0cbf9861fdf5ecced18aff8572f91769968a54556c65b402106fe616  tests/N2H_SYSCTL_ERRORS.md
-e490902a9a416d2d4d3ccaeeff3bd1892808d5179527685c09b173e9c740116d  tests/NSS_IGS_ACTION_ADMISSION.md
+170f4b4a0c4076a560f4455bd3a1ee6c5ac3d5f0bfe87da109fc00dc53ad51de  tests/NSS_IGS_ACTION_ADMISSION.md
 4c68614aef6097f5678bcc8a8f2a41ecedc134fcb11967d6d1b4caa9f86afed4  tests/NSS_IGS_INTERFACE_ERRORS.md
 8333c68cf6fc708192dec6d72af9f35fee5c0fda1946bf2452ee74dbc5f4fb02  tests/NSS_IGS_SYNC_COMPLETION.md
 c586c329d06034f2aee196b721d317b72ef964d5ba6f4cf892e18c53b53dcf7e  tests/PBUF_RELOAD.md
@@ -373,7 +374,7 @@ e9c94e16c7092cb391d4b37c3dcdb8204939ae8eb6cd2531919a32cacf4cb27b  tests/test-hos
 03b503f34d0be8b4b36813e096c61198749298a1cdcbd6e030e584eadeea98f7  tests/test-nss-dp-statistics.py
 ebf0dfc23432f67e5a1de0402f5fd44b4687e1186e4856453ed8536d2cef9e76  tests/test-nss-drv-sysctl-log-level.sh
 d87d154839098d9ae17c0833c33a8b2d33c470dc8236e5e3cbc1b555ad51002e  tests/test-nss-fraglist-accounting.py
-2cb471ef455de653e3e1cdd8d81cd7d4ac7c8d6e9a4e432a6cf1560e567a6840  tests/test-nss-igs-action-admission.py
+d8fdd00470ef52d33437acd334c54054414d07f27d5d820577abd9cdb97e498c  tests/test-nss-igs-action-admission.py
 850d320936a48f102dc091fc045e894d2e601658bdd1452a4b946634cdfc70a1  tests/test-nss-igs-interface-errors.py
 20e8bf004318c9675204ad466bda9e52504456ccccb8718fdad82fca5506d455  tests/test-nss-igs-sync-completion.py
 a18bbc3b88240f64bf73d5fa3cc0948a65d726fcb57324f99f209fcb166a9a46  tests/test-nss-n2h-sysctl-errors.py
