@@ -129,7 +129,7 @@ fc9f1630547033428f4bdf7200a3b9f90d2a3d4321681891010d8f71be13f1a9  package/networ
 52142184273b7a18d653b0738ddf7001e3ae6fe1fb57fc2151db843d2a8506f3  package/network/services/hostapd/patches/780-Implement-APuP-Access-Point-Micro-Peering.patch
 06d18f192575204060dff23c52e1b98056cd7a25e1a6f24c2f563fa68214d377  package/qca-nss/qca-mcs/Makefile
 91378a047f9ef290f4b2400701a3d94721eccb64ec188f866a6284707c0e5c49  package/qca-nss/qca-mcs/patches/009-quiet-unconfigured-wifi-leave-events.patch
-aca9e41f881b01b6f24c9aa7480c1592b767d78645f867535cde687a5205b5d0  package/qca-nss/qca-nss-clients/Makefile
+23b9ca29b88e67102fa2a4863d3728bc791663e2de120946b502d44a82a0c039  package/qca-nss/qca-nss-clients/Makefile
 9f9fe8a246cd6020dc1824f9cc84967079a890713eb9504f0d55f901301e1c2f  package/qca-nss/qca-nss-clients/patches/011-act_nssmirred-fix-action-list-corruption-on-release.patch
 a3450da6e7b815cc7b49edaf84c79749d7a0b09d619331ae9633d5c83d47cd96  package/qca-nss/qca-nss-clients/patches/012-nss_qdisc-guard-stats-attach-detach-against-noop-root.patch
 fe4144c5ebbcb41dfcb68bdb141dc319a6b5aa3cbf869bf69c00e5e1b4fd3f8f  package/qca-nss/qca-nss-clients/patches/013-netlink-require-admin-for-rule-injection.patch
@@ -138,6 +138,7 @@ fe4144c5ebbcb41dfcb68bdb141dc319a6b5aa3cbf869bf69c00e5e1b4fd3f8f  package/qca-ns
 826f6a81edd82ac3fc8a21e1bea7909a33ae55a13ea87755f6b4cc67903b3d18  package/qca-nss/qca-nss-clients/patches/016-igs-preserve-early-synchronous-replies.patch
 353ed8a90b07a4ebaffe9e0c8e9d61db5f83200b1beb5e2bb67fe8c987d41490  package/qca-nss/qca-nss-clients/patches/017-igs-reserve-binding-before-firmware-configuration.patch
 402626bbb3d1760ec36449451c37d3e68baee1c3870a739fa76e7b419902cae1  package/qca-nss/qca-nss-clients/patches/018-igs-validate-and-retire-reply-admission.patch
+c3eced042ea2d818f62d0027404ad89d6ea235ef5c0e7135b654f5054bd5c531  package/qca-nss/qca-nss-clients/patches/019-igs-initialize-ifb-before-publishing-module-entrypoints.patch
 2e9ec2b61c4f1337287d6aa6991a47c855258a1fc42de4ea9775c3e0aa475498  package/qca-nss/qca-nss-dp/Makefile
 9cecc83ee00068a4179788e259cfbd94ad0b8a3a7cb9d4f84766323343c53b13  package/qca-nss/qca-nss-dp/patches/004-phydev-clear-on-connect-failure.patch
 9b3ae37671d339b623b8f1bcd2d098423027c18d13d227eaab5e4025a74a08f2  package/qca-nss/qca-nss-dp/patches/006-ratelimit-edma-warnings.patch
@@ -282,6 +283,7 @@ d7857543eef8198c9936572e220cabe9c5639305d977518ee2e30647c97eddca  target/linux/q
 83cd242a0cbf9861fdf5ecced18aff8572f91769968a54556c65b402106fe616  tests/N2H_SYSCTL_ERRORS.md
 170f4b4a0c4076a560f4455bd3a1ee6c5ac3d5f0bfe87da109fc00dc53ad51de  tests/NSS_IGS_ACTION_ADMISSION.md
 1006c7bbf16d9dfaf1c14905c28e558fd74f38958f44402be2fe739c262d812e  tests/NSS_IGS_INTERFACE_ERRORS.md
+70caae992da77cb46befb149c5f2f20bcf3d38f0e4d65d62d4a3a36aa87ea9d4  tests/NSS_IGS_MODULE_READINESS.md
 47ff0ad968b2f22c72593775e25e74a5cf2d1199597a9f2254ddf50f23a33b4d  tests/NSS_IGS_SYNC_COMPLETION.md
 c586c329d06034f2aee196b721d317b72ef964d5ba6f4cf892e18c53b53dcf7e  tests/PBUF_RELOAD.md
 73e75231509e6d123ff690ae0f95968bece605ca42cc18041768347b7e500071  tests/PBUF_START.md
@@ -377,6 +379,7 @@ ebf0dfc23432f67e5a1de0402f5fd44b4687e1186e4856453ed8536d2cef9e76  tests/test-nss
 d87d154839098d9ae17c0833c33a8b2d33c470dc8236e5e3cbc1b555ad51002e  tests/test-nss-fraglist-accounting.py
 d8fdd00470ef52d33437acd334c54054414d07f27d5d820577abd9cdb97e498c  tests/test-nss-igs-action-admission.py
 62f811f6a51696e7d10e5f8cf5c191bf508b7a9a43cedbbf0038a3d10d2dde90  tests/test-nss-igs-interface-errors.py
+370a41aadd66a8fb7ada1556caa7cdd84b4310ccf60f4e213b11e416e3a0d839  tests/test-nss-igs-module-readiness.py
 bc8cc27df8f910cccf1917d29a12b938bf2b77d33df273897f0a3519f1c3979a  tests/test-nss-igs-sync-completion.py
 a18bbc3b88240f64bf73d5fa3cc0948a65d726fcb57324f99f209fcb166a9a46  tests/test-nss-n2h-sysctl-errors.py
 601785e8b74d008be87c89df99d0abab07e5d5a4903adaec4eba492c9d1e788b  tests/test-nss-targeted-backports.sh
