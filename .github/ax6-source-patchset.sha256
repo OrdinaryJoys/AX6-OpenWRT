@@ -148,7 +148,7 @@ b707f08756dc6da47ab9bfec313b13b901298ae15c2dd4a2757d710407496c47  package/qca-ns
 5d24fda47a44f2cd895e3ac709b4ba6e6f6d75138447bb4b75fefa797188feec  package/qca-nss/qca-nss-dp/patches/010-ipq807x-suppress-independent-dp-unbind.patch
 978a43a62a6fe91cd38c4d1f961ff408a0c5925b7971b62a5ce052776c57f426  package/qca-nss/qca-nss-dp/patches/011-stats-last-good-and-error-mapping.patch
 6ca62bce19ed97148bd25bf6565121d339942fcca79e7d73f1549b4f6b6806a5  package/qca-nss/qca-nss-dp/patches/012-qcom-ethtool-u64-mib-counters.patch
-8f625efa26e27b8148907bf4de46eaa4d5763b190ba4cbeb1df35a661a47398d  package/qca-nss/qca-nss-drv/Makefile
+50b895bb4058bbed0e61061cd0b6f70c6e9589ed47de1bfada75115beab2ca0b  package/qca-nss/qca-nss-drv/Makefile
 883e5a15e50e586715913aaaa434bef4cd87a6c49a0375a7f148ea2907ce10ee  package/qca-nss/qca-nss-drv/files/skb_recycler.uci
 b919564f02592086017328b5181fdbabf2f9314db933ee9e0d4486c966bd29e2  package/qca-nss/qca-nss-drv/patches/012-fix-autoscale-stats-and-current-freq-read.patch
 5242126dd65ac9b84518e24a3fc923916a19a6c3880f0d18a0f69062b6648c06  package/qca-nss/qca-nss-drv/patches/015-fix-fraglist-skb-truesize-underaccounting.patch
@@ -159,6 +159,7 @@ da85c66ec9b7c19bfa709e8d93585315bf7e2234985523b33fb5bbd8eda52df4  package/qca-ns
 3455b7338980f2464407859e7510fd5ae456ccaae3970559e4cbdae751bd1b7a  package/qca-nss/qca-nss-drv/patches/022-lower-sysctl-read-log-level.patch
 92f2a80f43e74753d00103243c6156c95bb6b854b344b6018799ab2df9cd08d9  package/qca-nss/qca-nss-drv/patches/023-ipq807x-host-only-detach-containment.patch
 1c07b389526ec5da71fd21e197cf32bfe1ff0da98c59a62e7b4c3b1c078035e8  package/qca-nss/qca-nss-drv/patches/024-n2h-extra-pbuf-sysctl-errors.patch
+bebc19144be8249d3d26f6ef6b850a54354cedec44a664c6b8dfc6f30628a470  package/qca-nss/qca-nss-drv/patches/025-igs-serialize-owner-publication-and-reference-admission.patch
 046af002b8947810aace7af1c9292bd6c2954592706261f242cc062004e218e0  package/qca-nss/qca-nss-ecm/Makefile
 2438ccfa97b0fa4e6f3cb333de8d0c8fcb05c46b6bcfdca93f4f75ae390920d9  package/qca-nss/qca-nss-ecm/files/disable_offloads.hotplug
 055e4f85038ff06f449a9512eaf8d14f6e8bfea2c92a0a38a964a5a2e433eb69  package/qca-nss/qca-nss-ecm/files/disable_offloads.sh
@@ -284,6 +285,7 @@ d7857543eef8198c9936572e220cabe9c5639305d977518ee2e30647c97eddca  target/linux/q
 170f4b4a0c4076a560f4455bd3a1ee6c5ac3d5f0bfe87da109fc00dc53ad51de  tests/NSS_IGS_ACTION_ADMISSION.md
 1006c7bbf16d9dfaf1c14905c28e558fd74f38958f44402be2fe739c262d812e  tests/NSS_IGS_INTERFACE_ERRORS.md
 70caae992da77cb46befb149c5f2f20bcf3d38f0e4d65d62d4a3a36aa87ea9d4  tests/NSS_IGS_MODULE_READINESS.md
+687d4d92e4891f62539bdd4ce75b6d035a596aade353106df2f7a004fa374631  tests/NSS_IGS_OWNER_REFERENCE.md
 47ff0ad968b2f22c72593775e25e74a5cf2d1199597a9f2254ddf50f23a33b4d  tests/NSS_IGS_SYNC_COMPLETION.md
 c586c329d06034f2aee196b721d317b72ef964d5ba6f4cf892e18c53b53dcf7e  tests/PBUF_RELOAD.md
 73e75231509e6d123ff690ae0f95968bece605ca42cc18041768347b7e500071  tests/PBUF_START.md
@@ -380,6 +382,7 @@ d87d154839098d9ae17c0833c33a8b2d33c470dc8236e5e3cbc1b555ad51002e  tests/test-nss
 d8fdd00470ef52d33437acd334c54054414d07f27d5d820577abd9cdb97e498c  tests/test-nss-igs-action-admission.py
 62f811f6a51696e7d10e5f8cf5c191bf508b7a9a43cedbbf0038a3d10d2dde90  tests/test-nss-igs-interface-errors.py
 370a41aadd66a8fb7ada1556caa7cdd84b4310ccf60f4e213b11e416e3a0d839  tests/test-nss-igs-module-readiness.py
+00e28d9e136d95575d06f26c0c231ed5bcd36596c40e0fc75bde20966ab7f470  tests/test-nss-igs-owner-reference.py
 bc8cc27df8f910cccf1917d29a12b938bf2b77d33df273897f0a3519f1c3979a  tests/test-nss-igs-sync-completion.py
 a18bbc3b88240f64bf73d5fa3cc0948a65d726fcb57324f99f209fcb166a9a46  tests/test-nss-n2h-sysctl-errors.py
 601785e8b74d008be87c89df99d0abab07e5d5a4903adaec4eba492c9d1e788b  tests/test-nss-targeted-backports.sh

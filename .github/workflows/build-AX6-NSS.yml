@@ -799,6 +799,11 @@ jobs:
           )
           test "${#linux_list_headers[@]}" -eq 1
           test -s "${linux_list_headers[0]}"
+          linux_module_dir=${linux_list_headers[0]%/include/linux/list.h}
+          test -s "$linux_module_dir/kernel/module/main.c"
+          test -s "$linux_module_dir/include/linux/module.h"
+          python3 tests/test-nss-igs-owner-reference.py "$nss_drv_dir" --kernel "$linux_module_dir" --cc cc --mutations --sanitize \
+            --output "$GITHUB_WORKSPACE/core-flow-evidence/nss-igs-owner-reference"
           echo "=== NSS conditional mesh dump ownership (host contracts) ==="
           python3 tests/test-ath11k-mesh-dump-ownership.py "$backports_dir" \
             --driver-prepared "$nss_drv_dir" --linux-list-header "${linux_list_headers[0]}" \

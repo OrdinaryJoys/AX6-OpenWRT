@@ -27,14 +27,15 @@ IGS = 'test-nss-igs-interface-errors.py'
 ADMISSION = 'test-nss-igs-action-admission.py'
 SYNC = 'test-nss-igs-sync-completion.py'
 MODULE_READY = 'test-nss-igs-module-readiness.py'
+OWNER = 'test-nss-igs-owner-reference.py'
 EVIDENCE = '$GITHUB_WORKSPACE/core-flow-evidence/'
 DESTINATIONS = {WIFI: 'wifi-nss-link-return', QCOM: 'qcom-mib-width',
                 N2H: 'nss-n2h-sysctl-errors', PBUF: 'pbuf-reload',
                 PBUF_START: 'pbuf-start', IGS: 'nss-igs-interface-errors',
                 ADMISSION: 'nss-igs-action-admission', SYNC: 'nss-igs-sync-completion',
-                MODULE_READY: 'nss-igs-module-readiness'}
+                MODULE_READY: 'nss-igs-module-readiness', OWNER: 'nss-igs-owner-reference'}
 CONSUMERS = {'backports_dir': WIFI, 'ssdk_dir': QCOM, 'nss_dp_dir': QCOM,
-             'nss_drv_dir': MODULE_READY, 'nss_clients_dir': MODULE_READY}
+             'nss_drv_dir': OWNER, 'nss_clients_dir': MODULE_READY, 'linux_module_dir': OWNER}
 CALLS = {
     PBUF: ('python3 tests/' + PBUF + ' --mutations '
            '--output "' + EVIDENCE + 'pbuf-reload"'),
@@ -54,6 +55,8 @@ CALLS = {
            '--output "' + EVIDENCE + 'nss-igs-sync-completion"'),
     MODULE_READY: ('python3 tests/' + MODULE_READY + ' "$nss_clients_dir" --driver "$nss_drv_dir" --cc cc --mutations --sanitize '
                    '--output "' + EVIDENCE + 'nss-igs-module-readiness"'),
+    OWNER: ('python3 tests/' + OWNER + ' "$nss_drv_dir" --kernel "$linux_module_dir" --cc cc --mutations --sanitize '
+            '--output "' + EVIDENCE + 'nss-igs-owner-reference"'),
 }
 # Each producer includes the real prepare, NUL selector, exact-one guard and
 # assignment in one contiguous sequence. A comment/echo elsewhere cannot supply it.
@@ -107,10 +110,21 @@ PRODUCERS = {
         test "${#nss_clients_files[@]}" -eq 1
         nss_clients_dir=${nss_clients_files[0]%/nss_qdisc/igs/nss_ifb.c}
     ''',
+    'linux_module_dir': '''
+        mapfile -d '' linux_list_headers < <(
+        find build_dir/target-aarch64_cortex-a53_musl/linux-qualcommax_ipq807x \\
+        -mindepth 4 -maxdepth 4 -type f -path '*/linux-*/include/linux/list.h' -print0
+        )
+        test "${#linux_list_headers[@]}" -eq 1
+        test -s "${linux_list_headers[0]}"
+        linux_module_dir=${linux_list_headers[0]%/include/linux/list.h}
+        test -s "$linux_module_dir/kernel/module/main.c"
+        test -s "$linux_module_dir/include/linux/module.h"
+    ''',
 }
 ARRAYS = {'backports_dir': 'ath11k_core_files', 'ssdk_dir': 'ssdk_mib_files',
           'nss_dp_dir': 'nss_dp_dirs', 'nss_drv_dir': 'nss_drv_dirs',
-          'nss_clients_dir': 'nss_clients_files'}
+          'nss_clients_dir': 'nss_clients_files', 'linux_module_dir': 'linux_list_headers'}
 # Non-test shell syntax already surrounding the protected producers. Keeping the
 # prefix closed prevents entire valid-looking chains hidden in strings/functions.
 ADJACENT_SHELL = '''
@@ -251,14 +265,17 @@ def validate(workflow):
             <= spans['ssdk_dir'][1] < spans['nss_dp_dir'][0]
             <= spans['nss_dp_dir'][1] < calls[QCOM] < spans['nss_drv_dir'][0]
             <= spans['nss_drv_dir'][1] < calls[N2H] < spans['nss_clients_dir'][0]
-            <= spans['nss_clients_dir'][1] < calls[IGS] < calls[ADMISSION] < calls[SYNC] < calls[MODULE_READY],
+            <= spans['nss_clients_dir'][1] < calls[IGS] < calls[ADMISSION] < calls[SYNC] < calls[MODULE_READY]
+            < spans['linux_module_dir'][0] <= spans['linux_module_dir'][1] < calls[OWNER],
             'order: require prepare/unique selection/assignment before consumers')
 
     # A second producer or write must not silently replace the selected input.
     for name, array in ARRAYS.items():
         start, end = spans[name]
         assignment = next(i for i in range(start, end + 1) if lines[i].startswith(name + '='))
-        for variable, allowed in ((name, assignment), (array, start + 1)):
+        selector = next(i for i in range(start, end + 1)
+                        if lines[i].startswith('mapfile ') and array in lines[i])
+        for variable, allowed in ((name, assignment), (array, selector)):
             write = re.compile(r'(?<![\w])' + re.escape(variable)
                                + r'(?:\[[^\]]*\])?\s*\+?=')
             builtin = re.compile(r'^(?:mapfile|readarray|read|unset|declare|typeset|'
@@ -373,7 +390,7 @@ class HostGateBindings(unittest.TestCase):
     def test_actual_workflow_positive(self):
         result = validate(self.workflow)
         self.assertEqual(set(result['producers']), set(ARRAYS))
-        self.assertEqual(set(result['calls']), {PBUF, PBUF_START, WIFI, QCOM, N2H, IGS, ADMISSION, SYNC, MODULE_READY})
+        self.assertEqual(set(result['calls']), {PBUF, PBUF_START, WIFI, QCOM, N2H, IGS, ADMISSION, SYNC, MODULE_READY, OWNER})
 
     def test_comments_are_not_executable_producers_or_calls(self):
         decoys = '\n'.join('          # ' + line for line in
@@ -385,7 +402,8 @@ class HostGateBindings(unittest.TestCase):
     def test_output_mutations_preserve_script_and_other_arguments(self):
         for filename, short in ((PBUF, 'pbuf'), (PBUF_START, 'pbuf_start'), (WIFI, 'wifi'),
                                 (QCOM, 'qcom'), (N2H, 'n2h'), (IGS, 'igs'),
-                                (ADMISSION, 'admission'), (SYNC, 'sync'), (MODULE_READY, 'module_ready')):
+                                (ADMISSION, 'admission'), (SYNC, 'sync'), (MODULE_READY, 'module_ready'),
+                                (OWNER, 'owner')):
             modified = MUTATIONS[short + '_shared_output'](self.workflow)
             prefix = 'python3 tests/' + filename + ' '
             calls = [line for line in logical_lines(gate_script(modified)) if line.startswith(prefix)]
@@ -461,7 +479,8 @@ for filename, short, source in ((WIFI, 'wifi', 'backports_dir'), (QCOM, 'qcom', 
                                 (N2H, 'n2h', 'nss_drv_dir'), (IGS, 'igs', 'nss_clients_dir'),
                                 (ADMISSION, 'admission', 'nss_clients_dir'),
                                 (SYNC, 'sync', 'nss_clients_dir'),
-                                (MODULE_READY, 'module_ready', 'nss_clients_dir')):
+                                (MODULE_READY, 'module_ready', 'nss_clients_dir'),
+                                (OWNER, 'owner', 'nss_drv_dir')):
     for flag in ('--mutations', '--sanitize'):
         MUTATIONS[short + '_missing_' + flag[2:]] = edit_call(filename, ' ' + flag, '')
     for label, old, new in (
@@ -595,10 +614,31 @@ MUTATIONS['module_ready_false_branch'] = lambda t: replace_once(
     t, '          ' + physical_call(MODULE_READY),
     '          if false; then\n          ' + physical_call(MODULE_READY) + '\n          fi')
 
-for filename, short in ((ADMISSION, 'admission'), (SYNC, 'sync'), (MODULE_READY, 'module_ready')):
+for filename, short in ((ADMISSION, 'admission'), (SYNC, 'sync'), (MODULE_READY, 'module_ready'), (OWNER, 'owner')):
     MUTATIONS[short + '_missing_host_compiler'] = edit_call(filename, ' --cc cc', '')
     MUTATIONS[short + '_mac_compiler'] = edit_call(filename, ' --cc cc', ' --cc /opt/homebrew/bin/gcc-16')
     MUTATIONS[short + '_target_compiler'] = edit_call(filename, ' --cc cc', ' --cc aarch64-openwrt-linux-gcc')
+
+for label, old, new in (
+        ('missing_kernel', ' --kernel "$linux_module_dir"', ''),
+        ('wrong_kernel', ' --kernel "$linux_module_dir"', ' --kernel "$nss_drv_dir"'),
+        ('old_kernel', ' --kernel "$linux_module_dir"', ' --kernel /old/prepared'),
+        ('unquoted_kernel', ' --kernel "$linux_module_dir"', ' --kernel $linux_module_dir')):
+    MUTATIONS['owner_' + label] = edit_call(OWNER, old, new)
+MUTATIONS['owner_before_driver'] = move_call(OWNER, '          make package/qca-nss/qca-nss-drv/prepare V=s\n')
+MUTATIONS['owner_before_kernel'] = move_call(OWNER, "          mapfile -d '' linux_list_headers < <(\n")
+MUTATIONS['owner_false_branch'] = lambda t: replace_once(
+    t, '          ' + physical_call(OWNER),
+    '          if false; then\n          ' + physical_call(OWNER) + '\n          fi')
+for label, old, new in (
+        ('kernel_old_discovery', "mapfile -d '' linux_list_headers < <(\n            find build_dir/target-aarch64_cortex-a53_musl/linux-qualcommax_ipq807x",
+         "mapfile -d '' linux_list_headers < <(\n            find old-prepared/linux-qualcommax_ipq807x"),
+        ('kernel_non_unique', 'test "${#linux_list_headers[@]}" -eq 1', 'test "${#linux_list_headers[@]}" -gt 0'),
+        ('kernel_wrong_slot', 'linux_module_dir=${linux_list_headers[0]%', 'linux_module_dir=${linux_list_headers[1]%'),
+        ('kernel_non_nul', "mapfile -d '' linux_list_headers", 'mapfile -t linux_list_headers'),
+        ('kernel_missing_header_guard', '          test -s "$linux_module_dir/include/linux/module.h"\n', ''),
+        ('kernel_missing_source_guard', '          test -s "$linux_module_dir/kernel/module/main.c"\n', '')):
+    MUTATIONS[label] = lambda t, a=old, b=new: replace_once(t, a, b)
 
 for name, array in ARRAYS.items():
     filename = CONSUMERS[name]
