@@ -383,7 +383,7 @@ e9c94e16c7092cb391d4b37c3dcdb8204939ae8eb6cd2531919a32cacf4cb27b  tests/test-hos
 03b503f34d0be8b4b36813e096c61198749298a1cdcbd6e030e584eadeea98f7  tests/test-nss-dp-statistics.py
 ebf0dfc23432f67e5a1de0402f5fd44b4687e1186e4856453ed8536d2cef9e76  tests/test-nss-drv-sysctl-log-level.sh
 d87d154839098d9ae17c0833c33a8b2d33c470dc8236e5e3cbc1b555ad51002e  tests/test-nss-fraglist-accounting.py
-d8fdd00470ef52d33437acd334c54054414d07f27d5d820577abd9cdb97e498c  tests/test-nss-igs-action-admission.py
+98aa7f06b8e555548b7353a29b5922d8e1514ca0de28dfc6f0d6151a7693f343  tests/test-nss-igs-action-admission.py
 62f811f6a51696e7d10e5f8cf5c191bf508b7a9a43cedbbf0038a3d10d2dde90  tests/test-nss-igs-interface-errors.py
 370a41aadd66a8fb7ada1556caa7cdd84b4310ccf60f4e213b11e416e3a0d839  tests/test-nss-igs-module-readiness.py
 00e28d9e136d95575d06f26c0c231ed5bcd36596c40e0fc75bde20966ab7f470  tests/test-nss-igs-owner-reference.py
@@ -393,7 +393,7 @@ a18bbc3b88240f64bf73d5fa3cc0948a65d726fcb57324f99f209fcb166a9a46  tests/test-nss
 1f081094f359c94f74e38efcad5d2e2ba740c814325fd8e937d6f12927ef4b74  tests/test-qca-mcs-log-level.sh
 e41f80bc362099361e25beb557ec9e520a80963392acfdc6ac00e1076edbc043  tests/test-qca-nss-pbuf-readback.sh
 be0d3c095da92a14b341abc821361c0bd4e3ff9397a6716f3e0d03fa20ce99db  tests/test-qca-nss-pbuf-reload.py
-cf9931b689108f48c9f873751c285a9fa1bfb93bbde5981b02df19e7bc2404a2  tests/test-qca-nss-pbuf-start.py
+95a12c9a79aa23130d740459e706ce2cf24523bb106c4a8399c185137dce31dc  tests/test-qca-nss-pbuf-start.py
 94cd3d9e1ee2180182209066e162ccbbae4d8bc930c829f77ebe494e0427ee47  tests/test-qcom-hwspinlock-regmap-boundary.sh
 bf5a9bc9f7b46e6d34d13fd347bb87594845cfeb796a6469826cba54d460cb8d  tests/test-qcom-mib-width.py
 c0bc5849c71257ac0097ae8e39daf784f4ed4c40eaaac1bfdedbf4142d090f52  tests/test-rpcd-journal-publication.py
