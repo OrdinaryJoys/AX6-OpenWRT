@@ -781,6 +781,8 @@ jobs:
           )
           test "${#nss_clients_files[@]}" -eq 1
           nss_clients_dir=${nss_clients_files[0]%/nss_qdisc/igs/nss_ifb.c}
+          python3 tests/test-nss-igs-ifb-linkage.py "$nss_clients_dir" --cc cc --mutations --sanitize \
+            --output "$GITHUB_WORKSPACE/core-flow-evidence/nss-igs-ifb-linkage"
           python3 tests/test-nss-igs-interface-errors.py "$nss_clients_dir" --driver "$nss_drv_dir" --mutations --sanitize \
             --output "$GITHUB_WORKSPACE/core-flow-evidence/nss-igs-interface-errors"
           python3 tests/test-nss-igs-action-admission.py "$nss_clients_dir" --cc cc --mutations --sanitize \
@@ -793,6 +795,10 @@ jobs:
           python3 tests/test-ath11k-nss-init-ownership.py "$backports_dir" \
             --driver-prepared "$nss_drv_dir" --mutations --sanitize \
             --output "$GITHUB_WORKSPACE/core-flow-evidence/wifi-nss-init-ownership"
+          python3 "$GITHUB_WORKSPACE/.github/scripts/diagnose-ax6-kernel-inputs.py" \
+            --root build_dir/target-aarch64_cortex-a53_musl/linux-qualcommax_ipq807x \
+            --output "$GITHUB_WORKSPACE/core-flow-evidence/kernel-inputs.json"
+          python3 "$GITHUB_WORKSPACE/tests/test-ax6-kernel-input-diagnostics.py"
           mapfile -d '' linux_list_headers < <(
             find build_dir/target-aarch64_cortex-a53_musl/linux-qualcommax_ipq807x \
               -mindepth 4 -maxdepth 4 -type f -path '*/linux-*/include/linux/list.h' -print0

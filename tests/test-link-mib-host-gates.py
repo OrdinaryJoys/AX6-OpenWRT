@@ -28,14 +28,20 @@ ADMISSION = 'test-nss-igs-action-admission.py'
 SYNC = 'test-nss-igs-sync-completion.py'
 MODULE_READY = 'test-nss-igs-module-readiness.py'
 OWNER = 'test-nss-igs-owner-reference.py'
+LINKAGE = 'test-nss-igs-ifb-linkage.py'
 EVIDENCE = '$GITHUB_WORKSPACE/core-flow-evidence/'
+KERNEL_DIAGNOSTIC = ('python3 "$GITHUB_WORKSPACE/.github/scripts/diagnose-ax6-kernel-inputs.py" '
+                     '--root build_dir/target-aarch64_cortex-a53_musl/linux-qualcommax_ipq807x '
+                     '--output "' + EVIDENCE + 'kernel-inputs.json"')
+KERNEL_DIAGNOSTIC_TEST = 'python3 "$GITHUB_WORKSPACE/tests/test-ax6-kernel-input-diagnostics.py"'
 DESTINATIONS = {WIFI: 'wifi-nss-link-return', QCOM: 'qcom-mib-width',
                 N2H: 'nss-n2h-sysctl-errors', PBUF: 'pbuf-reload',
                 PBUF_START: 'pbuf-start', IGS: 'nss-igs-interface-errors',
                 ADMISSION: 'nss-igs-action-admission', SYNC: 'nss-igs-sync-completion',
-                MODULE_READY: 'nss-igs-module-readiness', OWNER: 'nss-igs-owner-reference'}
+                MODULE_READY: 'nss-igs-module-readiness', OWNER: 'nss-igs-owner-reference',
+                LINKAGE: 'nss-igs-ifb-linkage'}
 CONSUMERS = {'backports_dir': WIFI, 'ssdk_dir': QCOM, 'nss_dp_dir': QCOM,
-             'nss_drv_dir': OWNER, 'nss_clients_dir': MODULE_READY, 'linux_module_dir': OWNER}
+             'nss_drv_dir': OWNER, 'nss_clients_dir': LINKAGE, 'linux_module_dir': OWNER}
 CALLS = {
     PBUF: ('python3 tests/' + PBUF + ' --mutations '
            '--output "' + EVIDENCE + 'pbuf-reload"'),
@@ -57,6 +63,8 @@ CALLS = {
                    '--output "' + EVIDENCE + 'nss-igs-module-readiness"'),
     OWNER: ('python3 tests/' + OWNER + ' "$nss_drv_dir" --kernel "$linux_module_dir" --cc cc --mutations --sanitize '
             '--output "' + EVIDENCE + 'nss-igs-owner-reference"'),
+    LINKAGE: ('python3 tests/' + LINKAGE + ' "$nss_clients_dir" --cc cc --mutations --sanitize '
+              '--output "' + EVIDENCE + 'nss-igs-ifb-linkage"'),
 }
 # Each producer includes the real prepare, NUL selector, exact-one guard and
 # assignment in one contiguous sequence. A comment/echo elsewhere cannot supply it.
@@ -221,6 +229,8 @@ def recognize_command(line):
     if line == ('python3 tests/test-ssdk-mib-errors.py "$ssdk_dir" | tee "'
                 + EVIDENCE + 'ssdk.log"'):
         return
+    if line in (KERNEL_DIAGNOSTIC, KERNEL_DIAGNOSTIC_TEST):
+        return
     require('$(' not in line and '`' not in line, 'flow: command substitution')
     lexer = shlex.shlex(line, posix=True, punctuation_chars=True)
     lexer.whitespace_split = True
@@ -261,12 +271,21 @@ def validate(workflow):
         index = indices[0]
         require(lines[index] == expected, 'call: changed argv/flags/output ' + filename)
         calls[filename] = index
+    diagnostic_indices = [i for i, line in enumerate(lines) if line == KERNEL_DIAGNOSTIC]
+    require(len(diagnostic_indices) == 1, 'diagnostic: require one exact kernel input observer')
+    diagnostic_index = diagnostic_indices[0]
+    diagnostic_test_indices = [i for i, line in enumerate(lines) if line == KERNEL_DIAGNOSTIC_TEST]
+    require(len(diagnostic_test_indices) == 1, 'diagnostic: require one exact observer boundary test')
+    diagnostic_test_index = diagnostic_test_indices[0]
+    require(sum('diagnose-ax6-kernel-inputs.py' in line and not line.lstrip().startswith('#')
+                for line in workflow.splitlines()) == 1,
+            'diagnostic: duplicate or changed kernel input observer')
     require(spans['backports_dir'][1] < calls[PBUF] < calls[PBUF_START] < calls[WIFI] < spans['ssdk_dir'][0]
             <= spans['ssdk_dir'][1] < spans['nss_dp_dir'][0]
             <= spans['nss_dp_dir'][1] < calls[QCOM] < spans['nss_drv_dir'][0]
             <= spans['nss_drv_dir'][1] < calls[N2H] < spans['nss_clients_dir'][0]
-            <= spans['nss_clients_dir'][1] < calls[IGS] < calls[ADMISSION] < calls[SYNC] < calls[MODULE_READY]
-            < spans['linux_module_dir'][0] <= spans['linux_module_dir'][1] < calls[OWNER],
+            <= spans['nss_clients_dir'][1] < calls[LINKAGE] < calls[IGS] < calls[ADMISSION] < calls[SYNC] < calls[MODULE_READY]
+            < diagnostic_index < diagnostic_test_index < spans['linux_module_dir'][0] <= spans['linux_module_dir'][1] < calls[OWNER],
             'order: require prepare/unique selection/assignment before consumers')
 
     # A second producer or write must not silently replace the selected input.
@@ -290,6 +309,8 @@ def validate(workflow):
     # Critical commands must be at shell top level, not inside a disabled branch
     # or loop. This is a bounded recognizer of this prefix, not a Bash evaluator.
     critical = set(calls.values())
+    critical.add(diagnostic_index)
+    critical.add(diagnostic_test_index)
     known_syntax = set(logical_lines(ADJACENT_SHELL))
     for start, end in spans.values():
         critical.update((start, start + 1, end))
@@ -390,7 +411,7 @@ class HostGateBindings(unittest.TestCase):
     def test_actual_workflow_positive(self):
         result = validate(self.workflow)
         self.assertEqual(set(result['producers']), set(ARRAYS))
-        self.assertEqual(set(result['calls']), {PBUF, PBUF_START, WIFI, QCOM, N2H, IGS, ADMISSION, SYNC, MODULE_READY, OWNER})
+        self.assertEqual(set(result['calls']), {PBUF, PBUF_START, WIFI, QCOM, N2H, IGS, ADMISSION, SYNC, MODULE_READY, OWNER, LINKAGE})
 
     def test_comments_are_not_executable_producers_or_calls(self):
         decoys = '\n'.join('          # ' + line for line in
@@ -403,7 +424,7 @@ class HostGateBindings(unittest.TestCase):
         for filename, short in ((PBUF, 'pbuf'), (PBUF_START, 'pbuf_start'), (WIFI, 'wifi'),
                                 (QCOM, 'qcom'), (N2H, 'n2h'), (IGS, 'igs'),
                                 (ADMISSION, 'admission'), (SYNC, 'sync'), (MODULE_READY, 'module_ready'),
-                                (OWNER, 'owner')):
+                                (OWNER, 'owner'), (LINKAGE, 'linkage')):
             modified = MUTATIONS[short + '_shared_output'](self.workflow)
             prefix = 'python3 tests/' + filename + ' '
             calls = [line for line in logical_lines(gate_script(modified)) if line.startswith(prefix)]
@@ -480,7 +501,8 @@ for filename, short, source in ((WIFI, 'wifi', 'backports_dir'), (QCOM, 'qcom', 
                                 (ADMISSION, 'admission', 'nss_clients_dir'),
                                 (SYNC, 'sync', 'nss_clients_dir'),
                                 (MODULE_READY, 'module_ready', 'nss_clients_dir'),
-                                (OWNER, 'owner', 'nss_drv_dir')):
+                                (OWNER, 'owner', 'nss_drv_dir'),
+                                (LINKAGE, 'linkage', 'nss_clients_dir')):
     for flag in ('--mutations', '--sanitize'):
         MUTATIONS[short + '_missing_' + flag[2:]] = edit_call(filename, ' ' + flag, '')
     for label, old, new in (
@@ -614,7 +636,7 @@ MUTATIONS['module_ready_false_branch'] = lambda t: replace_once(
     t, '          ' + physical_call(MODULE_READY),
     '          if false; then\n          ' + physical_call(MODULE_READY) + '\n          fi')
 
-for filename, short in ((ADMISSION, 'admission'), (SYNC, 'sync'), (MODULE_READY, 'module_ready'), (OWNER, 'owner')):
+for filename, short in ((ADMISSION, 'admission'), (SYNC, 'sync'), (MODULE_READY, 'module_ready'), (OWNER, 'owner'), (LINKAGE, 'linkage')):
     MUTATIONS[short + '_missing_host_compiler'] = edit_call(filename, ' --cc cc', '')
     MUTATIONS[short + '_mac_compiler'] = edit_call(filename, ' --cc cc', ' --cc /opt/homebrew/bin/gcc-16')
     MUTATIONS[short + '_target_compiler'] = edit_call(filename, ' --cc cc', ' --cc aarch64-openwrt-linux-gcc')
@@ -630,6 +652,32 @@ MUTATIONS['owner_before_kernel'] = move_call(OWNER, "          mapfile -d '' lin
 MUTATIONS['owner_false_branch'] = lambda t: replace_once(
     t, '          ' + physical_call(OWNER),
     '          if false; then\n          ' + physical_call(OWNER) + '\n          fi')
+MUTATIONS['linkage_before_clients_prepare'] = move_call(
+    LINKAGE, '          make package/qca-nss/qca-nss-clients/prepare V=s\n')
+MUTATIONS['linkage_after_existing_igs'] = move_call(
+    LINKAGE, '          ' + physical_call(ADMISSION) + '\n')
+MUTATIONS['linkage_false_branch'] = lambda t: replace_once(
+    t, '          ' + physical_call(LINKAGE),
+    '          if false; then\n          ' + physical_call(LINKAGE) + '\n          fi')
+for label, old, new in (
+        ('kernel_diagnostic_removed', KERNEL_DIAGNOSTIC, ''),
+        ('kernel_diagnostic_old_root', 'build_dir/target-aarch64_cortex-a53_musl/linux-qualcommax_ipq807x', 'old-prepared/linux-qualcommax_ipq807x'),
+        ('kernel_diagnostic_shared_output', EVIDENCE + 'kernel-inputs.json', EVIDENCE + 'nss-igs-ifb-linkage'),
+        ('kernel_diagnostic_swallowed', KERNEL_DIAGNOSTIC, KERNEL_DIAGNOSTIC + ' || true')):
+    def edit_diagnostic(text, before=old, after=new):
+        physical = KERNEL_DIAGNOSTIC.replace(' --root ', ' \\\n            --root ').replace(' --output ', ' \\\n            --output ')
+        return replace_once(text, physical, physical.replace(before, after) if before != KERNEL_DIAGNOSTIC else after)
+    MUTATIONS[label] = edit_diagnostic
+MUTATIONS['kernel_diagnostic_false_branch'] = lambda t: replace_once(
+    t, '          python3 "$GITHUB_WORKSPACE/.github/scripts/diagnose-ax6-kernel-inputs.py"',
+    '          if false; then\n          python3 "$GITHUB_WORKSPACE/.github/scripts/diagnose-ax6-kernel-inputs.py"').replace(
+    '          ' + KERNEL_DIAGNOSTIC_TEST,
+    '          fi\n          ' + KERNEL_DIAGNOSTIC_TEST, 1)
+MUTATIONS['kernel_diagnostic_test_removed'] = lambda t: replace_once(t, '          ' + KERNEL_DIAGNOSTIC_TEST + '\n', '')
+MUTATIONS['kernel_diagnostic_test_swallowed'] = lambda t: replace_once(t, KERNEL_DIAGNOSTIC_TEST, KERNEL_DIAGNOSTIC_TEST + ' || true')
+MUTATIONS['kernel_diagnostic_test_false_branch'] = lambda t: replace_once(
+    t, '          ' + KERNEL_DIAGNOSTIC_TEST,
+    '          if false; then\n          ' + KERNEL_DIAGNOSTIC_TEST + '\n          fi')
 for label, old, new in (
         ('kernel_old_discovery', "mapfile -d '' linux_list_headers < <(\n            find build_dir/target-aarch64_cortex-a53_musl/linux-qualcommax_ipq807x",
          "mapfile -d '' linux_list_headers < <(\n            find old-prepared/linux-qualcommax_ipq807x"),
