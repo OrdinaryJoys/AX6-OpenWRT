@@ -129,7 +129,7 @@ fc9f1630547033428f4bdf7200a3b9f90d2a3d4321681891010d8f71be13f1a9  package/networ
 52142184273b7a18d653b0738ddf7001e3ae6fe1fb57fc2151db843d2a8506f3  package/network/services/hostapd/patches/780-Implement-APuP-Access-Point-Micro-Peering.patch
 06d18f192575204060dff23c52e1b98056cd7a25e1a6f24c2f563fa68214d377  package/qca-nss/qca-mcs/Makefile
 91378a047f9ef290f4b2400701a3d94721eccb64ec188f866a6284707c0e5c49  package/qca-nss/qca-mcs/patches/009-quiet-unconfigured-wifi-leave-events.patch
-aa391d07f5b415d2d06b7cbd90eeecb0886b50b3b106e5b509102f42f010b918  package/qca-nss/qca-nss-clients/Makefile
+e9803956c95e072c58486b3542149722e1150079be7fd83fbdb47215cb2be076  package/qca-nss/qca-nss-clients/Makefile
 9f9fe8a246cd6020dc1824f9cc84967079a890713eb9504f0d55f901301e1c2f  package/qca-nss/qca-nss-clients/patches/011-act_nssmirred-fix-action-list-corruption-on-release.patch
 a3450da6e7b815cc7b49edaf84c79749d7a0b09d619331ae9633d5c83d47cd96  package/qca-nss/qca-nss-clients/patches/012-nss_qdisc-guard-stats-attach-detach-against-noop-root.patch
 fe4144c5ebbcb41dfcb68bdb141dc319a6b5aa3cbf869bf69c00e5e1b4fd3f8f  package/qca-nss/qca-nss-clients/patches/013-netlink-require-admin-for-rule-injection.patch
@@ -142,6 +142,7 @@ c3eced042ea2d818f62d0027404ad89d6ea235ef5c0e7135b654f5054bd5c531  package/qca-ns
 8c6059b9f6abfbc1bd3717299449a2ba67b0feb29c7badab7d2f78673b416b09  package/qca-nss/qca-nss-clients/patches/020-igs-defer-module-put-until-cleanup.patch
 868b327db32560458bfc98ff975b9cf8c90e993f45f994442008021a77067d1b  package/qca-nss/qca-nss-clients/patches/021-igs-ifb-binding-refcount.patch
 b2ea6ef7403a6608c7c0caa19140db99c109840a9d1ce13e45f1428d9edfc173  package/qca-nss/qca-nss-clients/patches/022-igs-release-replaced-dev-reference.patch
+ac5e9ab2db5c2ae38d0c8c6e35593969f83e7c506c71f4bbe63c9b7a50bef29b  package/qca-nss/qca-nss-clients/patches/023-igs-ifb-find-reference.patch
 2e9ec2b61c4f1337287d6aa6991a47c855258a1fc42de4ea9775c3e0aa475498  package/qca-nss/qca-nss-dp/Makefile
 9cecc83ee00068a4179788e259cfbd94ad0b8a3a7cb9d4f84766323343c53b13  package/qca-nss/qca-nss-dp/patches/004-phydev-clear-on-connect-failure.patch
 9b3ae37671d339b623b8f1bcd2d098423027c18d13d227eaab5e4025a74a08f2  package/qca-nss/qca-nss-dp/patches/006-ratelimit-edma-warnings.patch
