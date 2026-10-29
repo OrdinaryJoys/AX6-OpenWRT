@@ -8,7 +8,7 @@ d4639ff15a00647950d932982a94e5685440f6e63871bc3865dfc995653a575a  docs/AX6_PCI_S
 91a38a53203933b4cecb6731df6e9f094174e87980bc108fdd0f18ee6fe8b663  docs/AX6_RPCD_JOURNAL_RECOVERY_2026-10-20.md
 dad4b748dadec8b8cbc250f3cd77430aff67a96b5a498ea840428ce285527876  docs/AX6_RPCD_PUBLICATION_2026-10-21.md
 808e1bbb9d5debf2a2e20ba0da7a8d3314952160513e6bb9873bb532f334b788  docs/AX6_RPCD_STORAGE_PATHS_2026-10-20.md
-1ffa11b5100eeac2c7a55be09ff925e36777c14ba6c76c2a6639861bb664e001  package/kernel/mac80211/Makefile
+7f4820b384f629f8f662189b22f26b77e806c29fcee6a67e550f4b0e7a1632fb  package/kernel/mac80211/Makefile
 80587244b81f5303ce9479e21ef90c3a3b78b310ec63d0b814e26eb8f73733dd  package/kernel/mac80211/files/pbuf.uci
 44df9e037b3ce0fff83d5271fe0de3904c5581a95b3e77ba88d68443b26bf714  package/kernel/mac80211/files/qca-nss-pbuf.init
 865ea34a7d98208c6533fed5aeabf551adb61f2c344d1c768a99e778df10cff6  package/kernel/mac80211/patches/ath11k/102-wifi-ath11k-fix-stride-mismatch-in-mac_phy_caps_parse.patch
@@ -61,7 +61,7 @@ a3daaf508acdc1a7689a52748fc116ade5d38d2cb8f0a54102a394b8a612b84a  package/kernel
 097ca30981b5629d3ee60f342a0000b823bde41e41bf7de3d5cce9127ee5f9ba  package/kernel/mac80211/patches/nss/ath11k/999-936-ath11k-drop-the-vif-from-pending-tx-frames-in-the-bitmap-pool.patch
 f70d8d2859919cc7ed9ec0953a86211c687e882b36556da55b1690eab0189ace  package/kernel/mac80211/patches/nss/ath11k/999-937-ath11k-ahb-qmi-exit-drain.patch
 a8853b342af2d91c9e526da663ec7ff1ad93ceda6e5ed48616da825e53e8a4ed  package/kernel/mac80211/patches/nss/ath11k/999-938-ath11k-qmi-callback-admission.patch
-deac12150fd33512c695863510f550cc8b0bce8d78be2c7f1c0f219e592f40bc  package/kernel/mac80211/patches/nss/ath11k/999-939-ath11k-qmi-init-exit-ownership.patch
+dd0d9183e97a911242dc4bf7d31e60f75d6b95ca5559faea39042bf3c32c2e20  package/kernel/mac80211/patches/nss/ath11k/999-939-ath11k-qmi-init-exit-ownership.patch
 a4dd049c61bc7993a60765eaa0808cd5ebb706bcfdd911789d95fd51da6af1f3  package/kernel/mac80211/patches/nss/ath11k/999-940-ath11k-fw-ready-registration-guard.patch
 51ce4260bb8ef3d87d152a6864eb7e723513e2de7e8f0ebd7098c12b7832f05f  package/kernel/mac80211/patches/nss/ath11k/999-941-ath11k-clear-freed-tx-status.patch
 5038ce20cf5bf7120749faf40bfed005ae6ec6b784d4a69a605dfcb243f1b81a  package/kernel/mac80211/patches/nss/ath11k/999-942-ath11k-ahb-share-shutdown-teardown.patch
