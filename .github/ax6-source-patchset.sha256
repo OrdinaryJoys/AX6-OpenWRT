@@ -534,7 +534,8 @@ a18bbc3b88240f64bf73d5fa3cc0948a65d726fcb57324f99f209fcb166a9a46  tests/test-nss
 3df26a9451c50a344949108e3450439c793d545c18dc963ef852b1465facc5b0  tests/test-nss-netlink-admin.c
 9293f6b797f919603444c8c9f13c5f4b319c3949328681c135b1d68f7762d451  tests/test-nss-netlink-admin.py
 601785e8b74d008be87c89df99d0abab07e5d5a4903adaec4eba492c9d1e788b  tests/test-nss-targeted-backports.sh
-1f081094f359c94f74e38efcad5d2e2ba740c814325fd8e937d6f12927ef4b74  tests/test-qca-mcs-log-level.sh
+cc1db4b54b9bc3c6597050db356710eed760411401cb4c173ba2d40e11e9c20f  tests/test-qca-mcs-log-level-gate.py
+3b9937b3490b1327d5327ddd32778cee593449d9a60d1d4203816db40d3c5311  tests/test-qca-mcs-log-level.sh
 e41f80bc362099361e25beb557ec9e520a80963392acfdc6ac00e1076edbc043  tests/test-qca-nss-pbuf-readback.sh
 be0d3c095da92a14b341abc821361c0bd4e3ff9397a6716f3e0d03fa20ce99db  tests/test-qca-nss-pbuf-reload.py
 95a12c9a79aa23130d740459e706ce2cf24523bb106c4a8399c185137dce31dc  tests/test-qca-nss-pbuf-start.py

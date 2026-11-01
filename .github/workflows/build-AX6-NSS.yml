@@ -666,6 +666,7 @@ jobs:
           sh tests/test-qca-nss-pbuf-readback.sh
           sh tests/test-ath11k-nss-tx-desc-profile.sh
           sh tests/test-qca-mcs-log-level.sh
+          python3 tests/test-qca-mcs-log-level-gate.py
           sh tests/test-nss-targeted-backports.sh
           python3 tests/test-ecm-rawip-rmnet.py
           sh tests/test-set-irq-affinity-device-discovery.sh

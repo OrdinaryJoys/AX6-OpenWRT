@@ -1,5 +1,28 @@
 # AX6 Interim Cloud Compilation
 
+## Authorized replacement
+
+Replacement source: codex/ax6-mcs-gate-release-20261101@
+0d3f7a7e9df74d08a2cbfedf966d256e9f596d20. Only the shell gate and its new
+regression changed relative tod3fb5b2bbb; package/target files and all nine
+package releases are byte-identical. No MCS payload or recipe was changed.
+
+The user approved one cancellation/replacement after verification. The original
+run41292184950 has already completed with failure, so no cancellation is needed.
+Its exact first failing check was test-qca-mcs-log-level.sh requiring release3,
+although the source and exact lock both correctly declare release4. The late
+target-kernel preparation was never reached and is not that run's failure cause.
+
+The replacement retains the reviewed early kernel preparation. A source-side
+test-only change lets the quiet-log gate accept the r3 feature floor and later
+releases while enforcing an exact match when the expected build release is set.
+Origin, four pr_debug additions/four printk removals and no-new-printk checks
+remain. Ten isolated shell regression groups cover compatible versions, bad and
+duplicate metadata, exact-lock drift and changed/missing patch inputs. This is
+not a qca-mcs driver change or release downgrade. The new regression is also
+called by the cloud Fast gate. Source commit/manifest must be rebound before
+dispatch; no main/Release/device actions or automatic additional retries.
+
 ## Prepare-order correction after independent review
 
 The first dispatch41292184950 remains bound to897b186. Independent source review
