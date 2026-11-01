@@ -1,6 +1,27 @@
 # AX6 Interim Cloud Compilation
 
-## Authorized replacement
+## Current submission: DP containment host retirement dependency repair
+
+Source `codex/ax6-dp-host-retirement-fixture-20261101` at
+`bcdaec80470bd7fd58b32aebd07f49f2626b4b66` changes only eight test files.
+It binds four actual EDMA retirement functions, their headers and typed ABI,
+checks retirement state/order, and requires 21 precise runtime mutation
+rejections. No production driver, recipe, release, feed or configuration changed.
+
+The unchanged full workflow runs candidate-only: expect 31 IPQ807X plus five
+other-SoC cases (36), not the 41-case local run that also executes five original
+baseline controls. The existing extractor entry includes 17 extraction/admission
+checks. Compiler failures, timeouts, signals or sanitizer failures cannot count
+as successful semantic mutation rejection. Kernel preparation remains first.
+
+The source manifest is regenerated for the new commit: 569 present / 15 absent,
+SHA256 `22c9d9ed0ae9d72bd8a4205d5d763dc93e4b0f94a4b2f0ca7d9667548a53f409`.
+The prior run 41297957298 failed in the old host fixture; full firmware, final
+rootfs, DTB/FIT/UBI, manifest and module gates remain pending for this submission.
+Dispatch is stock with SSH debug disabled. No main merge, Release or device
+operation is authorized, and a failed dispatch/build must not be blindly retried.
+
+## Prior authorized replacement (history)
 
 Replacement source: codex/ax6-mcs-gate-release-20261101@
 0d3f7a7e9df74d08a2cbfedf966d256e9f596d20. Only the shell gate and its new
