@@ -34,6 +34,7 @@ KERNEL_DIAGNOSTIC = ('python3 "$GITHUB_WORKSPACE/.github/scripts/diagnose-ax6-ke
                      '--root build_dir/target-aarch64_cortex-a53_musl/linux-qualcommax_ipq807x '
                      '--output "' + EVIDENCE + 'kernel-inputs.json"')
 KERNEL_DIAGNOSTIC_TEST = 'python3 "$GITHUB_WORKSPACE/tests/test-ax6-kernel-input-diagnostics.py"'
+KERNEL_PREPARE = 'make target/linux/prepare V=s'
 DESTINATIONS = {WIFI: 'wifi-nss-link-return', QCOM: 'qcom-mib-width',
                 N2H: 'nss-n2h-sysctl-errors', PBUF: 'pbuf-reload',
                 PBUF_START: 'pbuf-start', IGS: 'nss-igs-interface-errors',
@@ -229,7 +230,7 @@ def recognize_command(line):
     if line == ('python3 tests/test-ssdk-mib-errors.py "$ssdk_dir" | tee "'
                 + EVIDENCE + 'ssdk.log"'):
         return
-    if line in (KERNEL_DIAGNOSTIC, KERNEL_DIAGNOSTIC_TEST):
+    if line in (KERNEL_DIAGNOSTIC, KERNEL_DIAGNOSTIC_TEST, KERNEL_PREPARE):
         return
     require('$(' not in line and '`' not in line, 'flow: command substitution')
     lexer = shlex.shlex(line, posix=True, punctuation_chars=True)
@@ -277,6 +278,9 @@ def validate(workflow):
     diagnostic_test_indices = [i for i, line in enumerate(lines) if line == KERNEL_DIAGNOSTIC_TEST]
     require(len(diagnostic_test_indices) == 1, 'diagnostic: require one exact observer boundary test')
     diagnostic_test_index = diagnostic_test_indices[0]
+    kernel_prepare_indices = [i for i, line in enumerate(lines) if line == KERNEL_PREPARE]
+    require(len(kernel_prepare_indices) == 1, 'kernel: require one exact target preparation')
+    kernel_prepare_index = kernel_prepare_indices[0]
     require(sum('diagnose-ax6-kernel-inputs.py' in line and not line.lstrip().startswith('#')
                 for line in workflow.splitlines()) == 1,
             'diagnostic: duplicate or changed kernel input observer')
@@ -285,7 +289,8 @@ def validate(workflow):
             <= spans['nss_dp_dir'][1] < calls[QCOM] < spans['nss_drv_dir'][0]
             <= spans['nss_drv_dir'][1] < calls[N2H] < spans['nss_clients_dir'][0]
             <= spans['nss_clients_dir'][1] < calls[LINKAGE] < calls[IGS] < calls[ADMISSION] < calls[SYNC] < calls[MODULE_READY]
-            < diagnostic_index < diagnostic_test_index < spans['linux_module_dir'][0] <= spans['linux_module_dir'][1] < calls[OWNER],
+            < kernel_prepare_index < diagnostic_index < diagnostic_test_index
+            < spans['linux_module_dir'][0] <= spans['linux_module_dir'][1] < calls[OWNER],
             'order: require prepare/unique selection/assignment before consumers')
 
     # A second producer or write must not silently replace the selected input.
@@ -311,6 +316,7 @@ def validate(workflow):
     critical = set(calls.values())
     critical.add(diagnostic_index)
     critical.add(diagnostic_test_index)
+    critical.add(kernel_prepare_index)
     known_syntax = set(logical_lines(ADJACENT_SHELL))
     for start, end in spans.values():
         critical.update((start, start + 1, end))
@@ -678,6 +684,16 @@ MUTATIONS['kernel_diagnostic_test_swallowed'] = lambda t: replace_once(t, KERNEL
 MUTATIONS['kernel_diagnostic_test_false_branch'] = lambda t: replace_once(
     t, '          ' + KERNEL_DIAGNOSTIC_TEST,
     '          if false; then\n          ' + KERNEL_DIAGNOSTIC_TEST + '\n          fi')
+MUTATIONS['kernel_prepare_removed'] = lambda t: replace_once(t, '          ' + KERNEL_PREPARE + '\n', '')
+MUTATIONS['kernel_prepare_echoed'] = lambda t: replace_once(t, KERNEL_PREPARE, 'echo "' + KERNEL_PREPARE + '"')
+MUTATIONS['kernel_prepare_wrong_target'] = lambda t: replace_once(t, KERNEL_PREPARE, 'make toolchain/prepare V=s')
+MUTATIONS['kernel_prepare_swallowed'] = lambda t: replace_once(t, KERNEL_PREPARE, KERNEL_PREPARE + ' || true')
+MUTATIONS['kernel_prepare_duplicate'] = lambda t: replace_once(
+    t, '          ' + KERNEL_PREPARE, '          ' + KERNEL_PREPARE + '\n          ' + KERNEL_PREPARE)
+MUTATIONS['kernel_prepare_false_branch'] = lambda t: replace_once(
+    t, '          ' + KERNEL_PREPARE, '          if false; then\n          ' + KERNEL_PREPARE + '\n          fi')
+MUTATIONS['kernel_prepare_after_selection'] = lambda t: insert_before_call(OWNER, KERNEL_PREPARE)(
+    replace_once(t, '          ' + KERNEL_PREPARE + '\n', ''))
 for label, old, new in (
         ('kernel_old_discovery', "mapfile -d '' linux_list_headers < <(\n            find build_dir/target-aarch64_cortex-a53_musl/linux-qualcommax_ipq807x",
          "mapfile -d '' linux_list_headers < <(\n            find old-prepared/linux-qualcommax_ipq807x"),
