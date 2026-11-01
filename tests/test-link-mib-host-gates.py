@@ -281,6 +281,8 @@ def validate(workflow):
     kernel_prepare_indices = [i for i, line in enumerate(lines) if line == KERNEL_PREPARE]
     require(len(kernel_prepare_indices) == 1, 'kernel: require one exact target preparation')
     kernel_prepare_index = kernel_prepare_indices[0]
+    require(kernel_prepare_index == 1,
+            'kernel: target preparation must precede all kernel-root package preparation')
     require(sum('diagnose-ax6-kernel-inputs.py' in line and not line.lstrip().startswith('#')
                 for line in workflow.splitlines()) == 1,
             'diagnostic: duplicate or changed kernel input observer')
@@ -289,7 +291,7 @@ def validate(workflow):
             <= spans['nss_dp_dir'][1] < calls[QCOM] < spans['nss_drv_dir'][0]
             <= spans['nss_drv_dir'][1] < calls[N2H] < spans['nss_clients_dir'][0]
             <= spans['nss_clients_dir'][1] < calls[LINKAGE] < calls[IGS] < calls[ADMISSION] < calls[SYNC] < calls[MODULE_READY]
-            < kernel_prepare_index < diagnostic_index < diagnostic_test_index
+            < diagnostic_index < diagnostic_test_index
             < spans['linux_module_dir'][0] <= spans['linux_module_dir'][1] < calls[OWNER],
             'order: require prepare/unique selection/assignment before consumers')
 
@@ -694,6 +696,12 @@ MUTATIONS['kernel_prepare_false_branch'] = lambda t: replace_once(
     t, '          ' + KERNEL_PREPARE, '          if false; then\n          ' + KERNEL_PREPARE + '\n          fi')
 MUTATIONS['kernel_prepare_after_selection'] = lambda t: insert_before_call(OWNER, KERNEL_PREPARE)(
     replace_once(t, '          ' + KERNEL_PREPARE + '\n', ''))
+MUTATIONS['kernel_prepare_after_first_kernel_package'] = lambda t: insert_before_call(PBUF, KERNEL_PREPARE)(
+    replace_once(t, '          ' + KERNEL_PREPARE + '\n', ''))
+MUTATIONS['kernel_prepare_after_packages_before_observer'] = lambda t: replace_once(
+    replace_once(t, '          ' + KERNEL_PREPARE + '\n', ''),
+    '          python3 "$GITHUB_WORKSPACE/.github/scripts/diagnose-ax6-kernel-inputs.py"',
+    '          ' + KERNEL_PREPARE + '\n          python3 "$GITHUB_WORKSPACE/.github/scripts/diagnose-ax6-kernel-inputs.py"')
 for label, old, new in (
         ('kernel_old_discovery', "mapfile -d '' linux_list_headers < <(\n            find build_dir/target-aarch64_cortex-a53_musl/linux-qualcommax_ipq807x",
          "mapfile -d '' linux_list_headers < <(\n            find old-prepared/linux-qualcommax_ipq807x"),

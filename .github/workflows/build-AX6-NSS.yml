@@ -657,6 +657,9 @@ jobs:
         working-directory: ./openwrt
         run: |
           set -eo pipefail
+          # A cold target prepare can clear KERNEL_BUILD_DIR. Do it before any
+          # package under that root is prepared, never between its consumers.
+          make target/linux/prepare V=s
           sh tests/test-edma-correctness-prerequisites.sh
           sh tests/test-apcs-regmap-boundary.sh
           sh tests/test-qcom-hwspinlock-regmap-boundary.sh
@@ -795,9 +798,6 @@ jobs:
           python3 tests/test-ath11k-nss-init-ownership.py "$backports_dir" \
             --driver-prepared "$nss_drv_dir" --mutations --sanitize \
             --output "$GITHUB_WORKSPACE/core-flow-evidence/wifi-nss-init-ownership"
-          # Package prepare and toolchain headers do not qualify target kernel inputs.
-          # Keep the exact-one selector below; prepare its real target prerequisite.
-          make target/linux/prepare V=s
           python3 "$GITHUB_WORKSPACE/.github/scripts/diagnose-ax6-kernel-inputs.py" \
             --root build_dir/target-aarch64_cortex-a53_musl/linux-qualcommax_ipq807x \
             --output "$GITHUB_WORKSPACE/core-flow-evidence/kernel-inputs.json"

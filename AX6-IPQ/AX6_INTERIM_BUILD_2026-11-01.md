@@ -1,5 +1,28 @@
 # AX6 Interim Cloud Compilation
 
+## Prepare-order correction after independent review
+
+The first dispatch41292184950 remains bound to897b186. Independent source review
+found a conditional CI defect in that revision: a cold target kernel preparation
+removes the whole KERNEL_BUILD_DIR, including already prepared mac80211/NSS package
+trees. The original late position could invalidate later host-gate inputs.
+This does not prove the existing run has hit that condition or a device fault.
+
+The follow-up candidate moves the unique target preparation to the start of the
+Fast gate, before every kernel-root package preparation. The original selector
+remains byte-identical. The binding fixture requires this top-level position,
+retains the seven initial negative controls and adds two late-after-package cases.
+This includes a negative for the exact faulty897b186 placement before the observer.
+The original353 result is historical, not acceptance of the corrected ordering.
+The corrected355-case binding suite passes; an explicit read-only check of the
+actual897b186 workflow rejects it at the new prepare-before-package gate.
+YAML/27 Bash blocks pass again; no local make or target execution was performed.
+
+Any cancellation/replacement of the first run is pending a separate user decision.
+Do not automatically dispatch again or silently treat the moving ref as that run.
+
+## Initial dispatch record (historical below)
+
 This is one explicitly authorized intermediate STOCK build, not a release or
 device qualification. No flash, reboot, restore, SSH debug or main merge.
 
