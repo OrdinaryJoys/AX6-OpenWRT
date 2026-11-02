@@ -130,6 +130,7 @@ jobs:
           sh AX6-IPQ/tests/test-source-semantic-lock.sh
           python3 tests/test-nss-regression-grep.py
           python3 -B tests/test-edma-prepared-regressions.py
+          python3 -B tests/test-mdio-lifecycle-gate.py
           bash AX6-IPQ/tests/test-ax6-perf-fixture.sh
           bash AX6-IPQ/tests/test-ax6-perf-tool-hardening.sh
           bash AX6-IPQ/tests/test-ax6-offline-feed-package.sh

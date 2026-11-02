@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "profile": "IPQ807X_001_018",
+  "profile": "IPQ807X_001_019",
   "upstream_pin": "d8f802f08fd8ff31057ba58edb20bbe448e7b505",
   "patches": {
     "001-linux-6.18-core-apis.patch": "e44792f02d26747b4bf4bc7d7cf72fa6a2d70fffbb858ebcf6ba36caaa3eab20",
@@ -20,7 +20,8 @@
     "015-edma-v1-retire-probe-and-host-napi-owners.patch": "62ea007bc30cdd23a9e92be7cb3b798bea2773fccf13cdda90e711bdff48c6fc",
     "016-edma-v1-balance-global-of-references.patch": "43a793fa3232f793b9a08d41ab1a22f150bb2532334fabdbe22165f9abdd6798",
     "017-ipq807x-unregister-before-phy-retirement.patch": "d38015b0ab4a8f88ec9fe0fab078f325cb493f390783afe621e30f17fca237a4",
-    "018-ipq807x-init-stage-rollback.patch": "c9f6f83ff7277379fed402ddf07bd3726df2d2e3e7f9281233480358f04c740c"
+    "018-ipq807x-init-stage-rollback.patch": "c9f6f83ff7277379fed402ddf07bd3726df2d2e3e7f9281233480358f04c740c",
+    "019-limit-stp-restore-to-departing-bridge-master.patch": "9990d6ed52fcf427e9c7a86950253ade522a819a13784b88716947cb296d625f"
   },
   "prepared_files": {
     "hal/soc_ops/ipq807x/nss_ipq807x.h": "b483326ab85a36a9f4fbf66ad7c5ed4b3f40fba34487128eb09fe17db0de349c",

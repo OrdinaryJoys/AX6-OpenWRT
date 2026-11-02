@@ -48,7 +48,7 @@ def pairs(items):
 def admit(source, prepared):
     profile = json.loads(PROFILE.read_text(), object_pairs_hook=pairs)
     require(type(profile['schema']) is int and profile['schema'] == 1 and
-            profile['profile'] == 'IPQ807X_001_018', 'unreviewed profile')
+            profile['profile'] == 'IPQ807X_001_019', 'unreviewed profile')
     require(set(profile['prepared_files']) == FILES, 'incomplete prepared profile')
     require(set(profile['test_assets']) == ASSETS, 'incomplete test asset profile')
     require(re.fullmatch(r'[0-9a-f]{40}', profile['upstream_pin']), 'invalid upstream pin')
@@ -65,7 +65,7 @@ def admit(source, prepared):
             'patches must be regular')
     patches = {p.name: sha(p.read_bytes()) for p in patch_files}
     require(patches == profile['patches'] and
-            sorted(int(n[:3]) for n in patches) == list(range(1, 19)),
+            sorted(int(n[:3]) for n in patches) == list(range(1, 20)),
             'patch profile drift or mixed patch chain')
     for group, root in (('prepared_files', prepared), ('test_assets', source)):
         for name, digest in profile[group].items():

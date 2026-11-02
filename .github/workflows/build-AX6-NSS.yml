@@ -756,6 +756,9 @@ jobs:
           fi
           nss_dp_dir=${nss_dp_dirs[0]}
           test -s "$nss_dp_dir/nss_dp_main.c"
+          python3 "$GITHUB_WORKSPACE/.github/scripts/verify-mdio-lifecycle-repairs.py" \
+            --source-root . --dp "$nss_dp_dir" --ssdk "$ssdk_dir" --cc cc \
+            --output "$GITHUB_WORKSPACE/core-flow-evidence/mdio-lifecycle"
           python3 tests/test-nss-dp-statistics.py "$nss_dp_dir" --ssdk "$ssdk_dir" \
             --output "$GITHUB_WORKSPACE/core-flow-evidence/dp-statistics"
           python3 tests/test-qcom-mib-width.py "$nss_dp_dir" --ssdk "$ssdk_dir" --mutations --sanitize \

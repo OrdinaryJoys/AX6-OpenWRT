@@ -147,7 +147,7 @@ b2ea6ef7403a6608c7c0caa19140db99c109840a9d1ce13e45f1428d9edfc173  package/qca-ns
 3d2fa458ea9eb3f8037d10620346e219ec03ede6bf9f3add064e34be49f23605  package/qca-nss/qca-nss-clients/patches/023-igs-ifb-find-reference.patch
 48c3c8828b3ce924b3ed164b461ccd2e57a3f256e24d27c7042364674e3d8bb7  package/qca-nss/qca-nss-clients/patches/024-match-bound-nexthop-command-and-preserve-errors.patch
 2187756f3cfa81a632de16448d18c16dde654d5646e503434b8d4bfcdfcc2978  package/qca-nss/qca-nss-clients/patches/025-netlink-admin-for-all-mutating-ops.patch
-4da434efcf49afa86cf155cbc8df936540a8ac5388f6e20aecb2f61f08383619  package/qca-nss/qca-nss-dp/Makefile
+977d4fb3ce6e829c977fb3835f76ed23ec0f28e85c34e3642feb7ea32dcaf36a  package/qca-nss/qca-nss-dp/Makefile
 9cecc83ee00068a4179788e259cfbd94ad0b8a3a7cb9d4f84766323343c53b13  package/qca-nss/qca-nss-dp/patches/004-phydev-clear-on-connect-failure.patch
 9b3ae37671d339b623b8f1bcd2d098423027c18d13d227eaab5e4025a74a08f2  package/qca-nss/qca-nss-dp/patches/006-ratelimit-edma-warnings.patch
 b707f08756dc6da47ab9bfec313b13b901298ae15c2dd4a2757d710407496c47  package/qca-nss/qca-nss-dp/patches/007-fix-tx-ring-modulo.patch
@@ -162,6 +162,7 @@ a6a3cfaece3c268ed7ebb674d29c6f962661c76f4afd57c69c463101f29e5670  package/qca-ns
 43a793fa3232f793b9a08d41ab1a22f150bb2532334fabdbe22165f9abdd6798  package/qca-nss/qca-nss-dp/patches/016-edma-v1-balance-global-of-references.patch
 d38015b0ab4a8f88ec9fe0fab078f325cb493f390783afe621e30f17fca237a4  package/qca-nss/qca-nss-dp/patches/017-ipq807x-unregister-before-phy-retirement.patch
 c9f6f83ff7277379fed402ddf07bd3726df2d2e3e7f9281233480358f04c740c  package/qca-nss/qca-nss-dp/patches/018-ipq807x-init-stage-rollback.patch
+9990d6ed52fcf427e9c7a86950253ade522a819a13784b88716947cb296d625f  package/qca-nss/qca-nss-dp/patches/019-limit-stp-restore-to-departing-bridge-master.patch
 f013388c2a7ca47fafd493a8322f2be83640106685b541a72f0af5761bd50ca4  package/qca-nss/qca-nss-drv/Makefile
 883e5a15e50e586715913aaaa434bef4cd87a6c49a0375a7f148ea2907ce10ee  package/qca-nss/qca-nss-drv/files/skb_recycler.uci
 b919564f02592086017328b5181fdbabf2f9314db933ee9e0d4486c966bd29e2  package/qca-nss/qca-nss-drv/patches/012-fix-autoscale-stats-and-current-freq-read.patch
@@ -184,7 +185,7 @@ e6752199ec0f5b7f358bcad7702f2a4a63331036718db9e569dfed6a1ae841a7  package/qca-ns
 729dbe7f96d28c8a7ffa122eeb39b37de90e708513ced37c9880a1dd14f61e46  package/qca-nss/qca-nss-ecm/patches/028-classifier-preserve-explicit-directional-udp-priorities.patch
 52346dd0808f09c254710db8cc7772dd96440428d627bd2c15a3fb62fbcaac4b  package/qca-nss/qca-nss-ecm/patches/029-denied-ports-publish-bounded-rcu-snapshots.patch
 449132502ad5a8793dc91563903338f2df45eb5fead4064a1f4ddc6299c1d5c2  package/qca-nss/qca-nss-ecm/tests/test-disable-offloads.sh
-5fcf6cdba4a347ceae70f2f82cdc9524fb4379bb5a1d7903b3f4ec1aa3363b51  package/qca-nss/qca-ssdk/Makefile
+69881baa4882731c8134ba82c9560e797488298c1eedb9214b84f663d4152c42  package/qca-nss/qca-ssdk/Makefile
 ddb52cdf907a45761b7c3e394db4c29eeae5d268f3e00ed86e3eabf6fd641055  package/qca-nss/qca-ssdk/patches/009-feature-nss-dp-netdev-mac-sync.patch
 cc93fdd230cd3718c3a02ce74fed5d7c881df132a6db529a10d01963f23f30e8  package/qca-nss/qca-ssdk/patches/020-mib-complete-diagnostics-and-propagate-errors.patch
 fa50c93922d26938758145daea49b03884b97ed43c738ed664fe4e224086d6ac  package/qca-nss/qca-ssdk/patches/021-ssdk-hppe-return-chain.patch
@@ -209,6 +210,10 @@ d172c18b316e315b685e4f500b88d8b8b48a159cb1a64b2a4c0134aec32f05ce  package/qca-ns
 2d85e86b68f7a665798649b8dd2b9e967ce1c130165431ca0045566bac9c1abe  package/qca-nss/qca-ssdk/patches/041-ssdk-transactional-uk-ioctl-lifecycle.patch
 02d2eef49a0f162394354bff37efb333c92fb583227b4319f0daf242ec838b50  package/qca-nss/qca-ssdk/patches/042-ssdk-initialize-native-api-mutex-for-module-lifetime.patch
 74936f5c3a10b227a87b0d329215a7dde0a8c585bae0d54e701846941871b1c0  package/qca-nss/qca-ssdk/patches/043-ssdk-stop-all-listed-producers-before-normal-sdk-exit.patch
+45a4dc2a792bb42e3ae9c9254315031cd3ddbcb6bc034d7f582618a84f4f4625  package/qca-nss/qca-ssdk/patches/044-retain-i2c-of-node-through-mdio-registration.patch
+3eca0116d1f5b8682469ae88955a228298a2d6041eb96be884e5fb58d68154ac  package/qca-nss/qca-ssdk/patches/045-balance-default-and-legacy-mdio-node-leases.patch
+c0fdc7ed3abf5265fe42e6c0b25f2fe4fe610fc6ccfb6377300259da65317fc6  package/qca-nss/qca-ssdk/patches/046-retire-per-port-phy-parser-node-leases.patch
+5d660e98a31221c9961b496b1e142e7c61380aa5a92bb533ead0fde96be2998f  package/qca-nss/qca-ssdk/patches/047-admit-mdio-table-access-before-dereference.patch
 cf4dd1b5e975aaec31995b4fbc49ffddcc970d9a5e8a99a0120b92721871f13b  package/system/rpcd/AX6-VALIDATION.md
 058c6d72a1dfa6b3e6b9720cc925fd2c5c89bc7dbd985da8b1ce08972cf70721  package/system/rpcd/Makefile
 ccd7731c4f16043f347ac5bb86ffd198be9bf371624061f8fd349cd4674da6e3  package/system/rpcd/patches/010-file-resolved-path-acl.patch
@@ -313,6 +318,7 @@ d7857543eef8198c9936572e220cabe9c5639305d977518ee2e30647c97eddca  target/linux/q
 03e9cef71841f5f7dd20dfbf926c1ab2381befcc80489940124b7e88f4147c87  target/linux/starfive/patches-6.18/1002-serial-8250_dw-Add-starfive-jh7100-hsuart-compatible.patch
 32037bd705c5abb2642be761d570216da2ac63ed11213b6c849940411f42e16a  tests/CORE_FLOW_REPAIR_SCOPE_2026-10-19.md
 bccce487535d5caf163419b51595991848c0828d2ae2e1df8e304ebd570e37ff  tests/CORE_RISK_REPAIR_PLAN_2026-10-30.md
+6937c8bc2de8eea44e39fb6bcb9859e3f4461c14a5b96b38e9b2d435a7bf6537  tests/LIFECYCLE_OWNER_REPAIR_2026-11-02.md
 83cd242a0cbf9861fdf5ecced18aff8572f91769968a54556c65b402106fe616  tests/N2H_SYSCTL_ERRORS.md
 170f4b4a0c4076a560f4455bd3a1ee6c5ac3d5f0bfe87da109fc00dc53ad51de  tests/NSS_IGS_ACTION_ADMISSION.md
 0010c2c968e4421171103cbaeca9618c0dc3fd1a8e701d7c0b80fb47763534da  tests/NSS_IGS_IFB_LINKAGE.md
@@ -328,6 +334,9 @@ c27b3e0e5a28f3e90ffe502b571aa07277001b3553ce8fa46bf202c2aec838b5  tests/SSDK_DT_
 a003f9ee76396c49ca859f25ed0fb108937def333b87135d9c2ac744f9fd46df  tests/SSDK_FAL_HSL_ADMISSION_PLAN_2026-10-31.md
 c6512cd92168edc3a1ff881b4fdbc2ad9ae50da3b506e585d2adcc2de885661a  tests/SSDK_HPPE_OWNED_ROLLBACK_PLAN_2026-10-31.md
 de64960880e8a90533718464a33e942742facdd4951b4dd53459549ca30cb372  tests/SSDK_HPPE_SINGLE_EVALUATION_PLAN_2026-10-31.md
+164007d19a7f864e6a00fd834995ea6a04e1b7d18b1394cf70a93de49af200fd  tests/SSDK_MDIO_NODE_LEASES_2026-11-02.md
+781777511234aadd8f0b1904ba359148f03807c64b6962a59736a4f27f87d5d0  tests/SSDK_MDIO_TABLE_ADMISSION_2026-11-02.md
+acaf2ba94ffa51e6e775cf81cfe021469fedfb7a9c73310cb72ff79cab5b8f76  tests/SSDK_PHY_NODE_LEASES_2026-11-02.md
 b85e958238ffe70e65d4882daf06138518435a0ffbb6d0d7edf50073531cfe62  tests/SSDK_PHY_PORT_ADMISSION_PLAN_2026-10-31.md
 0c82c933a834b9a21d4a05c929fa1907a487aadd0ccc89996401e66006a29d39  tests/SSDK_PHY_PREALLOC_PLAN_2026-10-30.md
 3bc70982f4e284226d1623b40a31eb647937bd503d129ba4949e275237f16c33  tests/SSDK_ROOT_COUNT_PLAN_2026-10-30.md
@@ -408,6 +417,7 @@ ceac7f66fc6afa08f792f1cddddab5647d0e346c009786592a09525e49969221  tests/nss-drv-
 05b767a3f50cbdb8eeefd360661952a1c50eaf4e5693beb8a58638ec5e3bfca3  tests/nss-drv-containment/test_driver_extraction.py
 90431405d61a70db6346fe7f423af360e8005ca9415893d60bde36c4e76e5b96  tests/nss-drv-containment/test_extract_prepared_c.py
 938961c7fc1a1c3a3ea4568e8356c2fa899c59ff291d877996f8c79f142a1dc8  tests/prepare-core-flow-validation.py
+4563f03138919820b82b5a845d0d9a3bc7d947db558a7b2eb06e292a57eb4a60  tests/prepare-dp-lifecycle.py
 ab3d38a4487935a9c479e328bacfdb2fc3f412db043f10575689f2dcd430e6b4  tests/rpcd-journal-publication/README.md
 d69145a59653cfcc755dbc11e5200b14710a4e52b5a63e767fb9fd9bbbe52077  tests/rpcd-journal-publication/host-fixture.c
 ad391254096ee660178c264a479647f3308910b0ce13a6f79ffa55f45d5e9dba  tests/rpcd-journal-recovery/README.md
@@ -439,12 +449,14 @@ e1b44a34f86fc711382e23cc2c743250a72ac6ee5d991a36a7efc55350104058  tests/ssdk-hpp
 06804e802735d1e76a4e7691a6808fd4178627293d6caff006491d9473d81fab  tests/ssdk-hppe-single-evaluation/fixture.c
 79bddc5a657b783f40790e18ac960458b8a59fd9d3228df87b2413c5238549ab  tests/ssdk-hppe-single-evaluation/mutations.py
 cb9d5391558d50fb63e263c4b08beadafccf286159a6a28015ddc8f51b5f3106  tests/ssdk-hppe-single-evaluation/source.py
+4fec6486e13e148c65a1d0e02eb5c7f7da117b5d7d2f62fa629cb277f2ce5cd1  tests/ssdk-mdio-node-fixture.c
 e88e139d2ea277f7c2f00ffb58969b478192a95119ba24e92cf5cf3998e666e6  tests/ssdk-netdev-cache/README.md
 158bc602948603467c8b0d6aaba9f02cabd848f88cff2b196cc96aa091929c88  tests/ssdk-netdev-cache/host-fixture.c
 a8c3cb86b350182bdb69f489672c801037551a61d4c8530a6e66a0de4db016d5  tests/ssdk-outer-admission/README.md
 78566ad0ad62583ac3e56d84de4a9dc4b6f77304fa6eac2f68c7f8df2eba56e2  tests/ssdk-outer-admission/fixture.c
 2a8ae52e946c36a73a8a9748158be7f92872f87926a69c7f18daba7066708165  tests/ssdk-outer-admission/mutations.py
 762af7498753e3ed4a0de767f5ce6f06e406dbb071edbdf5d4950b515086aedd  tests/ssdk-outer-admission/source.py
+ef3b451be95871cfcf89d848bccba9366ad361db472359c999503c478e8d6359  tests/ssdk-phy-node-fixture.c
 ab946cfef198974999c710f9bf303dc60d83283b19791b920a692eaa4b69dfc3  tests/ssdk-phy-port-admission/README.md
 275865499f8b952145e469fafdd89df452f4ef9f4f41f92b04b40a38a6cabf26  tests/ssdk-phy-port-admission/fixture.c
 86d4ec17f1777a2ff1328005e90e84864fc2ba970c658a0e7af31e2df75d05cd  tests/ssdk-phy-port-admission/mutations.py
@@ -500,6 +512,7 @@ a605b0b0d8105bfbced6b9297ced094ee16186ddad85893130fe092c085e615c  tests/test-ath
 41fba829fdc1439150a49568da7aa648041d22d02e3da679fc6e6125c538a108  tests/test-ath11k-tx-pool-errors.py
 1cf898e04f9e8be828d240be3731071ffbd7cc9293adc20d7260a46eeba9c939  tests/test-dns-redirect-scope.sh
 6efdf777649e205df42cb8f59092f079c9f31d6d2b3b564e6a09c2b4e7c990ec  tests/test-download-cache.py
+206fcdd8d995fb38689a8690cd13aee3a869954dd1c7ecad64fefc8ab06f9f2e  tests/test-dp-bridge-owner.py
 3c1cf079f5c6a28597f786f5d6df354423b3bbcf289b6ab199fef0668bddb09c  tests/test-dp-init-retirement.py
 27a02b047719bd05754dd166a3d32420fc9e85f85a201deba6e1fd88e991a77d  tests/test-dp-phy-retirement.py
 a0439845d693e17371507474656155983018291eb3cdaeb4959385218a86f2fe  tests/test-ecm-denied-port-snapshot.py
@@ -554,10 +567,14 @@ cb518568242ccebd28e3e14af5dc023588f55c4f9271325f684e31c90d3b9d9b  tests/test-ssd
 189c1b58c5bc818debcb9386711ecf22accd2fcb4b2a41d5ab3c9e9aad9ff633  tests/test-ssdk-fdb-retirement.py
 be40d3db21ac677a1e25c33a12184013334fc3c9764e25b8820ad39f0717ac22  tests/test-ssdk-hppe-owned-rollback.py
 6b17762cbc1045ae65da15f433360a93b6229ecef56a660cb58b69dbbc1dc325  tests/test-ssdk-hppe-single-evaluation.py
+ab4028ff6c1851ca43fead7ea7e43349a55aa429e6512c4605c559fc1e409e1a  tests/test-ssdk-i2c-node-owner.py
+b1cf2145a47378534396d8378d41ee6ad4c8f6a418e235e3e7ddcf00ddb27cfc  tests/test-ssdk-mdio-node-leases.py
+64b43237bb1ccea9232d78cb1d054cfb43b37649dea4043657f6c4e31c66ffa7  tests/test-ssdk-mdio-table-admission.py
 f88cb609c177047cc3378a2eaa0f3f2a01b5d510bce1e73006086dfa606d433a  tests/test-ssdk-mib-errors.py
 2fed87fce9a7c820196668e514fce5de2daefef068cefdd8ab48a746a9ac2e39  tests/test-ssdk-mib-read-clear.py
 777ae0f8e16d6271bd4959f53464c2f6e139348907e42dee8118d694b7d324b6  tests/test-ssdk-netdev-cache.py
 909d42ef99f07c2eba6221d07e89e832bc08d77c78756ca9ae8ca898fe1cf29a  tests/test-ssdk-outer-admission.py
+050f21b851836062467209aa2a39f4edc0ebe8035e1abf6cfac8f9f843c88633  tests/test-ssdk-phy-node-leases.py
 05f8e793d5155e44236195b33e53b17756325147521b78c55cd8af8f629e6e6a  tests/test-ssdk-phy-port-admission.py
 a7467cbbac02fd8458bd14889a067e81e53645970f8e73883fdd3ad3d5e1e5b1  tests/test-ssdk-phy-prealloc.py
 c349d67e988b2bf260c4dd35fb8f56c390c0c4df0a44fafe1fba7b81780c6974  tests/test-ssdk-root-cleanup-errors.py
@@ -567,3 +584,4 @@ fb9c914f0b2a6c1905dadc1f84c288efec57ae3ad69648ddc70562a10110abd8  tests/test-ssd
 2a2736b97cc7a141191acbb4236442d659c4ba855f48834d946aa192a355ea09  tests/test-ssdk-source-prepare.py
 9f46c2cd2c6b9232c5c54bac9605a7ed15ddc23b122c89b4bdbafdcda9a65926  tests/test-ssdk-uk-transport.py
 229614f6333281f19a22d3c4d097885e1f1db26cd3abdff66d643b209fff5d10  tests/test-ssdk-vlan-init-rollback.py
+ba94dd59381788a8fbb51b146245fb522c2c7448136575d560c9d39ed1381722  tests/witness-ssdk-shared-ownership.py
