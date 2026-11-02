@@ -756,9 +756,6 @@ jobs:
           fi
           nss_dp_dir=${nss_dp_dirs[0]}
           test -s "$nss_dp_dir/nss_dp_main.c"
-          python3 "$GITHUB_WORKSPACE/.github/scripts/verify-mdio-lifecycle-repairs.py" \
-            --source-root . --dp "$nss_dp_dir" --ssdk "$ssdk_dir" --cc cc \
-            --output "$GITHUB_WORKSPACE/core-flow-evidence/mdio-lifecycle"
           python3 tests/test-nss-dp-statistics.py "$nss_dp_dir" --ssdk "$ssdk_dir" \
             --output "$GITHUB_WORKSPACE/core-flow-evidence/dp-statistics"
           python3 tests/test-qcom-mib-width.py "$nss_dp_dir" --ssdk "$ssdk_dir" --mutations --sanitize \
@@ -861,6 +858,21 @@ jobs:
           path: nss-containment-evidence/
           if-no-files-found: warn  # NSS preparation may not have started.
           retention-days: 14
+
+      - name: Validate reviewed MDIO lifecycle source and host regressions
+        working-directory: ./openwrt
+        run: |
+          set -euo pipefail
+          lifecycle_root=build_dir/target-aarch64_cortex-a53_musl/linux-qualcommax_ipq807x
+          mapfile -d '' lifecycle_dp_sources < <(find "$lifecycle_root" -maxdepth 1 -type d -name 'qca-nss-dp-*' -print0)
+          mapfile -d '' lifecycle_ssdk_sources < <(find "$lifecycle_root" -maxdepth 1 -type d -name 'qca-ssdk-*' -print0)
+          test "${#lifecycle_dp_sources[@]}" -eq 1
+          test "${#lifecycle_ssdk_sources[@]}" -eq 1
+          lifecycle_dp_source=${lifecycle_dp_sources[0]}
+          lifecycle_ssdk_source=${lifecycle_ssdk_sources[0]}
+          python3 "$GITHUB_WORKSPACE/.github/scripts/verify-mdio-lifecycle-repairs.py" \
+            --source-root . --dp "$lifecycle_dp_source" --ssdk "$lifecycle_ssdk_source" --cc cc \
+            --output "$GITHUB_WORKSPACE/core-flow-evidence/mdio-lifecycle"
 
       - name: Regression assertions — 007/008, 012, 018/019 (P0-D.3-5)
         working-directory: ./openwrt

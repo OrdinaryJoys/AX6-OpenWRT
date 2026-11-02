@@ -3,7 +3,10 @@
 import copy
 import importlib.util
 import json
+import os
 from pathlib import Path
+import shutil
+import subprocess
 import tempfile
 import unittest
 
@@ -99,11 +102,48 @@ class Admission(unittest.TestCase):
 
 
 class Wiring(unittest.TestCase):
+    def test_actual_discovery_zero_one_multiple_and_nested(self):
+        workflow = (ROOT / '.github/workflows/build-AX6-NSS.yml').read_text()
+        step = workflow.split('      - name: Validate reviewed MDIO lifecycle source and host regressions\n', 1)[1].split('\n      - ', 1)[0]
+        script = '\n'.join(line[10:] for line in step.split('        run: |\n', 1)[1].splitlines()) + '\n'
+        for dp_count, ssdk_count, nested in [(0, 1, False), (1, 0, False), (2, 1, False),
+                                             (1, 2, False), (1, 1, False), (1, 1, True)]:
+            with self.subTest(dp=dp_count, ssdk=ssdk_count, nested=nested), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                prepared = root / 'build_dir/target-aarch64_cortex-a53_musl/linux-qualcommax_ipq807x'
+                prepared.mkdir(parents=True)
+                for stem, count in [('qca-nss-dp', dp_count), ('qca-ssdk', ssdk_count)]:
+                    for i in range(count): (prepared / (stem + '-' + str(i))).mkdir()
+                if nested: (prepared / 'old/quarantine/qca-nss-dp-stale').mkdir(parents=True)
+                binary = root / 'bin'; binary.mkdir()
+                recorder = binary / 'python3'
+                # Records the CLI handoff only; does not fake a driver regression result.
+                recorder.write_text('#!/bin/sh\nprintf "%s\\n" "$@" > "$MDIO_TEST_RECORD"\n')
+                recorder.chmod(0o755)
+                record = root / 'argv'
+                env = dict(os.environ, PATH=str(binary) + os.pathsep + os.environ['PATH'],
+                           GITHUB_WORKSPACE=str(ROOT), MDIO_TEST_RECORD=str(record))
+                ran = subprocess.run([os.environ.get('AX6_TEST_BASH', shutil.which('bash')), '-s'],
+                                     input=script, cwd=root, env=env, text=True, capture_output=True)
+                expected = dp_count == ssdk_count == 1
+                self.assertEqual(ran.returncode == 0, expected, ran.stderr)
+                self.assertEqual(record.exists(), expected)
+                if expected:
+                    args = record.read_text().splitlines()
+                    self.assertEqual(args[args.index('--dp') + 1], str(prepared.relative_to(root) / 'qca-nss-dp-0'))
+                    self.assertEqual(args[args.index('--ssdk') + 1], str(prepared.relative_to(root) / 'qca-ssdk-0'))
+
     def test_real_prepared_trees_and_preserved_order(self):
         workflow = (ROOT / '.github/workflows/build-AX6-NSS.yml').read_text()
         call = 'python3 "$GITHUB_WORKSPACE/.github/scripts/verify-mdio-lifecycle-repairs.py"'
         self.assertEqual(workflow.count(call), 1)
-        self.assertIn('--source-root . --dp "$nss_dp_dir" --ssdk "$ssdk_dir" --cc cc', workflow)
+        self.assertIn('--source-root . --dp "$lifecycle_dp_source" --ssdk "$lifecycle_ssdk_source" --cc cc', workflow)
+        marker = '      - name: Validate reviewed MDIO lifecycle source and host regressions\n'
+        self.assertEqual(workflow.count(marker), 1)
+        step = workflow.split(marker, 1)[1].split('\n      - ', 1)[0]
+        self.assertIn(call, step)
+        self.assertIn('test "${#lifecycle_dp_sources[@]}" -eq 1', step)
+        self.assertIn('test "${#lifecycle_ssdk_sources[@]}" -eq 1', step)
         self.assertLess(workflow.index('make target/linux/prepare V=s'), workflow.index(call))
         self.assertLess(workflow.index('make package/qca-nss/qca-ssdk/prepare V=s'), workflow.index(call))
         self.assertLess(workflow.index('make package/qca-nss/qca-nss-dp/prepare V=s'), workflow.index(call))
