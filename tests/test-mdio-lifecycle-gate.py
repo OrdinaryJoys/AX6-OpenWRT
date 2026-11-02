@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Synthetic admission/wiring controls, never target-driver qualification."""
 import copy
+import difflib
 import importlib.util
 import json
 import os
@@ -148,6 +149,48 @@ class Wiring(unittest.TestCase):
         self.assertLess(workflow.index('make package/qca-nss/qca-ssdk/prepare V=s'), workflow.index(call))
         self.assertLess(workflow.index('make package/qca-nss/qca-nss-dp/prepare V=s'), workflow.index(call))
         self.assertIn('python3 -B tests/test-mdio-lifecycle-gate.py', (ROOT / '.github/workflows/lint.yml').read_text())
+
+
+class ExactReverse(unittest.TestCase):
+    """Real patch subprocess on synthetic text, not a simulated driver result."""
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.source, self.current, self.output = [self.root / n for n in ('source','current','output')]
+        self.current.mkdir(); self.output.mkdir()
+        self.before = ''.join('unchanged-%02d\n' % i for i in range(20))
+        self.after = self.before.replace('unchanged-10', 'reviewed-replacement')
+        self.patch = self.source / 'package/qca-nss/test-only/patches/001-roundtrip.patch'
+        self.patch.parent.mkdir(parents=True)
+        self.patch.write_text(''.join(difflib.unified_diff(self.before.splitlines(True),
+                              self.after.splitlines(True), fromfile='a/input.c', tofile='b/input.c', n=3)))
+        (self.current / 'input.c').write_text(self.after)
+        self.item = {'package':'test-only','prepared_files':{'input.c':gate.sha(self.after.encode())},
+                     'reverse_steps':[{'patch':self.patch.name,'label':'baseline','keep':True,
+                                       'inventory_sha256':gate.inventory_sha({'input.c':gate.sha(self.before.encode())})}]}
+
+    def reverse(self):
+        return gate.reverse(self.source, self.current, self.item, self.output, 'work')
+
+    def test_balanced_interior_reverse_preserves_full_baseline(self):
+        result = self.reverse()
+        self.assertEqual((result['baseline'] / 'input.c').read_text(), self.before)
+        receipt = json.loads((self.output / 'baseline.reverse.json').read_text())
+        self.assertEqual(receipt['returncode'], 0)
+        self.assertIn('--fuzz=0', receipt['command'])
+
+    def test_altered_changed_line_is_rejected(self):
+        (self.current / 'input.c').write_text(self.after.replace('reviewed-replacement','unreviewed'))
+        with self.assertRaisesRegex(ValueError, 'exact baseline reverse'): self.reverse()
+
+    def test_context_mismatch_cannot_use_fuzz(self):
+        (self.current / 'input.c').write_text(self.after.replace('unchanged-07','altered-context'))
+        with self.assertRaisesRegex(ValueError, 'exact baseline reverse'): self.reverse()
+
+    def test_unchanged_foreign_bytes_cannot_bypass_inventory(self):
+        (self.current / 'input.c').write_text(self.after.replace('unchanged-00','foreign-modification'))
+        with self.assertRaisesRegex(ValueError, 'baseline whole-tree mismatch'): self.reverse()
 
 
 if __name__ == '__main__':

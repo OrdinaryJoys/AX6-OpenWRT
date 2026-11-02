@@ -211,9 +211,9 @@ d172c18b316e315b685e4f500b88d8b8b48a159cb1a64b2a4c0134aec32f05ce  package/qca-ns
 02d2eef49a0f162394354bff37efb333c92fb583227b4319f0daf242ec838b50  package/qca-nss/qca-ssdk/patches/042-ssdk-initialize-native-api-mutex-for-module-lifetime.patch
 74936f5c3a10b227a87b0d329215a7dde0a8c585bae0d54e701846941871b1c0  package/qca-nss/qca-ssdk/patches/043-ssdk-stop-all-listed-producers-before-normal-sdk-exit.patch
 45a4dc2a792bb42e3ae9c9254315031cd3ddbcb6bc034d7f582618a84f4f4625  package/qca-nss/qca-ssdk/patches/044-retain-i2c-of-node-through-mdio-registration.patch
-3eca0116d1f5b8682469ae88955a228298a2d6041eb96be884e5fb58d68154ac  package/qca-nss/qca-ssdk/patches/045-balance-default-and-legacy-mdio-node-leases.patch
-c0fdc7ed3abf5265fe42e6c0b25f2fe4fe610fc6ccfb6377300259da65317fc6  package/qca-nss/qca-ssdk/patches/046-retire-per-port-phy-parser-node-leases.patch
-5d660e98a31221c9961b496b1e142e7c61380aa5a92bb533ead0fde96be2998f  package/qca-nss/qca-ssdk/patches/047-admit-mdio-table-access-before-dereference.patch
+4ca6d7b33ec51deab02509f689bfc03a1b7c2705b1e2aa8db9ada4fda940a212  package/qca-nss/qca-ssdk/patches/045-balance-default-and-legacy-mdio-node-leases.patch
+1231fa3e369c9a8c70596c39857740db973c5e81d8dca388f21ace6180a97aa7  package/qca-nss/qca-ssdk/patches/046-retire-per-port-phy-parser-node-leases.patch
+4552c39c6c286c288657b38df312b90bc9e5a73244d5b14d40eea073422052a1  package/qca-nss/qca-ssdk/patches/047-admit-mdio-table-access-before-dereference.patch
 cf4dd1b5e975aaec31995b4fbc49ffddcc970d9a5e8a99a0120b92721871f13b  package/system/rpcd/AX6-VALIDATION.md
 058c6d72a1dfa6b3e6b9720cc925fd2c5c89bc7dbd985da8b1ce08972cf70721  package/system/rpcd/Makefile
 ccd7731c4f16043f347ac5bb86ffd198be9bf371624061f8fd349cd4674da6e3  package/system/rpcd/patches/010-file-resolved-path-acl.patch
@@ -335,7 +335,7 @@ a003f9ee76396c49ca859f25ed0fb108937def333b87135d9c2ac744f9fd46df  tests/SSDK_FAL
 c6512cd92168edc3a1ff881b4fdbc2ad9ae50da3b506e585d2adcc2de885661a  tests/SSDK_HPPE_OWNED_ROLLBACK_PLAN_2026-10-31.md
 de64960880e8a90533718464a33e942742facdd4951b4dd53459549ca30cb372  tests/SSDK_HPPE_SINGLE_EVALUATION_PLAN_2026-10-31.md
 164007d19a7f864e6a00fd834995ea6a04e1b7d18b1394cf70a93de49af200fd  tests/SSDK_MDIO_NODE_LEASES_2026-11-02.md
-781777511234aadd8f0b1904ba359148f03807c64b6962a59736a4f27f87d5d0  tests/SSDK_MDIO_TABLE_ADMISSION_2026-11-02.md
+7f53556caa93a1631e5ccbfb5e21bef87c7454bdc9aebcdeac9063f2e762e77c  tests/SSDK_MDIO_TABLE_ADMISSION_2026-11-02.md
 acaf2ba94ffa51e6e775cf81cfe021469fedfb7a9c73310cb72ff79cab5b8f76  tests/SSDK_PHY_NODE_LEASES_2026-11-02.md
 b85e958238ffe70e65d4882daf06138518435a0ffbb6d0d7edf50073531cfe62  tests/SSDK_PHY_PORT_ADMISSION_PLAN_2026-10-31.md
 0c82c933a834b9a21d4a05c929fa1907a487aadd0ccc89996401e66006a29d39  tests/SSDK_PHY_PREALLOC_PLAN_2026-10-30.md

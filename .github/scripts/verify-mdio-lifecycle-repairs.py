@@ -88,8 +88,12 @@ def reverse(source, current, item, output, stem):
         ran = subprocess.run(command, cwd=tree, input=patch.read_bytes(), capture_output=True, timeout=60)
         (output / (step['label'] + '.reverse.stdout')).write_bytes(ran.stdout)
         (output / (step['label'] + '.reverse.stderr')).write_bytes(ran.stderr)
+        (output / (step['label'] + '.reverse.json')).write_text(json.dumps({
+            'command': command, 'cwd': str(tree), 'patch_sha256': sha(patch.read_bytes()),
+            'returncode': ran.returncode, 'stdout_sha256': sha(ran.stdout),
+            'stderr_sha256': sha(ran.stderr)}, indent=2) + '\n')
         need(ran.returncode == 0 and not ran.stderr and not re.search(
-             rb'offset|fuzz|FAILED|reject|malformed|Reversed', ran.stdout, re.I), 'exact baseline reverse')
+             rb'offset|fuzz|FAILED|reject|malformed|Reversed', ran.stdout, re.I), 'exact baseline reverse: ' + step['label'])
         need(inventory_sha(inventory(tree)) == step['inventory_sha256'], 'baseline whole-tree mismatch')
         if step['keep']:
             destination = output / step['label']

@@ -163,9 +163,9 @@
       "042-ssdk-initialize-native-api-mutex-for-module-lifetime.patch": "02d2eef49a0f162394354bff37efb333c92fb583227b4319f0daf242ec838b50",
       "043-ssdk-stop-all-listed-producers-before-normal-sdk-exit.patch": "74936f5c3a10b227a87b0d329215a7dde0a8c585bae0d54e701846941871b1c0",
       "044-retain-i2c-of-node-through-mdio-registration.patch": "45a4dc2a792bb42e3ae9c9254315031cd3ddbcb6bc034d7f582618a84f4f4625",
-      "045-balance-default-and-legacy-mdio-node-leases.patch": "3eca0116d1f5b8682469ae88955a228298a2d6041eb96be884e5fb58d68154ac",
-      "046-retire-per-port-phy-parser-node-leases.patch": "c0fdc7ed3abf5265fe42e6c0b25f2fe4fe610fc6ccfb6377300259da65317fc6",
-      "047-admit-mdio-table-access-before-dereference.patch": "5d660e98a31221c9961b496b1e142e7c61380aa5a92bb533ead0fde96be2998f"
+      "045-balance-default-and-legacy-mdio-node-leases.patch": "4ca6d7b33ec51deab02509f689bfc03a1b7c2705b1e2aa8db9ada4fda940a212",
+      "046-retire-per-port-phy-parser-node-leases.patch": "1231fa3e369c9a8c70596c39857740db973c5e81d8dca388f21ace6180a97aa7",
+      "047-admit-mdio-table-access-before-dereference.patch": "4552c39c6c286c288657b38df312b90bc9e5a73244d5b14d40eea073422052a1"
     },
     "prepared_files": {
       "app/nathelper/linux/host_helper.c": "1fe25b8b9fd68588f637e83500e400f7576b2f7fb19167b8552474dee13e6c04",
