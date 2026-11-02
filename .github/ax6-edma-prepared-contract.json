@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "profile": "IPQ807X_001_018",
+  "upstream_pin": "d8f802f08fd8ff31057ba58edb20bbe448e7b505",
+  "patches": {
+    "001-linux-6.18-core-apis.patch": "e44792f02d26747b4bf4bc7d7cf72fa6a2d70fffbb858ebcf6ba36caaa3eab20",
+    "002-edma-v1-linux-6.18-apis.patch": "7b554f6d2ae66e3c2261ec16f33e07e019d37d5c44535abacb1ec9337a6771c2",
+    "003-qcom-phy-connect-helpers.patch": "0a1bc4f199d1fbdaebc0c9fdb6eef408950afa90af5c2541158a8ac5cb2103b7",
+    "004-phydev-clear-on-connect-failure.patch": "9cecc83ee00068a4179788e259cfbd94ad0b8a3a7cb9d4f84766323343c53b13",
+    "005-fix-switchdev-stp-fdb-roaming.patch": "92e7fb1dd5cec938ebb881f06bb0e0fd5ee7440b409d75931d35282c2c3e0675",
+    "006-ratelimit-edma-warnings.patch": "9b3ae37671d339b623b8f1bcd2d098423027c18d13d227eaab5e4025a74a08f2",
+    "007-fix-tx-ring-modulo.patch": "b707f08756dc6da47ab9bfec313b13b901298ae15c2dd4a2757d710407496c47",
+    "008-edma-v1-correctness-prerequisites.patch": "84bb76d3b90812dd7a4cf9a00a5073e81418a38dce1ef7a82f6d70f2d345017b",
+    "009-ipq807x-fail-closed-data-plane-detach.patch": "0de2c7a7c86d44569575a54f33e0089aa5477ddb466b8eae0b70ca86c699350d",
+    "010-ipq807x-suppress-independent-dp-unbind.patch": "5d24fda47a44f2cd895e3ac709b4ba6e6f6d75138447bb4b75fefa797188feec",
+    "011-stats-last-good-and-error-mapping.patch": "978a43a62a6fe91cd38c4d1f961ff408a0c5925b7971b62a5ce052776c57f426",
+    "012-qcom-ethtool-u64-mib-counters.patch": "f17a8c8bfc8dfcb684b6b8a1dd286af2319544bd2b30d9f110663545fb7fa4e2",
+    "013-edma-v1-unwind-unpublished-ring-allocations.patch": "25791578ddbd52eedfd34c48f22617a2ba2e06e16212c4bc71865b52ec00ebfe",
+    "014-edma-v1-pair-tx-slot-ownership.patch": "a6a3cfaece3c268ed7ebb674d29c6f962661c76f4afd57c69c463101f29e5670",
+    "015-edma-v1-retire-probe-and-host-napi-owners.patch": "62ea007bc30cdd23a9e92be7cb3b798bea2773fccf13cdda90e711bdff48c6fc",
+    "016-edma-v1-balance-global-of-references.patch": "43a793fa3232f793b9a08d41ab1a22f150bb2532334fabdbe22165f9abdd6798",
+    "017-ipq807x-unregister-before-phy-retirement.patch": "d38015b0ab4a8f88ec9fe0fab078f325cb493f390783afe621e30f17fca237a4",
+    "018-ipq807x-init-stage-rollback.patch": "c9f6f83ff7277379fed402ddf07bd3726df2d2e3e7f9281233480358f04c740c"
+  },
+  "prepared_files": {
+    "hal/soc_ops/ipq807x/nss_ipq807x.h": "b483326ab85a36a9f4fbf66ad7c5ed4b3f40fba34487128eb09fe17db0de349c",
+    "hal/dp_ops/edma_dp/edma_v1/edma_regs.h": "423a8bd886d681b6499950bdc3cd6fb788ea4065c915d052098ac8c7af0d0c8f",
+    "hal/dp_ops/edma_dp/edma_v1/edma_data_plane.h": "946be7f6dfdb7bfba7850a3da4859be7b7dbf7b9b4eea9e9ffbd5a99d3a2a62a",
+    "hal/dp_ops/edma_dp/edma_v1/edma_data_plane.c": "c0a899f49b5ed785345e8ddca67fd222e330b5fe755468870e9126d3db7e64b1",
+    "hal/dp_ops/edma_dp/edma_v1/edma_cfg.c": "ce914a8772765d6096a7979183c40bce69c002de9d9c8561c4d20df627528c66",
+    "hal/dp_ops/edma_dp/edma_v1/edma_tx_rx.c": "60433b7182bdda401b23e84dc1064e53555aa87f17b494325af8a982981cdb21"
+  },
+  "test_assets": {
+    "tests/test-edma-tx-slot-ownership.py": "becc5015d3af2897499a74e04aef2879700876e0d789fff22e1f6d0ff26e94c5",
+    "tests/edma-tx-slot-ownership/fixture.c": "56728808e2b236ecde67dc1191424af1e39e1ef4eb22bc38fd84125762536958"
+  }
+}

@@ -894,26 +894,15 @@ jobs:
           }
           echo "OK: 007 TXmod expression verified"
 
-          echo "=== Candidate 008: EDMA v1 correctness prerequisites only ==="
-          for required in \
-            'dma_mapping_error' \
-            'tx_dma_store' \
-            'Invalid Rx skb index' \
-            'tx_irqs = 0, rxfill_irqs = 0, rxdesc_irqs = 0'; do
-            grep -rq "$required" "$edma_v1_src" || {
-              echo "::error::008: missing EDMA correctness invariant: $required"
-              exit 1
-            }
-          done
-          grep -rq 'netif_napi_add(netdev, &edma_hw\.napi, edma_napi)' "$edma_v1_src" || {
-            echo "::error::008: D1 must preserve the original single-NAPI registration"
-            exit 1
-          }
+          echo "=== Final EDMA 001-018: actual TX tuple, IRQ and NAPI contracts ==="
+          python3 "$GITHUB_WORKSPACE/.github/scripts/verify-edma-prepared-regressions.py" \
+            --source-root . --dp "$dp_src" --cc cc \
+            --output "$GITHUB_WORKSPACE/core-flow-evidence/edma-prepared-regressions"
           if grep -rq 'edma_handle_rx_irq\|edma_handle_tx_irq\|napi_gro_receive\|NETIF_F_GRO' "$edma_v1_src"; then
             echo "::error::008: D1 must not include split-NAPI or GRO variables"
             exit 1
           fi
-          echo "OK: 008 EDMA correctness-only invariants verified"
+          echo "OK: reviewed final EDMA source and host contracts verified (not target/runtime acceptance)"
 
           echo "=== P0-D.4: 012 fused — stats_enable=1 + read-path preserved ==="
           grep -rq 'stats_enable = 1' "$drv_src" || {

@@ -129,6 +129,7 @@ jobs:
           sh tests/test-source-patchset-generator.sh
           sh AX6-IPQ/tests/test-source-semantic-lock.sh
           python3 tests/test-nss-regression-grep.py
+          python3 -B tests/test-edma-prepared-regressions.py
           bash AX6-IPQ/tests/test-ax6-perf-fixture.sh
           bash AX6-IPQ/tests/test-ax6-perf-tool-hardening.sh
           bash AX6-IPQ/tests/test-ax6-offline-feed-package.sh
@@ -594,6 +595,7 @@ jobs:
             'python3 tests/test-hostapd-targeted-regressions.py "$hostapd_dir"' \
             'python3 tests/test-ath11k-recovery-reset-guard.py "$backports_dir"' \
             'python3 tests/test-ath11k-rx-alignment.py "$backports_dir"' \
+            'python3 "$GITHUB_WORKSPACE/.github/scripts/verify-edma-prepared-regressions.py"' \
             'PYTHONDONTWRITEBYTECODE=1 python3 tests/nss-dp-containment/test-nss-dp-detach-quarantine.py' \
             '--candidate-only --candidate "$nss_dp_dir"' \
             '--output "$GITHUB_WORKSPACE/nss-containment-evidence/dp"' \
