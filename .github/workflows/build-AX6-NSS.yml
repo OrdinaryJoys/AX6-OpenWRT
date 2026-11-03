@@ -59,6 +59,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
 
+      - name: Read fixed historical-prefix regression identity
+        id: prefix-contract
+        run: |
+          set -euo pipefail
+          legacy_ref=$(python3 -B .github/scripts/verify-ax6-current-layers.py --print-legacy-ref)
+          echo "legacy_ref=$legacy_ref" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout test-only historical prefix (never firmware source)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          repository: OrdinaryJoys/immortalwrt-nss
+          ref: ${{ steps.prefix-contract.outputs.legacy_ref }}
+          path: core-legacy-source
+          persist-credentials: false
+
       - name: Set variant config + brick-safety pre-flight
         id: variant
         env:
@@ -892,6 +907,7 @@ jobs:
           lifecycle_dp_source=${lifecycle_dp_sources[0]}
           lifecycle_ssdk_source=${lifecycle_ssdk_sources[0]}
           python3 "$GITHUB_WORKSPACE/.github/scripts/verify-mdio-lifecycle-repairs.py" \
+            --current-layers --legacy-source-root "$GITHUB_WORKSPACE/core-legacy-source" \
             --source-root . --dp "$lifecycle_dp_source" --ssdk "$lifecycle_ssdk_source" --cc cc \
             --output "$GITHUB_WORKSPACE/core-flow-evidence/mdio-lifecycle"
 
@@ -909,6 +925,7 @@ jobs:
           test "${#command_drivers[@]}" -eq 1
           test "${#command_clients[@]}" -eq 1
           python3 "$GITHUB_WORKSPACE/.github/scripts/verify-nss-command-inputs.py" \
+            --current-layers --legacy-source-root "$GITHUB_WORKSPACE/core-legacy-source" \
             --source-root . --driver "${command_drivers[0]}" --clients "${command_clients[0]}" --cc cc \
             --output "$evidence/validation"
 

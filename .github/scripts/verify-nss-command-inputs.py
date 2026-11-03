@@ -2,6 +2,7 @@
 """Admit frozen, already-prepared NSS inputs; host evidence is not runtime approval."""
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -429,9 +430,17 @@ def main():
     for option in ('source-root', 'driver', 'clients', 'output'):
         parser.add_argument('--' + option, required=True, type=Path)
     parser.add_argument('--cc', default='cc')
+    parser.add_argument('--current-layers', action='store_true')
+    parser.add_argument('--legacy-source-root', type=Path)
     args = parser.parse_args()
     for name in ('source_root', 'driver', 'clients', 'output'):
         setattr(args, name, getattr(args, name).absolute())
+    if args.current_layers:
+        spec = importlib.util.spec_from_file_location('current_nss_layers', ROOT / '.github/scripts/verify-ax6-current-layers.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.run_current(args, 'nss')
+    need(args.legacy_source_root is None, 'legacy checkout requires current-layer mode')
     profile_bytes = PROFILE.read_bytes()
     profile = json.loads(profile_bytes, object_pairs_hook=unique)
     state = admit(args.source_root, args.driver, args.clients, profile)

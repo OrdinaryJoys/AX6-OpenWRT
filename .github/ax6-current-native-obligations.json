@@ -1,0 +1,5134 @@
+{
+  "schema": 1,
+  "scope": "FROZEN_NATIVE_RECORD_OBLIGATIONS_NOT_TARGET_RUNTIME",
+  "i2c": {
+    "reviewed_receipt_sha256": "9fbec3fb1acc7c2e6f9219f6a1a33bee40ac79d2092166edc24dcc04b7a047b2",
+    "fields": {
+      "positive": [
+        [
+          "data",
+          "data-chunks"
+        ],
+        [
+          "data",
+          "data-width"
+        ],
+        [
+          "data",
+          "short-read"
+        ],
+        [
+          "data",
+          "short-write"
+        ],
+        [
+          "data",
+          "negative-read"
+        ],
+        [
+          "data",
+          "negative-write"
+        ],
+        [
+          "data",
+          "midstream"
+        ],
+        [
+          "data",
+          "data-reference"
+        ],
+        [
+          "data",
+          "adapter-missing"
+        ],
+        [
+          "data",
+          "data-null"
+        ],
+        [
+          "data",
+          "data-zero"
+        ],
+        [
+          "data",
+          "unlocked-data"
+        ],
+        [
+          "phy",
+          "data-chunks"
+        ],
+        [
+          "phy",
+          "data-width"
+        ],
+        [
+          "phy",
+          "short-read"
+        ],
+        [
+          "phy",
+          "short-write"
+        ],
+        [
+          "phy",
+          "negative-read"
+        ],
+        [
+          "phy",
+          "negative-write"
+        ],
+        [
+          "phy",
+          "midstream"
+        ],
+        [
+          "phy",
+          "data-reference"
+        ],
+        [
+          "phy",
+          "adapter-missing"
+        ],
+        [
+          "phy",
+          "data-null"
+        ],
+        [
+          "phy",
+          "data-zero"
+        ],
+        [
+          "phy",
+          "unlocked-data"
+        ],
+        [
+          "phy",
+          "phy-valid"
+        ],
+        [
+          "phy",
+          "phy-errors"
+        ],
+        [
+          "phy",
+          "unlocked-phy"
+        ],
+        [
+          "phy",
+          "phy-reference"
+        ],
+        [
+          "phy",
+          "mmd-result"
+        ],
+        [
+          "phy",
+          "mmd-publication"
+        ],
+        [
+          "phy",
+          "phy-invalid"
+        ],
+        [
+          "phy",
+          "phy-null"
+        ]
+      ],
+      "negative": [
+        [
+          "data",
+          "get-put",
+          "data-reference",
+          "REFERENCE_BALANCE"
+        ],
+        [
+          "data",
+          "set-put",
+          "data-reference",
+          "REFERENCE_BALANCE"
+        ],
+        [
+          "data",
+          "get-total-width",
+          "data-width",
+          "LENGTH_WIDTH"
+        ],
+        [
+          "data",
+          "set-total-width",
+          "data-width",
+          "LENGTH_WIDTH"
+        ],
+        [
+          "data",
+          "get-remaining-width",
+          "data-width",
+          "LENGTH_WIDTH"
+        ],
+        [
+          "data",
+          "set-remaining-width",
+          "data-width",
+          "LENGTH_WIDTH"
+        ],
+        [
+          "data",
+          "short-read-as-bytes",
+          "short-read",
+          "READ_FAILURE"
+        ],
+        [
+          "data",
+          "wrong-read-recipient",
+          "data-chunks",
+          "DATA_RESULT"
+        ],
+        [
+          "phy",
+          "get-put",
+          "data-reference",
+          "REFERENCE_BALANCE"
+        ],
+        [
+          "phy",
+          "set-put",
+          "data-reference",
+          "REFERENCE_BALANCE"
+        ],
+        [
+          "phy",
+          "read-put",
+          "phy-reference",
+          "REFERENCE_BALANCE"
+        ],
+        [
+          "phy",
+          "write-put",
+          "phy-reference",
+          "REFERENCE_BALANCE"
+        ],
+        [
+          "phy",
+          "get-total-width",
+          "data-width",
+          "LENGTH_WIDTH"
+        ],
+        [
+          "phy",
+          "set-total-width",
+          "data-width",
+          "LENGTH_WIDTH"
+        ],
+        [
+          "phy",
+          "get-remaining-width",
+          "data-width",
+          "LENGTH_WIDTH"
+        ],
+        [
+          "phy",
+          "set-remaining-width",
+          "data-width",
+          "LENGTH_WIDTH"
+        ],
+        [
+          "phy",
+          "short-read-as-bytes",
+          "short-read",
+          "READ_FAILURE"
+        ],
+        [
+          "phy",
+          "wrong-read-recipient",
+          "data-chunks",
+          "DATA_RESULT"
+        ],
+        [
+          "phy",
+          "mmd-read-unsigned",
+          "mmd-result",
+          "MMD_SIGNED_RESULT"
+        ],
+        [
+          "phy",
+          "mmd-write-unsigned",
+          "mmd-result",
+          "MMD_SIGNED_RESULT"
+        ],
+        [
+          "phy",
+          "mmd-early-output",
+          "mmd-publication",
+          "MMD_FAILURE_OUTPUT"
+        ],
+        [
+          "phy",
+          "discard-read-error",
+          "phy-errors",
+          "PHY_FAILURE_PROPAGATION"
+        ],
+        [
+          "phy",
+          "discard-write-error",
+          "phy-errors",
+          "PHY_FAILURE_PROPAGATION"
+        ]
+      ],
+      "baseline_witnesses": [
+        [
+          "data",
+          "data-reference",
+          "REFERENCE_BALANCE"
+        ],
+        [
+          "data",
+          "short-read",
+          "READ_FAILURE"
+        ],
+        [
+          "phy",
+          "data-reference",
+          "REFERENCE_BALANCE"
+        ],
+        [
+          "phy",
+          "short-read",
+          "READ_FAILURE"
+        ],
+        [
+          "phy",
+          "phy-errors",
+          "PHY_FAILURE_PROPAGATION"
+        ],
+        [
+          "phy",
+          "mmd-result",
+          "MMD_SIGNED_RESULT"
+        ]
+      ],
+      "oracle_controls": {
+        "classification": "PYTHON_RESULT_ORACLE_NOT_NATIVE_SOURCE_CONTROLS",
+        "valid": 2,
+        "rejected": 14
+      },
+      "generated_controls": {
+        "classification": "ACTUAL_FILE_INVENTORY_CONTROLS_NOT_SOURCE_MUTANTS",
+        "records": [
+          [
+            "valid",
+            "ACCEPTED"
+          ],
+          [
+            "missing",
+            "REJECTED"
+          ],
+          [
+            "changed",
+            "REJECTED"
+          ],
+          [
+            "extra",
+            "REJECTED"
+          ]
+        ]
+      }
+    },
+    "commands": [
+      {
+        "label": "reverse050",
+        "argv": [
+          "<PATCH>",
+          "--batch",
+          "--fuzz=0",
+          "-p1",
+          "-R",
+          "-i",
+          "<SOURCE>/package/qca-nss/qca-ssdk/patches/050-i2c-transfer-results-and-reference-balance.patch"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "32689e183a08e9abe43b637853af2837c19b48ecaff29fa743e5eb96d8dd315c",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "forward050",
+        "argv": [
+          "<PATCH>",
+          "--batch",
+          "--fuzz=0",
+          "-p1",
+          "-i",
+          "<SOURCE>/package/qca-nss/qca-ssdk/patches/050-i2c-transfer-results-and-reference-balance.patch"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "32689e183a08e9abe43b637853af2837c19b48ecaff29fa743e5eb96d8dd315c",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/fixed/compile",
+        "argv": [
+          "<CC>",
+          "-std=c11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Werror",
+          "-fno-omit-frame-pointer",
+          "-fsanitize=address,undefined",
+          "-I",
+          "<OUT>/native/data/fixed",
+          "<OUT>/native/data/fixed/fixture.c",
+          "-o",
+          "<OUT>/native/data/fixed/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/fixed/data-chunks",
+        "argv": [
+          "<OUT>/native/data/fixed/program.host",
+          "data-chunks"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "63e27894d8ef40b3563e75480d6f83d649d6df1d513ecc825f27c713a428420f",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/fixed/data-width",
+        "argv": [
+          "<OUT>/native/data/fixed/program.host",
+          "data-width"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "6c3ba9998f0f80c3270bbf96e3def43789e45db86f13663c06194978a6dc7042",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/fixed/short-read",
+        "argv": [
+          "<OUT>/native/data/fixed/program.host",
+          "short-read"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "8ab4c179e112b3da24f96db6671e3af7b8b5d131d2d450168a0145552f336b25",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/fixed/short-write",
+        "argv": [
+          "<OUT>/native/data/fixed/program.host",
+          "short-write"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "1a3bdb9eaad5f8afd751df1e2b9b103e82dc6726b4fcde85d56291b42b041b9d",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/fixed/negative-read",
+        "argv": [
+          "<OUT>/native/data/fixed/program.host",
+          "negative-read"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "eb78422348176c3f20890ef766980a03c6e9d0f7966bd8d837ac0cf18c8a9624",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/fixed/negative-write",
+        "argv": [
+          "<OUT>/native/data/fixed/program.host",
+          "negative-write"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "3b5b049cbe91192ccaa60a698f255de870d6d2eeed39728238e788343153fef3",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/fixed/midstream",
+        "argv": [
+          "<OUT>/native/data/fixed/program.host",
+          "midstream"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "54a8e84d5af78ec2c6571e43cec9b49eb7e9326d3c57160c80c6da467a9914e0",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/fixed/data-reference",
+        "argv": [
+          "<OUT>/native/data/fixed/program.host",
+          "data-reference"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "c7ebc99d45a6ffa8334b4c106049643363b755a64914613a20799925c07b348c",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/fixed/adapter-missing",
+        "argv": [
+          "<OUT>/native/data/fixed/program.host",
+          "adapter-missing"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "f090647ad94ae02450d3e491bb171c7499ab74686ea78b389a22471c78c989b4",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/fixed/data-null",
+        "argv": [
+          "<OUT>/native/data/fixed/program.host",
+          "data-null"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "6b8587c9e8074e659760fc38be5d8dc760a30febd903a32068dd541165ca9738",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/fixed/data-zero",
+        "argv": [
+          "<OUT>/native/data/fixed/program.host",
+          "data-zero"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "25e167b1032560acbe2719afffdc49a5a450531b965f42ffe36dd60c0d0a0398",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/fixed/unlocked-data",
+        "argv": [
+          "<OUT>/native/data/fixed/program.host",
+          "unlocked-data"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "c62c217ee8bc5ae60c8437c1182c3c54cfdf5187af0aa0e2e1289164aabdc50e",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/mutant-get-put/compile",
+        "argv": [
+          "<CC>",
+          "-std=c11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Werror",
+          "-fno-omit-frame-pointer",
+          "-fsanitize=address,undefined",
+          "-I",
+          "<OUT>/native/data/mutant-get-put",
+          "<OUT>/native/data/mutant-get-put/fixture.c",
+          "-o",
+          "<OUT>/native/data/mutant-get-put/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/mutant-get-put/run",
+        "argv": [
+          "<OUT>/native/data/mutant-get-put/program.host",
+          "data-reference"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "8f1d0d7b91f6d7b34d83e9d6cf450952cb3b43b2585fbba6428d956c31d19d0d",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/mutant-set-put/compile",
+        "argv": [
+          "<CC>",
+          "-std=c11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Werror",
+          "-fno-omit-frame-pointer",
+          "-fsanitize=address,undefined",
+          "-I",
+          "<OUT>/native/data/mutant-set-put",
+          "<OUT>/native/data/mutant-set-put/fixture.c",
+          "-o",
+          "<OUT>/native/data/mutant-set-put/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/mutant-set-put/run",
+        "argv": [
+          "<OUT>/native/data/mutant-set-put/program.host",
+          "data-reference"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "8f1d0d7b91f6d7b34d83e9d6cf450952cb3b43b2585fbba6428d956c31d19d0d",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/mutant-get-total-width/compile",
+        "argv": [
+          "<CC>",
+          "-std=c11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Werror",
+          "-fno-omit-frame-pointer",
+          "-fsanitize=address,undefined",
+          "-I",
+          "<OUT>/native/data/mutant-get-total-width",
+          "<OUT>/native/data/mutant-get-total-width/fixture.c",
+          "-o",
+          "<OUT>/native/data/mutant-get-total-width/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/mutant-get-total-width/run",
+        "argv": [
+          "<OUT>/native/data/mutant-get-total-width/program.host",
+          "data-width"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "752a55add0a1731c154a3ad0da724da1c415d271240fd1ad87349f5539eb9a1a",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/mutant-set-total-width/compile",
+        "argv": [
+          "<CC>",
+          "-std=c11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Werror",
+          "-fno-omit-frame-pointer",
+          "-fsanitize=address,undefined",
+          "-I",
+          "<OUT>/native/data/mutant-set-total-width",
+          "<OUT>/native/data/mutant-set-total-width/fixture.c",
+          "-o",
+          "<OUT>/native/data/mutant-set-total-width/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/mutant-set-total-width/run",
+        "argv": [
+          "<OUT>/native/data/mutant-set-total-width/program.host",
+          "data-width"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "752a55add0a1731c154a3ad0da724da1c415d271240fd1ad87349f5539eb9a1a",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/mutant-get-remaining-width/compile",
+        "argv": [
+          "<CC>",
+          "-std=c11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Werror",
+          "-fno-omit-frame-pointer",
+          "-fsanitize=address,undefined",
+          "-I",
+          "<OUT>/native/data/mutant-get-remaining-width",
+          "<OUT>/native/data/mutant-get-remaining-width/fixture.c",
+          "-o",
+          "<OUT>/native/data/mutant-get-remaining-width/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/mutant-get-remaining-width/run",
+        "argv": [
+          "<OUT>/native/data/mutant-get-remaining-width/program.host",
+          "data-width"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "752a55add0a1731c154a3ad0da724da1c415d271240fd1ad87349f5539eb9a1a",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/mutant-set-remaining-width/compile",
+        "argv": [
+          "<CC>",
+          "-std=c11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Werror",
+          "-fno-omit-frame-pointer",
+          "-fsanitize=address,undefined",
+          "-I",
+          "<OUT>/native/data/mutant-set-remaining-width",
+          "<OUT>/native/data/mutant-set-remaining-width/fixture.c",
+          "-o",
+          "<OUT>/native/data/mutant-set-remaining-width/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/mutant-set-remaining-width/run",
+        "argv": [
+          "<OUT>/native/data/mutant-set-remaining-width/program.host",
+          "data-width"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "752a55add0a1731c154a3ad0da724da1c415d271240fd1ad87349f5539eb9a1a",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/mutant-short-read-as-bytes/compile",
+        "argv": [
+          "<CC>",
+          "-std=c11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Werror",
+          "-fno-omit-frame-pointer",
+          "-fsanitize=address,undefined",
+          "-I",
+          "<OUT>/native/data/mutant-short-read-as-bytes",
+          "<OUT>/native/data/mutant-short-read-as-bytes/fixture.c",
+          "-o",
+          "<OUT>/native/data/mutant-short-read-as-bytes/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/mutant-short-read-as-bytes/run",
+        "argv": [
+          "<OUT>/native/data/mutant-short-read-as-bytes/program.host",
+          "short-read"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "0edd4a359056cb8c8fb434b4d97ba3582976b5a6fef3988f870599a1b8161650",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/mutant-wrong-read-recipient/compile",
+        "argv": [
+          "<CC>",
+          "-std=c11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Werror",
+          "-fno-omit-frame-pointer",
+          "-fsanitize=address,undefined",
+          "-I",
+          "<OUT>/native/data/mutant-wrong-read-recipient",
+          "<OUT>/native/data/mutant-wrong-read-recipient/fixture.c",
+          "-o",
+          "<OUT>/native/data/mutant-wrong-read-recipient/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/mutant-wrong-read-recipient/run",
+        "argv": [
+          "<OUT>/native/data/mutant-wrong-read-recipient/program.host",
+          "data-chunks"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "a14ade65179ab6a7bb859cfa652198cd22bba6764b44495e8101c915c3d30d15",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/old37/compile",
+        "argv": [
+          "<CC>",
+          "-std=c11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Werror",
+          "-fno-omit-frame-pointer",
+          "-fsanitize=address,undefined",
+          "-I",
+          "<OUT>/native/data/old37",
+          "<OUT>/native/data/old37/fixture.c",
+          "-o",
+          "<OUT>/native/data/old37/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/old37/data-reference",
+        "argv": [
+          "<OUT>/native/data/old37/program.host",
+          "data-reference"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "8f1d0d7b91f6d7b34d83e9d6cf450952cb3b43b2585fbba6428d956c31d19d0d",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/old37/short-read",
+        "argv": [
+          "<OUT>/native/data/old37/program.host",
+          "short-read"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "0edd4a359056cb8c8fb434b4d97ba3582976b5a6fef3988f870599a1b8161650",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/asan-canary",
+        "argv": [
+          "<OUT>/native/data/fixed/program.host",
+          "asan-canary"
+        ],
+        "returncode": 97,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": null,
+        "sanitizer": "asan",
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "data/ubsan-canary",
+        "argv": [
+          "<OUT>/native/data/fixed/program.host",
+          "ubsan-canary"
+        ],
+        "returncode": 98,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": null,
+        "sanitizer": "ubsan",
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=98",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=98"
+      },
+      {
+        "label": "phy/fixed/compile",
+        "argv": [
+          "<CC>",
+          "-std=c11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Werror",
+          "-fno-omit-frame-pointer",
+          "-DIN_PHY_I2C_MODE",
+          "-fsanitize=address,undefined",
+          "-I",
+          "<OUT>/native/phy/fixed",
+          "<OUT>/native/phy/fixed/fixture.c",
+          "-o",
+          "<OUT>/native/phy/fixed/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/fixed/data-chunks",
+        "argv": [
+          "<OUT>/native/phy/fixed/program.host",
+          "data-chunks"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "63e27894d8ef40b3563e75480d6f83d649d6df1d513ecc825f27c713a428420f",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/fixed/data-width",
+        "argv": [
+          "<OUT>/native/phy/fixed/program.host",
+          "data-width"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "6c3ba9998f0f80c3270bbf96e3def43789e45db86f13663c06194978a6dc7042",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/fixed/short-read",
+        "argv": [
+          "<OUT>/native/phy/fixed/program.host",
+          "short-read"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "8ab4c179e112b3da24f96db6671e3af7b8b5d131d2d450168a0145552f336b25",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/fixed/short-write",
+        "argv": [
+          "<OUT>/native/phy/fixed/program.host",
+          "short-write"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "1a3bdb9eaad5f8afd751df1e2b9b103e82dc6726b4fcde85d56291b42b041b9d",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/fixed/negative-read",
+        "argv": [
+          "<OUT>/native/phy/fixed/program.host",
+          "negative-read"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "eb78422348176c3f20890ef766980a03c6e9d0f7966bd8d837ac0cf18c8a9624",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/fixed/negative-write",
+        "argv": [
+          "<OUT>/native/phy/fixed/program.host",
+          "negative-write"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "3b5b049cbe91192ccaa60a698f255de870d6d2eeed39728238e788343153fef3",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/fixed/midstream",
+        "argv": [
+          "<OUT>/native/phy/fixed/program.host",
+          "midstream"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "54a8e84d5af78ec2c6571e43cec9b49eb7e9326d3c57160c80c6da467a9914e0",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/fixed/data-reference",
+        "argv": [
+          "<OUT>/native/phy/fixed/program.host",
+          "data-reference"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "c7ebc99d45a6ffa8334b4c106049643363b755a64914613a20799925c07b348c",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/fixed/adapter-missing",
+        "argv": [
+          "<OUT>/native/phy/fixed/program.host",
+          "adapter-missing"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "f090647ad94ae02450d3e491bb171c7499ab74686ea78b389a22471c78c989b4",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/fixed/data-null",
+        "argv": [
+          "<OUT>/native/phy/fixed/program.host",
+          "data-null"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "6b8587c9e8074e659760fc38be5d8dc760a30febd903a32068dd541165ca9738",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/fixed/data-zero",
+        "argv": [
+          "<OUT>/native/phy/fixed/program.host",
+          "data-zero"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "25e167b1032560acbe2719afffdc49a5a450531b965f42ffe36dd60c0d0a0398",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/fixed/unlocked-data",
+        "argv": [
+          "<OUT>/native/phy/fixed/program.host",
+          "unlocked-data"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "c62c217ee8bc5ae60c8437c1182c3c54cfdf5187af0aa0e2e1289164aabdc50e",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/fixed/phy-valid",
+        "argv": [
+          "<OUT>/native/phy/fixed/program.host",
+          "phy-valid"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "b2375c176ae286b25fc884499ab03f94660b73fc7aa5f88bbe1bdffdb2acabc0",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/fixed/phy-errors",
+        "argv": [
+          "<OUT>/native/phy/fixed/program.host",
+          "phy-errors"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "458374bc4cb92601f76a4fe29bc77dfc68773317c50f536c30596b521fc17cfa",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/fixed/unlocked-phy",
+        "argv": [
+          "<OUT>/native/phy/fixed/program.host",
+          "unlocked-phy"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "495c9ab22726f9645f091c0af45dfb5e17cbf9d29ff89bdcb471ae6941f9ce58",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/fixed/phy-reference",
+        "argv": [
+          "<OUT>/native/phy/fixed/program.host",
+          "phy-reference"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "57a0f540d4c67eb5b811b84b3122f4829529efc48f82b236b63dc1d3e4cc1a26",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/fixed/mmd-result",
+        "argv": [
+          "<OUT>/native/phy/fixed/program.host",
+          "mmd-result"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "4338a5cdbb728e353ec127447c99413de302b22d6a0dd2c06e0f187202cdcb00",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/fixed/mmd-publication",
+        "argv": [
+          "<OUT>/native/phy/fixed/program.host",
+          "mmd-publication"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "9b5550ed4752373ab90809cfbcea19a2641e6bcb3ce74bc36fe47f351c1c47b3",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/fixed/phy-invalid",
+        "argv": [
+          "<OUT>/native/phy/fixed/program.host",
+          "phy-invalid"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "ecc921137dfdfaa93a4a7a4ad2607352712066b6ef501485d9361bf77a9c3329",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/fixed/phy-null",
+        "argv": [
+          "<OUT>/native/phy/fixed/program.host",
+          "phy-null"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "954022e6fb3db2c0f0c714102eb98a2b3c0ca5c01e8c69661844b906165baf55",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-get-put/compile",
+        "argv": [
+          "<CC>",
+          "-std=c11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Werror",
+          "-fno-omit-frame-pointer",
+          "-DIN_PHY_I2C_MODE",
+          "-fsanitize=address,undefined",
+          "-I",
+          "<OUT>/native/phy/mutant-get-put",
+          "<OUT>/native/phy/mutant-get-put/fixture.c",
+          "-o",
+          "<OUT>/native/phy/mutant-get-put/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-get-put/run",
+        "argv": [
+          "<OUT>/native/phy/mutant-get-put/program.host",
+          "data-reference"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "8f1d0d7b91f6d7b34d83e9d6cf450952cb3b43b2585fbba6428d956c31d19d0d",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-set-put/compile",
+        "argv": [
+          "<CC>",
+          "-std=c11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Werror",
+          "-fno-omit-frame-pointer",
+          "-DIN_PHY_I2C_MODE",
+          "-fsanitize=address,undefined",
+          "-I",
+          "<OUT>/native/phy/mutant-set-put",
+          "<OUT>/native/phy/mutant-set-put/fixture.c",
+          "-o",
+          "<OUT>/native/phy/mutant-set-put/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-set-put/run",
+        "argv": [
+          "<OUT>/native/phy/mutant-set-put/program.host",
+          "data-reference"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "8f1d0d7b91f6d7b34d83e9d6cf450952cb3b43b2585fbba6428d956c31d19d0d",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-read-put/compile",
+        "argv": [
+          "<CC>",
+          "-std=c11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Werror",
+          "-fno-omit-frame-pointer",
+          "-DIN_PHY_I2C_MODE",
+          "-fsanitize=address,undefined",
+          "-I",
+          "<OUT>/native/phy/mutant-read-put",
+          "<OUT>/native/phy/mutant-read-put/fixture.c",
+          "-o",
+          "<OUT>/native/phy/mutant-read-put/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-read-put/run",
+        "argv": [
+          "<OUT>/native/phy/mutant-read-put/program.host",
+          "phy-reference"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "8f1d0d7b91f6d7b34d83e9d6cf450952cb3b43b2585fbba6428d956c31d19d0d",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-write-put/compile",
+        "argv": [
+          "<CC>",
+          "-std=c11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Werror",
+          "-fno-omit-frame-pointer",
+          "-DIN_PHY_I2C_MODE",
+          "-fsanitize=address,undefined",
+          "-I",
+          "<OUT>/native/phy/mutant-write-put",
+          "<OUT>/native/phy/mutant-write-put/fixture.c",
+          "-o",
+          "<OUT>/native/phy/mutant-write-put/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-write-put/run",
+        "argv": [
+          "<OUT>/native/phy/mutant-write-put/program.host",
+          "phy-reference"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "8f1d0d7b91f6d7b34d83e9d6cf450952cb3b43b2585fbba6428d956c31d19d0d",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-get-total-width/compile",
+        "argv": [
+          "<CC>",
+          "-std=c11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Werror",
+          "-fno-omit-frame-pointer",
+          "-DIN_PHY_I2C_MODE",
+          "-fsanitize=address,undefined",
+          "-I",
+          "<OUT>/native/phy/mutant-get-total-width",
+          "<OUT>/native/phy/mutant-get-total-width/fixture.c",
+          "-o",
+          "<OUT>/native/phy/mutant-get-total-width/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-get-total-width/run",
+        "argv": [
+          "<OUT>/native/phy/mutant-get-total-width/program.host",
+          "data-width"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "752a55add0a1731c154a3ad0da724da1c415d271240fd1ad87349f5539eb9a1a",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-set-total-width/compile",
+        "argv": [
+          "<CC>",
+          "-std=c11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Werror",
+          "-fno-omit-frame-pointer",
+          "-DIN_PHY_I2C_MODE",
+          "-fsanitize=address,undefined",
+          "-I",
+          "<OUT>/native/phy/mutant-set-total-width",
+          "<OUT>/native/phy/mutant-set-total-width/fixture.c",
+          "-o",
+          "<OUT>/native/phy/mutant-set-total-width/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-set-total-width/run",
+        "argv": [
+          "<OUT>/native/phy/mutant-set-total-width/program.host",
+          "data-width"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "752a55add0a1731c154a3ad0da724da1c415d271240fd1ad87349f5539eb9a1a",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-get-remaining-width/compile",
+        "argv": [
+          "<CC>",
+          "-std=c11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Werror",
+          "-fno-omit-frame-pointer",
+          "-DIN_PHY_I2C_MODE",
+          "-fsanitize=address,undefined",
+          "-I",
+          "<OUT>/native/phy/mutant-get-remaining-width",
+          "<OUT>/native/phy/mutant-get-remaining-width/fixture.c",
+          "-o",
+          "<OUT>/native/phy/mutant-get-remaining-width/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-get-remaining-width/run",
+        "argv": [
+          "<OUT>/native/phy/mutant-get-remaining-width/program.host",
+          "data-width"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "752a55add0a1731c154a3ad0da724da1c415d271240fd1ad87349f5539eb9a1a",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-set-remaining-width/compile",
+        "argv": [
+          "<CC>",
+          "-std=c11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Werror",
+          "-fno-omit-frame-pointer",
+          "-DIN_PHY_I2C_MODE",
+          "-fsanitize=address,undefined",
+          "-I",
+          "<OUT>/native/phy/mutant-set-remaining-width",
+          "<OUT>/native/phy/mutant-set-remaining-width/fixture.c",
+          "-o",
+          "<OUT>/native/phy/mutant-set-remaining-width/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-set-remaining-width/run",
+        "argv": [
+          "<OUT>/native/phy/mutant-set-remaining-width/program.host",
+          "data-width"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "752a55add0a1731c154a3ad0da724da1c415d271240fd1ad87349f5539eb9a1a",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-short-read-as-bytes/compile",
+        "argv": [
+          "<CC>",
+          "-std=c11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Werror",
+          "-fno-omit-frame-pointer",
+          "-DIN_PHY_I2C_MODE",
+          "-fsanitize=address,undefined",
+          "-I",
+          "<OUT>/native/phy/mutant-short-read-as-bytes",
+          "<OUT>/native/phy/mutant-short-read-as-bytes/fixture.c",
+          "-o",
+          "<OUT>/native/phy/mutant-short-read-as-bytes/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-short-read-as-bytes/run",
+        "argv": [
+          "<OUT>/native/phy/mutant-short-read-as-bytes/program.host",
+          "short-read"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "0edd4a359056cb8c8fb434b4d97ba3582976b5a6fef3988f870599a1b8161650",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-wrong-read-recipient/compile",
+        "argv": [
+          "<CC>",
+          "-std=c11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Werror",
+          "-fno-omit-frame-pointer",
+          "-DIN_PHY_I2C_MODE",
+          "-fsanitize=address,undefined",
+          "-I",
+          "<OUT>/native/phy/mutant-wrong-read-recipient",
+          "<OUT>/native/phy/mutant-wrong-read-recipient/fixture.c",
+          "-o",
+          "<OUT>/native/phy/mutant-wrong-read-recipient/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-wrong-read-recipient/run",
+        "argv": [
+          "<OUT>/native/phy/mutant-wrong-read-recipient/program.host",
+          "data-chunks"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "a14ade65179ab6a7bb859cfa652198cd22bba6764b44495e8101c915c3d30d15",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-mmd-read-unsigned/compile",
+        "argv": [
+          "<CC>",
+          "-std=c11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Werror",
+          "-fno-omit-frame-pointer",
+          "-DIN_PHY_I2C_MODE",
+          "-fsanitize=address,undefined",
+          "-I",
+          "<OUT>/native/phy/mutant-mmd-read-unsigned",
+          "<OUT>/native/phy/mutant-mmd-read-unsigned/fixture.c",
+          "-o",
+          "<OUT>/native/phy/mutant-mmd-read-unsigned/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-mmd-read-unsigned/run",
+        "argv": [
+          "<OUT>/native/phy/mutant-mmd-read-unsigned/program.host",
+          "mmd-result"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "1934cfe3ed6349bb051fc35519145f37d88c8d49f75b0aacc727fcc0f151a08f",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-mmd-write-unsigned/compile",
+        "argv": [
+          "<CC>",
+          "-std=c11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Werror",
+          "-fno-omit-frame-pointer",
+          "-DIN_PHY_I2C_MODE",
+          "-fsanitize=address,undefined",
+          "-I",
+          "<OUT>/native/phy/mutant-mmd-write-unsigned",
+          "<OUT>/native/phy/mutant-mmd-write-unsigned/fixture.c",
+          "-o",
+          "<OUT>/native/phy/mutant-mmd-write-unsigned/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-mmd-write-unsigned/run",
+        "argv": [
+          "<OUT>/native/phy/mutant-mmd-write-unsigned/program.host",
+          "mmd-result"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "1934cfe3ed6349bb051fc35519145f37d88c8d49f75b0aacc727fcc0f151a08f",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-mmd-early-output/compile",
+        "argv": [
+          "<CC>",
+          "-std=c11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Werror",
+          "-fno-omit-frame-pointer",
+          "-DIN_PHY_I2C_MODE",
+          "-fsanitize=address,undefined",
+          "-I",
+          "<OUT>/native/phy/mutant-mmd-early-output",
+          "<OUT>/native/phy/mutant-mmd-early-output/fixture.c",
+          "-o",
+          "<OUT>/native/phy/mutant-mmd-early-output/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-mmd-early-output/run",
+        "argv": [
+          "<OUT>/native/phy/mutant-mmd-early-output/program.host",
+          "mmd-publication"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "14e3a5a317567101153bd83d302d51eaaa6ea9aa3d39166f60389c3d993d06dd",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-discard-read-error/compile",
+        "argv": [
+          "<CC>",
+          "-std=c11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Werror",
+          "-fno-omit-frame-pointer",
+          "-DIN_PHY_I2C_MODE",
+          "-fsanitize=address,undefined",
+          "-I",
+          "<OUT>/native/phy/mutant-discard-read-error",
+          "<OUT>/native/phy/mutant-discard-read-error/fixture.c",
+          "-o",
+          "<OUT>/native/phy/mutant-discard-read-error/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-discard-read-error/run",
+        "argv": [
+          "<OUT>/native/phy/mutant-discard-read-error/program.host",
+          "phy-errors"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "1e272ee6192f92e01f94b4d40af7063a4796f4dcc24878ae1c69dee718f310fb",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-discard-write-error/compile",
+        "argv": [
+          "<CC>",
+          "-std=c11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Werror",
+          "-fno-omit-frame-pointer",
+          "-DIN_PHY_I2C_MODE",
+          "-fsanitize=address,undefined",
+          "-I",
+          "<OUT>/native/phy/mutant-discard-write-error",
+          "<OUT>/native/phy/mutant-discard-write-error/fixture.c",
+          "-o",
+          "<OUT>/native/phy/mutant-discard-write-error/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/mutant-discard-write-error/run",
+        "argv": [
+          "<OUT>/native/phy/mutant-discard-write-error/program.host",
+          "phy-errors"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "1e272ee6192f92e01f94b4d40af7063a4796f4dcc24878ae1c69dee718f310fb",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/old37/compile",
+        "argv": [
+          "<CC>",
+          "-std=c11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Werror",
+          "-fno-omit-frame-pointer",
+          "-DIN_PHY_I2C_MODE",
+          "-fsanitize=address,undefined",
+          "-I",
+          "<OUT>/native/phy/old37",
+          "<OUT>/native/phy/old37/fixture.c",
+          "-o",
+          "<OUT>/native/phy/old37/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/old37/data-reference",
+        "argv": [
+          "<OUT>/native/phy/old37/program.host",
+          "data-reference"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "8f1d0d7b91f6d7b34d83e9d6cf450952cb3b43b2585fbba6428d956c31d19d0d",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/old37/short-read",
+        "argv": [
+          "<OUT>/native/phy/old37/program.host",
+          "short-read"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "0edd4a359056cb8c8fb434b4d97ba3582976b5a6fef3988f870599a1b8161650",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/old37/phy-errors",
+        "argv": [
+          "<OUT>/native/phy/old37/program.host",
+          "phy-errors"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "1e272ee6192f92e01f94b4d40af7063a4796f4dcc24878ae1c69dee718f310fb",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/old37/mmd-result",
+        "argv": [
+          "<OUT>/native/phy/old37/program.host",
+          "mmd-result"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "1934cfe3ed6349bb051fc35519145f37d88c8d49f75b0aacc727fcc0f151a08f",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/asan-canary",
+        "argv": [
+          "<OUT>/native/phy/fixed/program.host",
+          "asan-canary"
+        ],
+        "returncode": 97,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": null,
+        "sanitizer": "asan",
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97"
+      },
+      {
+        "label": "phy/ubsan-canary",
+        "argv": [
+          "<OUT>/native/phy/fixed/program.host",
+          "ubsan-canary"
+        ],
+        "returncode": 98,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": null,
+        "sanitizer": "ubsan",
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=98",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=98"
+      }
+    ],
+    "inputs": {
+      "tests/test-ssdk-i2c-io.py": "2a6b0400b67c665015916eb9a99be51d5f6bd5125d1dc7afeeb77f3a851bdc8f",
+      "tests/ssdk-i2c-io/README.md": "fd0419d87268bf3e392c721d03a422a847ede3cbbfe23508df148fae5b76ace3",
+      "tests/ssdk-i2c-io/fixture.c": "e0d60b549be6a0cd8c568c9bb3b4477f386d65993db4ec6f633f33b064afb76d",
+      "tests/ssdk-i2c-io/model.h": "998c61fa080ea9c1c098358c48a2d1e72a5d7c57103496459a100feddb74dee8",
+      "tests/ssdk-i2c-io/source.py": "331275a5c11f7d09f94a10791fcb4b795962f20d0395669a5f0ff7adc46a9a8d",
+      "package/qca-nss/qca-ssdk/patches/050-i2c-transfer-results-and-reference-balance.patch": "7bbd1074fade9de5f07235ecf3d893539b4c3e27ee81b0e35934b1d51a357af9",
+      "tests/edma_patch_context.py": "1f4e7c6cede52ca6c3d76a807e79e593aa4fb0c764172a16e69f73ee1f054e32",
+      "tests/nss-dp-containment/extract_prepared_c.py": "7ce823535edbce4205e992a37a9fe93c88627026149459ace1b99567f8707614",
+      "package/qca-nss/qca-ssdk/Makefile": "5709de0dfe31f5e42935f2a4727d3ef96df43140c616dec0d796c6b1bfb6fc78"
+    }
+  },
+  "tunip": {
+    "reviewed_receipt_sha256": "c3ed21447d89f0f628253aa74a9612703cc3de0d2aca74e0193f19ad9e0a29ce",
+    "fields": {
+      "positives": [
+        "add-bmr",
+        "add-fmr",
+        "delete-bmr",
+        "delete-fmr",
+        "flush",
+        "frag-one",
+        "frag-zero",
+        "frag-missing",
+        "frag-unknown-only",
+        "frag-forbidden-netdev",
+        "frag-repeat-valid",
+        "duplicate-different",
+        "duplicate-same",
+        "duplicate-three",
+        "duplicate-last-missing",
+        "first-missing",
+        "empty-netdev",
+        "duplicate-empty-netdev",
+        "missing-value-after-netdev",
+        "zero-rule",
+        "duplicate-parse-error",
+        "missing-netdev",
+        "missing-rule",
+        "missing-map-fields",
+        "empty-request",
+        "whitespace-map",
+        "null-buffer",
+        "null-lenp",
+        "read",
+        "size-max",
+        "oversized",
+        "full-buffer",
+        "oom",
+        "oom-retry",
+        "invalid-mode",
+        "invalid-frag-value",
+        "empty-rule_type",
+        "empty-ipv4_prefix_len",
+        "empty-ipv6_prefix_len",
+        "empty-ipv6_suffix_len",
+        "empty-ea_len",
+        "empty-psid_offset",
+        "empty-frag",
+        "zero-fields",
+        "lower-add-invalid-param",
+        "lower-add-invalid-rule",
+        "lower-add-no-node",
+        "lower-add-tx-failure",
+        "lower-del-invalid-param",
+        "lower-del-invalid-rule",
+        "lower-del-no-node",
+        "lower-del-tx-failure",
+        "lower-flush-invalid-param",
+        "lower-flush-invalid-rule",
+        "lower-flush-no-node",
+        "lower-flush-tx-failure",
+        "lower-unknown",
+        "lower-retry"
+      ],
+      "source_negatives": [
+        [
+          "replace-leaks-old",
+          "duplicate-different",
+          "REF_BALANCE"
+        ],
+        [
+          "replace-puts-new",
+          "duplicate-different",
+          "PROVIDER_REF"
+        ],
+        [
+          "missing-loses-old",
+          "duplicate-last-missing",
+          "REF_BALANCE"
+        ],
+        [
+          "exit-leaks-ref",
+          "flush",
+          "REF_BALANCE"
+        ],
+        [
+          "missing-errno",
+          "first-missing",
+          "RETURN"
+        ],
+        [
+          "semantic-success",
+          "missing-rule",
+          "RETURN"
+        ],
+        [
+          "swallow-final-error",
+          "missing-rule",
+          "RETURN"
+        ],
+        [
+          "ignore-frag-presence",
+          "frag-missing",
+          "RETURN"
+        ],
+        [
+          "never-frag-present",
+          "frag-one",
+          "RETURN"
+        ],
+        [
+          "wrong-frag-value",
+          "frag-one",
+          "FRAG_STATE"
+        ],
+        [
+          "skip-provider-error",
+          "lower-flush-tx-failure",
+          "RETURN"
+        ],
+        [
+          "invalid-map-error",
+          "lower-add-invalid-param",
+          "RETURN"
+        ],
+        [
+          "node-map-error",
+          "lower-flush-no-node",
+          "RETURN"
+        ],
+        [
+          "io-map-success",
+          "lower-flush-tx-failure",
+          "RETURN"
+        ],
+        [
+          "success-map-error",
+          "flush",
+          "RETURN"
+        ],
+        [
+          "exit-leaks-buffer",
+          "duplicate-parse-error",
+          "ALLOC_BALANCE"
+        ],
+        [
+          "double-free-buffer",
+          "flush",
+          "FREE_OWNER"
+        ],
+        [
+          "no-publish-device",
+          "flush",
+          "PROVIDER_REF"
+        ],
+        [
+          "wrapper-add",
+          "missing-map-fields",
+          "RETURN"
+        ],
+        [
+          "wrapper-del",
+          "missing-rule",
+          "RETURN"
+        ],
+        [
+          "wrapper-flush",
+          "first-missing",
+          "RETURN"
+        ],
+        [
+          "wrapper-frag",
+          "frag-missing",
+          "RETURN"
+        ]
+      ],
+      "baseline_equivalence": [
+        "add-bmr",
+        "add-fmr",
+        "delete-bmr",
+        "delete-fmr",
+        "flush",
+        "frag-one",
+        "frag-zero",
+        "frag-repeat-valid",
+        "zero-fields",
+        "full-buffer"
+      ],
+      "baseline_witnesses": [
+        [
+          "duplicate-different",
+          "REF_BALANCE"
+        ],
+        [
+          "frag-missing",
+          "RETURN"
+        ],
+        [
+          "missing-rule",
+          "RETURN"
+        ],
+        [
+          "lower-flush-tx-failure",
+          "RETURN"
+        ]
+      ],
+      "inventory_controls": {
+        "classification": "PURE_TEST_INVENTORY_NOT_SOURCE_MUTANTS",
+        "rejected": 6,
+        "valid": 1
+      },
+      "oracle_control": {
+        "classification": "TEST_EXPECTED_TRACE_POLLUTION_NOT_SOURCE_MUTANT",
+        "marker": "TRACE",
+        "rejected": 1
+      },
+      "fixed_obligations": [
+        [
+          "replace-leaks-old",
+          "duplicate-different",
+          "REF_BALANCE"
+        ],
+        [
+          "replace-puts-new",
+          "duplicate-different",
+          "PROVIDER_REF"
+        ],
+        [
+          "missing-loses-old",
+          "duplicate-last-missing",
+          "REF_BALANCE"
+        ],
+        [
+          "exit-leaks-ref",
+          "flush",
+          "REF_BALANCE"
+        ],
+        [
+          "missing-errno",
+          "first-missing",
+          "RETURN"
+        ],
+        [
+          "semantic-success",
+          "missing-rule",
+          "RETURN"
+        ],
+        [
+          "swallow-final-error",
+          "missing-rule",
+          "RETURN"
+        ],
+        [
+          "ignore-frag-presence",
+          "frag-missing",
+          "RETURN"
+        ],
+        [
+          "never-frag-present",
+          "frag-one",
+          "RETURN"
+        ],
+        [
+          "wrong-frag-value",
+          "frag-one",
+          "FRAG_STATE"
+        ],
+        [
+          "skip-provider-error",
+          "lower-flush-tx-failure",
+          "RETURN"
+        ],
+        [
+          "invalid-map-error",
+          "lower-add-invalid-param",
+          "RETURN"
+        ],
+        [
+          "node-map-error",
+          "lower-flush-no-node",
+          "RETURN"
+        ],
+        [
+          "io-map-success",
+          "lower-flush-tx-failure",
+          "RETURN"
+        ],
+        [
+          "success-map-error",
+          "flush",
+          "RETURN"
+        ],
+        [
+          "exit-leaks-buffer",
+          "duplicate-parse-error",
+          "ALLOC_BALANCE"
+        ],
+        [
+          "double-free-buffer",
+          "flush",
+          "FREE_OWNER"
+        ],
+        [
+          "no-publish-device",
+          "flush",
+          "PROVIDER_REF"
+        ],
+        [
+          "wrapper-add",
+          "missing-map-fields",
+          "RETURN"
+        ],
+        [
+          "wrapper-del",
+          "missing-rule",
+          "RETURN"
+        ],
+        [
+          "wrapper-flush",
+          "first-missing",
+          "RETURN"
+        ],
+        [
+          "wrapper-frag",
+          "frag-missing",
+          "RETURN"
+        ]
+      ]
+    },
+    "commands": [
+      {
+        "label": "roundtrip-reverse",
+        "argv": [
+          "<PATCH>",
+          "--batch",
+          "--fuzz=0",
+          "-p1",
+          "-R"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3c4655e81ab8b83d76fa6e6d1ee0d6def0fdfd6dc91f8de8383a33898823955",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "roundtrip-forward",
+        "argv": [
+          "<PATCH>",
+          "--batch",
+          "--fuzz=0",
+          "-p1"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3c4655e81ab8b83d76fa6e6d1ee0d6def0fdfd6dc91f8de8383a33898823955",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/compile",
+        "argv": [
+          "<CC>",
+          "-std=gnu11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=address,undefined",
+          "-fno-omit-frame-pointer",
+          "-fno-sanitize-recover=all",
+          "<OUT>/positive/fixture.c",
+          "-o",
+          "<OUT>/positive/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/add-bmr/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/add-bmr/request.input",
+          "<OUT>/positive/add-bmr/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "f951531634c01968c29a242df6e6230592fe09e9baa2aa837753529a3fd5674b",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/add-fmr/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/add-fmr/request.input",
+          "<OUT>/positive/add-fmr/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "3510e53cb70c30b7541201fbd59128e1274337446c086d1a006ebdf3abac0e32",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/delete-bmr/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "1",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/delete-bmr/request.input",
+          "<OUT>/positive/delete-bmr/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "26e39859eedd55a191ec3e1bf1a04c5c967f848285543abc3ad54d2e3fbb9cab",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/delete-fmr/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "1",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/delete-fmr/request.input",
+          "<OUT>/positive/delete-fmr/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "75fda2ca4f3844c6c4abdc846cb927131722bc49f1eb4f08ed34a22bbfb1f0e4",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/flush/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "2",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/flush/request.input",
+          "<OUT>/positive/flush/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "00c447a8889905c14419bafe5d406e7d6ad76db512a9dc275ea2fa8a0c4e3c47",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/frag-one/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "3",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "1",
+          "<OUT>/positive/frag-one/request.input",
+          "<OUT>/positive/frag-one/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "bd276c309f536b697fadbdc91030a1525d121abcf6877543ac90649d5b78cd15",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/frag-zero/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "3",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "0",
+          "1",
+          "<OUT>/positive/frag-zero/request.input",
+          "<OUT>/positive/frag-zero/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "9ea61b14f73fbe579ea3daf6855e1d4246f562c19d14981a9bf39ccb41f29b2f",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/frag-missing/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "3",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "1",
+          "1",
+          "1",
+          "<OUT>/positive/frag-missing/request.input",
+          "<OUT>/positive/frag-missing/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "ef1c16cc847571c7ea0e0999f6a89fad194beb8c1b47e9fec272f61955fbd083",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/frag-unknown-only/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "3",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "1",
+          "1",
+          "1",
+          "<OUT>/positive/frag-unknown-only/request.input",
+          "<OUT>/positive/frag-unknown-only/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "ef1c16cc847571c7ea0e0999f6a89fad194beb8c1b47e9fec272f61955fbd083",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/frag-forbidden-netdev/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "3",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "1",
+          "1",
+          "1",
+          "<OUT>/positive/frag-forbidden-netdev/request.input",
+          "<OUT>/positive/frag-forbidden-netdev/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "c869afaa08cc56cbe17f2e766e9896a75a90b3d7eb27c61fa3e40691bffcb29e",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/frag-repeat-valid/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "3",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "0",
+          "1",
+          "<OUT>/positive/frag-repeat-valid/request.input",
+          "<OUT>/positive/frag-repeat-valid/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "9ea61b14f73fbe579ea3daf6855e1d4246f562c19d14981a9bf39ccb41f29b2f",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/duplicate-different/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "2",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/duplicate-different/request.input",
+          "<OUT>/positive/duplicate-different/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "ff25464f6abc15ec0526a88aef8fb1fbfbf443c5b021ad63c23dc88088848a39",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/duplicate-same/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "2",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/duplicate-same/request.input",
+          "<OUT>/positive/duplicate-same/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "a7cdd69d23fa6b1a64db1e1b49987b43ac81eda45e0728080f57e9454f8b2bce",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/duplicate-three/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "2",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/duplicate-three/request.input",
+          "<OUT>/positive/duplicate-three/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "5bf6a237008aaeed6c2140b502a4fd73ac21dbd56fbff9bc9b935fd4c0d2c0d2",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/duplicate-last-missing/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "2",
+          "0",
+          "0",
+          "0",
+          "-19",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/duplicate-last-missing/request.input",
+          "<OUT>/positive/duplicate-last-missing/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "1ae1f02f697966793522ac002cf3e56778bb207f704e5908351a0bc48e952b37",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/first-missing/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "2",
+          "0",
+          "0",
+          "0",
+          "-19",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/first-missing/request.input",
+          "<OUT>/positive/first-missing/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "1084a1ec2ad4070699f08144cb3bcd6578b9ecf8f618ec0def08d82c6ec7bf99",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/empty-netdev/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "2",
+          "0",
+          "0",
+          "0",
+          "-19",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/empty-netdev/request.input",
+          "<OUT>/positive/empty-netdev/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "707f5ff0d07a5c2e81da1dbe07a12b6208e3cf709c0b546082781d16aec12c85",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/duplicate-empty-netdev/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "2",
+          "0",
+          "0",
+          "0",
+          "-19",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/duplicate-empty-netdev/request.input",
+          "<OUT>/positive/duplicate-empty-netdev/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "886e3736679054cfa580a1692e67780cc7cdf5d221fea9db6770f314122d4ed0",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/missing-value-after-netdev/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "2",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/missing-value-after-netdev/request.input",
+          "<OUT>/positive/missing-value-after-netdev/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "fb9e055075d708362327450b6cc25926b47af45f1f9715bd0cd9eb3eef27c1e9",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/zero-rule/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "1",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/zero-rule/request.input",
+          "<OUT>/positive/zero-rule/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "fb9e055075d708362327450b6cc25926b47af45f1f9715bd0cd9eb3eef27c1e9",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/duplicate-parse-error/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "0",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/duplicate-parse-error/request.input",
+          "<OUT>/positive/duplicate-parse-error/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "00c54ecfda063c7ba7f4e36bdc1be287533418dc48ecbe24a6373b572002e8e4",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/missing-netdev/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "0",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/missing-netdev/request.input",
+          "<OUT>/positive/missing-netdev/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "aef20c489d971ed26e84c8840898ed29844425c02f7b2b95b1f6bc8d5df13877",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/missing-rule/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "1",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/missing-rule/request.input",
+          "<OUT>/positive/missing-rule/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "39d4b637d8fc08f52643acd4bf2bae776f27053c16badef990fa8877af45203d",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/missing-map-fields/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "0",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/missing-map-fields/request.input",
+          "<OUT>/positive/missing-map-fields/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "39d4b637d8fc08f52643acd4bf2bae776f27053c16badef990fa8877af45203d",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/empty-request/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "3",
+          "0",
+          "0",
+          "0",
+          "-7",
+          "1",
+          "1",
+          "1",
+          "<OUT>/positive/empty-request/request.input",
+          "<OUT>/positive/empty-request/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "81b8665e9734dd0374cfc68d761721c6f18b25222b1db9ff674d1e3905e4b257",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/whitespace-map/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "0",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/whitespace-map/request.input",
+          "<OUT>/positive/whitespace-map/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "aef20c489d971ed26e84c8840898ed29844425c02f7b2b95b1f6bc8d5df13877",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/null-buffer/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "2",
+          "0",
+          "0",
+          "1",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/null-buffer/request.input",
+          "<OUT>/positive/null-buffer/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "914fc5822da764bfcfd25478b32b0c4283ac4c7f0014f78fee5eb5cad99c96a8",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/null-lenp/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "2",
+          "0",
+          "0",
+          "2",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/null-lenp/request.input",
+          "<OUT>/positive/null-lenp/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "914fc5822da764bfcfd25478b32b0c4283ac4c7f0014f78fee5eb5cad99c96a8",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/read/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "2",
+          "0",
+          "0",
+          "3",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/read/request.input",
+          "<OUT>/positive/read/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "914fc5822da764bfcfd25478b32b0c4283ac4c7f0014f78fee5eb5cad99c96a8",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/size-max/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "2",
+          "0",
+          "0",
+          "4",
+          "-7",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/size-max/request.input",
+          "<OUT>/positive/size-max/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "db22567a1e8a2bf8c21a9cd65f146a6a20f61e79652650dee9a065d90c4c734c",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/oversized/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "0",
+          "0",
+          "0",
+          "0",
+          "-7",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/oversized/request.input",
+          "<OUT>/positive/oversized/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "db22567a1e8a2bf8c21a9cd65f146a6a20f61e79652650dee9a065d90c4c734c",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/full-buffer/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "3",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "0",
+          "1",
+          "<OUT>/positive/full-buffer/request.input",
+          "<OUT>/positive/full-buffer/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "9ea61b14f73fbe579ea3daf6855e1d4246f562c19d14981a9bf39ccb41f29b2f",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/oom/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "2",
+          "0",
+          "1",
+          "0",
+          "-12",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/oom/request.input",
+          "<OUT>/positive/oom/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "43d3f9db4aab5d9d332096ab0c891691547a9bef55e0c423680f3d700541764e",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/oom-retry/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "2",
+          "0",
+          "1",
+          "0",
+          "-12",
+          "0",
+          "0",
+          "2",
+          "<OUT>/positive/oom-retry/request.input",
+          "<OUT>/positive/oom-retry/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "7f6421b317e601757a3d3e745c3173b3a7d7883f3ca6cfd4d8c37c957d8ff6e4",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/invalid-mode/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "99",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/invalid-mode/request.input",
+          "<OUT>/positive/invalid-mode/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "39d4b637d8fc08f52643acd4bf2bae776f27053c16badef990fa8877af45203d",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/invalid-frag-value/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "3",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "1",
+          "1",
+          "1",
+          "<OUT>/positive/invalid-frag-value/request.input",
+          "<OUT>/positive/invalid-frag-value/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "ef1c16cc847571c7ea0e0999f6a89fad194beb8c1b47e9fec272f61955fbd083",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/empty-rule_type/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "0",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/empty-rule_type/request.input",
+          "<OUT>/positive/empty-rule_type/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "fb9e055075d708362327450b6cc25926b47af45f1f9715bd0cd9eb3eef27c1e9",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/empty-ipv4_prefix_len/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "0",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/empty-ipv4_prefix_len/request.input",
+          "<OUT>/positive/empty-ipv4_prefix_len/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "fb9e055075d708362327450b6cc25926b47af45f1f9715bd0cd9eb3eef27c1e9",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/empty-ipv6_prefix_len/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "0",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/empty-ipv6_prefix_len/request.input",
+          "<OUT>/positive/empty-ipv6_prefix_len/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "fb9e055075d708362327450b6cc25926b47af45f1f9715bd0cd9eb3eef27c1e9",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/empty-ipv6_suffix_len/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "0",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/empty-ipv6_suffix_len/request.input",
+          "<OUT>/positive/empty-ipv6_suffix_len/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "fb9e055075d708362327450b6cc25926b47af45f1f9715bd0cd9eb3eef27c1e9",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/empty-ea_len/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "0",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/empty-ea_len/request.input",
+          "<OUT>/positive/empty-ea_len/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "fb9e055075d708362327450b6cc25926b47af45f1f9715bd0cd9eb3eef27c1e9",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/empty-psid_offset/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "0",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/empty-psid_offset/request.input",
+          "<OUT>/positive/empty-psid_offset/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "fb9e055075d708362327450b6cc25926b47af45f1f9715bd0cd9eb3eef27c1e9",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/empty-frag/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "3",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "1",
+          "1",
+          "1",
+          "<OUT>/positive/empty-frag/request.input",
+          "<OUT>/positive/empty-frag/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "ef1c16cc847571c7ea0e0999f6a89fad194beb8c1b47e9fec272f61955fbd083",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/zero-fields/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/zero-fields/request.input",
+          "<OUT>/positive/zero-fields/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "d27de681ee6f6d0572759b677041413ec524050bed8e5cc0f478e332ad496d24",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/lower-add-invalid-param/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "0",
+          "9",
+          "0",
+          "0",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/lower-add-invalid-param/request.input",
+          "<OUT>/positive/lower-add-invalid-param/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "4db5b4297804774875fa80be67b9d1edb388c6beb265667eb93e2c84f1a59acf",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/lower-add-invalid-rule/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "0",
+          "10",
+          "0",
+          "0",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/lower-add-invalid-rule/request.input",
+          "<OUT>/positive/lower-add-invalid-rule/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e49c7458cbdc9d2691eb94911753f989668df04326e63ceb8ef7d8c041079c89",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/lower-add-no-node/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "0",
+          "8",
+          "0",
+          "0",
+          "-19",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/lower-add-no-node/request.input",
+          "<OUT>/positive/lower-add-no-node/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "333db2db4cf14ef0cb2fcfac6a65fe2f3dc53d479380b90f3a52615e08dbf967",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/lower-add-tx-failure/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "0",
+          "5",
+          "0",
+          "0",
+          "-5",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/lower-add-tx-failure/request.input",
+          "<OUT>/positive/lower-add-tx-failure/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "af9f9ccf680d1cb4e7409f3f69236b3c642bcaf6bb9a1824599ec8fb6eff924c",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/lower-del-invalid-param/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "1",
+          "9",
+          "0",
+          "0",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/lower-del-invalid-param/request.input",
+          "<OUT>/positive/lower-del-invalid-param/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "7140348f2ce09151aac75ffaa772b937d3cb27470e941696d473f96cb4f9e6c0",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/lower-del-invalid-rule/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "1",
+          "10",
+          "0",
+          "0",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/lower-del-invalid-rule/request.input",
+          "<OUT>/positive/lower-del-invalid-rule/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "4a23a4cada8981698aec3c571f0d109115bbac3b8b3da79a08a21a38d8b949d5",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/lower-del-no-node/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "1",
+          "8",
+          "0",
+          "0",
+          "-19",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/lower-del-no-node/request.input",
+          "<OUT>/positive/lower-del-no-node/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "2b65066a54f3912987e1d25c2b0fc2f167633b80118d6437dfff1c22d14c5e46",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/lower-del-tx-failure/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "1",
+          "6",
+          "0",
+          "0",
+          "-5",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/lower-del-tx-failure/request.input",
+          "<OUT>/positive/lower-del-tx-failure/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "925e2818734cdaaed05345791ac8a6837e027a4f609957a89092c5994923bab9",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/lower-flush-invalid-param/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "2",
+          "9",
+          "0",
+          "0",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/lower-flush-invalid-param/request.input",
+          "<OUT>/positive/lower-flush-invalid-param/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "5e508730be35083c86bd53cf7f49fe611730efbc04b96a35e37dc73ff6009f54",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/lower-flush-invalid-rule/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "2",
+          "10",
+          "0",
+          "0",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/lower-flush-invalid-rule/request.input",
+          "<OUT>/positive/lower-flush-invalid-rule/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "789de3b32ef272969eb0fae8daf52deaa06d8ad74b36a00f0dc01b6e67b53519",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/lower-flush-no-node/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "2",
+          "8",
+          "0",
+          "0",
+          "-19",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/lower-flush-no-node/request.input",
+          "<OUT>/positive/lower-flush-no-node/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "127f7c9cdd7941e62c01d275be20f3afd9808ae58afc06e28fa90402d98454e1",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/lower-flush-tx-failure/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "2",
+          "7",
+          "0",
+          "0",
+          "-5",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/lower-flush-tx-failure/request.input",
+          "<OUT>/positive/lower-flush-tx-failure/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "c5d9356ca6b75f552cd06b71ccb3f46c77849b0ffa5d840fef2a96d0d833b35c",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/lower-unknown/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "2",
+          "123",
+          "0",
+          "0",
+          "-5",
+          "0",
+          "0",
+          "1",
+          "<OUT>/positive/lower-unknown/request.input",
+          "<OUT>/positive/lower-unknown/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "c441bfba3cbcbb879ee3a5ef25be77b700be854fa304218a7a54081cf8b95bf6",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "positive/lower-retry/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "2",
+          "7",
+          "0",
+          "0",
+          "-5",
+          "0",
+          "0",
+          "2",
+          "<OUT>/positive/lower-retry/request.input",
+          "<OUT>/positive/lower-retry/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "0a128aec0b682cff6deabe00bbb14f88190477155e2fdc825f7e263332b85322",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "baseline-program/compile",
+        "argv": [
+          "<CC>",
+          "-std=gnu11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=address,undefined",
+          "-fno-omit-frame-pointer",
+          "-fno-sanitize-recover=all",
+          "<OUT>/baseline-program/fixture.c",
+          "-o",
+          "<OUT>/baseline-program/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "baseline-equivalent/add-bmr/run",
+        "argv": [
+          "<OUT>/baseline-program/program.host",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "<OUT>/baseline-equivalent/add-bmr/request.input",
+          "<OUT>/baseline-equivalent/add-bmr/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "f951531634c01968c29a242df6e6230592fe09e9baa2aa837753529a3fd5674b",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "baseline-equivalent/add-fmr/run",
+        "argv": [
+          "<OUT>/baseline-program/program.host",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "<OUT>/baseline-equivalent/add-fmr/request.input",
+          "<OUT>/baseline-equivalent/add-fmr/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "3510e53cb70c30b7541201fbd59128e1274337446c086d1a006ebdf3abac0e32",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "baseline-equivalent/delete-bmr/run",
+        "argv": [
+          "<OUT>/baseline-program/program.host",
+          "1",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "<OUT>/baseline-equivalent/delete-bmr/request.input",
+          "<OUT>/baseline-equivalent/delete-bmr/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "26e39859eedd55a191ec3e1bf1a04c5c967f848285543abc3ad54d2e3fbb9cab",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "baseline-equivalent/delete-fmr/run",
+        "argv": [
+          "<OUT>/baseline-program/program.host",
+          "1",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "<OUT>/baseline-equivalent/delete-fmr/request.input",
+          "<OUT>/baseline-equivalent/delete-fmr/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "75fda2ca4f3844c6c4abdc846cb927131722bc49f1eb4f08ed34a22bbfb1f0e4",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "baseline-equivalent/flush/run",
+        "argv": [
+          "<OUT>/baseline-program/program.host",
+          "2",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "<OUT>/baseline-equivalent/flush/request.input",
+          "<OUT>/baseline-equivalent/flush/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "00c447a8889905c14419bafe5d406e7d6ad76db512a9dc275ea2fa8a0c4e3c47",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "baseline-equivalent/frag-one/run",
+        "argv": [
+          "<OUT>/baseline-program/program.host",
+          "3",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "1",
+          "<OUT>/baseline-equivalent/frag-one/request.input",
+          "<OUT>/baseline-equivalent/frag-one/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "bd276c309f536b697fadbdc91030a1525d121abcf6877543ac90649d5b78cd15",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "baseline-equivalent/frag-zero/run",
+        "argv": [
+          "<OUT>/baseline-program/program.host",
+          "3",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "0",
+          "1",
+          "<OUT>/baseline-equivalent/frag-zero/request.input",
+          "<OUT>/baseline-equivalent/frag-zero/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "9ea61b14f73fbe579ea3daf6855e1d4246f562c19d14981a9bf39ccb41f29b2f",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "baseline-equivalent/frag-repeat-valid/run",
+        "argv": [
+          "<OUT>/baseline-program/program.host",
+          "3",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "0",
+          "1",
+          "<OUT>/baseline-equivalent/frag-repeat-valid/request.input",
+          "<OUT>/baseline-equivalent/frag-repeat-valid/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "9ea61b14f73fbe579ea3daf6855e1d4246f562c19d14981a9bf39ccb41f29b2f",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "baseline-equivalent/zero-fields/run",
+        "argv": [
+          "<OUT>/baseline-program/program.host",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "<OUT>/baseline-equivalent/zero-fields/request.input",
+          "<OUT>/baseline-equivalent/zero-fields/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "d27de681ee6f6d0572759b677041413ec524050bed8e5cc0f478e332ad496d24",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "baseline-equivalent/full-buffer/run",
+        "argv": [
+          "<OUT>/baseline-program/program.host",
+          "3",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "0",
+          "1",
+          "<OUT>/baseline-equivalent/full-buffer/request.input",
+          "<OUT>/baseline-equivalent/full-buffer/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "9ea61b14f73fbe579ea3daf6855e1d4246f562c19d14981a9bf39ccb41f29b2f",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "baseline-witness/duplicate-different/run",
+        "argv": [
+          "<OUT>/baseline-program/program.host",
+          "2",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "<OUT>/baseline-witness/duplicate-different/request.input",
+          "<OUT>/baseline-witness/duplicate-different/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "5608ad4629fccf4a08474b748766aa435a8c33f97505b4bde814ecfd4e5aca8c",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "baseline-witness/frag-missing/run",
+        "argv": [
+          "<OUT>/baseline-program/program.host",
+          "3",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "1",
+          "1",
+          "1",
+          "<OUT>/baseline-witness/frag-missing/request.input",
+          "<OUT>/baseline-witness/frag-missing/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e2dbf332b165ab8731342f35f801b4633e21ddb0e2be57f13c8a786ce91bfd18",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "baseline-witness/missing-rule/run",
+        "argv": [
+          "<OUT>/baseline-program/program.host",
+          "1",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/baseline-witness/missing-rule/request.input",
+          "<OUT>/baseline-witness/missing-rule/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e2dbf332b165ab8731342f35f801b4633e21ddb0e2be57f13c8a786ce91bfd18",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "baseline-witness/lower-flush-tx-failure/run",
+        "argv": [
+          "<OUT>/baseline-program/program.host",
+          "2",
+          "7",
+          "0",
+          "0",
+          "-5",
+          "0",
+          "0",
+          "1",
+          "<OUT>/baseline-witness/lower-flush-tx-failure/request.input",
+          "<OUT>/baseline-witness/lower-flush-tx-failure/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e2dbf332b165ab8731342f35f801b4633e21ddb0e2be57f13c8a786ce91bfd18",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/replace-leaks-old/compile",
+        "argv": [
+          "<CC>",
+          "-std=gnu11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=address,undefined",
+          "-fno-omit-frame-pointer",
+          "-fno-sanitize-recover=all",
+          "<OUT>/negative/replace-leaks-old/fixture.c",
+          "-o",
+          "<OUT>/negative/replace-leaks-old/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/replace-leaks-old/run",
+        "argv": [
+          "<OUT>/negative/replace-leaks-old/program.host",
+          "2",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "<OUT>/negative/replace-leaks-old/request.input",
+          "<OUT>/negative/replace-leaks-old/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "5608ad4629fccf4a08474b748766aa435a8c33f97505b4bde814ecfd4e5aca8c",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/replace-puts-new/compile",
+        "argv": [
+          "<CC>",
+          "-std=gnu11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=address,undefined",
+          "-fno-omit-frame-pointer",
+          "-fno-sanitize-recover=all",
+          "<OUT>/negative/replace-puts-new/fixture.c",
+          "-o",
+          "<OUT>/negative/replace-puts-new/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/replace-puts-new/run",
+        "argv": [
+          "<OUT>/negative/replace-puts-new/program.host",
+          "2",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "<OUT>/negative/replace-puts-new/request.input",
+          "<OUT>/negative/replace-puts-new/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "bc1ac8b3195e9ba38377d0647e3e76dac6f535430ac08002139d2e064ef2d1f1",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/missing-loses-old/compile",
+        "argv": [
+          "<CC>",
+          "-std=gnu11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=address,undefined",
+          "-fno-omit-frame-pointer",
+          "-fno-sanitize-recover=all",
+          "<OUT>/negative/missing-loses-old/fixture.c",
+          "-o",
+          "<OUT>/negative/missing-loses-old/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/missing-loses-old/run",
+        "argv": [
+          "<OUT>/negative/missing-loses-old/program.host",
+          "2",
+          "0",
+          "0",
+          "0",
+          "-19",
+          "0",
+          "0",
+          "1",
+          "<OUT>/negative/missing-loses-old/request.input",
+          "<OUT>/negative/missing-loses-old/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "5608ad4629fccf4a08474b748766aa435a8c33f97505b4bde814ecfd4e5aca8c",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/exit-leaks-ref/compile",
+        "argv": [
+          "<CC>",
+          "-std=gnu11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=address,undefined",
+          "-fno-omit-frame-pointer",
+          "-fno-sanitize-recover=all",
+          "<OUT>/negative/exit-leaks-ref/fixture.c",
+          "-o",
+          "<OUT>/negative/exit-leaks-ref/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/exit-leaks-ref/run",
+        "argv": [
+          "<OUT>/negative/exit-leaks-ref/program.host",
+          "2",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "<OUT>/negative/exit-leaks-ref/request.input",
+          "<OUT>/negative/exit-leaks-ref/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "5608ad4629fccf4a08474b748766aa435a8c33f97505b4bde814ecfd4e5aca8c",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/missing-errno/compile",
+        "argv": [
+          "<CC>",
+          "-std=gnu11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=address,undefined",
+          "-fno-omit-frame-pointer",
+          "-fno-sanitize-recover=all",
+          "<OUT>/negative/missing-errno/fixture.c",
+          "-o",
+          "<OUT>/negative/missing-errno/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/missing-errno/run",
+        "argv": [
+          "<OUT>/negative/missing-errno/program.host",
+          "2",
+          "0",
+          "0",
+          "0",
+          "-19",
+          "0",
+          "0",
+          "1",
+          "<OUT>/negative/missing-errno/request.input",
+          "<OUT>/negative/missing-errno/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e2dbf332b165ab8731342f35f801b4633e21ddb0e2be57f13c8a786ce91bfd18",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/semantic-success/compile",
+        "argv": [
+          "<CC>",
+          "-std=gnu11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=address,undefined",
+          "-fno-omit-frame-pointer",
+          "-fno-sanitize-recover=all",
+          "<OUT>/negative/semantic-success/fixture.c",
+          "-o",
+          "<OUT>/negative/semantic-success/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/semantic-success/run",
+        "argv": [
+          "<OUT>/negative/semantic-success/program.host",
+          "1",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/negative/semantic-success/request.input",
+          "<OUT>/negative/semantic-success/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e2dbf332b165ab8731342f35f801b4633e21ddb0e2be57f13c8a786ce91bfd18",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/swallow-final-error/compile",
+        "argv": [
+          "<CC>",
+          "-std=gnu11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=address,undefined",
+          "-fno-omit-frame-pointer",
+          "-fno-sanitize-recover=all",
+          "<OUT>/negative/swallow-final-error/fixture.c",
+          "-o",
+          "<OUT>/negative/swallow-final-error/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/swallow-final-error/run",
+        "argv": [
+          "<OUT>/negative/swallow-final-error/program.host",
+          "1",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/negative/swallow-final-error/request.input",
+          "<OUT>/negative/swallow-final-error/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e2dbf332b165ab8731342f35f801b4633e21ddb0e2be57f13c8a786ce91bfd18",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/ignore-frag-presence/compile",
+        "argv": [
+          "<CC>",
+          "-std=gnu11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=address,undefined",
+          "-fno-omit-frame-pointer",
+          "-fno-sanitize-recover=all",
+          "<OUT>/negative/ignore-frag-presence/fixture.c",
+          "-o",
+          "<OUT>/negative/ignore-frag-presence/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/ignore-frag-presence/run",
+        "argv": [
+          "<OUT>/negative/ignore-frag-presence/program.host",
+          "3",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "1",
+          "1",
+          "1",
+          "<OUT>/negative/ignore-frag-presence/request.input",
+          "<OUT>/negative/ignore-frag-presence/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e2dbf332b165ab8731342f35f801b4633e21ddb0e2be57f13c8a786ce91bfd18",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/never-frag-present/compile",
+        "argv": [
+          "<CC>",
+          "-std=gnu11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=address,undefined",
+          "-fno-omit-frame-pointer",
+          "-fno-sanitize-recover=all",
+          "<OUT>/negative/never-frag-present/fixture.c",
+          "-o",
+          "<OUT>/negative/never-frag-present/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/never-frag-present/run",
+        "argv": [
+          "<OUT>/negative/never-frag-present/program.host",
+          "3",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "1",
+          "<OUT>/negative/never-frag-present/request.input",
+          "<OUT>/negative/never-frag-present/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e2dbf332b165ab8731342f35f801b4633e21ddb0e2be57f13c8a786ce91bfd18",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/wrong-frag-value/compile",
+        "argv": [
+          "<CC>",
+          "-std=gnu11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=address,undefined",
+          "-fno-omit-frame-pointer",
+          "-fno-sanitize-recover=all",
+          "<OUT>/negative/wrong-frag-value/fixture.c",
+          "-o",
+          "<OUT>/negative/wrong-frag-value/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/wrong-frag-value/run",
+        "argv": [
+          "<OUT>/negative/wrong-frag-value/program.host",
+          "3",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "1",
+          "<OUT>/negative/wrong-frag-value/request.input",
+          "<OUT>/negative/wrong-frag-value/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "1e59a2467c2b5b08d2e95d8e95fdcf2f5fe743487541ce60dd1f84edee75a3ea",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/skip-provider-error/compile",
+        "argv": [
+          "<CC>",
+          "-std=gnu11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=address,undefined",
+          "-fno-omit-frame-pointer",
+          "-fno-sanitize-recover=all",
+          "<OUT>/negative/skip-provider-error/fixture.c",
+          "-o",
+          "<OUT>/negative/skip-provider-error/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/skip-provider-error/run",
+        "argv": [
+          "<OUT>/negative/skip-provider-error/program.host",
+          "2",
+          "7",
+          "0",
+          "0",
+          "-5",
+          "0",
+          "0",
+          "1",
+          "<OUT>/negative/skip-provider-error/request.input",
+          "<OUT>/negative/skip-provider-error/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e2dbf332b165ab8731342f35f801b4633e21ddb0e2be57f13c8a786ce91bfd18",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/invalid-map-error/compile",
+        "argv": [
+          "<CC>",
+          "-std=gnu11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=address,undefined",
+          "-fno-omit-frame-pointer",
+          "-fno-sanitize-recover=all",
+          "<OUT>/negative/invalid-map-error/fixture.c",
+          "-o",
+          "<OUT>/negative/invalid-map-error/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/invalid-map-error/run",
+        "argv": [
+          "<OUT>/negative/invalid-map-error/program.host",
+          "0",
+          "9",
+          "0",
+          "0",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/negative/invalid-map-error/request.input",
+          "<OUT>/negative/invalid-map-error/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e2dbf332b165ab8731342f35f801b4633e21ddb0e2be57f13c8a786ce91bfd18",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/node-map-error/compile",
+        "argv": [
+          "<CC>",
+          "-std=gnu11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=address,undefined",
+          "-fno-omit-frame-pointer",
+          "-fno-sanitize-recover=all",
+          "<OUT>/negative/node-map-error/fixture.c",
+          "-o",
+          "<OUT>/negative/node-map-error/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/node-map-error/run",
+        "argv": [
+          "<OUT>/negative/node-map-error/program.host",
+          "2",
+          "8",
+          "0",
+          "0",
+          "-19",
+          "0",
+          "0",
+          "1",
+          "<OUT>/negative/node-map-error/request.input",
+          "<OUT>/negative/node-map-error/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e2dbf332b165ab8731342f35f801b4633e21ddb0e2be57f13c8a786ce91bfd18",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/io-map-success/compile",
+        "argv": [
+          "<CC>",
+          "-std=gnu11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=address,undefined",
+          "-fno-omit-frame-pointer",
+          "-fno-sanitize-recover=all",
+          "<OUT>/negative/io-map-success/fixture.c",
+          "-o",
+          "<OUT>/negative/io-map-success/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/io-map-success/run",
+        "argv": [
+          "<OUT>/negative/io-map-success/program.host",
+          "2",
+          "7",
+          "0",
+          "0",
+          "-5",
+          "0",
+          "0",
+          "1",
+          "<OUT>/negative/io-map-success/request.input",
+          "<OUT>/negative/io-map-success/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e2dbf332b165ab8731342f35f801b4633e21ddb0e2be57f13c8a786ce91bfd18",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/success-map-error/compile",
+        "argv": [
+          "<CC>",
+          "-std=gnu11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=address,undefined",
+          "-fno-omit-frame-pointer",
+          "-fno-sanitize-recover=all",
+          "<OUT>/negative/success-map-error/fixture.c",
+          "-o",
+          "<OUT>/negative/success-map-error/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/success-map-error/run",
+        "argv": [
+          "<OUT>/negative/success-map-error/program.host",
+          "2",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "<OUT>/negative/success-map-error/request.input",
+          "<OUT>/negative/success-map-error/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e2dbf332b165ab8731342f35f801b4633e21ddb0e2be57f13c8a786ce91bfd18",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/exit-leaks-buffer/compile",
+        "argv": [
+          "<CC>",
+          "-std=gnu11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=address,undefined",
+          "-fno-omit-frame-pointer",
+          "-fno-sanitize-recover=all",
+          "<OUT>/negative/exit-leaks-buffer/fixture.c",
+          "-o",
+          "<OUT>/negative/exit-leaks-buffer/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/exit-leaks-buffer/run",
+        "argv": [
+          "<OUT>/negative/exit-leaks-buffer/program.host",
+          "0",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/negative/exit-leaks-buffer/request.input",
+          "<OUT>/negative/exit-leaks-buffer/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "32016f881632f150be3a7c944c11dc5954ab3f65cc3b09a493e96a2e5361b92c",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/double-free-buffer/compile",
+        "argv": [
+          "<CC>",
+          "-std=gnu11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=address,undefined",
+          "-fno-omit-frame-pointer",
+          "-fno-sanitize-recover=all",
+          "<OUT>/negative/double-free-buffer/fixture.c",
+          "-o",
+          "<OUT>/negative/double-free-buffer/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/double-free-buffer/run",
+        "argv": [
+          "<OUT>/negative/double-free-buffer/program.host",
+          "2",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "<OUT>/negative/double-free-buffer/request.input",
+          "<OUT>/negative/double-free-buffer/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "cf568de1e4c122dcbe10d66f6645c2440f3468573eb63c5b38d35239a5d0170f",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/no-publish-device/compile",
+        "argv": [
+          "<CC>",
+          "-std=gnu11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=address,undefined",
+          "-fno-omit-frame-pointer",
+          "-fno-sanitize-recover=all",
+          "<OUT>/negative/no-publish-device/fixture.c",
+          "-o",
+          "<OUT>/negative/no-publish-device/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/no-publish-device/run",
+        "argv": [
+          "<OUT>/negative/no-publish-device/program.host",
+          "2",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "<OUT>/negative/no-publish-device/request.input",
+          "<OUT>/negative/no-publish-device/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "bc1ac8b3195e9ba38377d0647e3e76dac6f535430ac08002139d2e064ef2d1f1",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/wrapper-add/compile",
+        "argv": [
+          "<CC>",
+          "-std=gnu11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=address,undefined",
+          "-fno-omit-frame-pointer",
+          "-fno-sanitize-recover=all",
+          "<OUT>/negative/wrapper-add/fixture.c",
+          "-o",
+          "<OUT>/negative/wrapper-add/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/wrapper-add/run",
+        "argv": [
+          "<OUT>/negative/wrapper-add/program.host",
+          "0",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/negative/wrapper-add/request.input",
+          "<OUT>/negative/wrapper-add/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e2dbf332b165ab8731342f35f801b4633e21ddb0e2be57f13c8a786ce91bfd18",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/wrapper-del/compile",
+        "argv": [
+          "<CC>",
+          "-std=gnu11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=address,undefined",
+          "-fno-omit-frame-pointer",
+          "-fno-sanitize-recover=all",
+          "<OUT>/negative/wrapper-del/fixture.c",
+          "-o",
+          "<OUT>/negative/wrapper-del/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/wrapper-del/run",
+        "argv": [
+          "<OUT>/negative/wrapper-del/program.host",
+          "1",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "0",
+          "0",
+          "1",
+          "<OUT>/negative/wrapper-del/request.input",
+          "<OUT>/negative/wrapper-del/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e2dbf332b165ab8731342f35f801b4633e21ddb0e2be57f13c8a786ce91bfd18",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/wrapper-flush/compile",
+        "argv": [
+          "<CC>",
+          "-std=gnu11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=address,undefined",
+          "-fno-omit-frame-pointer",
+          "-fno-sanitize-recover=all",
+          "<OUT>/negative/wrapper-flush/fixture.c",
+          "-o",
+          "<OUT>/negative/wrapper-flush/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/wrapper-flush/run",
+        "argv": [
+          "<OUT>/negative/wrapper-flush/program.host",
+          "2",
+          "0",
+          "0",
+          "0",
+          "-19",
+          "0",
+          "0",
+          "1",
+          "<OUT>/negative/wrapper-flush/request.input",
+          "<OUT>/negative/wrapper-flush/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e2dbf332b165ab8731342f35f801b4633e21ddb0e2be57f13c8a786ce91bfd18",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/wrapper-frag/compile",
+        "argv": [
+          "<CC>",
+          "-std=gnu11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=address,undefined",
+          "-fno-omit-frame-pointer",
+          "-fno-sanitize-recover=all",
+          "<OUT>/negative/wrapper-frag/fixture.c",
+          "-o",
+          "<OUT>/negative/wrapper-frag/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "negative/wrapper-frag/run",
+        "argv": [
+          "<OUT>/negative/wrapper-frag/program.host",
+          "3",
+          "0",
+          "0",
+          "0",
+          "-22",
+          "1",
+          "1",
+          "1",
+          "<OUT>/negative/wrapper-frag/request.input",
+          "<OUT>/negative/wrapper-frag/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e2dbf332b165ab8731342f35f801b4633e21ddb0e2be57f13c8a786ce91bfd18",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "oracle-control/wrong-recipient/run",
+        "argv": [
+          "<OUT>/positive/program.host",
+          "2",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "<OUT>/oracle-control/wrong-recipient/request.input",
+          "<OUT>/oracle-control/wrong-recipient/trace.expected",
+          "fixed-contract"
+        ],
+        "returncode": 86,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "b32ab28facc8d0f9d219921ae91d78ca1f560d7c499df89621b78d132222524b",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "canary/asan/compile",
+        "argv": [
+          "<CC>",
+          "-std=gnu11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=address,undefined",
+          "-fno-omit-frame-pointer",
+          "-fno-sanitize-recover=all",
+          "<OUT>/canary/asan/fixture.c",
+          "-o",
+          "<OUT>/canary/asan/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "canary/asan/run",
+        "argv": [
+          "<OUT>/canary/asan/program.host"
+        ],
+        "returncode": 97,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": null,
+        "sanitizer": "asan",
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=97:print_stacktrace=1"
+      },
+      {
+        "label": "canary/ubsan/compile",
+        "argv": [
+          "<CC>",
+          "-std=gnu11",
+          "-O1",
+          "-g",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-fsanitize=address,undefined",
+          "-fno-omit-frame-pointer",
+          "-fno-sanitize-recover=all",
+          "<OUT>/canary/ubsan/fixture.c",
+          "-o",
+          "<OUT>/canary/ubsan/program.host"
+        ],
+        "returncode": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sanitizer": null,
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      },
+      {
+        "label": "canary/ubsan/run",
+        "argv": [
+          "<OUT>/canary/ubsan/program.host"
+        ],
+        "returncode": 98,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": null,
+        "sanitizer": "ubsan",
+        "ASAN_OPTIONS": "detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=98",
+        "UBSAN_OPTIONS": "halt_on_error=1:abort_on_error=0:exitcode=98:print_stacktrace=1"
+      }
+    ],
+    "inputs": {
+      "include/package-defaults.mk": "cdb9a02ff1f3fe6e867fb9dcdc109ee93632b72be92e02e7b70f542e400ff710",
+      "include/package.mk": "adca9e09c7bbbb140dce31e454934299b77a8cd62530c60ac932ded0218a8ac9",
+      "package/qca-nss/qca-nss-clients/Makefile": "94c5c9850c8f2da4aa080fde5648eb25ae9bfa76d863bf079ac61d82006bb060",
+      "package/qca-nss/qca-nss-clients/patches/001-build-system-and-common-apis.patch": "4a6ec8df3356e8c61269fcf46019a19e193803d2fa1f67cee97b4f7c48a049d1",
+      "package/qca-nss/qca-nss-clients/patches/002-bridge-vlan-lag-port-managers.patch": "8f78d21f51e0919e84af877482dfaa9530e3f24b9fec13706e748775629218a1",
+      "package/qca-nss/qca-nss-clients/patches/003-gre-ip-tunnel-and-vxlan-managers.patch": "dd4a6d1f4c0359dc866b8aee3c9a2d7ab9f2c42319338b83d84899a07ab9bf22",
+      "package/qca-nss/qca-nss-clients/patches/004-l2tp-pppoe-pptp-and-map-t.patch": "8cb6d464b10e4784121e0880f17178b94ce6177410e8e55340dd22be37779d20",
+      "package/qca-nss/qca-nss-clients/patches/005-qdisc-and-traffic-control.patch": "408d3ea06ef215569c8bf461b061a040cc47b9a925c057b91dad87e37c1a9b2f",
+      "package/qca-nss/qca-nss-clients/patches/006-netlink-api-updates.patch": "5c481205e90c7dfd78e3c01014208cd6e33179e7d1dd75ad5071d80f7760f1c2",
+      "package/qca-nss/qca-nss-clients/patches/007-security-vpn-and-tls-managers.patch": "61e6bdec6c64124036c845c694fff7b5ba8e43d024b5453ed05fec0d2a422ac7",
+      "package/qca-nss/qca-nss-clients/patches/008-match-mirror-and-misc-managers.patch": "c891f454e973667f31f7dcae1e31eb41f415f675a8d6a82a16902b4d26e51150",
+      "package/qca-nss/qca-nss-clients/patches/009-netlink-reduce-startup-logging.patch": "35953aa5a914bdcf7b0eb5d9dbb9a7d1101b969fd8eb56e88004dd546963f16a",
+      "package/qca-nss/qca-nss-clients/patches/010-wifi-no-runtime-guards.patch": "91ebb76558ff463064bfdabd0d17d97fc9f3a128756edb0116bc24d1495084b8",
+      "package/qca-nss/qca-nss-clients/patches/011-act_nssmirred-fix-action-list-corruption-on-release.patch": "9f9fe8a246cd6020dc1824f9cc84967079a890713eb9504f0d55f901301e1c2f",
+      "package/qca-nss/qca-nss-clients/patches/012-nss_qdisc-guard-stats-attach-detach-against-noop-root.patch": "a3450da6e7b815cc7b49edaf84c79749d7a0b09d619331ae9633d5c83d47cd96",
+      "package/qca-nss/qca-nss-clients/patches/013-netlink-require-admin-for-rule-injection.patch": "fe4144c5ebbcb41dfcb68bdb141dc319a6b5aa3cbf869bf69c00e5e1b4fd3f8f",
+      "package/qca-nss/qca-nss-clients/patches/014-igs-preserve-interface-lookup-errors.patch": "8d19eb48d8d59f250ce7d4b80f1dec7d95bc6a4d1c671a994a0403d425579485",
+      "package/qca-nss/qca-nss-clients/patches/015-igs-reserve-action-before-interface-config.patch": "4d205ce44462c9fa285b804ce8ca32b738817c0e6e78bd303706fff1ecad4718",
+      "package/qca-nss/qca-nss-clients/patches/016-igs-preserve-early-synchronous-replies.patch": "826f6a81edd82ac3fc8a21e1bea7909a33ae55a13ea87755f6b4cc67903b3d18",
+      "package/qca-nss/qca-nss-clients/patches/017-igs-reserve-binding-before-firmware-configuration.patch": "353ed8a90b07a4ebaffe9e0c8e9d61db5f83200b1beb5e2bb67fe8c987d41490",
+      "package/qca-nss/qca-nss-clients/patches/018-igs-validate-and-retire-reply-admission.patch": "402626bbb3d1760ec36449451c37d3e68baee1c3870a739fa76e7b419902cae1",
+      "package/qca-nss/qca-nss-clients/patches/019-igs-initialize-ifb-before-publishing-module-entrypoints.patch": "c3eced042ea2d818f62d0027404ad89d6ea235ef5c0e7135b654f5054bd5c531",
+      "package/qca-nss/qca-nss-clients/patches/020-igs-defer-module-put-until-cleanup.patch": "8c6059b9f6abfbc1bd3717299449a2ba67b0feb29c7badab7d2f78673b416b09",
+      "package/qca-nss/qca-nss-clients/patches/021-igs-ifb-binding-refcount.patch": "868b327db32560458bfc98ff975b9cf8c90e993f45f994442008021a77067d1b",
+      "package/qca-nss/qca-nss-clients/patches/022-igs-release-replaced-dev-reference.patch": "b2ea6ef7403a6608c7c0caa19140db99c109840a9d1ce13e45f1428d9edfc173",
+      "package/qca-nss/qca-nss-clients/patches/023-igs-ifb-find-reference.patch": "3d2fa458ea9eb3f8037d10620346e219ec03ede6bf9f3add064e34be49f23605",
+      "package/qca-nss/qca-nss-clients/patches/024-match-bound-nexthop-command-and-preserve-errors.patch": "48c3c8828b3ce924b3ed164b461ccd2e57a3f256e24d27c7042364674e3d8bb7",
+      "package/qca-nss/qca-nss-clients/patches/025-netlink-admin-for-all-mutating-ops.patch": "2187756f3cfa81a632de16448d18c16dde654d5646e503434b8d4bfcdfcc2978",
+      "package/qca-nss/qca-nss-clients/patches/026-parse-sysctl-kernel-buffers.patch": "4312013bdb5b756dcb3f0a00890bf139192886a4f318d2dd2f1e2b40300d9715",
+      "package/qca-nss/qca-nss-clients/patches/027-tunipip6-command-errors-and-netdev-ownership.patch": "c053acb88b89a191828c7fc0572b5c1bc550d3478d636993f17873b7a81aaef6",
+      "tests/edma_patch_context.py": "1f4e7c6cede52ca6c3d76a807e79e593aa4fb0c764172a16e69f73ee1f054e32",
+      "tests/nss-command-inputs/profile.json": "8c371cd531866c8c9268021a54798b1327f818254ca573611913366755349e3b",
+      "tests/nss-dp-containment/extract_prepared_c.py": "7ce823535edbce4205e992a37a9fe93c88627026149459ace1b99567f8707614",
+      "tests/test-tunip-command-transaction.py": "63b6abb3698a347f15dfc72e24a944f5ae7353a05bf58689e7372c6c04000bbe",
+      "tests/tunip-command-transaction/README.md": "0ce12d52f8e666c231b58ec8450c52625bf3c2a069019712537fcda83fabb698",
+      "tests/tunip-command-transaction/contract.py": "dbfed2f49cc9dfc8f9161d0ec5f86caa7ba6d0ebdc4c9e951570ab263878285f",
+      "tests/tunip-command-transaction/fixture.c": "506e78e5234c346b37bd40365bc50a2d3a9f3a4a003e1f400fa45ed7556bd8b1",
+      "tests/tunip-command-transaction/model.h": "b6ac7737276c8034e57178f143f5d1bddf03eb9343ecf5a74a591ecf334b0234",
+      "tests/tunip-command-transaction/mutations.py": "b676e11ed81c474729bfc662130c6504bfac2b07a1a800675f56e1f733bef1f1",
+      "tests/tunip-command-transaction/profile.json": "27aa155ed65528bdb9b273af9f56f8a09de83e841429ef984f3360d759a76b71",
+      "tests/tunip-command-transaction/repair.py": "c042ead902da3218bd33b08ace6826e307c6671e430c0fa035aa50104e8b9cb0",
+      "tests/tunip-command-transaction/source.py": "eb1920f4e61d4b127108320df6e5715697815b832fa40fc0ddb0ffe6e0ebc216"
+    }
+  }
+}

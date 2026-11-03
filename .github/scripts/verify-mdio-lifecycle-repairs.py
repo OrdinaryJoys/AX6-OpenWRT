@@ -2,6 +2,7 @@
 """Fixed reviewed input admission and real-source host regressions; not runtime acceptance."""
 import argparse
 import hashlib
+import importlib.util
 import json
 from pathlib import Path, PurePosixPath
 import re
@@ -344,8 +345,19 @@ def main():
     parser.add_argument('--ssdk', required=True, type=Path)
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--cc', required=True)
+    parser.add_argument('--current-layers', action='store_true')
+    parser.add_argument('--legacy-source-root', type=Path)
+    parser.add_argument('--gcc11-legacy-profile', action='store_true')
     args = parser.parse_args()
-    profile = json.loads(PROFILE.read_text(), object_pairs_hook=unique)
+    if args.current_layers:
+        need(not args.gcc11_legacy_profile, 'exclusive current/legacy profiles')
+        spec = importlib.util.spec_from_file_location('current_mdio_layers', ROOT / '.github/scripts/verify-ax6-current-layers.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.run_current(args, 'mdio')
+    need(args.legacy_source_root is None, 'legacy checkout requires current-layer mode')
+    selected = ROOT / '.github/ax6-mdio-gcc11-legacy-contract.json' if args.gcc11_legacy_profile else PROFILE
+    profile = json.loads(selected.read_text(), object_pairs_hook=unique)
     admit(args.source_root, args.dp, args.ssdk, profile)
     args.output.mkdir(parents=True, exist_ok=False)
     baselines = {}
@@ -415,7 +427,7 @@ def main():
                     'receipt_sha256': sha(receipt.read_bytes())})
     admit(args.source_root, args.dp, args.ssdk, profile)
     report = {'status': 'PASS_HOST_REGRESSIONS_NOT_SHARED_RETIREMENT_OR_RUNTIME',
-              'profile_sha256': sha(PROFILE.read_bytes()), 'results': results,
+              'profile_sha256': sha(selected.read_bytes()), 'results': results,
               'shared_UK_SD_PHY_retirement': 'OPEN', 'device_or_performance_qualification': False}
     (args.output / 'RESULTS.json').write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps(report))

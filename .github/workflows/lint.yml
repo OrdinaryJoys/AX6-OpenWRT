@@ -171,6 +171,7 @@ jobs:
           python3 tests/test-vim-rootfs.py
           python3 tests/test-vlmcsd-rootfs.py
           python3 tests/test-nss-command-gate.py
+          python3 -B tests/test-current-layer-integration.py
           python3 tests/test-vim-package-evidence.py
           python3 tests/test-ax6-kernel-evidence.py
           python3 tests/test-vim-host-tools-wiring.py
