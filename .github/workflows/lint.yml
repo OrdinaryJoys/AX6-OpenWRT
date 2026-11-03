@@ -59,7 +59,7 @@ jobs:
             --source-root source --cc gcc-11 --output phy-host-evidence
       - name: Preserve host-only evidence even on failure
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6ce0a
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: AX6_PHY_HOST_${{ github.sha }}
           path: phy-host-evidence/

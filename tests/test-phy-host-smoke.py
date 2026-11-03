@@ -4,6 +4,7 @@ import ast
 import importlib.util
 import io
 from pathlib import Path
+import re
 import tarfile
 import tempfile
 import unittest
@@ -110,6 +111,15 @@ class WorkflowBoundary(unittest.TestCase):
         self.assertIn('runs-on: ubuntu-22.04', entry)
         for text in ('make ', 'sysupgrade', 'ssh ', 'build-AX6-NSS.yml', 'gh workflow run'):
             self.assertNotIn(text, entry)
+
+    def test_host_actions_match_reviewed_official_commits(self):
+        entry = self.workflow.split('  phy-host:\n', 1)[1].split('\n  lint:\n', 1)[0]
+        actions = re.findall(r'^\s+(?:-\s+)?uses:\s*([^\s#]+)', entry, re.M)
+        self.assertEqual(actions, [
+            'actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0',
+            'actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0',
+            'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a',
+        ])
 
     def test_native_runner_has_closed_record_labels(self):
         code = ast.parse((ROOT / '.github/scripts/run-ax6-phy-host-smoke.py').read_text())
