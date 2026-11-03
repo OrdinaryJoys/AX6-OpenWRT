@@ -316,42 +316,87 @@ class PhyReceipt(unittest.TestCase):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
         self.root = Path(temp.name)
+        self.cc = 'TESTONLY_CC_NOT_EXECUTED'
+        self.flags = ['-std=gnu11', '-O1', '-g', '-pthread', '-Wall', '-Wextra', '-Werror',
+                      '-Wno-unused-parameter', '-DIN_AQUANTIA_PHY']
+        self.profile_flags = {'full': [], 'mini': ['-DIN_PORTCONTROL_MINI'],
+                              'full-i2c': ['-DIN_PHY_I2C_MODE'],
+                              'mini-i2c': ['-DIN_PORTCONTROL_MINI', '-DIN_PHY_I2C_MODE']}
         self.data = {'status': 'PASS_SCOPED_HOST_ONLY', 'scope': 'ACTUAL_FUNCTIONS_HOST_SUBSTITUTES_ONLY',
                      'target_kernel_runtime_approved': False,
                      'UK_witness': 'KNOWN_OPEN_NOT_REPAIRED_NOT_EXECUTED_OR_RECLASSIFIED',
                      'expected_case_names': gate.PHY_CASES, 'positive_cases': 68,
                      'runtime_mutants': 80, 'old_counterexample_runs': 8,
                      'positives': [], 'negatives': [], 'old_counterexamples': []}
-        def process(label, rc, stdout='', stderr=''):
-            row = {'command': ['TESTONLY-not-executed'], 'returncode': rc, 'stdout': stdout, 'stderr': stderr}
-            (self.root / (label + '.json')).write_text(json.dumps(row))
-            (self.root / (label + '.stdout')).write_text(stdout)
-            (self.root / (label + '.stderr')).write_text(stderr)
+        def process(label, rc, stdout='', stderr='', command=None):
+            row = {'command': command, 'returncode': rc, 'stdout': stdout, 'stderr': stderr}
+            self.persist(row, label)
             return row
         self.process = process
-        def compiled(label):
-            (self.root / (label + '.c')).write_bytes(b'TESTONLY C')
+        def compiled(label, profile, instrumentation='address,undefined', text=b'TESTONLY C'):
+            c_file, binary = self.root / (label + '.c'), self.root / (label + '.host')
+            c_file.write_bytes(text)
             (self.root / (label + '.host')).write_bytes(b'TESTONLY NOT EXECUTABLE')
-            return {'generated_c_sha256': gate.sha(b'TESTONLY C'),
+            command = [self.cc, *self.flags, '-fsanitize=' + instrumentation, '-fno-sanitize-recover=all',
+                       '-fno-omit-frame-pointer', *self.profile_flags[profile], str(c_file), '-o', str(binary)]
+            return {'generated_c_sha256': gate.sha(text),
                     'binary_sha256': gate.sha(b'TESTONLY NOT EXECUTABLE'),
-                    'compile': process(label + '.compile', 0)}
+                    'compile': process(label + '.compile', 0, command=command)}
+        self.data['compiler'] = process('compiler', 0, 'TESTONLY compiler identity; never executed\n',
+                                        command=[self.cc, '--version'])
+        self.data['runtime_environment'] = {
+            'ASAN_OPTIONS': 'detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97',
+            'UBSAN_OPTIONS': 'halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97'}
         for profile in ('full', 'mini', 'full-i2c', 'mini-i2c'):
             label = profile + '-positive'
             self.data['positives'].append(dict(profile=profile, cases=17,
-                run=process(label + '.run', 0, ''.join('PASS ' + c + '\n' for c in gate.PHY_CASES)),
-                **compiled(label)))
+                run=process(label + '.run', 0, ''.join('PASS ' + c + '\n' for c in gate.PHY_CASES),
+                            command=[str(self.root / (label + '.host'))]), **compiled(label, profile)))
             for name, (case, marker) in gate.PHY_NEGATIVES.items():
                 label = profile + '-mutant-' + name
                 self.data['negatives'].append(dict(profile=profile, name=name, case=case, marker=marker,
-                    run=process(label + '.run', 86, stderr='PHY_OPS ' + marker + '\n'), **compiled(label)))
+                    run=process(label + '.run', 86, stderr='PHY_OPS ' + marker + '\n',
+                                command=[str(self.root / (label + '.host')), case]), **compiled(label, profile)))
             for case in ('old-phy-no-own', 'old-phy-own'):
                 label = profile + '-old36'
                 self.data['old_counterexamples'].append(dict(profile=profile, case=case, marker='ops-not-owned',
-                    run=process(label + '-' + case + '.run', 86, stderr='PHY_OPS ops-not-owned\n'),
-                    **compiled(label)))
+                    run=process(label + '-' + case + '.run', 86, stderr='PHY_OPS ops-not-owned\n',
+                                command=[str(self.root / (label + '.host')), case]), **compiled(label, profile)))
+        examples = {
+            'asan': {'returncode': 97, 'stdout': '',
+                     'stderr': 'ERROR: AddressSanitizer: heap-buffer-overflow\nWRITE of size 4\n'},
+            'ubsan': {'returncode': 98, 'stdout': '',
+                      'stderr': 'runtime error: signed integer overflow: 2147483647 + 1\n'}}
+        bodies = {
+            'asan': b'#include <stdlib.h>\nint main(void){volatile int i=2;volatile int *p=malloc(sizeof(int));p[i]=1;free((void*)p);return 0;}\n',
+            'ubsan': b'#include <limits.h>\nint main(void){volatile int n=INT_MAX;volatile int r=n+1;(void)r;return 0;}\n'}
+        self.data['canaries'] = {}
+        for kind, instrumentation, code in [('asan', 'address', 97), ('ubsan', 'undefined', 98)]:
+            label = 'canary-' + kind
+            self.data['canaries'][kind] = dict(instrumentation=instrumentation,
+                environment={'ASAN_OPTIONS': f'detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode={code}',
+                             'UBSAN_OPTIONS': f'halt_on_error=1:abort_on_error=0:exitcode={code}'},
+                run=process(label + '.run', code, stderr=examples[kind]['stderr'],
+                            command=[str(self.root / (label + '.host'))]),
+                **compiled(label, 'full', instrumentation, bodies[kind]))
+        controls = []
+        for kind, good in examples.items():
+            for key, value in [('returncode', 0), ('returncode', 1), ('returncode', -6),
+                               ('returncode', 86), ('returncode', True), ('returncode', str(good['returncode'])),
+                               ('returncode', 'timeout'), ('stdout', 'noise\n'), ('stderr', ''),
+                               ('stderr', 'runtime error: unrelated\n'),
+                               ('stderr', 'AddressSanitizer: DEADLYSIGNAL\n'),
+                               ('stderr', examples['ubsan' if kind == 'asan' else 'asan']['stderr'])]:
+                controls.append({'kind': kind, 'field': key, 'value': value})
+        self.data['sanitizer_oracle_controls'] = {'valid': 2, 'rejected_pollution': 24, 'controls': controls}
+
+    def persist(self, row, label):
+        (self.root / (label + '.json')).write_text(json.dumps(row))
+        (self.root / (label + '.stdout')).write_text(row['stdout'])
+        (self.root / (label + '.stderr')).write_text(row['stderr'])
 
     def verify(self):
-        gate.verify_phy_ops(self.root, self.data)
+        gate.verify_phy_ops(self.root, self.data, self.cc)
 
     def reject(self):
         with self.assertRaises((ValueError, OSError, KeyError)):
@@ -379,7 +424,8 @@ class PhyReceipt(unittest.TestCase):
     def test_rehashed_fake_stream(self):
         row = self.data['negatives'][0]
         label = row['profile'] + '-mutant-' + row['name'] + '.run'
-        row['run'] = self.process(label, 86, stderr='PHY_OPS ' + row['marker'] + '\nnoise\n')
+        row['run'] = self.process(label, 86, stderr='PHY_OPS ' + row['marker'] + '\nnoise\n',
+                                  command=row['run']['command'])
         self.reject()
 
     def test_raw_stream_must_match_record(self):
@@ -397,6 +443,110 @@ class PhyReceipt(unittest.TestCase):
     def test_open_boundary_not_silently_closed(self):
         self.data['target_kernel_runtime_approved'] = True
         self.reject()
+
+    def test_missing_canaries(self):
+        del self.data['canaries']; self.reject()
+
+    def test_empty_canaries(self):
+        self.data['canaries'] = {}; self.reject()
+
+    def test_unexpected_canary(self):
+        self.data['canaries']['extra'] = self.data['canaries']['asan']; self.reject()
+
+    def test_wrong_canary_instrumentation_label(self):
+        self.data['canaries']['asan']['instrumentation'] = 'address,undefined'; self.reject()
+
+    def test_combined_canary_compile_rejected_even_with_updated_raw_record(self):
+        row = self.data['canaries']['asan']['compile']
+        row['command'][10] = '-fsanitize=address,undefined'
+        self.persist(row, 'canary-asan.compile'); self.reject()
+
+    def test_ubsan_diagnostic_is_not_asan_activation(self):
+        row = self.data['canaries']['asan']['run']
+        row['stderr'] = 'runtime error: store to address with insufficient space\n'
+        self.persist(row, 'canary-asan.run'); self.reject()
+
+    def test_asan_diagnostic_is_not_ubsan_activation(self):
+        row = self.data['canaries']['ubsan']['run']
+        row['stderr'] = 'ERROR: AddressSanitizer: heap-buffer-overflow\nWRITE of size 4\n'
+        self.persist(row, 'canary-ubsan.run'); self.reject()
+
+    def test_canary_requires_directed_fault(self):
+        row = self.data['canaries']['asan']['run']; row['stderr'] = 'ERROR: AddressSanitizer: heap-buffer-overflow\n'
+        self.persist(row, 'canary-asan.run'); self.reject()
+
+    def test_canary_mixed_diagnostic_rejected(self):
+        row = self.data['canaries']['asan']['run']; row['stderr'] += 'runtime error: competing\n'
+        self.persist(row, 'canary-asan.run'); self.reject()
+
+    def test_canary_requires_exact_exit(self):
+        row = self.data['canaries']['ubsan']['run']; row['returncode'] = 97
+        self.persist(row, 'canary-ubsan.run'); self.reject()
+
+    def test_canary_stdout_must_be_empty(self):
+        row = self.data['canaries']['asan']['run']; row['stdout'] = 'noise\n'
+        self.persist(row, 'canary-asan.run'); self.reject()
+
+    def test_canary_raw_stream_mismatch(self):
+        (self.root / 'canary-asan.run.stderr').write_text('changed'); self.reject()
+
+    def test_canary_source_cannot_be_changed_with_updated_hash(self):
+        (self.root / 'canary-asan.c').write_bytes(b'TESTONLY different probe')
+        self.data['canaries']['asan']['generated_c_sha256'] = gate.sha(b'TESTONLY different probe')
+        self.reject()
+
+    def test_canary_binary_drift(self):
+        (self.root / 'canary-ubsan.host').write_bytes(b'changed'); self.reject()
+
+    def test_canary_source_symlink(self):
+        target = self.root / 'canary-asan.c'; target.rename(self.root / 'outside')
+        target.symlink_to(self.root / 'outside'); self.reject()
+
+    def test_canary_environment_must_be_fixed(self):
+        self.data['canaries']['asan']['environment']['UBSAN_OPTIONS'] = 'halt_on_error=0'; self.reject()
+
+    def test_formal_environment_must_be_fixed(self):
+        self.data['runtime_environment']['ASAN_OPTIONS'] = 'halt_on_error=0'; self.reject()
+
+    def test_missing_canary_oracle(self):
+        del self.data['sanitizer_oracle_controls']; self.reject()
+
+    def test_incomplete_canary_oracle(self):
+        self.data['sanitizer_oracle_controls']['controls'].pop(); self.reject()
+
+    def test_canary_oracle_boolean_is_not_integer(self):
+        self.data['sanitizer_oracle_controls']['controls'][1]['value'] = True; self.reject()
+
+    def test_formal_compile_must_keep_both_sanitizers(self):
+        row = self.data['positives'][0]['compile']; row['command'][10] = '-fsanitize=address'
+        self.persist(row, 'full-positive.compile'); self.reject()
+
+    def test_appended_disable_flag_rejected(self):
+        row = self.data['positives'][0]['compile']; row['command'].insert(11, '-fno-sanitize=address')
+        self.persist(row, 'full-positive.compile'); self.reject()
+
+    def test_wrong_profile_compile_rejected(self):
+        row = self.data['positives'][1]['compile']; row['command'].remove('-DIN_PORTCONTROL_MINI')
+        self.persist(row, 'mini-positive.compile'); self.reject()
+
+    def test_compiler_identity_is_bound_to_cli(self):
+        self.data['compiler']['command'][0] = 'other-compiler'
+        self.persist(self.data['compiler'], 'compiler'); self.reject()
+
+    def test_compile_output_campaign_root_must_match(self):
+        row = self.data['positives'][1]['compile']
+        row['command'][-3] = '/other/mini-positive.c'; row['command'][-1] = '/other/mini-positive.host'
+        self.persist(row, 'mini-positive.compile'); self.reject()
+
+    def test_run_case_command_is_bound(self):
+        row = self.data['negatives'][0]['run']; row['command'][-1] = 'unrelated-case'
+        self.persist(row, 'full-mutant-overwrite-foreign.run'); self.reject()
+
+    def test_compile_argv_not_a_string(self):
+        self.data['positives'][0]['compile']['command'] = 'TESTONLY bad shape'; self.reject()
+
+    def test_floating_point_count_not_accepted(self):
+        self.data['positive_cases'] = 68.0; self.reject()
 
 
 if __name__ == '__main__':

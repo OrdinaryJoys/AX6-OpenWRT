@@ -57,6 +57,15 @@ PHY_NEGATIVES = {
     'failed-once-latch': ('aqua-retry', 'hw-after-registration'),
     'wrong-field-mapping': ('aqua-repeated', 'mapping'),
 }
+PHY_BASE_FLAGS = ['-std=gnu11', '-O1', '-g', '-pthread', '-Wall', '-Wextra', '-Werror',
+                  '-Wno-unused-parameter', '-DIN_AQUANTIA_PHY']
+PHY_PROFILE_FLAGS = {'full': [], 'mini': ['-DIN_PORTCONTROL_MINI'],
+                     'full-i2c': ['-DIN_PHY_I2C_MODE'],
+                     'mini-i2c': ['-DIN_PORTCONTROL_MINI', '-DIN_PHY_I2C_MODE']}
+PHY_CANARY_C = {
+    'asan': b'#include <stdlib.h>\nint main(void){volatile int i=2;volatile int *p=malloc(sizeof(int));p[i]=1;free((void*)p);return 0;}\n',
+    'ubsan': b'#include <limits.h>\nint main(void){volatile int n=INT_MAX;volatile int r=n+1;(void)r;return 0;}\n',
+}
 
 
 def need(ok, why):
@@ -211,35 +220,61 @@ def verify_external_lookup(directory, data):
                  row[stream + '_sha256'] == sha(raw), 'lookup exact raw result')
 
 
-def verify_phy_ops(directory, data):
+def verify_phy_ops(directory, data, cc):
+    """Read typed receipts and local payloads; never execute their recorded argv."""
     need(data['status'] == 'PASS_SCOPED_HOST_ONLY' and
          data['scope'] == 'ACTUAL_FUNCTIONS_HOST_SUBSTITUTES_ONLY' and
          data['target_kernel_runtime_approved'] is False and
          data['UK_witness'] == 'KNOWN_OPEN_NOT_REPAIRED_NOT_EXECUTED_OR_RECLASSIFIED', 'PHY receipt scope')
-    profiles = {'full', 'mini', 'full-i2c', 'mini-i2c'}
-    need(data['expected_case_names'] == PHY_CASES and data['positive_cases'] == 68 and
+    profiles = set(PHY_PROFILE_FLAGS)
+    need(all(type(data[k]) is int for k in ('positive_cases', 'runtime_mutants', 'old_counterexample_runs')) and
+         data['expected_case_names'] == PHY_CASES and data['positive_cases'] == 68 and
          data['runtime_mutants'] == 80 and data['old_counterexample_runs'] == 8, 'PHY campaign inventory')
 
-    def process(row, label, rc, stdout, stderr):
+    def process(row, label, rc, stdout, stderr, command):
         need(type(row['returncode']) is int and row['returncode'] == rc and
              row['stdout'] == stdout and row['stderr'] == stderr, 'PHY precise process: ' + label)
+        need(row['command'] == command, 'PHY precise command: ' + label)
         raw = json.loads(path(directory, label + '.json').read_text(), object_pairs_hook=unique)
         need(raw == row, 'PHY raw process receipt differs')
         for stream, expected in [('stdout', stdout), ('stderr', stderr)]:
             need(path(directory, label + '.' + stream).read_text() == expected, 'PHY raw stream: ' + label)
 
-    def compiled(row, label):
-        process(row['compile'], label + '.compile', 0, '', '')
+    need(isinstance(cc, str) and cc and isinstance(data['compiler']['stdout'], str) and
+         data['compiler']['stdout'].strip(), 'PHY compiler identity')
+    process(data['compiler'], 'compiler', 0, data['compiler']['stdout'], '', [cc, '--version'])
+    # Preserve original absolute argv as metadata while reading relocated bundles.
+    command_root = None
+
+    def compiled(row, label, profile, instrumentation='address,undefined'):
+        nonlocal command_root
+        command = row['compile']['command']
+        need(type(command) is list and len(command) >= 4 and
+             all(isinstance(s, str) and s and '\x00' not in s and '\n' not in s for s in command),
+             'PHY compilation argv: ' + label)
+        c_file, binary = PurePosixPath(command[-3]), PurePosixPath(command[-1])
+        need(c_file.is_absolute() and binary.is_absolute() and
+             '..' not in c_file.parts and '..' not in binary.parts and
+             c_file.name == label + '.c' and binary.name == label + '.host' and
+             c_file.parent == binary.parent, 'PHY compilation output identity: ' + label)
+        if command_root is None:
+            command_root = c_file.parent
+        need(c_file.parent == command_root, 'PHY compilation campaign root: ' + label)
+        flags = PHY_BASE_FLAGS + ['-fsanitize=' + instrumentation, '-fno-sanitize-recover=all',
+                                  '-fno-omit-frame-pointer'] + PHY_PROFILE_FLAGS[profile]
+        process(row['compile'], label + '.compile', 0, '', '',
+                [cc, *flags, str(c_file), '-o', str(binary)])
         need(sha(path(directory, label + '.c').read_bytes()) == row['generated_c_sha256'] and
              sha(path(directory, label + '.host').read_bytes()) == row['binary_sha256'], 'PHY generated C/binary')
+        return str(binary)
 
     need({r['profile'] for r in data['positives']} == profiles and len(data['positives']) == 4,
          'PHY positive profiles')
     for row in data['positives']:
         label = row['profile'] + '-positive'
         need(type(row['cases']) is int and row['cases'] == 17, 'PHY positive case count')
-        compiled(row, label)
-        process(row['run'], label + '.run', 0, ''.join('PASS ' + c + '\n' for c in PHY_CASES), '')
+        binary = compiled(row, label, row['profile'])
+        process(row['run'], label + '.run', 0, ''.join('PASS ' + c + '\n' for c in PHY_CASES), '', [binary])
     need({(r['profile'], r['name']) for r in data['negatives']} ==
          {(p, n) for p in profiles for n in PHY_NEGATIVES} and len(data['negatives']) == 80,
          'PHY exact negative profiles/names')
@@ -247,16 +282,59 @@ def verify_phy_ops(directory, data):
         case, marker = PHY_NEGATIVES[row['name']]
         need((row['case'], row['marker']) == (case, marker), 'PHY negative case/marker')
         label = row['profile'] + '-mutant-' + row['name']
-        compiled(row, label)
-        process(row['run'], label + '.run', 86, '', 'PHY_OPS ' + marker + '\n')
+        binary = compiled(row, label, row['profile'])
+        process(row['run'], label + '.run', 86, '', 'PHY_OPS ' + marker + '\n', [binary, case])
     need({(r['profile'], r['case']) for r in data['old_counterexamples']} ==
          {(p, c) for p in profiles for c in ('old-phy-no-own', 'old-phy-own')} and
          len(data['old_counterexamples']) == 8, 'PHY old source witnesses')
     for row in data['old_counterexamples']:
         label = row['profile'] + '-old36'
-        compiled(row, label)
+        binary = compiled(row, label, row['profile'])
         need(row['marker'] == 'ops-not-owned', 'PHY old source marker')
-        process(row['run'], label + '-' + row['case'] + '.run', 86, '', 'PHY_OPS ops-not-owned\n')
+        process(row['run'], label + '-' + row['case'] + '.run', 86, '', 'PHY_OPS ops-not-owned\n',
+                [binary, row['case']])
+
+    formal_env = {'ASAN_OPTIONS': 'detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97',
+                  'UBSAN_OPTIONS': 'halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=97'}
+    need(data['runtime_environment'] == formal_env, 'PHY formal sanitizer environment')
+    need(type(data['canaries']) is dict and set(data['canaries']) == {'asan', 'ubsan'},
+         'PHY complete sanitizer activation')
+    for kind, instrumentation, code in [('asan', 'address', 97), ('ubsan', 'undefined', 98)]:
+        row = data['canaries'][kind]; label = 'canary-' + kind
+        need(row['instrumentation'] == instrumentation, 'PHY canary instrumentation')
+        binary = compiled(row, label, 'full', instrumentation)
+        need(path(directory, label + '.c').read_bytes() == PHY_CANARY_C[kind], 'PHY fixed canary C')
+        expected_env = {'ASAN_OPTIONS': f'detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode={code}',
+                        'UBSAN_OPTIONS': f'halt_on_error=1:abort_on_error=0:exitcode={code}'}
+        need(row['environment'] == expected_env, 'PHY canary environment')
+        diagnostic = row['run']['stderr']
+        need(isinstance(diagnostic, str), 'PHY canary diagnostic type')
+        if kind == 'asan':
+            directed = ('ERROR: AddressSanitizer: heap-buffer-overflow' in diagnostic and
+                        'WRITE of size 4' in diagnostic and 'runtime error:' not in diagnostic and
+                        'DEADLYSIGNAL' not in diagnostic)
+        else:
+            directed = ('runtime error: signed integer overflow:' in diagnostic and
+                        '2147483647 + 1' in diagnostic and 'AddressSanitizer' not in diagnostic)
+        need(directed, 'PHY directed sanitizer diagnostic: ' + kind)
+        process(row['run'], label + '.run', code, '', diagnostic, [binary])
+
+    examples = {'asan': {'returncode': 97, 'stdout': '',
+                         'stderr': 'ERROR: AddressSanitizer: heap-buffer-overflow\nWRITE of size 4\n'},
+                'ubsan': {'returncode': 98, 'stdout': '',
+                          'stderr': 'runtime error: signed integer overflow: 2147483647 + 1\n'}}
+    controls = []
+    for kind, good in examples.items():
+        for key, value in [('returncode', 0), ('returncode', 1), ('returncode', -6),
+                           ('returncode', 86), ('returncode', True), ('returncode', str(good['returncode'])),
+                           ('returncode', 'timeout'), ('stdout', 'noise\n'), ('stderr', ''),
+                           ('stderr', 'runtime error: unrelated\n'),
+                           ('stderr', 'AddressSanitizer: DEADLYSIGNAL\n'),
+                           ('stderr', examples['ubsan' if kind == 'asan' else 'asan']['stderr'])]:
+            controls.append({'kind': kind, 'field': key, 'value': value})
+    expected_controls = {'valid': 2, 'rejected_pollution': 24, 'controls': controls}
+    need(json.dumps(data['sanitizer_oracle_controls'], sort_keys=True, allow_nan=False) ==
+         json.dumps(expected_controls, sort_keys=True, allow_nan=False), 'PHY sanitizer oracle controls')
 
 
 def main():
@@ -323,7 +401,7 @@ def main():
     need(ran.returncode == 0 and not ran.stderr, 'actual PHY ownership source suite')
     receipt = directory / 'RESULTS.json'
     data = json.loads(receipt.read_text(), object_pairs_hook=unique)
-    verify_phy_ops(directory, data)
+    verify_phy_ops(directory, data, args.cc)
     comparison_file = path(directory, 'PREPARED-COMPARISON.json')
     comparison = json.loads(comparison_file.read_text(), object_pairs_hook=unique)
     need(data['receipt_mode'] == 'ACTUAL_PREPARED37_EQUALS_FROZEN36_PLUS049_ALL692_TEXT_ONLY' and
