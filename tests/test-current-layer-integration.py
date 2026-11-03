@@ -83,6 +83,66 @@ class SourceData(unittest.TestCase):
         self.assertEqual(set(code), {'actual.c'})
         self.assertEqual(set(meta), {'version.date', stamp})
 
+    def prepare_markers(self, completed=b'', check=b''):
+        stamp = '.prepared_' + 'a' * 32 + '_' + 'b' * 32
+        (self.root / stamp).write_bytes(completed)
+        (self.root / (stamp + '_check')).write_bytes(check)
+        return stamp
+
+    def test_actual_openwrt_prepare_pair(self):
+        stamp = self.prepare_markers()
+        code, meta = gate.partition(self.root)
+        self.assertEqual(code, {'actual.c': gate.sha(b'TESTONLY source bytes\n')})
+        self.assertEqual(set(meta), {stamp, stamp + '_check'})
+
+    def test_nonempty_prepare_check_rejected(self):
+        self.prepare_markers(check=b'x')
+        with self.assertRaisesRegex(ValueError, 'invalid stamp metadata'):
+            gate.partition(self.root)
+
+    def test_nonempty_completion_with_check_rejected(self):
+        self.prepare_markers(completed=b'x')
+        with self.assertRaisesRegex(ValueError, 'invalid stamp metadata'):
+            gate.partition(self.root)
+
+    def test_orphan_prepare_check_rejected(self):
+        stamp = self.prepare_markers()
+        (self.root / stamp).unlink()
+        with self.assertRaisesRegex(ValueError, 'unmatched prepare check metadata'):
+            gate.partition(self.root)
+
+    def test_wrong_completion_identity_rejected(self):
+        stamp = self.prepare_markers()
+        (self.root / stamp).rename(self.root / ('.prepared_' + 'c' * 32 + '_' + 'd' * 32))
+        with self.assertRaisesRegex(ValueError, 'unmatched prepare check metadata'):
+            gate.partition(self.root)
+
+    def test_duplicate_prepare_check_rejected(self):
+        self.prepare_markers()
+        (self.root / ('.prepared_' + 'c' * 32 + '_' + 'd' * 32 + '_check')).write_bytes(b'')
+        with self.assertRaisesRegex(ValueError, 'invalid stamp metadata'):
+            gate.partition(self.root)
+
+    def test_malformed_check_remains_code(self):
+        self.prepare_markers()
+        name = '.prepared_not-a-hash_check'
+        (self.root / name).write_bytes(b'')
+        self.assertIn(name, gate.partition(self.root)[0])
+
+    def test_nested_check_remains_code(self):
+        stamp = self.prepare_markers()
+        directory = self.root / 'nested'
+        directory.mkdir()
+        (directory / (stamp + '_check')).write_bytes(b'')
+        self.assertIn('nested/' + stamp + '_check', gate.partition(self.root)[0])
+
+    def test_check_symlink_rejected(self):
+        stamp = self.prepare_markers()
+        (self.root / (stamp + '_check')).unlink()
+        (self.root / (stamp + '_check')).symlink_to(self.root / stamp)
+        with self.assertRaisesRegex(ValueError, 'nonregular input'):
+            gate.partition(self.root)
+
     def test_dirty_stamp(self):
         (self.root / ('.prepared_' + 'a' * 32 + '_' + 'b' * 32)).write_bytes(b'x')
         with self.assertRaisesRegex(ValueError, 'invalid stamp metadata'):
@@ -125,6 +185,71 @@ class SourceData(unittest.TestCase):
         expected = {'actual.c': gate.sha((self.root / 'actual.c').read_bytes())}
         gate.copy_code(self.root, self.root / 'snapshot', expected)
         self.assertEqual(gate.inventory(self.root / 'snapshot'), expected)
+
+    def test_code_snapshot_keeps_all_code_and_leaves_admitted_metadata_in_place(self):
+        stamp = self.prepare_markers()
+        code, metadata = gate.partition(self.root)
+        with tempfile.TemporaryDirectory() as output:
+            snapshot = Path(output) / 'driver'
+            gate.copy_code(self.root, snapshot, code)
+            self.assertEqual(gate.inventory(snapshot), code)
+            self.assertEqual(gate.partition(self.root), (code, metadata))
+            self.assertEqual(set(metadata), {stamp, stamp + '_check'})
+
+    def test_prepared_evidence_roundtrip_includes_hidden_markers(self):
+        stamp = self.prepare_markers()
+        expected = {'actual.c': gate.sha(b'TESTONLY source bytes\n')}
+        with tempfile.TemporaryDirectory() as output:
+            out = Path(output)
+            code, meta = gate.prepared_partition(self.root, out, 'ssdk', expected)
+            self.assertEqual(code, expected)
+            receipt = gate.load(out / 'PREPARED-ssdk.json')
+            self.assertEqual(receipt['status'], 'CAPTURED_NOT_ADMISSION_OR_RUNTIME')
+            self.assertEqual(receipt['difference'], {'missing': [], 'extra': [], 'changed': []})
+            self.assertEqual({r['origin'] for r in receipt['files']}, {'actual.c', stamp, stamp + '_check'})
+            for row in receipt['files']:
+                self.assertEqual((out / row['file']).read_bytes(), (self.root / row['origin']).read_bytes())
+                self.assertNotIn('.prepared', row['file'])
+                self.assertEqual(gate.sha((out / row['file']).read_bytes()), row['sha256'])
+            self.assertEqual(meta, receipt['recipe_metadata'])
+
+    def test_prepared_evidence_preserves_actual_drift(self):
+        expected = {'actual.c': gate.sha(b'older source'), 'gone.c': gate.sha(b'missing')}
+        (self.root / '.foreign').write_bytes(b'foreign')
+        with tempfile.TemporaryDirectory() as output:
+            out = Path(output)
+            code, _ = gate.prepared_partition(self.root, out, 'ssdk', expected)
+            receipt = gate.load(out / 'PREPARED-ssdk.json')
+            self.assertEqual(receipt['difference'], {'missing': ['gone.c'], 'extra': ['.foreign'],
+                                                     'changed': ['actual.c']})
+            with self.assertRaisesRegex(ValueError, 'actual full SSDK38 code'):
+                gate.need(code == expected, 'actual full SSDK38 code')
+
+    def test_bad_metadata_saved_before_rejection(self):
+        self.prepare_markers(check=b'foreign')
+        with tempfile.TemporaryDirectory() as output:
+            out = Path(output)
+            with self.assertRaisesRegex(ValueError, 'invalid stamp metadata'):
+                gate.prepared_partition(self.root, out, 'ssdk')
+            receipt = gate.load(out / 'PREPARED-ssdk.json')
+            self.assertEqual(receipt['status'], 'INCOMPLETE')
+            self.assertEqual(receipt['error'], 'invalid stamp metadata')
+            self.assertEqual(len(receipt['files']), 3)
+
+    def test_prepared_evidence_immutable_end_input(self):
+        original = gate.partition
+        def mutate(root):
+            code, meta = original(root)
+            (root / 'actual.c').write_bytes(b'changed during inspection')
+            return code, meta
+        with tempfile.TemporaryDirectory() as output, mock.patch.object(gate, 'partition', side_effect=mutate):
+            with self.assertRaisesRegex(ValueError, 'prepared evidence end stability'):
+                gate.prepared_partition(self.root, Path(output), 'ssdk')
+
+    def test_prepared_evidence_label_cannot_escape(self):
+        with tempfile.TemporaryDirectory() as output:
+            with self.assertRaisesRegex(ValueError, 'fixed prepared evidence label'):
+                gate.prepared_partition(self.root, Path(output), '../escape')
 
     def test_three_exact_phy_controls_exported_without_native_execution(self):
         exports = {}

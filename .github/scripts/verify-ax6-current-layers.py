@@ -70,17 +70,53 @@ def invhash(rows):
 
 def partition(root):
     code, metadata = {}, {}
+    stamps = {}
     for name, digest in inventory(root).items():
         raw = path(root, name).read_bytes()
         if name == 'version.date':
             need(re.fullmatch(rb'[0-9]{1,19}\n', raw) is not None, 'invalid version metadata')
             metadata[name] = digest
-        elif re.fullmatch(r'\.prepared_[0-9a-f]{32}_[0-9a-f]{32}', name):
-            need(not raw and not any(n.startswith('.prepared_') for n in metadata), 'invalid stamp metadata')
+        elif (match := re.fullmatch(r'(\.prepared_[0-9a-f]{32}_[0-9a-f]{32})(_check)?', name)):
+            suffix = match.group(2) or ''
+            need(not raw and suffix not in stamps, 'invalid stamp metadata')
+            stamps[suffix] = match.group(1)
             metadata[name] = digest
         else:
             code[name] = digest
+    # package.mk keeps the start marker after publishing the matching completion stamp.
+    need('_check' not in stamps or stamps.get('') == stamps['_check'], 'unmatched prepare check metadata')
     return code, metadata
+
+
+def prepared_partition(root, out, label, expected=None):
+    need(label in ('ssdk', 'dp', 'driver', 'clients'), 'fixed prepared evidence label')
+    destination = out / 'PREPARED-INPUTS' / label
+    destination.mkdir(parents=True, exist_ok=False)
+    receipt = {'status': 'INCOMPLETE', 'actual_prepared_path': str(root), 'files': []}
+    try:
+        before = inventory(root)
+        for number, (name, digest) in enumerate(before.items()):
+            raw = path(root, name).read_bytes()
+            need(sha(raw) == digest, 'prepared evidence input stability')
+            file = destination / ('%04d.data' % number)
+            file.write_bytes(raw)
+            receipt['files'].append({'origin': name, 'file': file.relative_to(out).as_posix(),
+                                     'bytes': len(raw), 'sha256': digest})
+        code, metadata = partition(root)
+        receipt.update(code_files=code, recipe_metadata=metadata)
+        if expected is not None:
+            receipt['difference'] = {
+                'missing': sorted(set(expected) - set(code)),
+                'extra': sorted(set(code) - set(expected)),
+                'changed': sorted(n for n in set(code) & set(expected) if code[n] != expected[n])}
+        need(inventory(root) == before, 'prepared evidence end stability')
+        receipt['status'] = 'CAPTURED_NOT_ADMISSION_OR_RUNTIME'
+        return code, metadata
+    except Exception as error:
+        receipt['error'] = str(error)
+        raise
+    finally:
+        (out / ('PREPARED-' + label + '.json')).write_text(json.dumps(receipt, indent=2) + '\n')
 
 
 def check(root, rows):
@@ -316,14 +352,15 @@ def run_current(args, kind):
         new_policy = load(POLICY)
         if kind == 'mdio':
             original = args.ssdk.resolve()
-            code, metadata = partition(original)
+            code, metadata = prepared_partition(original, out, 'ssdk', data['ssdk']['current_files'])
             need(code == data['ssdk']['current_files'], 'actual full SSDK38 code')
             package = source / 'package/qca-nss/qca-ssdk'
             patches = dict(old['ssdk']['patches'], **{data['ssdk']['patch']: data['ssdk']['patch_sha256']})
             need(inventory(package / 'patches') == patches and len(patches) == 38, 'current38 patch inventory')
             need(sha(path(package, 'Makefile').read_bytes()) == data['recipes']['ssdk'], 'current SSDK28 recipe')
-            dp_code, dp_metadata = partition(args.dp.resolve())
+            dp_code, dp_metadata = prepared_partition(args.dp.resolve(), out, 'dp', old['dp']['prepared_files'])
             need(dp_code == old['dp']['prepared_files'], 'unchanged actual DP19 code')
+            companion = (args.dp.resolve(), dp_code, dp_metadata)
             need(inventory(source / 'package/qca-nss/qca-nss-dp/patches') == old['dp']['patches'], 'DP exact patch inventory')
             need(sha(path(source, 'package/qca-nss/qca-nss-dp/Makefile').read_bytes()) == old['dp']['recipe_sha256'], 'DP recipe')
             patch = path(package / 'patches', data['ssdk']['patch'])
@@ -331,7 +368,7 @@ def run_current(args, kind):
             native_script, native_kind = 'test-ssdk-i2c-io.py', 'i2c'
         else:
             original = args.clients.resolve()
-            code, metadata = partition(original)
+            code, metadata = prepared_partition(original, out, 'clients')
             need(len(code) == 298 and invhash(code) == data['clients']['candidate_inventory_sha256'], 'actual clients27 code')
             old_nss = load(path(legacy, 'tests/nss-command-inputs/profile.json'))
             package = source / 'package/qca-nss/qca-nss-clients'
@@ -339,15 +376,18 @@ def run_current(args, kind):
                 '027-tunipip6-command-errors-and-netdev-ownership.patch': data['clients']['patch_sha256']})
             need(inventory(package / 'patches') == patches and len(patches) == 27, 'current27 patch inventory')
             need(sha(path(package, 'Makefile').read_bytes()) == data['recipes']['clients'], 'current clients30 recipe')
-            drv_code, drv_metadata = partition(args.driver.resolve())
+            drv_code, drv_metadata = prepared_partition(args.driver.resolve(), out, 'driver')
             need(len(drv_code) == old_nss['driver']['files'] and
                  invhash(drv_code) == old_nss['driver']['candidate_inventory_sha256'], 'unchanged actual DRV25 code')
+            companion = (args.driver.resolve(), drv_code, drv_metadata)
             need(inventory(source / 'package/qca-nss/qca-nss-drv/patches') == old_nss['driver']['patches'], 'DRV exact patch inventory')
             need(sha(path(source, 'package/qca-nss/qca-nss-drv/Makefile').read_bytes()) ==
                  load(BASE_NSS)['recipes']['driver'], 'unchanged actual DRV25 recipe')
             patch = path(package / 'patches', '027-tunipip6-command-errors-and-netdev-ownership.patch')
             old_files = None
             native_script, native_kind = 'test-tunip-command-transaction.py', 'tunip'
+            driver_code = out / 'verified-driver-code'
+            copy_code(args.driver.resolve(), driver_code, drv_code)
         current = out / 'actual-current-code'
         copy_code(original, current, code)
         prefix = out / 'verified-prior-prefix'
@@ -367,7 +407,7 @@ def run_current(args, kind):
             need(len(prefix_files) == 298 and invhash(prefix_files) == data['clients']['baseline_inventory_sha256'],
                  'exact full298 prefix26')
             command = [sys.executable, '-B', ROOT / '.github/scripts/verify-nss-command-inputs.py',
-                       '--source-root', legacy, '--driver', args.driver.resolve(), '--clients', prefix,
+                       '--source-root', legacy, '--driver', driver_code, '--clients', prefix,
                        '--cc', args.cc, '--output', out / 'legacy26']
             native = [sys.executable, '-B', source / 'tests' / native_script, '--clients', current,
                       '--cc', args.cc, '--sanitize', '--output', out / native_kind]
@@ -384,6 +424,9 @@ def run_current(args, kind):
         check(source, data['assets'])
         need(partition(original) == (code, metadata) and inventory(current) == code and
              inventory(prefix) == prefix_files, 'current/prefix end input stability')
+        need(partition(companion[0]) == (companion[1], companion[2]), 'companion end input stability')
+        if kind == 'nss':
+            need(inventory(driver_code) == drv_code, 'driver code snapshot end stability')
         rows = export_inputs(out, exports)
         need(configuration() == data and all(sha(p.read_bytes()) == digest for p, digest in owned.items()),
              'build input end stability')
