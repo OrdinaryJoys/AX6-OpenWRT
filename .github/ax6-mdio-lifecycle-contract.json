@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "profile": "DP19_SSDK35_ARGUMENTS_AND_OF_LEASES",
+  "profile": "DP19_SSDK37_EXTERNAL_AND_MODULE_OPS_LEASES",
   "assets": {
     "tests/test-dp-bridge-owner.py": "206fcdd8d995fb38689a8690cd13aee3a869954dd1c7ecad64fefc8ab06f9f2e",
     "tests/test-ssdk-i2c-node-owner.py": "ab4028ff6c1851ca43fead7ea7e43349a55aa429e6512c4605c559fc1e409e1a",
@@ -10,7 +10,19 @@
     "tests/ssdk-mdio-node-fixture.c": "4fec6486e13e148c65a1d0e02eb5c7f7da117b5d7d2f62fa629cb277f2ce5cd1",
     "tests/ssdk-phy-node-fixture.c": "ef3b451be95871cfcf89d848bccba9366ad361db472359c999503c478e8d6359",
     "tests/nss-dp-containment/extract_prepared_c.py": "7ce823535edbce4205e992a37a9fe93c88627026149459ace1b99567f8707614",
-    "tests/ssdk-phy-port-admission/source.py": "49bf8c613a87da71879ebd22e2fa19f94a1d601d5b664d090ea55eed4406cc59"
+    "tests/ssdk-phy-port-admission/source.py": "49bf8c613a87da71879ebd22e2fa19f94a1d601d5b664d090ea55eed4406cc59",
+    "tests/test-ssdk-external-switch-lookups.py": "173b1d2c9d62c1c54937ac06d878aee135da106cecd1f3c818fc739a31ec263b",
+    "tests/test-ssdk-external-cache-admission.py": "9fc3d6a0f2416abf04884c4ccd4c92e0f455257293dacecc9e310bb37709cfb5",
+    "tests/test-ssdk-netdev-cache.py": "777ae0f8e16d6271bd4959f53464c2f6e139348907e42dee8118d694b7d324b6",
+    "tests/ssdk-netdev-cache/host-fixture.c": "158bc602948603467c8b0d6aaba9f02cabd848f88cff2b196cc96aa091929c88",
+    "tests/ssdk_source_prepare.py": "1e3064a5e300dee84127a232e929621a7daa0f1013b466fb0ad1c547c3bf1b53",
+    "tests/edma_patch_context.py": "1f4e7c6cede52ca6c3d76a807e79e593aa4fb0c764172a16e69f73ee1f054e32",
+    "tests/test-ssdk-phy-ops-lifetime.py": "cfbb6f75d0f97d2f8404fff0f88adb34e9fa9c6bdb584ee2739b479228a7e2e8",
+    "tests/ssdk-phy-ops-lifetime/README.md": "19bbd9864e326aac40c44c3c4301c7456cc56fe28303abcecb2c8acbcd537fba",
+    "tests/ssdk-phy-ops-lifetime/fixture.c": "075f12b0e3f519b0c26f8b37961e0768d3053604167dac47d0730d5ddaa5a9e5",
+    "tests/ssdk-phy-ops-lifetime/mutations.py": "2e86d07e484ab778b8e95562e7dfa5323728c76d5d3c0023b10c34824e870c06",
+    "tests/ssdk-phy-ops-lifetime/source.py": "b229d3026404462d067c1f17be6a89e7cca669a68dc4f9864297ecf3c2b68ceb",
+    "tests/SSDK_PHY_OPS_LIFETIME_2026-11-03.md": "f31596458b6d699efa5db17a4e331da93c3707d8599883c8ada580e9f9f25e2a"
   },
   "dp": {
     "package": "qca-nss-dp",
@@ -129,7 +141,7 @@
   },
   "ssdk": {
     "package": "qca-ssdk",
-    "recipe_sha256": "69881baa4882731c8134ba82c9560e797488298c1eedb9214b84f663d4152c42",
+    "recipe_sha256": "51df4ec12edf574460a156de6ca3efe731537a14eb6c932a6ae653ab7d2dd711",
     "patches": {
       "001-build-flags-and-common-defines.patch": "454f1535357441e18fa20182fd62ce5843227e54c9ea8560d148ffd8c5084bdc",
       "002-phy-mdio-linux-6.18-apis.patch": "90f0623b0a154ef97c4cd01c33f19b032b53259f957274c29cb9636a79bc12c0",
@@ -165,7 +177,9 @@
       "044-retain-i2c-of-node-through-mdio-registration.patch": "45a4dc2a792bb42e3ae9c9254315031cd3ddbcb6bc034d7f582618a84f4f4625",
       "045-balance-default-and-legacy-mdio-node-leases.patch": "4ca6d7b33ec51deab02509f689bfc03a1b7c2705b1e2aa8db9ada4fda940a212",
       "046-retire-per-port-phy-parser-node-leases.patch": "1231fa3e369c9a8c70596c39857740db973c5e81d8dca388f21ace6180a97aa7",
-      "047-admit-mdio-table-access-before-dereference.patch": "4552c39c6c286c288657b38df312b90bc9e5a73244d5b14d40eea073422052a1"
+      "047-admit-mdio-table-access-before-dereference.patch": "4552c39c6c286c288657b38df312b90bc9e5a73244d5b14d40eea073422052a1",
+      "048-exclude-unconnected-external-switch-lookups.patch": "d77e97af48201efb952bc43afbb6c6b626be8a5e185c1c9d182b9c451910b362",
+      "049-module-lifetime-shared-phy-ops.patch": "4f127a68d7e69fe10b3459f950ce6e87f138e565920ea96f1d589c51c1eb41d8"
     },
     "prepared_files": {
       "app/nathelper/linux/host_helper.c": "1fe25b8b9fd68588f637e83500e400f7576b2f7fb19167b8552474dee13e6c04",
@@ -814,8 +828,8 @@
       "src/hsl/mppe/mppe_athtag.c": "0faa9d5d40e6ab440ce314c7f1972a87b54a99113f8c0a4a43cef13f3adf7ab5",
       "src/hsl/mppe/mppe_servcode.c": "5499a61fb48ade003450c2dd1b63e33fb8248666ba10b9aea5d33ac98cc7c4c3",
       "src/hsl/mrppe/mrppe_pktedit.c": "f4563b6cafb98344fe6e68147ef58fe59fa7de130f88632d4e5fe255338c7c0e",
-      "src/hsl/phy/aquantia_phy.c": "f7e72f060f7154797cb77c4ae505bb3db73e683c1767909091f72da0544c986f",
-      "src/hsl/phy/hsl_phy.c": "5ca4e86714b123c1c3e05d2980db38c24affac9804adbb4f2530d3438af23897",
+      "src/hsl/phy/aquantia_phy.c": "12fc97f5b0f332e3f068ead88c8cfc71101e777fe8a5a24d66b0db3993dae480",
+      "src/hsl/phy/hsl_phy.c": "59570b0c8f9c4a7b5d217a35ba9cb1ada74fa2c45b49cd19edb2855f64a71e73",
       "src/hsl/phy/hsl_ptp.c": "6261a2da22b412c5d15ee92df6c42163291fecabeece32aef924e2d5eaafaac0",
       "src/hsl/phy/qcaphy_c45_common.c": "eca1ef22f21af09c4694205fa4bd3d193aaf8cbd42ceecb72a66acc84da6e900",
       "src/hsl/phy/sfp_phy.c": "81a38ed8515a52caa07d1dd5408a242b18b508154089ade7654696a68f8b53cf",
@@ -826,7 +840,7 @@
       "src/hsl/sfp/sfp_access.c": "e283ef72f157ea193ef848d763f13ad9ae90dabdd91b6cec81212656e7fd38c3",
       "src/init/ssdk_appe.c": "62b2569e9b055c866218321f6b7c53dd677e2792effa6dfe7a427e20a42bfe44",
       "src/init/ssdk_clk.c": "c51c21c0b3c33ba892c9613702dce081ab0dcfc5022a790ecb5311c0ee5036e5",
-      "src/init/ssdk_dts.c": "00d7a1af66ee0ca83d587fc8a91d82e57cb14b3e289f1988d07c4abb2c3cab16",
+      "src/init/ssdk_dts.c": "667bf774417971454bb26eee91efcc88089184df3541d747bc411017ae573013",
       "src/init/ssdk_hppe.c": "ffb71a5994a4e2a5d3cd167ad29979fa20450310ee6c83446654a10d15bd7fe7",
       "src/init/ssdk_init.c": "e30223107d633f40a2c8db47f2c9b3f23a4deea6e2ced44f8ecbc97570603ab1",
       "src/init/ssdk_interrupt.c": "ad589f8383dd578bd1a1adb5eca25a9648f9bb99cd4334e86a61a9e27ccd362d",
@@ -837,7 +851,7 @@
       "src/init/ssdk_mp.c": "1a9f83ab74452c48099aed42422a67b9ed0fef5a5d01cc771d8f1070491d8dc1",
       "src/init/ssdk_netlink.c": "3ca357ca32b1212269dcb09f123adc54c214ad549c5ba40188c0691d0961c539",
       "src/init/ssdk_phy_i2c.c": "dbfbd5b7805c8b32d92cb2c13d716377f81a9b5abb027cec3843032c9cb1bbd9",
-      "src/init/ssdk_plat.c": "1292488a33262d962cae668ee70e173012d924b3fa6f41d76ccd968538ee43d9",
+      "src/init/ssdk_plat.c": "d4575ba235184edb072761cf5e5d02bc3b61f0944b315d8bdd73d991a19bb8f1",
       "src/init/ssdk_scomphy.c": "12553b4dad1701d4b39217ec5bdcf9ca0b7d970527ec3e04c2b472f00b2c9eeb",
       "src/ref/ref_acl.c": "939cdc96e32d88699eacfbb3b16d6d709f11c049de7ab0dfcb3a13f133977d84",
       "src/ref/ref_athtag.c": "f3facb7e814ac561571d50cec2182bfa87509624876b0c0b00ba431673f2bd1b",
@@ -862,6 +876,18 @@
       "src/util/util.c": "5fb3211f83c727f3996c18e00fb0f8fc5a44f87860a96fcdfe0df86f2d58c34e"
     },
     "reverse_steps": [
+      {
+        "patch": "049-module-lifetime-shared-phy-ops.patch",
+        "label": "ssdk36",
+        "keep": true,
+        "inventory_sha256": "5fc401cccd3338163a1035af6c177ff095f36c450e805f7b7c8a8d5591e020f8"
+      },
+      {
+        "patch": "048-exclude-unconnected-external-switch-lookups.patch",
+        "label": "ssdk35",
+        "keep": true,
+        "inventory_sha256": "b11eb85e015e2bb0d7cd5ae91b6c902f473b3a3b7cdeb6c8e7bc3a9528560fd2"
+      },
       {
         "patch": "047-admit-mdio-table-access-before-dereference.patch",
         "label": "ssdk34",

@@ -1,0 +1,27 @@
+From: AX6 build backports <openwrt@localhost>
+Subject: [PATCH] kms: keep randomized ePID alive through conversion
+
+Source: Wind4/vlmcsd@e599080486478e219cd065e141d6de050a450c27
+The per-request buffer must outlive getEpidFromString. Keep it automatic
+and conditional on random ePID support; do not change generation or parsing.
+
+--- a/src/kms.c
++++ b/src/kms.c
+@@ -464,6 +464,9 @@
+ static void getEpid(RESPONSE *const baseResponse, const char** EpidSource, const int32_t index, BYTE *const HwId, const char* defaultEPid)
+ {
+ #if !defined(NO_RANDOM_EPID) || !defined(NO_CL_PIDS) || !defined(NO_INI_FILE)
++#ifndef NO_RANDOM_EPID
++	char ePid[PID_BUFFER_SIZE];
++#endif
+ 	const char* pid;
+ 	if (KmsResponseParameters[index].Epid == NULL)
+ 	{
+@@ -470,7 +473,6 @@
+ #ifndef NO_RANDOM_EPID
+ 		if (RandomizationLevel == 2)
+ 		{
+-			char ePid[PID_BUFFER_SIZE];
+ 			generateRandomPid(index, ePid, Lcid, HostBuild);
+ 			pid = ePid;
+ 

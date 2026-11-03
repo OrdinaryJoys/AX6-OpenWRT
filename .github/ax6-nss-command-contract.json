@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "profile": "NSS_COMMAND_INPUTS_DRV25_CLIENTS29",
+  "frozen": true,
+  "runner": "tests/test-nss-command-inputs.py",
+  "source_profile": {
+    "path": "tests/nss-command-inputs/profile.json",
+    "sha256": "8c371cd531866c8c9268021a54798b1327f818254ca573611913366755349e3b"
+  },
+  "recipes": {
+    "driver": "f9697e6fc18b8753274956fd0c8a9befc4a2b416050cd38a166cb2b68d355611",
+    "clients": "4f689faeca530757c7034d52b3a01e23a1cbd444b80592446e181da1dba45d0a"
+  },
+  "assets": {
+    "include/package-defaults.mk": "cdb9a02ff1f3fe6e867fb9dcdc109ee93632b72be92e02e7b70f542e400ff710",
+    "include/package.mk": "adca9e09c7bbbb140dce31e454934299b77a8cd62530c60ac932ded0218a8ac9",
+    "tests/NSS_COMMAND_INPUT_REPAIRS_2026-11-03.md": "1ea4110024b0f8d88a1d0e04f800614e277cd74d2f8e013f236495695d404f77",
+    "tests/edma_patch_context.py": "1f4e7c6cede52ca6c3d76a807e79e593aa4fb0c764172a16e69f73ee1f054e32",
+    "tests/nss-command-inputs/README.md": "d5b7f316bf42c05fdaa01895cac2ec28c6c22b3671353da59fdc78e8ba0e593e",
+    "tests/nss-command-inputs/fixture.c": "453f04e222532cce464abf7413c5f361cf92738f14e822305de1306e066072d2",
+    "tests/nss-command-inputs/model.h": "007d32e0f0077aa2e1163425835870fdcf2ff040dfa1127a8a95bdeafacea351",
+    "tests/nss-command-inputs/mutations.py": "61770ee105e70b5763efbc07bf1702e6c44dc09134ab86c5f0ede94b17255e5a",
+    "tests/nss-command-inputs/prepare.py": "4a62e4506a000747a347dca0f29e48a123350f765426adfa6256c39002031401",
+    "tests/nss-command-inputs/profile.json": "8c371cd531866c8c9268021a54798b1327f818254ca573611913366755349e3b",
+    "tests/nss-command-inputs/repair_spec.py": "632d2f6ebb8676ab2a6c05b6b65e2a2dde843ca025f2d3e1c1ac954b353a55d9",
+    "tests/nss-command-inputs/source.py": "3bb4d370558ef37e0da8f5bbad41814941b0fea115c2cfd6e3ec1cac687a53df",
+    "tests/nss-dp-containment/extract_prepared_c.py": "7ce823535edbce4205e992a37a9fe93c88627026149459ace1b99567f8707614",
+    "tests/test-nss-command-inputs.py": "bf92fcef0d55e21b15b969c3470bf28737cb9a8a5249c688e9fda6803fb7a5c1"
+  }
+}

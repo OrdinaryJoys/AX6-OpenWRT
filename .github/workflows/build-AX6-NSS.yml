@@ -414,6 +414,13 @@ jobs:
           chmod +x "$DIY_SH"
           ( cd openwrt && "$GITHUB_WORKSPACE/$DIY_SH" )
 
+      - name: Apply the reviewed vlmcsd buffer-lifetime backport
+        run: |
+          set -euo pipefail
+          python3 AX6-IPQ/scripts/apply-vlmcsd-scope-backport.py apply openwrt/feeds/packages
+          python3 AX6-IPQ/scripts/apply-vlmcsd-scope-backport.py check openwrt/feeds/packages \
+            --output core-flow-evidence/vlmcsd/package
+
       - name: Verify local DNS ingress and V29 health contracts
         run: |
           set -eo pipefail
@@ -623,6 +630,20 @@ jobs:
           path: vim-evidence/
           if-no-files-found: warn  # Preparation may not have started.
           retention-days: 14
+
+      - name: Prepare and bind the reviewed vlmcsd source
+        run: |
+          set -euo pipefail
+          mkdir -p core-flow-evidence/vlmcsd
+          make -C openwrt -j1 package/feeds/packages/vlmcsd/prepare V=s \
+            2>&1 | tee core-flow-evidence/vlmcsd/prepare.log
+          find openwrt/build_dir -type f -path '*/target-*/vlmcsd-*/src/kms.c' -print0 \
+            > core-flow-evidence/vlmcsd/prepared-paths.nul
+          mapfile -d '' vlmcsd_sources < core-flow-evidence/vlmcsd/prepared-paths.nul
+          test "${#vlmcsd_sources[@]}" -eq 1 || { echo '::error::Expected one target vlmcsd source'; exit 1; }
+          vlmcsd_source=${vlmcsd_sources[0]%/src/kms.c}
+          python3 AX6-IPQ/scripts/apply-vlmcsd-scope-backport.py prepared "$vlmcsd_source" \
+            --output core-flow-evidence/vlmcsd/prepared
 
       - name: Build target toolchain before rpcd components
         run: |
@@ -874,6 +895,23 @@ jobs:
             --source-root . --dp "$lifecycle_dp_source" --ssdk "$lifecycle_ssdk_source" --cc cc \
             --output "$GITHUB_WORKSPACE/core-flow-evidence/mdio-lifecycle"
 
+      - name: Validate frozen NSS command input source and host regressions
+        working-directory: ./openwrt
+        run: |
+          set -euo pipefail
+          command_root=build_dir/target-aarch64_cortex-a53_musl/linux-qualcommax_ipq807x
+          evidence="$GITHUB_WORKSPACE/core-flow-evidence/nss-command-inputs"
+          mkdir -p "$evidence"
+          find "$command_root" -maxdepth 1 -type d -name 'qca-nss-drv-*' -print0 > "$evidence/driver-paths.nul"
+          find "$command_root" -maxdepth 1 -type d -name 'qca-nss-clients-*' -print0 > "$evidence/clients-paths.nul"
+          mapfile -d '' command_drivers < "$evidence/driver-paths.nul"
+          mapfile -d '' command_clients < "$evidence/clients-paths.nul"
+          test "${#command_drivers[@]}" -eq 1
+          test "${#command_clients[@]}" -eq 1
+          python3 "$GITHUB_WORKSPACE/.github/scripts/verify-nss-command-inputs.py" \
+            --source-root . --driver "${command_drivers[0]}" --clients "${command_clients[0]}" --cc cc \
+            --output "$evidence/validation"
+
       - name: Regression assertions — 007/008, 012, 018/019 (P0-D.3-5)
         working-directory: ./openwrt
         run: |
@@ -1033,6 +1071,11 @@ jobs:
             --rootfs "$rootfs" --packages-root vim-package-evidence/offline-packages \
             --output image-verify/vim-rootfs.json
           cp image-verify/vim-rootfs.json vim-package-evidence/ROOTFS-CONSISTENCY.json
+          python3 .github/scripts/verify-vlmcsd-rootfs.py \
+            --rootfs "$rootfs" --packages-root openwrt/bin/packages \
+            --retain-packages core-flow-evidence/vlmcsd/offline-packages \
+            --output image-verify/vlmcsd-rootfs.json
+          cp image-verify/vlmcsd-rootfs.json core-flow-evidence/vlmcsd/ROOTFS-CONSISTENCY.json
 
           unsquashfs -cat "$rootfs" lib/upgrade/keep.d/luci-app-openclash \
             > image-verify/openclash-keep

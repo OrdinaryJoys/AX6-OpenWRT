@@ -84,6 +84,42 @@ def load_tx(source):
     return tx
 
 
+def check_build_input_snapshot(snapshot, expected):
+    root = snapshot / 'build-inputs'
+    names = {row['file'] for row in expected.values()} | {'INDEX.json'}
+    require(root.is_dir() and not root.is_symlink() and
+            {p.name for p in root.iterdir()} == names,
+            'build input snapshot inventory')
+    require(all(p.is_file() and not p.is_symlink() for p in root.iterdir()),
+            'build input snapshot must contain only regular files')
+    require(json.loads((root / 'INDEX.json').read_text(), object_pairs_hook=pairs) == expected,
+            'build input snapshot index')
+    for row in expected.values():
+        require(sha((root / row['file']).read_bytes()) == row['sha256'],
+                'build input snapshot bytes: ' + row['file'])
+
+
+def capture_build_input_snapshot(bound, snapshot):
+    allowed = {'.github/scripts/verify-edma-prepared-regressions.py',
+               '.github/ax6-edma-prepared-contract.json',
+               'tests/fixtures/edma-irq-napi-contract.c'}
+    relative = [path.relative_to(ROOT).as_posix() for path in bound]
+    require(len(relative) == 3 and set(relative) == allowed, 'build input allowlist')
+    for path in bound:
+        require(path.is_file() and not path.is_symlink() and
+                all(not p.is_symlink() for p in [path.parent, *path.parents]
+                    if p == ROOT or ROOT in p.parents), 'build input must be regular')
+    expected = {name: {'file': Path(name).name, 'sha256': sha(path.read_bytes())}
+                for name, path in zip(relative, bound)}
+    root = snapshot / 'build-inputs'
+    root.mkdir(parents=True, exist_ok=False)
+    for name, path in zip(relative, bound):
+        (root / expected[name]['file']).write_bytes(path.read_bytes())
+    (root / 'INDEX.json').write_text(json.dumps(expected, indent=2) + '\n')
+    check_build_input_snapshot(snapshot, expected)
+    return expected
+
+
 def execute(command, output, name, env=None):
     try:
         p = subprocess.run(list(map(str, command)), capture_output=True,
@@ -269,15 +305,13 @@ def main():
             dest = snapshot / path.relative_to(source)
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_bytes(path.read_bytes())
-        for path in bound:
-            dest = snapshot / 'build' / path.relative_to(ROOT)
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_bytes(path.read_bytes())
+        result['build_input_snapshot'] = capture_build_input_snapshot(bound, snapshot)
         result['runs'] = suite(args.source_root.resolve(), args.dp.resolve(),
                                args.output, compiler, args.sanitize)
         require(admit(args.source_root.resolve(), args.dp.resolve()) == result['profile'] and
                 {str(p): sha(p.read_bytes()) for p in bound} == identities,
                 'bound inputs changed during verification')
+        check_build_input_snapshot(snapshot, result['build_input_snapshot'])
         result['status'] = 'PASS_HOST_SUBSTITUTES_ONLY'
         negatives = sum(row['expected_marker'] is not None for row in result['runs'])
         require(negatives == 28 and len(result['runs']) == 30, 'suite inventory drift')

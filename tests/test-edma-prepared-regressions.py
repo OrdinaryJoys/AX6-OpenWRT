@@ -147,6 +147,104 @@ class Admission(unittest.TestCase):
         self.rejected()
 
 
+class BuildInputSnapshot(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix='edma-visible-inputs-')
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name) / 'checkout'
+        self.snapshot = Path(self.tmp.name) / 'snapshot'
+        self.bound = [self.root / n for n in (
+            '.github/scripts/verify-edma-prepared-regressions.py',
+            '.github/ax6-edma-prepared-contract.json',
+            'tests/fixtures/edma-irq-napi-contract.c')]
+        for path in self.bound:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('TESTONLY snapshot bytes ' + path.name)
+        scope = patch.object(gate, 'ROOT', self.root)
+        scope.start()
+        self.addCleanup(scope.stop)
+
+    def capture(self):
+        return gate.capture_build_input_snapshot(self.bound, self.snapshot)
+
+    def test_all_bound_inputs_survive_hidden_file_filter(self):
+        expected = self.capture()
+        transported = {p.relative_to(self.snapshot).as_posix() for p in self.snapshot.rglob('*')
+                       if p.is_file() and not any(s.startswith('.') for s in p.relative_to(self.snapshot).parts)}
+        self.assertEqual(transported, {'build-inputs/INDEX.json'} |
+                         {'build-inputs/' + p.name for p in self.bound})
+        gate.check_build_input_snapshot(self.snapshot, expected)
+
+    def test_each_missing_copy_rejected(self):
+        expected = self.capture()
+        for p in self.bound:
+            target = self.snapshot / 'build-inputs' / p.name
+            raw = target.read_bytes()
+            target.unlink()
+            with self.assertRaises(ValueError):
+                gate.check_build_input_snapshot(self.snapshot, expected)
+            target.write_bytes(raw)
+
+    def test_each_corrupt_copy_rejected(self):
+        expected = self.capture()
+        for p in self.bound:
+            target = self.snapshot / 'build-inputs' / p.name
+            raw = target.read_bytes()
+            target.write_bytes(raw + b'changed')
+            with self.assertRaises(ValueError):
+                gate.check_build_input_snapshot(self.snapshot, expected)
+            target.write_bytes(raw)
+
+    def test_extra_hidden_secret_rejected(self):
+        expected = self.capture()
+        (self.snapshot / 'build-inputs/.secret').write_text('TESTONLY')
+        with self.assertRaises(ValueError):
+            gate.check_build_input_snapshot(self.snapshot, expected)
+
+    def test_rehashed_corruption_cannot_change_expected_contract(self):
+        expected = self.capture()
+        target = self.snapshot / 'build-inputs' / self.bound[0].name
+        target.write_text('changed')
+        index = copy.deepcopy(expected)
+        index[next(iter(index))]['sha256'] = gate.sha(target.read_bytes())
+        (target.parent / 'INDEX.json').write_text(json.dumps(index))
+        with self.assertRaises(ValueError):
+            gate.check_build_input_snapshot(self.snapshot, expected)
+
+    def test_duplicate_index_key_rejected(self):
+        expected = self.capture()
+        p = self.snapshot / 'build-inputs/INDEX.json'
+        first = next(iter(expected))
+        p.write_text(json.dumps(expected)[:-1] + ', ' + json.dumps(first) + ': {} }')
+        with self.assertRaises(ValueError):
+            gate.check_build_input_snapshot(self.snapshot, expected)
+
+    def test_symlink_snapshot_copy_rejected(self):
+        expected = self.capture()
+        target = self.snapshot / 'build-inputs' / self.bound[0].name
+        target.unlink()
+        target.symlink_to(self.bound[0])
+        with self.assertRaises(ValueError):
+            gate.check_build_input_snapshot(self.snapshot, expected)
+
+    def test_symlink_source_rejected(self):
+        self.bound[0].unlink()
+        self.bound[0].symlink_to(self.bound[1])
+        with self.assertRaises(ValueError):
+            self.capture()
+
+    def test_unlisted_or_duplicate_bound_input_rejected(self):
+        for bound in (self.bound[:-1], self.bound + [self.bound[0]],
+                      [self.bound[0], self.bound[1], self.root / '.env']):
+            with self.assertRaises(ValueError):
+                gate.capture_build_input_snapshot(bound, self.snapshot)
+
+    def test_existing_snapshot_is_not_overwritten(self):
+        self.capture()
+        with self.assertRaises(FileExistsError):
+            self.capture()
+
+
 class Oracles(unittest.TestCase):
     def test_negative_valid_and_valid_prefix(self):
         for prefix in ('', gate.irq_expected().splitlines()[0] + '\n'):
