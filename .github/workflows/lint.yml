@@ -1,8 +1,15 @@
 # yamllint disable rule:line-length
 name: Lint
+run-name: ${{ inputs.phy_host_only && 'AX6 PHY Host Smoke (NO FIRMWARE)' || 'Lint' }}
 
 on:
   workflow_dispatch:
+    inputs:
+      phy_host_only:
+        description: 'Linux GCC11 PHY host tests only; no firmware or device operations'
+        type: boolean
+        required: false
+        default: false
   push:
     branches: [main, master]
   pull_request:
@@ -11,7 +18,56 @@ permissions:
   contents: read
 
 jobs:
+  phy-host:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.phy_host_only }}
+    name: Linux GCC11 PHY37 host validation (NO FIRMWARE)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Read the dedicated source contract
+        id: phy-contract
+        run: |
+          set -euo pipefail
+          source_ref=$(python3 -B .github/scripts/run-ax6-phy-host-smoke.py --print-source-ref)
+          echo "source_ref=$source_ref" >> "$GITHUB_OUTPUT"
+      - name: Check host-only workflow and archive boundaries
+        run: python3 -B tests/test-phy-host-smoke.py
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          repository: OrdinaryJoys/immortalwrt-nss
+          ref: ${{ steps.phy-contract.outputs.source_ref }}
+          path: source
+          persist-credentials: false
+      - name: Install bounded native-only dependencies
+        timeout-minutes: 6
+        run: |
+          set -euo pipefail
+          sudo timeout --kill-after=15s 180s apt-get \
+            -o Acquire::Retries=2 -o Acquire::http::Timeout=20 \
+            -o Acquire::https::Timeout=20 -o APT::Update::Error-Mode=any update
+          sudo env DEBIAN_FRONTEND=noninteractive timeout --kill-after=15s 180s apt-get \
+            -o Acquire::Retries=2 -o Acquire::http::Timeout=20 \
+            -o Acquire::https::Timeout=20 install -y --no-install-recommends gcc-11 patch
+      - name: Run native canaries and complete PHY37 host campaign
+        run: |
+          set -euo pipefail
+          ulimit -c 0
+          python3 -B .github/scripts/run-ax6-phy-host-smoke.py \
+            --source-root source --cc gcc-11 --output phy-host-evidence
+      - name: Preserve host-only evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6ce0a
+        with:
+          name: AX6_PHY_HOST_${{ github.sha }}
+          path: phy-host-evidence/
+          if-no-files-found: warn
+          retention-days: 14
+
   lint:
+    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.phy_host_only }}
     runs-on: ubuntu-22.04
     timeout-minutes: 20
     steps:
@@ -133,6 +189,7 @@ jobs:
           python3 tests/test-nss-regression-grep.py
           python3 -B tests/test-edma-prepared-regressions.py
           python3 -B tests/test-mdio-lifecycle-gate.py
+          python3 -B tests/test-phy-host-smoke.py
           bash AX6-IPQ/tests/test-ax6-perf-fixture.sh
           bash AX6-IPQ/tests/test-ax6-perf-tool-hardening.sh
           bash AX6-IPQ/tests/test-ax6-offline-feed-package.sh

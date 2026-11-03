@@ -1,0 +1,11 @@
+{
+  "scope": "PINNED_UPSTREAM_SOURCE_DATA_ONLY_NO_OLD_EXECUTABLES",
+  "vendor_commit": "d9a196497ecee2530722d906e0efe1b7408b6ef6",
+  "vendor_tree": "4b843f66ecbdddb41c683795fbfeecb281b01d11",
+  "raw_tar_sha256": "b674ab7b760a65002bc6b9b44d423549d8e5abea25465fd581a0c6503b2241c1",
+  "xz_sha256": "92601bae4ba32927abbcfa54680a63535290d36ace08a0b64a46752f4d78eabd",
+  "xz_bytes": 866208,
+  "raw_tar_bytes": 14776320,
+  "upstream_files": 692,
+  "upstream_inventory_sha256": "7b54bb81bb4c43ed894ff45a1f8c22e68ef5de471c22a039854b5046b1b008c1"
+}
