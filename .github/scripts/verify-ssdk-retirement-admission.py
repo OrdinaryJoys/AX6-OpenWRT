@@ -37,6 +37,60 @@ def negative(code, out, err, marker):
          err == ('RETIRE:' + marker + '\n').encode(), 'native precise runtime negative')
 
 
+def probe_ok(code, out, err, kind):
+    if type(code) is not int or code != {'asan': 97, 'ubsan': 98}[kind] or out != b'' or not isinstance(err, bytes):
+        return False
+    if kind == 'asan':
+        return (b'ERROR: AddressSanitizer: heap-buffer-overflow' in err and b'WRITE of size 1' in err and
+                b'runtime error:' not in err and b'DEADLYSIGNAL' not in err)
+    return (b'runtime error: signed integer overflow:' in err and b'2147483647 + 1' in err and
+            b'AddressSanitizer' not in err)
+
+
+def sanitizer_receipts(directory, data, cc, hppe):
+    report = base.load(directory / 'RESULTS.json')
+    controls = report['sanitizer_controls']
+    need(controls['activation'] == [{'name': 'asan', 'instrumentation': 'address', 'exit': 97},
+                                  {'name': 'ubsan', 'instrumentation': 'undefined', 'exit': 98}] and
+         controls['crossed'] == [{'actual': 'asan', 'rejected_as': 'ubsan'},
+                                {'actual': 'ubsan', 'rejected_as': 'asan'}] and
+         type(controls['oracle_rejections']) is int and controls['oracle_rejections'] == 24,
+         'fixed activation/crossed/oracle inventory')
+    need(len(controls['disabled']) == 2 and {r['name'] for r in controls['disabled']} == {'asan', 'ubsan'},
+         'disabled detector inventory')
+    common = ['-std=gnu11', '-Wall', '-Wextra', '-Werror', '-Wno-unused-parameter', '-O1', '-g']
+    if hppe:
+        common += ['-DHPPE=1']
+    for kind, instrumentation, expected in [('asan', 'address', 97), ('ubsan', 'undefined', 98)]:
+        source = directory / ('canary-' + kind + '.c')
+        need(sha(source.read_bytes()) == data['probe_source_sha256'][kind], 'fixed probe C')
+        for disabled in (False, True):
+            label = ('disabled-' if disabled else 'canary-') + kind
+            binary = directory / (label + '.host')
+            flags = common + ([] if disabled else ['-fsanitize=' + instrumentation, '-fno-omit-frame-pointer'])
+            compile_row = base.load(directory / (label + '-compile.argv.json'))
+            need(compile_row['argv'] == [cc, *flags, str(source), '-o', str(binary)], 'probe exact instrumentation argv')
+            code = base.load(directory / (label + '-compile.exit.json'))['returncode']
+            need(type(code) is int and code == 0 and not (directory / (label + '-compile.stdout')).read_bytes() and
+                 not (directory / (label + '-compile.stderr')).read_bytes(), 'probe clean compilation')
+            row = base.load(directory / (label + '-run.argv.json'))
+            need(row == {'argv': [str(binary)],
+                         'ASAN_OPTIONS': f'detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode={expected}',
+                         'UBSAN_OPTIONS': f'halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode={expected}'},
+                 'probe actual argv/environment')
+            code = base.load(directory / (label + '-run.exit.json'))['returncode']
+            out = (directory / (label + '-run.stdout')).read_bytes()
+            err = (directory / (label + '-run.stderr')).read_bytes()
+            if disabled:
+                recorded = next(r['returncode'] for r in controls['disabled'] if r['name'] == kind)
+                need(type(code) is int and type(recorded) is int and code == recorded and not probe_ok(code, out, err, kind),
+                     'actual disabled detector must not qualify')
+            else:
+                need(probe_ok(code, out, err, kind), 'actual isolated detector activation')
+                other = 'ubsan' if kind == 'asan' else 'asan'
+                need(not probe_ok({'asan': 97, 'ubsan': 98}[other], out, err, other), 'actual crossed diagnostic rejection')
+
+
 def native(directory, data, source, cc, hppe):
     report = base.load(directory / 'RESULTS.json')
     need(report['status'] == 'PASS_LOCAL_ONLY' and report['profile'] == ('HPPE_UK' if hppe else 'NON_HPPE_UK'),
@@ -63,7 +117,7 @@ def native(directory, data, source, cc, hppe):
         run = base.load(directory / (label + '-run.argv.json'))
         need(run['argv'] == [str(binary), *(['conflict'] if label == 'old-sd' else [])], 'real runtime argv')
         need(run['ASAN_OPTIONS'] == 'detect_leaks=0:halt_on_error=1:abort_on_error=0:exitcode=97' and
-             run['UBSAN_OPTIONS'] == 'halt_on_error=1:print_stacktrace=1:exitcode=98', 'native sanitizer environment')
+             run['UBSAN_OPTIONS'] == 'halt_on_error=1:abort_on_error=0:print_stacktrace=1:exitcode=98', 'native sanitizer environment')
         code = base.load(directory / (label + '-run.exit.json'))['returncode']
         out = (directory / (label + '-run.stdout')).read_bytes()
         err = (directory / (label + '-run.stderr')).read_bytes()
@@ -71,15 +125,7 @@ def native(directory, data, source, cc, hppe):
             positive(code, out, err)
         else:
             negative(code, out, err, marker)
-    for label, expected_code, text in [('asan', 97, b'ERROR: AddressSanitizer: heap-buffer-overflow'),
-                                      ('ubsan', 98, b'runtime error: signed integer overflow')]:
-        stem = directory / ('canary-' + label + '-run')
-        need(base.load(stem.with_suffix('.exit.json'))['returncode'] == expected_code and
-             not stem.with_suffix('.stdout').read_bytes() and text in stem.with_suffix('.stderr').read_bytes(),
-             'actual sanitizer activation')
-        env = base.load(stem.with_suffix('.argv.json'))
-        need(all(('exitcode=' + str(expected_code)) in env[k] for k in ('ASAN_OPTIONS', 'UBSAN_OPTIONS')),
-             'probe-specific sanitizer exits')
+    sanitizer_receipts(directory, data, cc, hppe)
     for name, expected in report['inputs'].items():
         need(sha(Path(name).read_bytes()) == expected, 'native live-input stability')
     return {'positives': 266, 'mutants': 20, 'old_witnesses': 2, 'profile': report['profile']}
@@ -87,13 +133,50 @@ def native(directory, data, source, cc, hppe):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--print-baseline-ref', action='store_true')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--print-baseline-ref', action='store_true')
+    mode.add_argument('--print-source-ref', action='store_true')
+    mode.add_argument('--sanitizer-preflight', action='store_true')
     for name in ('source-root', 'baseline-source-root', 'legacy-source-root', 'ssdk', 'dp', 'output'):
         parser.add_argument('--' + name, type=Path)
     parser.add_argument('--cc')
     args = parser.parse_args(); data = configuration()
     if args.print_baseline_ref:
         print(data['baseline_commit']); return
+    if args.print_source_ref:
+        print(data['source_commit']); return
+    if args.sanitizer_preflight:
+        need(args.source_root is not None and args.output is not None and args.cc is not None,
+             'complete source-bound sanitizer preflight inputs')
+        need(not any((args.baseline_source_root, args.legacy_source_root, args.ssdk, args.dp)),
+             'sanitizer preflight is not a prepared SDK campaign')
+        source, output = args.source_root.resolve(), args.output.resolve()
+        output.mkdir(parents=True, exist_ok=False)
+        report = {'status': 'INCOMPLETE', 'source_commit': data['source_commit'], 'firmware_approved': False}
+        try:
+            actual = subprocess.run(['git', '-C', str(source), 'rev-parse', 'HEAD'], capture_output=True, text=True, timeout=30)
+            need(actual.returncode == 0 and not actual.stderr and actual.stdout.strip() == data['source_commit'],
+                 'actual preflight source head')
+            base.check(source, data['source_assets'])
+            command = [sys.executable, '-B', '-O', str(source / 'tests/test-ssdk-retirement-admission.py'),
+                       '--canaries-only', '--sanitize', '--cc', args.cc, '--output', str(output / 'controls')]
+            process = subprocess.run(command, capture_output=True, timeout=180)
+            (output / 'command.stdout').write_bytes(process.stdout)
+            (output / 'command.stderr').write_bytes(process.stderr)
+            report.update(argv=command, returncode=process.returncode)
+            need(process.returncode == 0 and not process.stderr and
+                 json.loads(process.stdout, object_pairs_hook=base.unique) == {'status': 'PASS_SANITIZER_CONTROLS_ONLY'},
+                 'actual early sanitizer preflight')
+            need(base.load(output / 'controls/RESULTS.json')['status'] == 'PASS_SANITIZER_CONTROLS_ONLY',
+                 'preflight scope not a formal SDK campaign')
+            sanitizer_receipts(output / 'controls', data, args.cc, False)
+            base.check(source, data['source_assets'])
+            report['status'] = 'PASS_SOURCE_BOUND_SANITIZERS_ONLY_NOT_SSDK_OR_FIRMWARE'
+        except Exception as error:
+            report['error'] = str(error); raise
+        finally:
+            (output / 'RESULTS.json').write_text(json.dumps(report, indent=2) + '\n')
+        print(json.dumps(report)); return
     need(all(getattr(args, k.replace('-', '_')) is not None for k in
              ('source-root', 'baseline-source-root', 'legacy-source-root', 'ssdk', 'dp', 'output', 'cc')),
          'complete actual gate inputs')

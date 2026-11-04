@@ -401,6 +401,13 @@ jobs:
           sh -n "$pbuf_classifier" AX6-IPQ/files/sbin/nss-check tests/test-pbuf-fixture.sh
           NSS_PBUF_CLASSIFIER="$pbuf_classifier" sh tests/test-pbuf-fixture.sh
 
+      - name: Validate source-bound SSDK sanitizer controls before expensive preparation
+        run: |
+          set -euo pipefail
+          python3 -B .github/scripts/verify-ssdk-retirement-admission.py \
+            --sanitizer-preflight --source-root openwrt --cc gcc-11 \
+            --output core-flow-evidence/ssdk-sanitizer-preflight
+
       - name: Add NSS feed and prepare feeds
         run: |
           set -eo pipefail

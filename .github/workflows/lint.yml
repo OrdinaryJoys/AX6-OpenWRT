@@ -202,6 +202,39 @@ jobs:
           sh AX6-IPQ/tests/test-ax6-reload-matrix-validate.sh
           sh AX6-IPQ/tests/test-ax6-udp-baseline-fixture.sh
 
+      - name: Read frozen current SSDK sanitizer source
+        id: ssdk-sanitizer-contract
+        run: |
+          set -euo pipefail
+          echo "source_ref=$(python3 -B .github/scripts/verify-ssdk-retirement-admission.py --print-source-ref)" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout source for current sanitizer controls (no target build)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          repository: OrdinaryJoys/immortalwrt-nss
+          ref: ${{ steps.ssdk-sanitizer-contract.outputs.source_ref }}
+          path: ssdk-sanitizer-source
+          persist-credentials: false
+
+      - name: Validate actual SSDK sanitizer controls on GCC11
+        run: |
+          set -euo pipefail
+          gcc-11 --version
+          test "$(gcc-11 -dumpversion)" = 11
+          python3 -B ssdk-sanitizer-source/tests/test-ssdk-retirement-sanitizers.py
+          python3 -B .github/scripts/verify-ssdk-retirement-admission.py \
+            --sanitizer-preflight --source-root ssdk-sanitizer-source --cc gcc-11 \
+            --output ssdk-sanitizer-evidence
+
+      - name: Preserve actual sanitizer host controls
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: AX6_SSDK_SANITIZER_PREFLIGHT_${{ github.sha }}
+          path: ssdk-sanitizer-evidence/
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Locked SQM offline contracts (BusyBox ash, no kernel actions)
         run: |
           set -eo pipefail
