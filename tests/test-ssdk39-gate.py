@@ -26,7 +26,7 @@ class ReceiptControls(unittest.TestCase):
                          'oracle_rejections': 24, 'disabled': [{'name': 'asan', 'returncode': 0}, {'name': 'ubsan', 'returncode': 0}]}
         self.put('RESULTS.json', {'sanitizer_controls': self.controls})
         for kind, flag, code, diagnostic in [('asan', 'address', 97, b'ERROR: AddressSanitizer: heap-buffer-overflow\nWRITE of size 1\n'),
-                                             ('ubsan', 'undefined', 98, b'runtime error: signed integer overflow: 2147483647 + 1\n')]:
+                                             ('ubsan', 'undefined', 98, b"runtime error: signed integer overflow: 2147483647 + 1 cannot be represented in type 'int'\n")]:
             c = self.root/('canary-'+kind+'.c'); c.write_bytes(b'receipt fixture, not executable C')
             self.data['probe_source_sha256'][kind] = m.sha(c.read_bytes())
             for disabled in (False, True):
@@ -49,6 +49,17 @@ class ReceiptControls(unittest.TestCase):
 
     def test_exact_receipt_shape(self):
         self.check()
+
+    def test_gcc11_commuted_overflow_receipt_and_wrong_identity(self):
+        for operands in (b'2147483647 + 1', b'1 + 2147483647'):
+            self.put('canary-ubsan-run.stderr', b'probe.c:2:77: runtime error: signed integer overflow: ' +
+                     operands + b" cannot be represented in type 'int'\n")
+            self.check()
+        for expression in (b'21474836470 + 1', b'2147483647 + 10', b'1 + 21474836470',
+                           b'2147483647 - 1', b'1 * 2147483647'):
+            self.put('canary-ubsan-run.stderr', b'runtime error: signed integer overflow: ' + expression +
+                     b" cannot be represented in type 'int'\n")
+            with self.assertRaisesRegex(ValueError, 'isolated detector'): self.check()
 
     def test_actual_cloud_wrong_detector_diagnostic(self):
         self.put('canary-asan-run.stderr', b'runtime error: store to address with insufficient space for char')
@@ -94,7 +105,7 @@ class ReceiptControls(unittest.TestCase):
 class Gate(unittest.TestCase):
     def test_probe_identity_and_actual_failure_are_distinct(self):
         asan = b'ERROR: AddressSanitizer: heap-buffer-overflow\nWRITE of size 1\n'
-        ubsan = b'runtime error: signed integer overflow: 2147483647 + 1\n'
+        ubsan = b"runtime error: signed integer overflow: 2147483647 + 1 cannot be represented in type 'int'\n"
         self.assertTrue(m.probe_ok(97, b'', asan, 'asan'))
         self.assertTrue(m.probe_ok(98, b'', ubsan, 'ubsan'))
         for code in (0, 1, -6, True, '97', None, 86):

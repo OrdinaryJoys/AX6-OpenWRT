@@ -2,7 +2,7 @@
   "schema": 1,
   "frozen": true,
   "profile": "SSDK39_ADMISSION_NOT_SHARED_RETIREMENT",
-  "source_commit": "12a04ec86ebc6d23d35f73f7282e6c39e41fa29b",
+  "source_commit": "28b0f6249f2e30a71692bbaa65757ec10464fe5c",
   "baseline_commit": "3f6df667e1dcfc1b7412cffca54e454d1d68922c",
   "accepted38_contract_sha256": "ea6166ce5649ba370ec214c9f8bb7423583197b0cf2bbc1e4d0c0946a4533d1f",
   "patch": "051-ssdk-sd-publication-and-phy-retirement-admission.patch",
@@ -47,14 +47,14 @@
     "package/qca-nss/qca-ssdk/patches/050-i2c-transfer-results-and-reference-balance.patch": "7bbd1074fade9de5f07235ecf3d893539b4c3e27ee81b0e35934b1d51a357af9",
     "package/qca-nss/qca-ssdk/patches/051-ssdk-sd-publication-and-phy-retirement-admission.patch": "9d2505a513398acdef368531e0c6ab76bc937d48a1099ce177d5edb10d656983",
     "package/qca-nss/qca-ssdk/Makefile": "763b0f580183213c3fcb9d645c2aaa3774ae52cb994426b54380bf2c40a08b68",
-    "tests/test-ssdk-retirement-admission.py": "d83c9895e9f0ee060920ed796c662ede3d5031b306d3dc096fd75043e85810c3",
-    "tests/ssdk-retirement-admission/README.md": "a097a98de9f5ab3c16d7be04713991c45be3d2eb16dd0d15056e0936a0c38e31",
+    "tests/test-ssdk-retirement-admission.py": "3d7a2b175c617aea12b45fe37e3a63b4e5b595d8b671fb46763784b6443ef2e3",
+    "tests/ssdk-retirement-admission/README.md": "14838b8c739c4609b2292f55a3f86eb197fa93cd368fcca5e3371c2dd8dfc903",
     "tests/ssdk-retirement-admission/fixture.c": "4f00661d4d4cbc02800ea727e067f5085208bfff93af8eb81fc71e4b0d0c0e6c",
     "tests/edma_patch_context.py": "1f4e7c6cede52ca6c3d76a807e79e593aa4fb0c764172a16e69f73ee1f054e32",
     "tests/nss-dp-containment/extract_prepared_c.py": "7ce823535edbce4205e992a37a9fe93c88627026149459ace1b99567f8707614",
     "tests/witness-ssdk-shared-ownership.py": "04565814e9027c8d3fafb979c4bbec93974211f4af2e36328fff6a561cb63146",
     "tests/LIFECYCLE_OWNER_REPAIR_2026-11-02.md": "81e1c7ec85cc73ede69e6836dcdfce5c266d745687b47f99fdd92c7f1918e0bb",
-    "tests/test-ssdk-retirement-sanitizers.py": "7d6f762c3ca84bd05a58cca1e765fe029c1449ac6644a09d315272af8fa54ed9"
+    "tests/test-ssdk-retirement-sanitizers.py": "31f6074353da2e5835a294573c95ff6304b16d38346e993eee357b4b42dc65dc"
   },
   "prepared_files": {
     "app/nathelper/linux/host_helper.c": "1fe25b8b9fd68588f637e83500e400f7576b2f7fb19167b8552474dee13e6c04",
