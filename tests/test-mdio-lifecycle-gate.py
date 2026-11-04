@@ -166,13 +166,14 @@ class Wiring(unittest.TestCase):
 
     def test_real_prepared_trees_and_preserved_order(self):
         workflow = (ROOT / '.github/workflows/build-AX6-NSS.yml').read_text()
-        call = 'python3 "$GITHUB_WORKSPACE/.github/scripts/verify-mdio-lifecycle-repairs.py"'
+        call = 'python3 "$GITHUB_WORKSPACE/.github/scripts/verify-ssdk-retirement-admission.py"'
         self.assertEqual(workflow.count(call), 1)
         self.assertIn('--source-root . --dp "$lifecycle_dp_source" --ssdk "$lifecycle_ssdk_source" --cc cc', workflow)
         marker = '      - name: Validate reviewed MDIO lifecycle source and host regressions\n'
         self.assertEqual(workflow.count(marker), 1)
         step = workflow.split(marker, 1)[1].split('\n      - ', 1)[0]
         self.assertIn(call, step)
+        self.assertIn('--baseline-source-root "$GITHUB_WORKSPACE/core-accepted-source"', step)
         self.assertIn('test "${#lifecycle_dp_sources[@]}" -eq 1', step)
         self.assertIn('test "${#lifecycle_ssdk_sources[@]}" -eq 1', step)
         self.assertLess(workflow.index('make target/linux/prepare V=s'), workflow.index(call))

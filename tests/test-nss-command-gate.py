@@ -559,7 +559,8 @@ class Wiring(unittest.TestCase):
         workflow,script=self.step()
         call='python3 "$GITHUB_WORKSPACE/.github/scripts/verify-nss-command-inputs.py"'
         self.assertEqual(workflow.count(call),1)
-        for text in ('--source-root . --driver ','command_drivers[0]','command_clients[0]','--output "$evidence/validation"'):
+        for text in ('--source-root "$GITHUB_WORKSPACE/core-accepted-source" --driver ',
+                     'command_drivers[0]','command_clients[0]','--output "$evidence/validation"'):
             self.assertIn(text,script)
         self.assertLess(workflow.index('Validate reviewed MDIO lifecycle source and host regressions'),workflow.index(call))
         self.assertLess(workflow.index(call),workflow.index('Regression assertions'))
@@ -599,6 +600,7 @@ class Wiring(unittest.TestCase):
                 if mode.startswith('partial-find'): self.assertEqual(ran.returncode,7)
                 if expected:
                     argv=record.read_text().splitlines()
+                    self.assertEqual(argv[argv.index('--source-root')+1],str(root/'core-accepted-source'))
                     self.assertEqual(argv[argv.index('--driver')+1],str(prepared.relative_to(root)/'qca-nss-drv-0'))
                     self.assertEqual(argv[argv.index('--clients')+1],str(prepared.relative_to(root)/'qca-nss-clients-0'))
 

@@ -478,11 +478,14 @@ class SyntheticReceipt(unittest.TestCase):
 class Wiring(unittest.TestCase):
     def test_both_actual_prepared_calls_select_current_mode(self):
         workflow = (ROOT / '.github/workflows/build-AX6-NSS.yml').read_text()
-        self.assertEqual(workflow.count('--current-layers --legacy-source-root "$GITHUB_WORKSPACE/core-legacy-source"'), 2)
+        self.assertEqual(workflow.count('--current-layers --legacy-source-root "$GITHUB_WORKSPACE/core-legacy-source"'), 1)
+        self.assertIn('verify-ssdk-retirement-admission.py', workflow)
+        self.assertIn('ref: ${{ steps.prefix-contract.outputs.accepted_ref }}', workflow)
+        self.assertIn('path: core-accepted-source\n          persist-credentials: false', workflow)
         self.assertIn('ref: ${{ steps.prefix-contract.outputs.legacy_ref }}', workflow)
         self.assertIn('path: core-legacy-source\n          persist-credentials: false', workflow)
         self.assertLess(workflow.index('Checkout test-only historical prefix'), workflow.index('Validate reviewed MDIO'))
-        self.assertIn('--source-root . --driver "${command_drivers[0]}" --clients "${command_clients[0]}"', workflow)
+        self.assertIn('--source-root "$GITHUB_WORKSPACE/core-accepted-source" --driver "${command_drivers[0]}" --clients "${command_clients[0]}"', workflow)
 
     def test_lint_runs_admission_controls(self):
         self.assertIn('python3 -B tests/test-current-layer-integration.py', (ROOT / '.github/workflows/lint.yml').read_text())

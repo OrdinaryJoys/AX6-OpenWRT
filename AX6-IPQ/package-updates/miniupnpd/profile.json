@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "version": "2.3.11",
+  "release": 1,
+  "baseline_commit": "03d8b9d71b5e27972e4111ebe39898d093544c92",
+  "candidate_commit": "48f609040f2e4beb16c1aa62af6a6aaafd2eb6cd",
+  "baseline": {
+    "Makefile": "0bf68748360bc5331140e5c5f592398d9f82b7b4c606a62c54568826d902cfd0",
+    "files/firewall3.include": "9d9a11eb48bf66b78ace35706f8ca437f6cfa2763f6a56fd63875362a79e2777",
+    "files/miniupnpd.defaults.iptables": "b34e520bf0320a92b25d87bff0f1a2065f2861718f560ccd3d06026762e10b99",
+    "files/miniupnpd.defaults.migration": "b2adf79bfaf191627dca212b65ce564ec722346d94a5a7781545fa12ccd48686",
+    "files/miniupnpd.hotplug": "4c4bc51d323f6285c3673f6233a132483a3ac0816936d23c7a88b0389a7b14c2",
+    "files/miniupnpd.init": "0dd67a331d002c546cb1eef3617576722269e6625c6ef31ede6f2b7122c8801e",
+    "files/nftables.d/chain-post/dstnat/20-miniupnpd.nft": "f79dc0252241ddbff5292eb2d08bf8b911aeb45ea1e92f02abcf23f897ae4d61",
+    "files/nftables.d/chain-post/forward/20-miniupnpd.nft": "3909d3202c57750c796cce4522dc8aca3fbb31446a9a5dbf8cc726f79b7742d0",
+    "files/nftables.d/chain-post/srcnat/20-miniupnpd.nft": "5e6b05ba0ec7ac98a75f7c2f13c8290d0951e9f214c22adffa72fac4742d009a",
+    "files/nftables.d/table-post/20-miniupnpd.nft": "7c409abc374627512b72e7e9e0387a1b3ed36cacb9db06eddf011eb1db4eecfb",
+    "files/upnpd.config": "16ba56c3892bbc98322a064affb65a36b432cbdf3b207b34c01e584f298812e4",
+    "patches/010-upnp-igdv2-compat.patch": "5b5e8f557031f1c03983e29a5d5c9c070fbe156cd8d58e359f146fbc018033b1",
+    "patches/020-descr-filter-fix.patch": "4e0f8ddf58cb130044a5f3b92bdf3a8859f8c15e0edbcbcb2b8df42f99e41da1",
+    "patches/030-allow-private-fix.patch": "c667bfaa2f1028d1dc44547d4dd4302891799fc0de271a17618eff537b1a2339",
+    "patches/040-improve-logging.patch": "aad6802ab9d01ecea2c143d7495644b714e171552434049f8669d4f28611bcba",
+    "patches/900-miniupnpd-format-xml-to-make-some-app-happy.patch": "b8acd4ab735ff0f1bb937c4991549e5f92c5fa614ab400e849d772f88e3cbcd8"
+  },
+  "candidate": {
+    "Makefile": "5d18e78eb59dbd5e64a316db9fefd21c6be0d9dba8920b225485bb84f145c908",
+    "files/firewall3.include": "9d9a11eb48bf66b78ace35706f8ca437f6cfa2763f6a56fd63875362a79e2777",
+    "files/miniupnpd.defaults.iptables": "b34e520bf0320a92b25d87bff0f1a2065f2861718f560ccd3d06026762e10b99",
+    "files/miniupnpd.defaults.migration": "b2adf79bfaf191627dca212b65ce564ec722346d94a5a7781545fa12ccd48686",
+    "files/miniupnpd.hotplug": "4c4bc51d323f6285c3673f6233a132483a3ac0816936d23c7a88b0389a7b14c2",
+    "files/miniupnpd.init": "0dd67a331d002c546cb1eef3617576722269e6625c6ef31ede6f2b7122c8801e",
+    "files/nftables.d/chain-post/dstnat/20-miniupnpd.nft": "f79dc0252241ddbff5292eb2d08bf8b911aeb45ea1e92f02abcf23f897ae4d61",
+    "files/nftables.d/chain-post/forward/20-miniupnpd.nft": "3909d3202c57750c796cce4522dc8aca3fbb31446a9a5dbf8cc726f79b7742d0",
+    "files/nftables.d/chain-post/srcnat/20-miniupnpd.nft": "5e6b05ba0ec7ac98a75f7c2f13c8290d0951e9f214c22adffa72fac4742d009a",
+    "files/nftables.d/table-post/20-miniupnpd.nft": "7c409abc374627512b72e7e9e0387a1b3ed36cacb9db06eddf011eb1db4eecfb",
+    "files/upnpd.config": "16ba56c3892bbc98322a064affb65a36b432cbdf3b207b34c01e584f298812e4",
+    "patches/010-upnp-igdv2-compat.patch": "dee6e7b7cd015b1b1b724fa7aca639efebbfdf9760b4360e7e9cb19289ef61d5",
+    "patches/040-improve-logging.patch": "69fb7a80e422b6533086b48c1a531eb2eb20c068a8a7f0722fc11ce905e83f23",
+    "patches/900-miniupnpd-format-xml-to-make-some-app-happy.patch": "0dee7611dcb4a737b3c55af114154b5a15bc6fc4bc03e6fdc7d227ffc3e75a9b",
+    "test.sh": "d06d27ffe2771ef8ae371bf0be0e7e6445f0baa02ccfe967f9a5d566f6dde712"
+  },
+  "payload": {
+    "Makefile": "0000.data",
+    "patches/010-upnp-igdv2-compat.patch": "0001.data",
+    "patches/040-improve-logging.patch": "0002.data",
+    "patches/900-miniupnpd-format-xml-to-make-some-app-happy.patch": "0003.data",
+    "test.sh": "0004.data"
+  },
+  "payload_modes": {
+    "Makefile": "100644",
+    "patches/010-upnp-igdv2-compat.patch": "100644",
+    "patches/040-improve-logging.patch": "100644",
+    "patches/900-miniupnpd-format-xml-to-make-some-app-happy.patch": "100644",
+    "test.sh": "100755"
+  },
+  "source_sha256": "91994b127da735b2c97f19992e34420648c0e8c4ace8a4bcb0596e7685c48678"
+}

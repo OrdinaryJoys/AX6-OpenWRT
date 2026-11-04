@@ -65,6 +65,8 @@ jobs:
           set -euo pipefail
           legacy_ref=$(python3 -B .github/scripts/verify-ax6-current-layers.py --print-legacy-ref)
           echo "legacy_ref=$legacy_ref" >> "$GITHUB_OUTPUT"
+          accepted_ref=$(python3 -B .github/scripts/verify-ssdk-retirement-admission.py --print-baseline-ref)
+          echo "accepted_ref=$accepted_ref" >> "$GITHUB_OUTPUT"
 
       - name: Checkout test-only historical prefix (never firmware source)
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
@@ -72,6 +74,14 @@ jobs:
           repository: OrdinaryJoys/immortalwrt-nss
           ref: ${{ steps.prefix-contract.outputs.legacy_ref }}
           path: core-legacy-source
+          persist-credentials: false
+
+      - name: Checkout accepted38 test-only source (never firmware source)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          repository: OrdinaryJoys/immortalwrt-nss
+          ref: ${{ steps.prefix-contract.outputs.accepted_ref }}
+          path: core-accepted-source
           persist-credentials: false
 
       - name: Set variant config + brick-safety pre-flight
@@ -906,8 +916,9 @@ jobs:
           test "${#lifecycle_ssdk_sources[@]}" -eq 1
           lifecycle_dp_source=${lifecycle_dp_sources[0]}
           lifecycle_ssdk_source=${lifecycle_ssdk_sources[0]}
-          python3 "$GITHUB_WORKSPACE/.github/scripts/verify-mdio-lifecycle-repairs.py" \
-            --current-layers --legacy-source-root "$GITHUB_WORKSPACE/core-legacy-source" \
+          python3 "$GITHUB_WORKSPACE/.github/scripts/verify-ssdk-retirement-admission.py" \
+            --baseline-source-root "$GITHUB_WORKSPACE/core-accepted-source" \
+            --legacy-source-root "$GITHUB_WORKSPACE/core-legacy-source" \
             --source-root . --dp "$lifecycle_dp_source" --ssdk "$lifecycle_ssdk_source" --cc cc \
             --output "$GITHUB_WORKSPACE/core-flow-evidence/mdio-lifecycle"
 
@@ -926,7 +937,7 @@ jobs:
           test "${#command_clients[@]}" -eq 1
           python3 "$GITHUB_WORKSPACE/.github/scripts/verify-nss-command-inputs.py" \
             --current-layers --legacy-source-root "$GITHUB_WORKSPACE/core-legacy-source" \
-            --source-root . --driver "${command_drivers[0]}" --clients "${command_clients[0]}" --cc cc \
+            --source-root "$GITHUB_WORKSPACE/core-accepted-source" --driver "${command_drivers[0]}" --clients "${command_clients[0]}" --cc cc \
             --output "$evidence/validation"
 
       - name: Regression assertions — 007/008, 012, 018/019 (P0-D.3-5)
@@ -1093,6 +1104,11 @@ jobs:
             --retain-packages core-flow-evidence/vlmcsd/offline-packages \
             --output image-verify/vlmcsd-rootfs.json
           cp image-verify/vlmcsd-rootfs.json core-flow-evidence/vlmcsd/ROOTFS-CONSISTENCY.json
+          python3 .github/scripts/verify-miniupnpd-rootfs.py \
+            --rootfs "$rootfs" --packages-root openwrt/bin/packages \
+            --retain core-flow-evidence/miniupnpd/offline-packages \
+            --output image-verify/miniupnpd-rootfs.json
+          cp image-verify/miniupnpd-rootfs.json core-flow-evidence/miniupnpd/ROOTFS-CONSISTENCY.json
 
           unsquashfs -cat "$rootfs" lib/upgrade/keep.d/luci-app-openclash \
             > image-verify/openclash-keep

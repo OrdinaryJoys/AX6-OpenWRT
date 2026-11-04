@@ -62,6 +62,9 @@ CGI_IO_BACKPORT_PATCH="$REPO_ROOT/AX6-IPQ/package-patches/cgi-io/100-fix-malform
 # selective official sign_jump fix. Unknown/partial package bytes fail closed.
 python3 "$REPO_ROOT/AX6-IPQ/scripts/apply-vim-security-backport.py" apply feeds/packages
 
+# Update this selected daemon only; leave the compatibility feed and UCI/fw4 policy intact.
+python3 "$REPO_ROOT/AX6-IPQ/scripts/apply-miniupnpd-update.py" feeds/packages
+
 # ZeroTier explicitly requests its UDP socket buffer, so changing the global
 # rmem_default cannot fix receive-queue overflow. Install an AX6-scoped package
 # patch whose hunk encodes the exact upstream 1 MiB constant. Patch application
