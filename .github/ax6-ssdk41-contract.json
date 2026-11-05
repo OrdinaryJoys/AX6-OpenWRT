@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "frozen": true,
+  "profile": "SSDK41_PLATFORM_QUALITY35_REVIEWED_HOST_ONLY",
+  "source_commit": "4245760179a1fbf2a0ce35cc4e6f21fc49b642cc",
+  "accepted40_commit": "fce57df4d7828fa9e9c7a45975f37f09a77fa101",
+  "accepted40_contract_sha256": "a4c6901e6175a56d7c8930838a0b75ee90e05cdf5eecccae91750d7585772872",
+  "accepted40_gate_sha256": "e203373bcc34706315d4bfe051934eb91e2a606cfdede8a3e14d4e042785fc97",
+  "source_overrides": {
+    "package/qca-nss/qca-ssdk/Makefile": "a4f44c2ea43aaf4a35e93472cef0c81f96b0104fb913a93d17b0b4197ecc9757",
+    "package/qca-nss/qca-ssdk/patches/053-ssdk-track-platform-resource-acquisition.patch": "9863d5e960f8582100cf61fc22373490c6cfc5db8236a4da20cb1d8ecc159938",
+    "tests/ssdk-platform-resources/README.md": "efb08a3d78ecc12d28c27dc25d16660a6b342e0a899bb733ee8327d8c6c6904c",
+    "tests/ssdk-platform-resources/fixture.c": "198f5504dd491efffb45740cdfeec80de5c611038be1aa4c1ea9b0ea8268f86e",
+    "tests/test-ssdk-platform-oracles.py": "b8fa54fe36656af3df7b3cb9de598048f646f2b2785e4740e6a2cc706d83ca46",
+    "tests/test-ssdk-platform-resources.py": "aac21378daf2f225f24800be2509bb89f3cbdf867e985fded95d58eedf503f4f"
+  },
+  "quality_test_blobs": {
+    "tests/ssdk-platform-resources/README.md": "c3a06ab3c3bcdb492f1c4d8f4820bf7e192bad90",
+    "tests/ssdk-platform-resources/fixture.c": "fe073f0aa24850939bd3161ce757965fbd0db8ce",
+    "tests/test-ssdk-platform-oracles.py": "c13f388bb88ad016fc5cf8414f0e95e926dd71c4",
+    "tests/test-ssdk-platform-resources.py": "3ee68375bfaaa1e1de1be80b7b85e821ea125ee7"
+  },
+  "prepared_overrides": {
+    "src/init/ssdk_plat.c": "aff83ac50ba65685ab44d1c6ad8c96d8c6f040045a532e52b6cc7af2f1d0474f"
+  },
+  "quality_revision": "QUALITY35_4245760179_MANUALLY_REVIEWED_SOURCE_AND_EXACT_ORACLES",
+  "open": [
+    "root/module UK/SD/PHY provider and reader retirement",
+    "nested void GCC clock/reset success and clock error propagation",
+    "Linux GCC11, target ABI, hardware, firmware and performance",
+    "workflow, source lock and source manifest integration"
+  ]
+}
