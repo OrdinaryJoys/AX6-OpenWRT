@@ -94,6 +94,8 @@ d2fd2bcda2f3c295c15f7152f4c1ec965eb0df6df819be6c802705be18633793  package/kernel
 18ff0c4c3003c02a515522553ed23f29efd5c8cd47df5dca9ad99d82e8dd39d7  package/kernel/mac80211/patches/nss/subsys/999-925-mac80211-nss-per-cpu-vif-transmit-queues.patch
 5861196574796391455ac02a662cda76b1413aa3d9d2091ac2f13c936a2a323b  package/kernel/mac80211/patches/subsys/390-wifi-mac80211-notify-driver-on-airtime-weight-change.patch
 606cfb7ce8143d7137f5f3ded1c9dcca93eae0c8a166a32cb06fb59d20dfd923  package/libs/libubox/Makefile
+b895d7c6b6c0a129491968d9ca01b5391f2e0adb7030ee8d46af63233e639553  package/libs/ncurses/Config.in
+bde372aeffbc0f5d8bf184c6fea87b962fdc67414b3769618ec1025c214acc14  package/libs/ncurses/Makefile
 9e45e4faa6661779c430b032eaa16f5f610923ca3365e86450d202b97b786125  package/network/config/netifd/Makefile
 99ae93072d6e6ac4988d363555201ea32047e371b42e8d284da839bb14cc9858  package/network/config/wifi-scripts/files-ucode/lib/netifd/wireless/mac80211.sh
 ecd3a04a31f6fbbf4426f330a67ffffbed7455f40373b9f1452f27b452686674  package/network/config/wifi-scripts/files-ucode/usr/bin/iwinfo
@@ -188,7 +190,7 @@ eb2772f945784d08cf40159665aa2c58d45ea052131e0100023752423708053c  package/qca-ns
 729dbe7f96d28c8a7ffa122eeb39b37de90e708513ced37c9880a1dd14f61e46  package/qca-nss/qca-nss-ecm/patches/028-classifier-preserve-explicit-directional-udp-priorities.patch
 52346dd0808f09c254710db8cc7772dd96440428d627bd2c15a3fb62fbcaac4b  package/qca-nss/qca-nss-ecm/patches/029-denied-ports-publish-bounded-rcu-snapshots.patch
 449132502ad5a8793dc91563903338f2df45eb5fead4064a1f4ddc6299c1d5c2  package/qca-nss/qca-nss-ecm/tests/test-disable-offloads.sh
-763b0f580183213c3fcb9d645c2aaa3774ae52cb994426b54380bf2c40a08b68  package/qca-nss/qca-ssdk/Makefile
+86b1cd3afc52ec41db7c68e54cf2006a0c1f115261446419199f6a0b6661ed0d  package/qca-nss/qca-ssdk/Makefile
 ddb52cdf907a45761b7c3e394db4c29eeae5d268f3e00ed86e3eabf6fd641055  package/qca-nss/qca-ssdk/patches/009-feature-nss-dp-netdev-mac-sync.patch
 cc93fdd230cd3718c3a02ce74fed5d7c881df132a6db529a10d01963f23f30e8  package/qca-nss/qca-ssdk/patches/020-mib-complete-diagnostics-and-propagate-errors.patch
 fa50c93922d26938758145daea49b03884b97ed43c738ed664fe4e224086d6ac  package/qca-nss/qca-ssdk/patches/021-ssdk-hppe-return-chain.patch
@@ -221,6 +223,7 @@ d77e97af48201efb952bc43afbb6c6b626be8a5e185c1c9d182b9c451910b362  package/qca-ns
 4f127a68d7e69fe10b3459f950ce6e87f138e565920ea96f1d589c51c1eb41d8  package/qca-nss/qca-ssdk/patches/049-module-lifetime-shared-phy-ops.patch
 7bbd1074fade9de5f07235ecf3d893539b4c3e27ee81b0e35934b1d51a357af9  package/qca-nss/qca-ssdk/patches/050-i2c-transfer-results-and-reference-balance.patch
 9d2505a513398acdef368531e0c6ab76bc937d48a1099ce177d5edb10d656983  package/qca-nss/qca-ssdk/patches/051-ssdk-sd-publication-and-phy-retirement-admission.patch
+004ab0a1472f331cc4c60887281cbfc1a9d428ae6c3513e01d2ee7114e93686e  package/qca-nss/qca-ssdk/patches/052-ssdk-probe-balanced-node-and-oom.patch
 cf4dd1b5e975aaec31995b4fbc49ffddcc970d9a5e8a99a0120b92721871f13b  package/system/rpcd/AX6-VALIDATION.md
 058c6d72a1dfa6b3e6b9720cc925fd2c5c89bc7dbd985da8b1ce08972cf70721  package/system/rpcd/Makefile
 ccd7731c4f16043f347ac5bb86ffd198be9bf371624061f8fd349cd4674da6e3  package/system/rpcd/patches/010-file-resolved-path-acl.patch
@@ -492,6 +495,10 @@ ee641dc20f6098458d7c5c2dfce1e663a08e8c2066b5ae9d8fb3d73286eda117  tests/ssdk-phy
 883c698f58ad32ac6491625a6644140735d4e0bc33f2b2e2c3d23152e527c696  tests/ssdk-phy-prealloc/linux-phy-interface.h
 8b2e51df48912d996f70f0dc0576a601997809902ab09d017ab2f83ffab1a7b0  tests/ssdk-phy-prealloc/mutations.py
 29f6a5aeb71a91e808d13b94b21f3feaf00e1303ecd7cf2875f240af0f9cefa6  tests/ssdk-phy-prealloc/source.py
+4c1daa2f09cab0957792ae450afcad40e63c34ea6be00b955cfd26377e385722  tests/ssdk-probe-resource/README.md
+47e3ef50ccbed6374b2bbae3aa906053abb58d0c15b2c6b5fbce070813c377c5  tests/ssdk-probe-resource/current40-probe.c
+4a25546a0550bb954e7cc7002b41b4a6a92e5291cd741f3484a7bf86b6eb0a14  tests/ssdk-probe-resource/fixture.c
+51d5c7f115a92330016566e2ad69bbff525a0aa57c8cef8939de21c805fb4e72  tests/ssdk-probe-resource/prefix39-probe.c
 14838b8c739c4609b2292f55a3f86eb197fa93cd368fcca5e3371c2dd8dfc903  tests/ssdk-retirement-admission/README.md
 4f00661d4d4cbc02800ea727e067f5085208bfff93af8eb81fc71e4b0d0c0e6c  tests/ssdk-retirement-admission/fixture.c
 858c318bca290919a713ade169df4a8f447658f0deea14d59cb723ea03d5e6bd  tests/ssdk-root-count/README.md
@@ -611,6 +618,7 @@ da11823c97d09234774e36a4bdb51a357ad1b2d667f4569e5b4a8b6ad9faecfb  tests/test-ssd
 05f8e793d5155e44236195b33e53b17756325147521b78c55cd8af8f629e6e6a  tests/test-ssdk-phy-port-admission.py
 a7467cbbac02fd8458bd14889a067e81e53645970f8e73883fdd3ad3d5e1e5b1  tests/test-ssdk-phy-prealloc.py
 33b8e114d86222a808cfcc0b9f4426ee556ec41e09e214f4b2646c252d693d81  tests/test-ssdk-phy-sanitizer-canaries.py
+8fe5506551845da4e38d834675683b54066e2b38a1b1a1f6767ad51d0e4ad0ca  tests/test-ssdk-probe-resource.py
 3d7a2b175c617aea12b45fe37e3a63b4e5b595d8b671fb46763784b6443ef2e3  tests/test-ssdk-retirement-admission.py
 31f6074353da2e5835a294573c95ff6304b16d38346e993eee357b4b42dc65dc  tests/test-ssdk-retirement-sanitizers.py
 c349d67e988b2bf260c4dd35fb8f56c390c0c4df0a44fafe1fba7b81780c6974  tests/test-ssdk-root-cleanup-errors.py

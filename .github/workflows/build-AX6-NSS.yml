@@ -67,6 +67,8 @@ jobs:
           echo "legacy_ref=$legacy_ref" >> "$GITHUB_OUTPUT"
           accepted_ref=$(python3 -B .github/scripts/verify-ssdk-retirement-admission.py --print-baseline-ref)
           echo "accepted_ref=$accepted_ref" >> "$GITHUB_OUTPUT"
+          prefix39_ref=$(python3 -B .github/scripts/verify-ssdk-probe-resource.py --print-prefix39-ref)
+          echo "prefix39_ref=$prefix39_ref" >> "$GITHUB_OUTPUT"
 
       - name: Checkout test-only historical prefix (never firmware source)
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
@@ -82,6 +84,14 @@ jobs:
           repository: OrdinaryJoys/immortalwrt-nss
           ref: ${{ steps.prefix-contract.outputs.accepted_ref }}
           path: core-accepted-source
+          persist-credentials: false
+
+      - name: Checkout immutable accepted39 test-only source (never firmware source)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          repository: OrdinaryJoys/immortalwrt-nss
+          ref: ${{ steps.prefix-contract.outputs.prefix39_ref }}
+          path: core-accepted39-source
           persist-credentials: false
 
       - name: Set variant config + brick-safety pre-flight
@@ -404,7 +414,7 @@ jobs:
       - name: Validate source-bound SSDK sanitizer controls before expensive preparation
         run: |
           set -euo pipefail
-          python3 -B .github/scripts/verify-ssdk-retirement-admission.py \
+          python3 -B .github/scripts/verify-ssdk-probe-resource.py \
             --sanitizer-preflight --source-root openwrt --cc gcc-11 \
             --output core-flow-evidence/ssdk-sanitizer-preflight
 
@@ -923,7 +933,8 @@ jobs:
           test "${#lifecycle_ssdk_sources[@]}" -eq 1
           lifecycle_dp_source=${lifecycle_dp_sources[0]}
           lifecycle_ssdk_source=${lifecycle_ssdk_sources[0]}
-          python3 "$GITHUB_WORKSPACE/.github/scripts/verify-ssdk-retirement-admission.py" \
+          python3 "$GITHUB_WORKSPACE/.github/scripts/verify-ssdk-probe-resource.py" \
+            --accepted39-source-root "$GITHUB_WORKSPACE/core-accepted39-source" \
             --baseline-source-root "$GITHUB_WORKSPACE/core-accepted-source" \
             --legacy-source-root "$GITHUB_WORKSPACE/core-legacy-source" \
             --source-root . --dp "$lifecycle_dp_source" --ssdk "$lifecycle_ssdk_source" --cc cc \
@@ -1116,6 +1127,11 @@ jobs:
             --retain core-flow-evidence/miniupnpd/offline-packages \
             --output image-verify/miniupnpd-rootfs.json
           cp image-verify/miniupnpd-rootfs.json core-flow-evidence/miniupnpd/ROOTFS-CONSISTENCY.json
+          python3 .github/scripts/verify-ncurses-rootfs.py \
+            --rootfs "$rootfs" --packages-root openwrt/bin/packages \
+            --retain-packages core-flow-evidence/ncurses/offline-packages \
+            --output image-verify/ncurses-rootfs.json
+          cp image-verify/ncurses-rootfs.json core-flow-evidence/ncurses/ROOTFS-CONSISTENCY.json
 
           unsquashfs -cat "$rootfs" lib/upgrade/keep.d/luci-app-openclash \
             > image-verify/openclash-keep

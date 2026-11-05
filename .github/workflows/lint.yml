@@ -175,6 +175,8 @@ jobs:
           python3 -B tests/test-miniupnpd-update.py
           python3 -B tests/test-miniupnpd-rootfs.py
           python3 -B tests/test-ssdk39-gate.py
+          python3 -B tests/test-ssdk40-gate.py
+          python3 -B tests/test-ncurses-rootfs.py
           python3 tests/test-vim-package-evidence.py
           python3 tests/test-ax6-kernel-evidence.py
           python3 tests/test-vim-host-tools-wiring.py
@@ -206,7 +208,7 @@ jobs:
         id: ssdk-sanitizer-contract
         run: |
           set -euo pipefail
-          echo "source_ref=$(python3 -B .github/scripts/verify-ssdk-retirement-admission.py --print-source-ref)" >> "$GITHUB_OUTPUT"
+          echo "source_ref=$(python3 -B .github/scripts/verify-ssdk-probe-resource.py --print-source-ref)" >> "$GITHUB_OUTPUT"
 
       - name: Checkout source for current sanitizer controls (no target build)
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
@@ -222,7 +224,7 @@ jobs:
           gcc-11 --version
           test "$(gcc-11 -dumpversion)" = 11
           python3 -B ssdk-sanitizer-source/tests/test-ssdk-retirement-sanitizers.py
-          python3 -B .github/scripts/verify-ssdk-retirement-admission.py \
+          python3 -B .github/scripts/verify-ssdk-probe-resource.py \
             --sanitizer-preflight --source-root ssdk-sanitizer-source --cc gcc-11 \
             --output ssdk-sanitizer-evidence
 

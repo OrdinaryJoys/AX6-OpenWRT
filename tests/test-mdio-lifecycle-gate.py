@@ -166,7 +166,7 @@ class Wiring(unittest.TestCase):
 
     def test_real_prepared_trees_and_preserved_order(self):
         workflow = (ROOT / '.github/workflows/build-AX6-NSS.yml').read_text()
-        call = 'python3 "$GITHUB_WORKSPACE/.github/scripts/verify-ssdk-retirement-admission.py"'
+        call = 'python3 "$GITHUB_WORKSPACE/.github/scripts/verify-ssdk-probe-resource.py"'
         self.assertEqual(workflow.count(call), 1)
         self.assertIn('--source-root . --dp "$lifecycle_dp_source" --ssdk "$lifecycle_ssdk_source" --cc cc', workflow)
         marker = '      - name: Validate reviewed MDIO lifecycle source and host regressions\n'
@@ -174,6 +174,11 @@ class Wiring(unittest.TestCase):
         step = workflow.split(marker, 1)[1].split('\n      - ', 1)[0]
         self.assertIn(call, step)
         self.assertIn('--baseline-source-root "$GITHUB_WORKSPACE/core-accepted-source"', step)
+        self.assertIn('--accepted39-source-root "$GITHUB_WORKSPACE/core-accepted39-source"', step)
+        wrapper = (ROOT / '.github/scripts/verify-ssdk-probe-resource.py').read_text()
+        self.assertEqual(wrapper.count("invoke('accepted39-parent'"), 1)
+        self.assertIn("'PASS_SSDK39_AND_ACCEPTED38_PREFIX_HOST_ONLY'", wrapper)
+        self.assertIn("'exact052 reverse to frozen39'", wrapper)
         self.assertIn('test "${#lifecycle_dp_sources[@]}" -eq 1', step)
         self.assertIn('test "${#lifecycle_ssdk_sources[@]}" -eq 1', step)
         self.assertLess(workflow.index('make target/linux/prepare V=s'), workflow.index(call))
