@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "profile": "NCURSES_COMPLETE_UPSTREAM_PACKAGE_NOT_RUNTIME_ABI",
+  "upstream_commit": "b455c5b8514f2a6de0e3c68276771f953bddb046",
+  "patch_removal_commit": "18725c45a33ab312f44e7ba37d04493205d3bda4",
+  "package": "package/libs/ncurses",
+  "files": {
+    "Config.in": {"sha256": "b895d7c6b6c0a129491968d9ca01b5391f2e0adb7030ee8d46af63233e639553", "mode": 420},
+    "Makefile": {"sha256": "bde372aeffbc0f5d8bf184c6fea87b962fdc67414b3769618ec1025c214acc14", "mode": 420}
+  },
+  "removed_patches": {
+    "100-ncurses-5.6-20080112-urxvt.patch": "6c5768a66453d6641a4024820e3c80038b65264fd87ada4bf272420bb638604f",
+    "101-ncurses-5.6-20080628-kbs.patch": "1b1c384bb20854b29fc9f415f84c84db608cd8c9c90dab5ae778e6ea6011b51f",
+    "102-ncurses-5.9-gcc-5.patch": "1f63682ba085fd0420ba6f531e077650d3dd9259194a0444e93fe95156c33224",
+    "103-ncurses-ar-determinism.patch": "f044e112862c94f0f1e6f2eb64cc34f01be2526112cd4c955b31b59d8d13ffb5",
+    "200-fix_missing_include.patch": "3299c73d9d2c59402d049b9d14825b64bfab0952b17126db179c0a241b0ffbc2",
+    "900-terminfo.patch": "608ded9b14bf6523746b87d6c12d933047d2d8abc36e72deed66548cdbfc2af1"
+  },
+  "archive": {
+    "name": "ncurses-6.6.20260801.tar.zst",
+    "url": "https://sources.openwrt.org/ncurses-6.6.20260801.tar.zst",
+    "sha256": "a64061953353818a511e2ec7a284e10e89ac5ec62f3cdccc1ab549eb5f2d9c84",
+    "root": "ncurses-6.6.20260801",
+    "regular_files": 1253,
+    "directories": 47,
+    "tar_bytes": 19691520
+  }
+}

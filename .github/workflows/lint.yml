@@ -88,7 +88,7 @@ jobs:
           sudo env DEBIAN_FRONTEND=noninteractive timeout --kill-after=15s 240s apt-get \
             -o Acquire::Retries=2 -o Acquire::http::Timeout=20 \
             -o Acquire::https::Timeout=20 install -y \
-            busybox device-tree-compiler shellcheck yamllint libjson-c-dev pkg-config iproute2 kmod nftables cmake python3-venv
+            busybox device-tree-compiler shellcheck yamllint libjson-c-dev pkg-config iproute2 kmod nftables cmake python3-venv zstd
 
       - name: Install hash-verified host-only ELF parser
         timeout-minutes: 3
@@ -177,6 +177,7 @@ jobs:
           python3 -B tests/test-ssdk39-gate.py
           python3 -B tests/test-ssdk40-gate.py
           python3 -B tests/test-ncurses-rootfs.py
+          python3 -B tests/test-ncurses-source.py
           python3 tests/test-vim-package-evidence.py
           python3 tests/test-ax6-kernel-evidence.py
           python3 tests/test-vim-host-tools-wiring.py
@@ -217,6 +218,29 @@ jobs:
           ref: ${{ steps.ssdk-sanitizer-contract.outputs.source_ref }}
           path: ssdk-sanitizer-source
           persist-credentials: false
+
+      - name: Verify complete ncurses source and fixed official mirror
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          mkdir -p ncurses-source-evidence
+          curl --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --connect-timeout 15 --max-time 90 --fail --show-error --location \
+            https://sources.openwrt.org/ncurses-6.6.20260801.tar.zst \
+            --output ncurses-source-evidence/ncurses-6.6.20260801.tar.zst
+          python3 -B .github/scripts/verify-ncurses-source.py \
+            --source-root ssdk-sanitizer-source \
+            --archive ncurses-source-evidence/ncurses-6.6.20260801.tar.zst \
+            --output ncurses-source-evidence/verified
+
+      - name: Preserve complete ncurses source preflight
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: AX6_NCURSES_SOURCE_PREFLIGHT_${{ github.sha }}
+          path: ncurses-source-evidence/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Validate actual SSDK sanitizer controls on GCC11
         run: |

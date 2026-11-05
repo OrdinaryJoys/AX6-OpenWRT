@@ -418,6 +418,12 @@ jobs:
             --sanitizer-preflight --source-root openwrt --cc gcc-11 \
             --output core-flow-evidence/ssdk-sanitizer-preflight
 
+      - name: Verify complete ncurses package before feed preparation
+        run: |
+          set -euo pipefail
+          python3 -B .github/scripts/verify-ncurses-source.py \
+            --source-root openwrt --output core-flow-evidence/ncurses/package
+
       - name: Add NSS feed and prepare feeds
         run: |
           set -eo pipefail
@@ -648,6 +654,22 @@ jobs:
           test "$(head -n 1 ../vim-evidence/host-m4-version.txt)" = 'm4 (GNU M4) 1.4.21'
           test "$(head -n 1 ../vim-evidence/host-autoconf-version.txt)" = 'autoconf (GNU Autoconf) 2.72'
           sha256sum staging_dir/host/bin/m4 staging_dir/host/bin/autoconf > ../vim-evidence/HOST-TOOLS-SHA256.txt
+
+      - name: Prepare and verify complete ncurses host source
+        working-directory: ./openwrt
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/core-flow-evidence/ncurses"
+          make -j1 package/libs/ncurses/host/prepare V=s \
+            2>&1 | tee "$GITHUB_WORKSPACE/core-flow-evidence/ncurses/host-prepare.log"
+          mapfile -d '' ncurses_sources < <(
+            find build_dir/hostpkg -maxdepth 1 -type d -name ncurses-6.6.20260801 -print0
+          )
+          test "${#ncurses_sources[@]}" -eq 1 || { echo '::error::Expected one ncurses host source'; exit 1; }
+          python3 -B ../.github/scripts/verify-ncurses-source.py \
+            --source-root . --archive dl/ncurses-6.6.20260801.tar.zst \
+            --prepared "${ncurses_sources[0]}" \
+            --output "$GITHUB_WORKSPACE/core-flow-evidence/ncurses/host-source"
 
       - name: Prepare selected Vim source and verify the selective security patch
         working-directory: ./openwrt

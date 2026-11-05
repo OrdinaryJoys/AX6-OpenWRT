@@ -1,5 +1,11 @@
 package/kernel/mac80211/patches/nss/ath11k/909-ath11k-handle-htt-vendor-event-0x30.patch
 package/kernel/mac80211/patches/nss/ath11k/999-923-ath11k-fix-uninitialized-tx-status-flags.patch
+package/libs/ncurses/patches/100-ncurses-5.6-20080112-urxvt.patch
+package/libs/ncurses/patches/101-ncurses-5.6-20080628-kbs.patch
+package/libs/ncurses/patches/102-ncurses-5.9-gcc-5.patch
+package/libs/ncurses/patches/103-ncurses-ar-determinism.patch
+package/libs/ncurses/patches/200-fix_missing_include.patch
+package/libs/ncurses/patches/900-terminfo.patch
 package/qca-nss/qca-nss-dp/patches/004-register-netdev-before-phy-connect.patch
 package/qca-nss/qca-nss-drv/patches/012-fix-keep-core-stats-with-autoscale-disabled.patch
 target/linux/generic/pending-6.18/331-MIPS-smp-report-dying-CPU-to-RCU-in-stop_this_cpu.patch
