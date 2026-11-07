@@ -476,7 +476,7 @@ class SyntheticReceipt(unittest.TestCase):
 
 
 class Wiring(unittest.TestCase):
-    def test_both_actual_prepared_calls_select_current_mode(self):
+    def test_actual_prepared_is_checked_before_historical_prefix_mode(self):
         workflow = (ROOT / '.github/workflows/build-AX6-NSS.yml').read_text()
         self.assertEqual(workflow.count('--current-layers --legacy-source-root "$GITHUB_WORKSPACE/core-legacy-source"'), 1)
         self.assertIn('verify-ssdk-retirement-admission.py', workflow)
@@ -485,7 +485,14 @@ class Wiring(unittest.TestCase):
         self.assertIn('ref: ${{ steps.prefix-contract.outputs.legacy_ref }}', workflow)
         self.assertIn('path: core-legacy-source\n          persist-credentials: false', workflow)
         self.assertLess(workflow.index('Checkout test-only historical prefix'), workflow.index('Validate reviewed MDIO'))
-        self.assertIn('--source-root "$GITHUB_WORKSPACE/core-accepted-source" --driver "${command_drivers[0]}" --clients "${command_clients[0]}"', workflow)
+        actual = 'python3 "$GITHUB_WORKSPACE/.github/scripts/verify-nss-root-host.py"'
+        historical = 'python3 "$GITHUB_WORKSPACE/.github/scripts/verify-nss-command-inputs.py"'
+        self.assertEqual(workflow.count(actual), 1)
+        self.assertEqual(workflow.count(historical), 1)
+        self.assertLess(workflow.index(actual), workflow.index(historical))
+        self.assertIn('--source-root . --driver "${command_drivers[0]}"', workflow)
+        self.assertIn('--source-root "$GITHUB_WORKSPACE/core-accepted-source" --driver "$evidence/root-host/driver25-prefix" --clients "${command_clients[0]}"', workflow)
+        self.assertNotIn('--source-root "$GITHUB_WORKSPACE/core-accepted-source" --driver "${command_drivers[0]}"', workflow)
 
     def test_lint_runs_admission_controls(self):
         self.assertIn('python3 -B tests/test-current-layer-integration.py', (ROOT / '.github/workflows/lint.yml').read_text())

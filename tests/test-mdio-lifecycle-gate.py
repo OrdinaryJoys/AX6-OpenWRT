@@ -166,15 +166,20 @@ class Wiring(unittest.TestCase):
 
     def test_real_prepared_trees_and_preserved_order(self):
         workflow = (ROOT / '.github/workflows/build-AX6-NSS.yml').read_text()
-        call = 'python3 "$GITHUB_WORKSPACE/.github/scripts/verify-ssdk-probe-resource.py"'
+        call = 'python3 "$GITHUB_WORKSPACE/.github/scripts/verify-ssdk-platform-resource.py"'
         self.assertEqual(workflow.count(call), 1)
-        self.assertIn('--source-root . --dp "$lifecycle_dp_source" --ssdk "$lifecycle_ssdk_source" --cc cc', workflow)
+        self.assertIn('--source-root "$GITHUB_WORKSPACE/core-platform41-source"', workflow)
+        self.assertIn('--accepted40-source-root "$GITHUB_WORKSPACE/core-platform40-source"', workflow)
+        self.assertIn('--ssdk "$lifecycle_ssdk_source" --cc cc', workflow)
         marker = '      - name: Validate reviewed MDIO lifecycle source and host regressions\n'
         self.assertEqual(workflow.count(marker), 1)
         step = workflow.split(marker, 1)[1].split('\n      - ', 1)[0]
         self.assertIn(call, step)
         self.assertIn('--baseline-source-root "$GITHUB_WORKSPACE/core-accepted-source"', step)
         self.assertIn('--accepted39-source-root "$GITHUB_WORKSPACE/core-accepted39-source"', step)
+        platform = (ROOT / '.github/scripts/verify-ssdk-platform-resource.py').read_text()
+        self.assertIn("invoke('accepted40-parent'", platform)
+        self.assertIn("'exact053 reverse to full frozen40'", platform)
         wrapper = (ROOT / '.github/scripts/verify-ssdk-probe-resource.py').read_text()
         self.assertEqual(wrapper.count("invoke('accepted39-parent'"), 1)
         self.assertIn("'PASS_SSDK39_AND_ACCEPTED38_PREFIX_HOST_ONLY'", wrapper)

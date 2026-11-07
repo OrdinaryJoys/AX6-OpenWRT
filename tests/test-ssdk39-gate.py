@@ -154,7 +154,9 @@ class Gate(unittest.TestCase):
 
     def test_prefix_and_actual_source_are_separate(self):
         workflow = (ROOT / '.github/workflows/build-AX6-NSS.yml').read_text()
-        self.assertIn('--source-root . --dp "$lifecycle_dp_source" --ssdk "$lifecycle_ssdk_source"', workflow)
+        self.assertIn('--source-root "$GITHUB_WORKSPACE/core-platform41-source"', workflow)
+        self.assertIn('--accepted40-source-root "$GITHUB_WORKSPACE/core-platform40-source"', workflow)
+        self.assertIn('--ssdk "$lifecycle_ssdk_source" --cc cc', workflow)
         self.assertIn('--baseline-source-root "$GITHUB_WORKSPACE/core-accepted-source"', workflow)
         self.assertIn('path: core-accepted-source\n          persist-credentials: false', workflow)
         self.assertIn('git -C openwrt fetch --depth 1 origin "$SOURCE_COMMIT"', workflow)

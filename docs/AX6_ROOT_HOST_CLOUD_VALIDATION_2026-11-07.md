@@ -5,6 +5,18 @@
 
 ## 本批同步动态
 
+首个完整 Lint [42383523549](https://github.com/OrdinaryJoys/AX6-OpenWRT/actions/runs/42383523549)
+在 `aae2270a9f2893b908c0f4d643083504013785f6` 上失败；固件未派发。
+准确首错为 `tests/test-current-layer-integration.py` 仍要求把当前DRIVER目录
+直接传给历史命令门，未同步已审的“实际DRV27准入 -> 精确还原DRV25前缀”接线。
+不是ShellCheck告警或目标驱动编译失败；步骤名包含大量测试，必须按实际trace归因。
+原105命令门与新8门在该run均通过，原组合测试67项中的该1项失败。
+修正只更新这条过时断言，并额外要求唯一新门、严格顺序及禁止旧直传路径；
+原 frozen 合同、生产源码与构建锁不变。验证后只派发新提交，不重跑同SHA。
+扩展本地20套构建门复核又提前检出两条同类旧接线断言（SSDK39与MDIO），
+也已按真实SSDK41 ->40 ->39继承链更新，保留旧门及精确reverse合同；
+这两条在本地修正，不消耗额外云构建试错。
+
 源码候选已提交并推送：
 [`5e5ccf0bb7b31a0f5890c98a37ca5b256a2749d8`](https://github.com/OrdinaryJoys/immortalwrt-nss/commit/5e5ccf0bb7b31a0f5890c98a37ca5b256a2749d8)，
 恰为已审424基线的单父 child。构建锁现绑定该提交、driver27/SSDK31；
