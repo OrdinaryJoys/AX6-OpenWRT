@@ -559,6 +559,11 @@ class Wiring(unittest.TestCase):
         workflow,script=self.step()
         call='python3 "$GITHUB_WORKSPACE/.github/scripts/verify-nss-command-inputs.py"'
         self.assertEqual(workflow.count(call),1)
+        root_call='python3 "$GITHUB_WORKSPACE/.github/scripts/verify-nss-root-host.py"'
+        self.assertEqual(workflow.count(root_call),1)
+        self.assertLess(script.index(root_call),script.index(call))
+        self.assertIn('--source-root . --driver "${command_drivers[0]}"',script)
+        self.assertIn('--driver "$evidence/root-host/driver25-prefix"',script)
         for text in ('--source-root "$GITHUB_WORKSPACE/core-accepted-source" --driver ',
                      'command_drivers[0]','command_clients[0]','--output "$evidence/validation"'):
             self.assertIn(text,script)
@@ -601,7 +606,7 @@ class Wiring(unittest.TestCase):
                 if expected:
                     argv=record.read_text().splitlines()
                     self.assertEqual(argv[argv.index('--source-root')+1],str(root/'core-accepted-source'))
-                    self.assertEqual(argv[argv.index('--driver')+1],str(prepared.relative_to(root)/'qca-nss-drv-0'))
+                    self.assertEqual(argv[argv.index('--driver')+1],str(root/'core-flow-evidence/nss-command-inputs/root-host/driver25-prefix'))
                     self.assertEqual(argv[argv.index('--clients')+1],str(prepared.relative_to(root)/'qca-nss-clients-0'))
 
 

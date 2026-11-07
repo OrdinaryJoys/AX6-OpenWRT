@@ -69,6 +69,10 @@ jobs:
           echo "accepted_ref=$accepted_ref" >> "$GITHUB_OUTPUT"
           prefix39_ref=$(python3 -B .github/scripts/verify-ssdk-probe-resource.py --print-prefix39-ref)
           echo "prefix39_ref=$prefix39_ref" >> "$GITHUB_OUTPUT"
+          platform41_ref=$(python3 -B .github/scripts/verify-ssdk-platform-resource.py --print-source-ref)
+          echo "platform41_ref=$platform41_ref" >> "$GITHUB_OUTPUT"
+          platform40_ref=$(python3 -B .github/scripts/verify-ssdk-platform-resource.py --print-prefix40-ref)
+          echo "platform40_ref=$platform40_ref" >> "$GITHUB_OUTPUT"
 
       - name: Checkout test-only historical prefix (never firmware source)
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
@@ -92,6 +96,22 @@ jobs:
           repository: OrdinaryJoys/immortalwrt-nss
           ref: ${{ steps.prefix-contract.outputs.prefix39_ref }}
           path: core-accepted39-source
+          persist-credentials: false
+
+      - name: Checkout immutable platform41 test assets (never firmware source)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          repository: OrdinaryJoys/immortalwrt-nss
+          ref: ${{ steps.prefix-contract.outputs.platform41_ref }}
+          path: core-platform41-source
+          persist-credentials: false
+
+      - name: Checkout immutable platform40 parent (never firmware source)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          repository: OrdinaryJoys/immortalwrt-nss
+          ref: ${{ steps.prefix-contract.outputs.platform40_ref }}
+          path: core-platform40-source
           persist-credentials: false
 
       - name: Set variant config + brick-safety pre-flight
@@ -411,11 +431,11 @@ jobs:
           sh -n "$pbuf_classifier" AX6-IPQ/files/sbin/nss-check tests/test-pbuf-fixture.sh
           NSS_PBUF_CLASSIFIER="$pbuf_classifier" sh tests/test-pbuf-fixture.sh
 
-      - name: Validate source-bound SSDK sanitizer controls before expensive preparation
+      - name: Validate immutable SSDK40 sanitizer controls (test-only prefix)
         run: |
           set -euo pipefail
           python3 -B .github/scripts/verify-ssdk-probe-resource.py \
-            --sanitizer-preflight --source-root openwrt --cc gcc-11 \
+            --sanitizer-preflight --source-root "$GITHUB_WORKSPACE/core-platform40-source" --cc gcc-11 \
             --output core-flow-evidence/ssdk-sanitizer-preflight
 
       - name: Verify complete ncurses package before feed preparation
@@ -906,10 +926,19 @@ jobs:
           PYTHONDONTWRITEBYTECODE=1 python3 tests/nss-drv-containment/test-nss-drv-containment.py \
             --candidate-only --candidate "$nss_drv_dir" \
             --output "$GITHUB_WORKSPACE/nss-containment-evidence/drv"
+          PYTHONDONTWRITEBYTECODE=1 python3 tests/nss-drv-containment/test_root_control_contract.py \
+            --candidate "$nss_drv_dir" --cc cc \
+            --output "$GITHUB_WORKSPACE/nss-containment-evidence/root-control-negatives"
           PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover \
             -s tests/nss-drv-containment -p test_driver_extraction.py -v
           PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover \
             -s tests/nss-drv-containment -p test_extract_prepared_c.py -v
+          DRV_HOST_CANDIDATE="$nss_drv_dir" PYTHONDONTWRITEBYTECODE=1 \
+            PYTHONPATH=tests/nss-drv-containment python3 -m unittest -v \
+            test_candidate_only_cli.CandidateOnlyModes.test_candidate_only_requires_candidate \
+            test_candidate_only_cli.CandidateOnlyModes.test_candidate_only_forbids_baseline \
+            test_candidate_only_cli.CandidateOnlyModes.test_candidate_without_explicit_mode_rejected \
+            test_candidate_only_cli.CandidateOnlyModes.test_no_inputs_rejected
           python3 tests/test-nss-fraglist-accounting.py "$nss_drv_dir"
           echo "=== qca-nss-ecm prepare (patch apply check) ==="
           make package/qca-nss/qca-nss-ecm/prepare V=s
@@ -955,11 +984,15 @@ jobs:
           test "${#lifecycle_ssdk_sources[@]}" -eq 1
           lifecycle_dp_source=${lifecycle_dp_sources[0]}
           lifecycle_ssdk_source=${lifecycle_ssdk_sources[0]}
-          python3 "$GITHUB_WORKSPACE/.github/scripts/verify-ssdk-probe-resource.py" \
+          # The actual prepared SSDK41 must match the immutable reviewed41 tree.
+          # Original 40/39/38/legacy gates run on exact reverse-derived prefixes.
+          python3 "$GITHUB_WORKSPACE/.github/scripts/verify-ssdk-platform-resource.py" \
+            --source-root "$GITHUB_WORKSPACE/core-platform41-source" \
+            --accepted40-source-root "$GITHUB_WORKSPACE/core-platform40-source" \
             --accepted39-source-root "$GITHUB_WORKSPACE/core-accepted39-source" \
             --baseline-source-root "$GITHUB_WORKSPACE/core-accepted-source" \
-            --legacy-source-root "$GITHUB_WORKSPACE/core-legacy-source" \
-            --source-root . --dp "$lifecycle_dp_source" --ssdk "$lifecycle_ssdk_source" --cc cc \
+            --legacy-source-root "$GITHUB_WORKSPACE/core-legacy-source" --dp "$lifecycle_dp_source" \
+            --ssdk "$lifecycle_ssdk_source" --cc cc \
             --output "$GITHUB_WORKSPACE/core-flow-evidence/mdio-lifecycle"
 
       - name: Validate frozen NSS command input source and host regressions
@@ -975,9 +1008,14 @@ jobs:
           mapfile -d '' command_clients < "$evidence/clients-paths.nul"
           test "${#command_drivers[@]}" -eq 1
           test "${#command_clients[@]}" -eq 1
+          # Validate actual DRV27 first; only the exact reverse-derived DRV25
+          # prefix is eligible for the unchanged historical command-input gate.
+          python3 "$GITHUB_WORKSPACE/.github/scripts/verify-nss-root-host.py" \
+            --source-root . --driver "${command_drivers[0]}" \
+            --output "$evidence/root-host"
           python3 "$GITHUB_WORKSPACE/.github/scripts/verify-nss-command-inputs.py" \
             --current-layers --legacy-source-root "$GITHUB_WORKSPACE/core-legacy-source" \
-            --source-root "$GITHUB_WORKSPACE/core-accepted-source" --driver "${command_drivers[0]}" --clients "${command_clients[0]}" --cc cc \
+            --source-root "$GITHUB_WORKSPACE/core-accepted-source" --driver "$evidence/root-host/driver25-prefix" --clients "${command_clients[0]}" --cc cc \
             --output "$evidence/validation"
 
       - name: Regression assertions — 007/008, 012, 018/019 (P0-D.3-5)

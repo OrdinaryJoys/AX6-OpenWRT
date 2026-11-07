@@ -1,5 +1,10 @@
 # AX6-OpenWRT
 
+> **当前独立候选动态（2026-11-07）：** 本批同步 driver27/SSDK31，修复冷 meminfo 与 root/producer/诊断入口宿主事务，
+> 接入严格来源、历史前缀与实际 prepared 门禁。进度和未验证边界见
+> [最新云验证说明](docs/AX6_ROOT_HOST_CLOUD_VALIDATION_2026-11-07.md)。
+> 本次仅 stock、NOT-FLASHED，不合主线、不发布 Release；下方历史性能描述不代表本批已获实机或最高性能验证。
+
 [![Lint](https://github.com/OrdinaryJoys/AX6-OpenWRT/actions/workflows/lint.yml/badge.svg)](https://github.com/OrdinaryJoys/AX6-OpenWRT/actions/workflows/lint.yml)
 
 Redmi AX6 一键编译脚本 — 完整 NSS 加速 + WiFi 6 满血 + 分区布局门禁。
@@ -20,7 +25,7 @@ Xiaomi 原厂双 `0x023c0000` 槽与合并布局共享 `redmi,ax6-stock`
 兼容标识，但本仓完整 STOCK 镜像面向合并布局。布局不明确时不要刷写。
 详见 [`AX6-IPQ/HARDWARE.md`](AX6-IPQ/HARDWARE.md)。
 
-当前有效状态、验证证据和遗留问题见
+较早的状态、验证证据和遗留问题见
 [`AX6-IPQ/CURRENT-STATUS-2026-06-19.md`](AX6-IPQ/CURRENT-STATUS-2026-06-19.md)。
 追加式历史审计记录保留在
 [`AX6-IPQ/AUDIT-REPAIR-REPORT-2026-06-19.md`](AX6-IPQ/AUDIT-REPAIR-REPORT-2026-06-19.md)。
