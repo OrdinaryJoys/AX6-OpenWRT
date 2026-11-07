@@ -5,6 +5,16 @@
 
 ## 本批同步动态
 
+第二次完整 Lint [42384556367](https://github.com/OrdinaryJoys/AX6-OpenWRT/actions/runs/42384556367)
+在 `fe684a7f58697d013314bf730a1d636fe91c6385` 上通过旧失败阶段，随后因官方
+ncurses镜像低速而失败：90秒收到1703683/2247939 bytes（约75%），curl exit28。
+完整归档哈希校验器尚未执行，不能误称哈希不匹配或驱动编译故障，固件仍未派发。
+只将该次传输上限90秒调整为240秒、步骤上限3分钟调整为5分钟；连接上限15秒、
+HTTPS/TLS验证、URL、archive/hash/source验证器与整个Lint20分钟上限均不变。
+不增加盲目工作流重跑，也不接受半包、改哈希、关闭门禁或切未知镜像。
+该参数是单次传输总时限，不是免校验或重试开关；定义参见
+[curl 官方手册](https://curl.se/docs/manpage.html#-m)。
+
 首个完整 Lint [42383523549](https://github.com/OrdinaryJoys/AX6-OpenWRT/actions/runs/42383523549)
 在 `aae2270a9f2893b908c0f4d643083504013785f6` 上失败；固件未派发。
 准确首错为 `tests/test-current-layer-integration.py` 仍要求把当前DRIVER目录

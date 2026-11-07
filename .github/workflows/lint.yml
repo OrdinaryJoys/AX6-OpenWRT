@@ -221,12 +221,12 @@ jobs:
           persist-credentials: false
 
       - name: Verify complete ncurses source and fixed official mirror
-        timeout-minutes: 3
+        timeout-minutes: 5
         run: |
           set -euo pipefail
           mkdir -p ncurses-source-evidence
           curl --proto '=https' --proto-redir '=https' --tlsv1.2 \
-            --connect-timeout 15 --max-time 90 --fail --show-error --location \
+            --connect-timeout 15 --max-time 240 --fail --show-error --location \
             https://sources.openwrt.org/ncurses-6.6.20260801.tar.zst \
             --output ncurses-source-evidence/ncurses-6.6.20260801.tar.zst
           python3 -B .github/scripts/verify-ncurses-source.py \

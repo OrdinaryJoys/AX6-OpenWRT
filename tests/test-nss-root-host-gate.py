@@ -106,6 +106,22 @@ class Contract(unittest.TestCase):
         self.assertLess(text.index('path: core-platform40-source'), text.index(call))
         self.assertLess(text.index(call), text.index('      - name: Compile firmware'))
 
+    def test_official_mirror_transfer_is_bounded_and_never_bypasses_verifier(self):
+        text = (ROOT / '.github/workflows/lint.yml').read_text()
+        marker = '      - name: Verify complete ncurses source and fixed official mirror\n'
+        self.assertEqual(text.count(marker), 1)
+        step = text.split(marker, 1)[1].split('\n      - ', 1)[0]
+        for item in ('timeout-minutes: 5', 'set -euo pipefail', "--proto '=https' --proto-redir '=https' --tlsv1.2",
+                     '--connect-timeout 15 --max-time 240 --fail --show-error --location',
+                     'https://sources.openwrt.org/ncurses-6.6.20260801.tar.zst',
+                     'python3 -B .github/scripts/verify-ncurses-source.py',
+                     '--archive ncurses-source-evidence/ncurses-6.6.20260801.tar.zst'):
+            self.assertIn(item, step)
+        self.assertLess(step.index('curl '), step.index('python3 -B .github/scripts/verify-ncurses-source.py'))
+        self.assertNotIn('continue-on-error', step)
+        self.assertNotIn('--insecure', step)
+        self.assertNotIn('|| true', step)
+
 
 if __name__ == '__main__':
     unittest.main()
