@@ -9,6 +9,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import struct
 import subprocess
 
@@ -104,8 +105,11 @@ def audit(args):
     return result
 
 
-def retain(package, output):
+def retain(package, output, *, package_name=PACKAGE):
     """Preserve original selected package/index bytes for independent inspection."""
+    require(isinstance(package_name, str) and re.fullmatch(r'[a-z0-9][a-z0-9+.-]*', package_name),
+            'invalid retained package identity')
+    require(package['control'].get('Package') == package_name, 'retained package identity differs')
     output.mkdir(parents=True, exist_ok=False)
     paths = [Path(package['path']), Path(package['index_path'])]
     compressed = paths[1].with_name('Packages.gz')
@@ -123,7 +127,7 @@ def retain(package, output):
             stream.write(data)
         entries.append({'original': str(source), 'name': source.name, 'sha256': sha(data)})
     # Reuse the strict index/IPK reader on the retained copy as well.
-    checked = V.selected_ipks(output, (PACKAGE,))[PACKAGE]
+    checked = V.selected_ipks(output, (package_name,))[package_name]
     require(checked['sha256'] == package['sha256'], 'retained package differs')
     with (output / 'INDEX.json').open('x') as stream:
         json.dump({'status': 'ORIGINAL_INPUTS_RETAINED_NOT_ROOTFS_ACCEPTANCE', 'files': entries}, stream, indent=2)

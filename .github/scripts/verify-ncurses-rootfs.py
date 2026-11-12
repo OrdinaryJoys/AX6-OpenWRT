@@ -83,7 +83,7 @@ def main():
         need(args.rootfs.is_file() and not args.rootfs.is_symlink(), 'regular actual rootfs required')
         packages = V.selected_ipks(args.packages_root, NAMES)
         for name in NAMES:
-            helpers.retain(packages[name], args.retain_packages / name)
+            helpers.retain(packages[name], args.retain_packages / name, package_name=name)
 
         def command(*arguments):
             process = subprocess.run([args.unsquashfs, *map(str, arguments)], capture_output=True, timeout=90,

@@ -1,9 +1,55 @@
 # AX6 028/029 根入口宿主事务与 stock 云验证说明
 
-日期：2026-11-07。状态：**有限源码候选，目标构建与真实运行未验；不放行部署。**
+更新：2026-11-12。状态：**上次完整目标编译成功，最终 rootfs 验收失败；验收器修正待新提交云验证，不放行部署。**
 本说明供 source/build 两仓同步使用，不改变既有 frozen 合同，也不是 Release 说明。
 
-## 本批同步动态
+## 当前结论与修正
+
+唯一已执行的本批完整 stock 构建为
+[42387007623](https://github.com/OrdinaryJoys/AX6-OpenWRT/actions/runs/42387007623)，
+build `64990dd4729f7e6a0413614347de3d5780c18f24`、source
+`5e5ccf0bb7b31a0f5890c98a37ca5b256a2749d8`、attempt1、`ssh=false`。
+同 build 的完整 [Lint 42386195734](https://github.com/OrdinaryJoys/AX6-OpenWRT/actions/runs/42386195734)
+成功。完整固件 run 的 `Compile firmware` 和 compiled stock DTB 检查成功，
+但第44步 `Validate final rootfs contents` 失败，不能将整个 run 描述为成功。
+
+准确首错为 ncurses 证据保留函数复制所选 IPK/index 后，仍固定按 `vlmcsd`
+回读。实际命令是 `verify-ncurses-rootfs.py`，报错
+`expected exactly one actual vlmcsd IPK`，exit1。原有12项 ncurses 测试
+只验证包体比对，没有覆盖实际 main -> retain -> 严格回读入口。
+这是验收辅助函数的包身份错误，不是已证实的目标 NSS/Wi-Fi 驱动故障或缺包。
+
+本次只给共享 `retain` 增加 keyword-only `package_name`（默认仍为 vlmcsd），
+在创建目录前检查名称和实际 control 身份，再以该显式名称执行原严格回读。
+ncurses 固定两个包逐一传名。原 IPK/index/hash、架构、版本、依赖、rootfs
+字节/模式/链接和独占写入条件不放宽；源码、配方、版本锁、性能开关未改。
+
+修正测试覆盖实际 main 路径、原始 IPK/Packages/Packages.gz 保留、默认 vlmcsd
+调用、身份错配、输入变动和旧目录拒绝。旧硬编码负控只恢复回读语句，保持新
+签名，必须重现原错误且尚未调用 unsquashfs，不能以 TypeError 假充故障复现。
+当前本地组合21套通过；ncurses 29项、vlmcsd 31项是其中的两套，不能重复累加。
+此前非作者21项控制与当前复核的资格仅限这四个修正文件，不等于整机验证。
+11月12日非作者重新核对四文件完全相同的摘要，29+31及额外11项控制通过，
+未发现本次提交的阻断问题；原ncurses顶层报告可覆盖既有文件的行为未改变，
+不能将独占IPK证据目录的保证误述为所有报告均不可覆盖。
+
+11月12日另一路独立复验了本run的实际诊断输入：原硬编码错误精确复现，
+修正后libncurses6的IPK/index保留与严格回读通过，实际control、4个库文件、
+12个符号链接和2个目录类型与rootfs一致，默认vlmcsd入口亦通过。
+八个诊断ZIP中没有terminfo原始IPK，故完整双包门不可在本地独立复跑；
+这是旧失败时的证据保留边界，不据此宣称固件缺包，也不使用旧run包体补齐。
+
+前序 rpcd OFF、Vim、vlmcsd 验收已执行；后续完整产物绑定、staging、
+sysupgrade/recovery/kmod 上传未执行。已保留本 run 的诊断 artifact，
+不是已合格固件。完整日志83583971 bytes，SHA256
+`456cbcfa6302f57a3793b185ee32c36c92eb1807cd235723656eaa2a7aab770e`。
+后继流程为独立复核、推送修正、相同新提交的完整 Lint，再单次 stock 构建；
+不重跑旧 SHA，不自动放行 Release、刷写或运行态结论。新 run 身份以本分支
+Actions 记录和后续动态为准，不借旧成功构建代替。
+
+## 历史 CI 修正
+
+本节记录前两次 Lint 的当时状态；其中“固件未派发”不描述当前状态。
 
 第二次完整 Lint [42384556367](https://github.com/OrdinaryJoys/AX6-OpenWRT/actions/runs/42384556367)
 在 `fe684a7f58697d013314bf730a1d636fe91c6385` 上通过旧失败阶段，随后因官方
@@ -54,9 +100,9 @@ SIGABRT负控；N2H417场景与8个实际 helper/handler 负控（ASan+UBSan）�
 - source 分支：`codex/ax6-root-host-source-20261107`。
 - source 基础 HEAD：`4245760179a1fbf2a0ce35cc4e6f21fc49b642cc`；本批修复提交必须是它的直接单父 child。实际完整提交以本仓 `SOURCE_COMMIT` 与 Actions 记录为准，不能将基础 HEAD 单独称为已包含本批。
 - 本批包版本：`qca-nss-drv` release27，`qca-ssdk` release31；厂商 driver pin 保持 `6aa14c78e097b29c493ff2fef87e4d35906b2b5a`。
-- build 分支：`codex/ax6-root-host-build-20261107`；本次读回基础 HEAD：`b3d0caec10500e0a24c010003610c6352f0723f1`。
-- 该 b3 基础锁仍指向 `fce57df4d7828fa9e9c7a45975f37f09a77fa101` / driver25 / SSDK30，**未包含 028/029**。旧云构建、旧固件及旧成功证据不包含本批，不可回填为本批通过。
-- 本阶段仅允许由父层完成一次新的 stock 云编译/推送；本说明任务不执行 commit、push、dispatch、Release 或任何实机操作。
+- build 分支：`codex/ax6-root-host-build-20261107`；上次已运行 build 为 `64990dd4729f7e6a0413614347de3d5780c18f24`，本次修正保持同一 source 锁。
+- 历史 b3 基础锁指向 `fce57df4d7828fa9e9c7a45975f37f09a77fa101` / driver25 / SSDK30，**未包含 028/029**；不得拿该旧固件替代本批。
+- 用户允许核验后的修正提交推送和 stock 云验证；仍禁止 main/Release 和任何实机操作。
 
 ## 028/029 固定 Scope
 
@@ -72,7 +118,8 @@ SIGABRT负控；N2H417场景与8个实际 helper/handler 负控（ASan+UBSan）�
 - 全采样状态机互斥、RX/ACK/sample 写者竞争、FINISHED/晚 ACK 代际匹配、控制交叠、硬件最终频率和错误反馈；本批排队事务不是这些问题的闭合。
 - late-probe、每核晚初始化失败及 timeout/晚回调的完整资源寿命；冷态 state/magic 检查不是其解决方案。
 - SSDK 的 root/module UK/SD/PHY provider/reader 退休、嵌套 void GCC clock/reset 的真实成功判定与错误传播。
-- Linux/GCC11 目标 ABI、完整目标内核/固件、真实设备、吞吐/丢包/时延及性能。即使将来云编译成功，运行安全与性能仍未验。
+- 完整产物级 ABI/包体/manifest/FIT/UBI/stock 布局的一致性和独立验收；目标编译成功不替代这些未执行的门。
+- 真实设备、RCU/NAPI/IRQ/DMA/HW/FW、吞吐/丢包/时延及性能。即使云编译成功，运行安全与性能仍未验。
 
 ## 旧 Run 的首错与已有修复
 
@@ -100,25 +147,25 @@ b3 已包含 `f8d092d9ba159b3e8fc96e4189663e3f2c1fa440`：source 锁移到删除
 
 SSDK41 同样使用固定 `4245760179a1fbf2a0ce35cc4e6f21fc49b642cc` 的隔离 test-only source、真实固定 `fce57df4d7828fa9e9c7a45975f37f09a77fa101` accepted40 父检查，并核 actual prepared。test-only checkout 不得替代新固件源码锁，41/40 及更早 frozen 合同不改。
 
-## 新构建风险与批准边界
+## 历史接线复核与批准边界
 
-当前 b3 基础仍是旧锁；新增工作树接线不等于新 run 已通过，不能直接宣称已验证 driver27/SSDK31。父层需完成新不可变 source 身份及 release/manifest/锁协调，并将 root-host 和 SSDK41 的实际 prepared 接线交非作者按限定 diff 独审。新头文件、目标回调 ABI、严格 patch reverse、GCC11/sanitizer 与目标编译均可能产生新的门失败；旧日志不能排除这些风险。
+最初的 b3 基础为旧锁。当时新增接线先独审、再协调 source 身份及 release/manifest/锁，之后已执行上述新 run；不能继续把这些已完成步骤记为未派发。后续镜像门和真实运行风险仍须独立验证，编译不证明没有其他故障。
 
-当前接线独审还发现一项需父层先修正的构建阻断：早期 frozen40 sanitizer preflight 仍传 `--source-root openwrt`，而原门在 preflight 分支前强制 HEAD 为 fce40。新固件锁改到424的直接 child 后将先在此失败，尚到不了后段 SSDK41/root-host 门。应将该旧控制预检绑定独立固定 fce40 test-only checkout，保持实际 SSDK41 prepared 的后段验证；不能放宽原 frozen 门来绕过。此项未修正并复核前，不将当前接线签为可 dispatch。
+最初接线独审发现 frozen40 sanitizer preflight 误传 `--source-root openwrt`，而原门强制 HEAD 为 fce40。该问题已在派发前修正为独立固定 fce40 test-only checkout，保留实际 SSDK41 prepared 的后段验证，未放宽 frozen 门。此处是已修历史问题，不是本次 ncurses 首错。
 
 本次许可仅 **stock**；产物只能标记 **NOT-FLASHED**，**不创建或更新 Release，不向 main 发布**。不能把云编译或宿主 PASS 描述为 boot、flash、实机回归、FW 退休完成或部署批准。本任务不执行封存 runner/binary，不访问路由器，不运行 SSH、流量、配置、reload、reboot、恢复或刷写。
 
-## Actual Run 待父层补录
+## 已执行 Run 身份
 
 - 新 source 完整 commit：`5e5ccf0bb7b31a0f5890c98a37ca5b256a2749d8`；source manifest：`d2803aaed4c9a8ab4ddf8764438448126c51bdb18559cdaae22047a30792267a`。
-- 新 build 完整 commit / lock 摘要：`PENDING_PARENT`。
-- 新 stock run ID / attempt / job ID：`PENDING_PARENT`；不得使用历史 `41958787303` 代填。
-- actual prepared 与 root-host/SSDK41/原 command 门结果、首个实际失败点：`PENDING_PARENT`。
-- 编译、DTB/rootfs/最终 FIT 与模块绑定及 artifact ID/SHA256：`PENDING_PARENT`。
+- build commit：`64990dd4729f7e6a0413614347de3d5780c18f24`，本次待验修正不改变源码锁。
+- stock run / attempt / job：`42387007623` / `1` / `128446412066`。
+- 首个失败点：step44 ncurses retained-copy 包身份错误；完整日志及实际诊断数据已保留。
+- 编译与 compiled DTB 步骤成功；最终 FIT/模块/manifest/恢复镜像等完整验收未完成，无正式合格 artifact。
 - 实机状态：`NOT-FLASHED`；运行/性能：`UNVERIFIED`；Release：`NONE`。
 
 早期 frozen40 sanitizer 预检已改用固定 fce40 test-only checkout，不再误把
 新固件源码传给强制旧 HEAD 的门。实际新 SSDK41 仍走后续完整 prepared 门。
 本次只修接线，原 frozen40/41 与 NSS command 合同不放宽。
 
-只有父层在新 actual run 产生后补齐身份与原始证据，才可更新对应云验证结论；FW 退休、采样、late-probe 等 OPEN 项不随编译成功自动关闭。
+后继 actual run 的身份与原始证据单独记录，不改写前次失败历史；FW 退休、采样、late-probe 等 OPEN 项不随编译成功自动关闭。
