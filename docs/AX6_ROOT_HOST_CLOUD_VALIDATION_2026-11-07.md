@@ -5,6 +5,16 @@
 
 ## 当前结论与修正
 
+**11月12日派发阻塞：** 下述CI修正已提交推送为
+`b7828de8b930143da7cc38dd99b46fb934775b27`。对该候选仅尝试一次完整Lint派发，
+GitHub返回HTTP422：`Actions has been disabled for this repository.`，没有新run。
+随后只读核对却显示仓库Actions `enabled=true`、Lint与NSS构建均`active`、
+仓库`archived=false/disabled=false`，两候选远端也未漂移。
+目前不能确认是账户限制、GitHub服务状态或其他原因；没有证据支持改权限、
+改预算或绕过门禁，也没有再次派发或改用其他仓库。完整固件替代构建尚未启动。
+先排清GitHub可执行性，再对届时确认的精确候选HEAD依次Lint和单次stock；
+以下旧run结果不能冒充新提交已通过。
+
 唯一已执行的本批完整 stock 构建为
 [42387007623](https://github.com/OrdinaryJoys/AX6-OpenWRT/actions/runs/42387007623)，
 build `64990dd4729f7e6a0413614347de3d5780c18f24`、source
