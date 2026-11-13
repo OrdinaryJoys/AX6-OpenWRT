@@ -39,11 +39,19 @@ permissions:
 
 jobs:
   build:
-    permissions:
-      contents: write
     runs-on: ubuntu-22.04
     timeout-minutes: 180
     steps:
+      - name: Require isolated stock build without SSH
+        env:
+          VARIANT_INPUT: ${{ inputs.variant }}
+          SSH_INPUT: ${{ inputs.ssh }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" != refs/heads/main
+          test "$VARIANT_INPUT" = stock
+          test "$SSH_INPUT" = false
+
       - name: Free disk space
         uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be  # v1.3.1
         with:
@@ -112,6 +120,14 @@ jobs:
           repository: OrdinaryJoys/immortalwrt-nss
           ref: ${{ steps.prefix-contract.outputs.platform40_ref }}
           path: core-platform40-source
+          persist-credentials: false
+
+      - name: Checkout immutable DRV27 test-only source (never firmware source)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          repository: OrdinaryJoys/immortalwrt-nss
+          ref: 5e5ccf0bb7b31a0f5890c98a37ca5b256a2749d8
+          path: core-drv27-source
           persist-credentials: false
 
       - name: Set variant config + brick-safety pre-flight
@@ -222,6 +238,7 @@ jobs:
       - name: Load and verify build lock
         run: |
           set -eo pipefail
+          python3 -B .github/scripts/verify-nss-drv29.py --check-lock
           set -a
           # shellcheck source=.github/ax6-nss-lock.env
           . "$BUILD_LOCK"
@@ -1008,14 +1025,19 @@ jobs:
           mapfile -d '' command_clients < "$evidence/clients-paths.nul"
           test "${#command_drivers[@]}" -eq 1
           test "${#command_clients[@]}" -eq 1
-          # Validate actual DRV27 first; only the exact reverse-derived DRV25
-          # prefix is eligible for the unchanged historical command-input gate.
-          python3 "$GITHUB_WORKSPACE/.github/scripts/verify-nss-root-host.py" \
+          find "$command_root" -maxdepth 3 -type f -path '*/linux-6.18.38/kernel/sysctl.c' -print0 > "$evidence/sysctl-paths.nul"
+          mapfile -d '' command_sysctls < "$evidence/sysctl-paths.nul"
+          test "${#command_sysctls[@]}" -eq 1
+          # The pre-gate itself runs the preserved DRV27 executable against
+          # the exact reverse-derived tree and immutable DRV27 checkout.
+          python3 "$GITHUB_WORKSPACE/.github/scripts/verify-nss-drv29.py" \
             --source-root . --driver "${command_drivers[0]}" \
-            --output "$evidence/root-host"
+            --drv27-source-root "$GITHUB_WORKSPACE/core-drv27-source" \
+            --kernel "${command_sysctls[0]%/kernel/sysctl.c}" --cc clang \
+            --output "$evidence/drv29"
           python3 "$GITHUB_WORKSPACE/.github/scripts/verify-nss-command-inputs.py" \
             --current-layers --legacy-source-root "$GITHUB_WORKSPACE/core-legacy-source" \
-            --source-root "$GITHUB_WORKSPACE/core-accepted-source" --driver "$evidence/root-host/driver25-prefix" --clients "${command_clients[0]}" --cc cc \
+            --source-root "$GITHUB_WORKSPACE/core-accepted-source" --driver "$evidence/drv29/root-host/driver25-prefix" --clients "${command_clients[0]}" --cc cc \
             --output "$evidence/validation"
 
       - name: Regression assertions — 007/008, 012, 018/019 (P0-D.3-5)
@@ -1092,7 +1114,7 @@ jobs:
         run: |
           set -eo pipefail
           echo "$(nproc) thread compile"
-          bash ../.github/scripts/compile-ax6-with-evidence.sh "$(nproc)" ../build-evidence
+          bash ../.github/scripts/compile-ax6-with-evidence.sh "$(nproc)" ../build-evidence --once
 
       - name: Preserve generated kernel and compiled stock DTB before rootfs gates
         if: success() && env.VARIANT_TAG == 'STOCK'

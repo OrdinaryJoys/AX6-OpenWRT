@@ -559,11 +559,11 @@ class Wiring(unittest.TestCase):
         workflow,script=self.step()
         call='python3 "$GITHUB_WORKSPACE/.github/scripts/verify-nss-command-inputs.py"'
         self.assertEqual(workflow.count(call),1)
-        root_call='python3 "$GITHUB_WORKSPACE/.github/scripts/verify-nss-root-host.py"'
+        root_call='python3 "$GITHUB_WORKSPACE/.github/scripts/verify-nss-drv29.py"'
         self.assertEqual(workflow.count(root_call),1)
         self.assertLess(script.index(root_call),script.index(call))
         self.assertIn('--source-root . --driver "${command_drivers[0]}"',script)
-        self.assertIn('--driver "$evidence/root-host/driver25-prefix"',script)
+        self.assertIn('--driver "$evidence/drv29/root-host/driver25-prefix"',script)
         for text in ('--source-root "$GITHUB_WORKSPACE/core-accepted-source" --driver ',
                      'command_drivers[0]','command_clients[0]','--output "$evidence/validation"'):
             self.assertIn(text,script)
@@ -584,6 +584,9 @@ class Wiring(unittest.TestCase):
             (1,1,'partial-find'),(1,1,'partial-find-clients')]:
             with self.subTest(drivers=drivers,clients=clients,mode=mode),tempfile.TemporaryDirectory() as temp:
                 root=Path(temp); prepared=root/'build_dir/target-aarch64_cortex-a53_musl/linux-qualcommax_ipq807x'; prepared.mkdir(parents=True)
+                kernel=prepared/'linux-6.18.38/kernel'
+                kernel.mkdir(parents=True)
+                (kernel/'sysctl.c').touch()
                 for prefix,count in [('qca-nss-drv',drivers),('qca-nss-clients',clients)]:
                     for i in range(count): (prepared/(prefix+'-'+str(i))).mkdir()
                 if mode=='nested': (prepared/'old/quarantine/qca-nss-drv-stale').mkdir(parents=True)
@@ -606,7 +609,7 @@ class Wiring(unittest.TestCase):
                 if expected:
                     argv=record.read_text().splitlines()
                     self.assertEqual(argv[argv.index('--source-root')+1],str(root/'core-accepted-source'))
-                    self.assertEqual(argv[argv.index('--driver')+1],str(root/'core-flow-evidence/nss-command-inputs/root-host/driver25-prefix'))
+                    self.assertEqual(argv[argv.index('--driver')+1],str(root/'core-flow-evidence/nss-command-inputs/drv29/root-host/driver25-prefix'))
                     self.assertEqual(argv[argv.index('--clients')+1],str(prepared.relative_to(root)/'qca-nss-clients-0'))
 
 

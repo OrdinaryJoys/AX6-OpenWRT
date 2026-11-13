@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Compile in the caller's OpenWrt tree; preserve BOTH attempts and tee failures.
+# Compile in the caller's OpenWrt tree and preserve each attempt and tee failure.
 set -euo pipefail
 
-jobs=${1:?usage: bash compile-ax6-with-evidence.sh JOBS NEW_EVIDENCE_DIR}
-output_dir=${2:?usage: bash compile-ax6-with-evidence.sh JOBS NEW_EVIDENCE_DIR}
+jobs=${1:?usage: bash compile-ax6-with-evidence.sh JOBS NEW_EVIDENCE_DIR [--once]}
+output_dir=${2:?usage: bash compile-ax6-with-evidence.sh JOBS NEW_EVIDENCE_DIR [--once]}
+mode=${3:-}
+[[ $# -le 3 && ( -z "$mode" || "$mode" == --once ) ]] || { echo 'invalid compile mode' >&2; exit 2; }
 [[ "$jobs" =~ ^[1-9][0-9]*$ ]] || { echo 'invalid compile job count' >&2; exit 2; }
 test ! -e "$output_dir" && test ! -L "$output_dir" || {
     echo 'compile evidence directory must be new; preserve previous attempts' >&2
@@ -36,10 +38,10 @@ run_attempt() {
 
 run_attempt parallel "$jobs"
 parallel_rc=$MAKE_RC
-if [ "$parallel_rc" -eq 0 ]; then
-    printf '{"event":"summary","parallel_rc":0,"serial_rc":null,"overall_rc":0}\n' \
-        >> "$output_dir/attempts.jsonl"
-    exit 0
+if [ "$parallel_rc" -eq 0 ] || [ "$mode" = --once ]; then
+    printf '{"event":"summary","parallel_rc":%s,"serial_rc":null,"overall_rc":%s}\n' \
+        "$parallel_rc" "$parallel_rc" >> "$output_dir/attempts.jsonl"
+    exit "$parallel_rc"
 fi
 
 echo "::warning::Parallel compilation exited $parallel_rc; preserving evidence and retrying serially once"

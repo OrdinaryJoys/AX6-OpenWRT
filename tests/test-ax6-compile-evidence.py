@@ -19,7 +19,7 @@ raise SystemExit(json.loads(os.environ['AX6_TEST_MAKE_RCS'])[len(calls)-1])
 '''
 results = []
 
-def scenario(name, rcs, expected, jobs='4', tee_failure=False, existing=False, symlink=False):
+def scenario(name, rcs, expected, jobs='4', tee_failure=False, existing=False, symlink=False, mode=None):
     with tempfile.TemporaryDirectory(prefix='ax6-compile-evidence-') as temporary:
         base = Path(temporary)
         tools = base / 'tools'
@@ -41,7 +41,8 @@ def scenario(name, rcs, expected, jobs='4', tee_failure=False, existing=False, s
         env['PATH'] = str(tools) + os.pathsep + env['PATH']
         env['AX6_TEST_MAKE_TRACE'] = str(base / 'calls.json')
         env['AX6_TEST_MAKE_RCS'] = json.dumps(rcs)
-        completed = subprocess.run(['bash', str(SCRIPT), jobs, str(output)], cwd=base,
+        argv = ['bash', str(SCRIPT), jobs, str(output)] + ([mode] if mode else [])
+        completed = subprocess.run(argv, cwd=base,
                                    env=env, capture_output=True, text=True, timeout=15)
         assert completed.returncode == expected, (name, completed.returncode, completed.stderr)
         calls = json.loads((base / 'calls.json').read_text()) if (base / 'calls.json').exists() else []
@@ -60,7 +61,7 @@ def scenario(name, rcs, expected, jobs='4', tee_failure=False, existing=False, s
             assert summary['overall_rc'] == expected
             assert calls[0] == ['-j4', 'V=s']
             assert (output / 'compile-parallel.log').read_text().startswith('compile fixture: 1')
-            if rcs[0]:
+            if rcs[0] and mode != '--once':
                 assert calls == [['-j4', 'V=s'], ['-j1', 'V=s']]
                 assert summary['serial_rc'] == rcs[1]
                 assert (output / 'compile-serial.log').read_text().startswith('compile fixture: 2')
@@ -71,6 +72,9 @@ def scenario(name, rcs, expected, jobs='4', tee_failure=False, existing=False, s
 scenario('parallel-success-no-retry', [0], 0)
 scenario('parallel-failure-serial-success-retains-first-rc', [9, 0], 0)
 scenario('both-fail-preserve-serial-rc', [9, 23], 23)
+scenario('one-attempt-success', [0], 0, mode='--once')
+scenario('one-attempt-failure-keeps-first-rc', [9], 9, mode='--once')
+scenario('invalid-mode', [0], 2, mode='--unexpected')
 scenario('tee-failure-no-blind-retry', [0], 8, tee_failure=True)
 scenario('invalid-zero-jobs', [0], 2, jobs='0')
 scenario('invalid-shell-jobs', [0], 2, jobs='4;false')

@@ -485,13 +485,13 @@ class Wiring(unittest.TestCase):
         self.assertIn('ref: ${{ steps.prefix-contract.outputs.legacy_ref }}', workflow)
         self.assertIn('path: core-legacy-source\n          persist-credentials: false', workflow)
         self.assertLess(workflow.index('Checkout test-only historical prefix'), workflow.index('Validate reviewed MDIO'))
-        actual = 'python3 "$GITHUB_WORKSPACE/.github/scripts/verify-nss-root-host.py"'
+        actual = 'python3 "$GITHUB_WORKSPACE/.github/scripts/verify-nss-drv29.py"'
         historical = 'python3 "$GITHUB_WORKSPACE/.github/scripts/verify-nss-command-inputs.py"'
         self.assertEqual(workflow.count(actual), 1)
         self.assertEqual(workflow.count(historical), 1)
         self.assertLess(workflow.index(actual), workflow.index(historical))
         self.assertIn('--source-root . --driver "${command_drivers[0]}"', workflow)
-        self.assertIn('--source-root "$GITHUB_WORKSPACE/core-accepted-source" --driver "$evidence/root-host/driver25-prefix" --clients "${command_clients[0]}"', workflow)
+        self.assertIn('--source-root "$GITHUB_WORKSPACE/core-accepted-source" --driver "$evidence/drv29/root-host/driver25-prefix" --clients "${command_clients[0]}"', workflow)
         self.assertNotIn('--source-root "$GITHUB_WORKSPACE/core-accepted-source" --driver "${command_drivers[0]}"', workflow)
 
     def test_lint_runs_admission_controls(self):

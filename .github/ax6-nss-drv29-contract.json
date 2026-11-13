@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "profile": "DRV29_CONNECTION_HOST_WITH_EXACT_DRV27_PREFIX",
+  "state": "REVIEWED_DIAGNOSTIC_INPUTS",
+  "source_commit": "3b0efcb83103ede1a671c2d16f8e0bd7131e7248",
+  "source_parent": "5e5ccf0bb7b31a0f5890c98a37ca5b256a2749d8",
+  "source_manifest_sha256": "ea0ecf2be3c0be12ad8d31352ba2c97726ae674bb006317a08556efb375b6731",
+  "patch_name": "033-connection-table-host-transaction.patch",
+  "patch_sha256": "5748722996ee4ebf8cb8e1f84b29634e57a87e8717ad50ae4b8fe65d4efdfb08",
+  "changed_files": {
+    "Makefile": "0715f2ab5b0fe036fe9c400cc8d91b1dd1fdd1216a663634d0ed93c32f401572",
+    "Makefile.fsm": "b080d873d36dcc6a163ec645bbc5e29244305c3d33016dc2014177f377f64258",
+    "exports/nss_ipv4.h": "a05aab0d12ce288742015d8b4bce1d3366ab55b02ca1f687aae72b52209290a2",
+    "exports/nss_ipv6.h": "e6952a6bbac598005bb40c95b6765cdc4d8ee26299fe1bd56f5bc574d2a0e95b",
+    "nss_core.c": "6bebd12a1dcc9a15c1dc0dacb9d275b860740f319dd29e9f5e514a1dd0262d1a",
+    "nss_core.h": "bca93383c347206b0802039f7dd7c539ff3166b0df0cb6f7649f205ff356980f",
+    "nss_hal/nss_hal.c": "a18b0970aa086c411c25d40386941c0d58dd4d97142502e19d0b95b7b9ad0ea8",
+    "nss_init.c": "b362ea658c2ad0fddce57f2b651114493c0b65ffab2ae49956a2f9f5266cf654",
+    "nss_ipv4.c": "045eb696656a8da9111e7d8e1114578fa13b5692ef5a80b580bf9907e9670826",
+    "nss_ipv6.c": "47503d26ddfd7ebcfab4eb6013d5f8702f709ddad63e906885af8206d7584b2c"
+  },
+  "added_files": {
+    "nss_conn_table.c": "9cc9c690c125a936d172ec68a1fe2ce0e2fe43aeed5f194fe371f6d5dabd4ac4",
+    "nss_conn_table.h": "90a89e52cca3c65146dde57f365e101926ccb12467d3b4c7a27df73a8caa0453"
+  },
+  "inventory_sha256": "655cbc5e61ee4f6d791a2d01b7715b8c028b5cc50725dce5b57f13291458aa9e",
+  "test_files": {
+    "tests/nss-conn-transaction/README.md": "36e6c45fa4a8cc3fbbd4e354a7cda3424f3aa38bbd99e81d101a4c8d1600ab45",
+    "tests/nss-conn-transaction/fixture.c": "077e6ee54a341b88236b024df99f2a7fd0e9ebdcca1ee0784533dcbeec06e4dc",
+    "tests/nss-conn-transaction/integration.c": "17ec1b982b741856954fa6e38d0df354ab2354dc8184dc81823aefc3f8405738",
+    "tests/nss-conn-transaction/matrix.py": "ca03cb8772e0a325e9170267616e61da7b6c873fc0a0aa0ef460f7e76b31a332",
+    "tests/nss-conn-transaction/run.py": "94fa011c2ae5fdadcfc7a9caa9f5a164c72df2aeca3f55c0abb38ad342877f6c",
+    "tests/nss-conn-transaction/source.py": "f4c5e616292bc9279221ca2d1df74e77f0ae056bce1c578683430db7a29b25a9"
+  },
+  "transaction_cases": 36,
+  "transaction_controls": 25,
+  "integration_cases": 11,
+  "integration_controls": 13
+}

@@ -76,13 +76,14 @@ class Contract(unittest.TestCase):
 
     def test_actual_root_gate_precedes_exact_prefix_command_gate(self):
         text = (ROOT / '.github/workflows/build-AX6-NSS.yml').read_text()
-        root = 'python3 "$GITHUB_WORKSPACE/.github/scripts/verify-nss-root-host.py"'
+        root = 'python3 "$GITHUB_WORKSPACE/.github/scripts/verify-nss-drv29.py"'
         prior = 'python3 "$GITHUB_WORKSPACE/.github/scripts/verify-nss-command-inputs.py"'
         self.assertEqual(text.count(root), 1)
         self.assertEqual(text.count(prior), 1)
         self.assertLess(text.index(root), text.index(prior))
         self.assertIn('--source-root . --driver "${command_drivers[0]}"', text)
-        self.assertIn('--driver "$evidence/root-host/driver25-prefix"', text)
+        self.assertIn('--drv27-source-root "$GITHUB_WORKSPACE/core-drv27-source"', text)
+        self.assertIn('--driver "$evidence/drv29/root-host/driver25-prefix"', text)
         self.assertLess(text.index('test_root_control_contract.py'), text.index(root))
         self.assertLess(text.index(prior), text.index('      - name: Compile firmware'))
 
