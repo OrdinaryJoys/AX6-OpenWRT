@@ -14,7 +14,7 @@ import sys
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
 PROFILE = ROOT / '.github/ax6-nss-drv29-contract.json'
-PROFILE_SHA256 = '92eef6f72feeddd03114cb6dbb38f8fcc03eec7b1e6e7de557db22953c550624'
+PROFILE_SHA256 = 'df7ae1830098b17d37db79ed937e2e68f9083a4f749e53116f8aaee10fc0671f'
 OLD_COMMIT = '5e5ccf0bb7b31a0f5890c98a37ca5b256a2749d8'
 OLD_RELEASE = 27
 PACKAGE = 'package/qca-nss/qca-nss-drv'
@@ -40,7 +40,7 @@ PRIOR = (
      'nss_init.c', 'dbbddfb1a260a545ecac9c80004645acadf839aa6166e33fe43490f13fb02e65',
      'ff3126f32bc2d0c0df82bef5a598c6d5f6a938e81aebacd2a733edd0ddf737b2'),
     (32, '032-ipq807x-private-pdata-rollback.patch',
-     'cbea3a32627028b1881d1a3564bc060b227a1a879e4586f3f2dc87d81a0b8a28',
+     'd3339c2720b97a55160676f9f236acf4d463d7c3afdfcf4f4a64f8e7569e47a9',
      'nss_hal/ipq807x/nss_hal_pvt.c', '262c4a38d3bb2c8fe078f607b995d560b58e25e272eefea524b395989c4563a7',
      '670eafd37122a56970c069f2c278230a223551c9340266d5c7d3edc10a3234d4'),
 )
@@ -48,7 +48,6 @@ TEST_DIRS = ('nss-probe-allocation', 'nss-coredump-control', 'nss-pdata-ownershi
              'nss-conn-transaction')
 PRIOR_TESTS_SHA256 = '87e30861c8a105979974f701eafe78e665526406feb0b182b957fb5d50813d2a'
 KERNEL_SHA256 = 'ac9501697708f8921734125d507661487462a6dae3205bf3c2ab92d7df94dc53'
-DRIVER32_REPLAY_SHA256 = 'd3339c2720b97a55160676f9f236acf4d463d7c3afdfcf4f4a64f8e7569e47a9'
 CONNECTION_COUNTS = ('transaction_cases', 'transaction_controls', 'integration_cases', 'integration_controls')
 
 
@@ -180,22 +179,6 @@ def command(output, result, label, argv, cwd=None, timeout=180):
     return stdout.read_bytes(), stderr.read_bytes()
 
 
-def replay_patch(output, name, original):
-    if name != PRIOR[-1][1]:
-        return original
-    # The frozen 032 has one stale last-hunk coordinate. Preserve its bytes on
-    # disk; only this hash-bound replay copy corrects the header, not the body.
-    raw = original.read_bytes()
-    need(sha(raw) == PRIOR[-1][2], 'immutable packaged 032 patch')
-    at = b'@@ -301,6 +307,10 @@\n'
-    need(raw.count(at) == 1, 'single reviewed 032 coordinate')
-    corrected = raw.replace(at, b'@@ -302,6 +308,10 @@\n')
-    need(sha(corrected) == DRIVER32_REPLAY_SHA256, 'exact 032 coordinate-only replay')
-    target = output / 'replay-032.patch'
-    target.write_bytes(corrected)
-    return target
-
-
 def reverse(output, result, name, patch, source, target, before, expected, patch_tool):
     base.copy_code(source, target, before)
     # Apple patch does not report a successful offset in non-verbose mode.
@@ -291,7 +274,7 @@ def validate(args, profile):
             trees[step] = output / ('driver27-prefix' if step == OLD_RELEASE else 'after-%03d' % step)
             patch = base.path(package, 'patches/' + name)
             need(sha(patch.read_bytes()) == patches[name], 'stable patch input: ' + name)
-            reverse(output, result, name, replay_patch(output, name, patch), trees[previous], trees[step],
+            reverse(output, result, name, patch, trees[previous], trees[step],
                     prepared[previous], prepared[step], args.patch)
             previous = step
         run_tests(output, result, source, driver, trees, kernel, args.cc, profile)

@@ -2,9 +2,9 @@
   "schema": 1,
   "profile": "DRV29_CONNECTION_HOST_WITH_EXACT_DRV27_PREFIX",
   "state": "REVIEWED_DIAGNOSTIC_INPUTS",
-  "source_commit": "3b0efcb83103ede1a671c2d16f8e0bd7131e7248",
+  "source_commit": "949a75d29ff64cd9a63b81ebae4f6ea2753b618b",
   "source_parent": "5e5ccf0bb7b31a0f5890c98a37ca5b256a2749d8",
-  "source_manifest_sha256": "ea0ecf2be3c0be12ad8d31352ba2c97726ae674bb006317a08556efb375b6731",
+  "source_manifest_sha256": "e401245d5b84a58a65dc64fdd7a11d6553b0e8f88143fdc4c11d8357033cc364",
   "patch_name": "033-connection-table-host-transaction.patch",
   "patch_sha256": "5748722996ee4ebf8cb8e1f84b29634e57a87e8717ad50ae4b8fe65d4efdfb08",
   "changed_files": {

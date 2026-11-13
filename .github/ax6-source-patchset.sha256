@@ -190,7 +190,7 @@ cf2f5cb1bd5854accada3beff0f074c59f7a345158d6b68963f5ce2fd30c9f3f  package/qca-ns
 57dac5d6bed3f25cdb5dd310a7187bb4673e65de270d2fd4f547c66b169dda2c  package/qca-nss/qca-nss-drv/patches/029-root-producer-diagnostic-host-transaction.patch
 b20e37b5d9fcbac965b7ddf360136eda33ef339436bd00f0e3c7f6bf2836c2e6  package/qca-nss/qca-nss-drv/patches/030-hal-probe-allocate-local-dummy-first.patch
 b4c9582f5a9ca19110db6643ad89d8918ed36a09a3561fa81e5678397ae5ba3b  package/qca-nss/qca-nss-drv/patches/031-coredump-empty-write-noop.patch
-cbea3a32627028b1881d1a3564bc060b227a1a879e4586f3f2dc87d81a0b8a28  package/qca-nss/qca-nss-drv/patches/032-ipq807x-private-pdata-rollback.patch
+d3339c2720b97a55160676f9f236acf4d463d7c3afdfcf4f4a64f8e7569e47a9  package/qca-nss/qca-nss-drv/patches/032-ipq807x-private-pdata-rollback.patch
 5748722996ee4ebf8cb8e1f84b29634e57a87e8717ad50ae4b8fe65d4efdfb08  package/qca-nss/qca-nss-drv/patches/033-connection-table-host-transaction.patch
 69a8150535c369355b434bdf5c18bdb01a974625b46fcdb77cbca6c7eae3e57a  package/qca-nss/qca-nss-ecm/Makefile
 2438ccfa97b0fa4e6f3cb333de8d0c8fcb05c46b6bcfdca93f4f75ae390920d9  package/qca-nss/qca-nss-ecm/files/disable_offloads.hotplug
