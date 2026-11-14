@@ -14,7 +14,7 @@ import sys
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
 PROFILE = ROOT / '.github/ax6-nss-drv29-contract.json'
-PROFILE_SHA256 = 'df7ae1830098b17d37db79ed937e2e68f9083a4f749e53116f8aaee10fc0671f'
+PROFILE_SHA256 = '9646ee120453db48b4f2f3268a62b340f49b36e31a4375ef47ef112172496d11'
 OLD_COMMIT = '5e5ccf0bb7b31a0f5890c98a37ca5b256a2749d8'
 OLD_RELEASE = 27
 PACKAGE = 'package/qca-nss/qca-nss-drv'
