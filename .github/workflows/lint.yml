@@ -1,1575 +1,373 @@
-# yamllint disable rule:line-length
-name: Lint
-run-name: ${{ inputs.phy_host_only && 'AX6 PHY Host Smoke (NO FIRMWARE)' || 'Lint' }}
-
-on:
-  workflow_dispatch:
-    inputs:
-      phy_host_only:
-        description: 'Linux GCC11 PHY host tests only; no firmware or device operations'
-        type: boolean
-        required: false
-        default: false
-  push:
-    branches: [main, master]
-  pull_request:
-
+---
+name: AX6 DRV29 stock target-module preflight (NO FIRMWARE)
+'on':
+  workflow_dispatch: {}
 permissions:
   contents: read
-
+env:
+  BUILD_LOCK: ".github/ax6-nss-lock.env"
+  EXTRA_CONFIG: AX6-IPQ/nss-extra.config
+  DIY_SH: AX6-IPQ/diy.sh
+  FILES: AX6-IPQ/files
+  TZ: Asia/Shanghai
+  NSS_BLACKLIST: kmod-nf-flow kmod-ipt-offload kmod-nft-offload kmod-fast-classifier
+    kmod-shortcut-fe kmod-shortcut-fe-cm
+  CONFIG_FILE: AX6-IPQ/.config-stock
+  VARIANT_TAG: STOCK
 jobs:
-  phy-host:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.phy_host_only }}
-    name: Linux GCC11 PHY37 host validation (NO FIRMWARE)
+  module-preflight:
     runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    timeout-minutes: 120
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
-        with:
-          persist-credentials: false
-      - name: Read the dedicated source contract
-        id: phy-contract
-        run: |
-          set -euo pipefail
-          source_ref=$(python3 -B .github/scripts/run-ax6-phy-host-smoke.py --print-source-ref)
-          echo "source_ref=$source_ref" >> "$GITHUB_OUTPUT"
-      - name: Check host-only workflow and archive boundaries
-        run: python3 -B tests/test-phy-host-smoke.py
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
-        with:
-          repository: OrdinaryJoys/immortalwrt-nss
-          ref: ${{ steps.phy-contract.outputs.source_ref }}
-          path: source
-          persist-credentials: false
-      - name: Install bounded native-only dependencies
-        timeout-minutes: 6
-        run: |
-          set -euo pipefail
-          sudo timeout --kill-after=15s 180s apt-get \
-            -o Acquire::Retries=2 -o Acquire::http::Timeout=20 \
-            -o Acquire::https::Timeout=20 -o APT::Update::Error-Mode=any update
-          sudo env DEBIAN_FRONTEND=noninteractive timeout --kill-after=15s 180s apt-get \
-            -o Acquire::Retries=2 -o Acquire::http::Timeout=20 \
-            -o Acquire::https::Timeout=20 install -y --no-install-recommends gcc-11 patch
-      - name: Run native canaries and complete PHY37 host campaign
-        run: |
-          set -euo pipefail
-          ulimit -c 0
-          python3 -B .github/scripts/run-ax6-phy-host-smoke.py \
-            --source-root source --cc gcc-11 --output phy-host-evidence
-      - name: Preserve host-only evidence even on failure
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
-        with:
-          name: AX6_PHY_HOST_${{ github.sha }}
-          path: phy-host-evidence/
-          if-no-files-found: warn
-          retention-days: 14
-
-  lint:
-    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.phy_host_only }}
-    runs-on: ubuntu-22.04
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
-
-      - name: Refresh APT index (bounded)
-        timeout-minutes: 4
-        run: |
-          set -eo pipefail
-          sudo timeout --kill-after=15s 180s apt-get \
-            -o Acquire::Retries=2 -o Acquire::http::Timeout=20 \
-            -o Acquire::https::Timeout=20 -o APT::Update::Error-Mode=any update
-
-      - name: Install APT dependencies (bounded, no blind dpkg retry)
-        timeout-minutes: 5
-        run: |
-          set -eo pipefail
-          sudo env DEBIAN_FRONTEND=noninteractive timeout --kill-after=15s 240s apt-get \
-            -o Acquire::Retries=2 -o Acquire::http::Timeout=20 \
-            -o Acquire::https::Timeout=20 install -y \
-            busybox device-tree-compiler shellcheck yamllint libjson-c-dev pkg-config iproute2 kmod nftables cmake python3-venv zstd
-
-      - name: Install hash-verified host-only ELF parser
-        timeout-minutes: 3
-        run: |
-          set -eo pipefail
-          parser_dir=$(mktemp -d "$RUNNER_TEMP/ax6-artifact-python.XXXXXXXX")
-          python3 -m venv "$parser_dir"
-          timeout --kill-after=10s 120s "$parser_dir/bin/python3" -m pip \
-            --isolated --disable-pip-version-check install \
-            --index-url https://pypi.org/simple --timeout 20 --retries 1 \
-            --require-hashes --only-binary=:all: --no-deps \
-            -r .github/ax6-artifact-requirements.txt
-          echo "AX6_ARTIFACT_PYTHON=$parser_dir/bin/python3" >> "$GITHUB_ENV"
-
-      - name: Install pinned actionlint (bounded and SHA256 verified)
-        timeout-minutes: 3
-        run: |
-          set -eo pipefail
-          test "$(uname -m)" = x86_64
-          actionlint_dir=$(mktemp -d "$RUNNER_TEMP/ax6-actionlint.XXXXXXXX")
-          trap 'rm -rf "$actionlint_dir"' EXIT
-          actionlint_asset=actionlint_1.7.0_linux_amd64.tar.gz
-          timeout --kill-after=10s 150s curl \
-            --proto '=https' --proto-redir '=https' --tlsv1.2 \
-            --connect-timeout 15 --max-time 45 --retry 2 \
-            --retry-delay 2 --retry-max-time 120 --fail --show-error --location \
-            "https://github.com/rhysd/actionlint/releases/download/v1.7.0/$actionlint_asset" \
-            --output "$actionlint_dir/$actionlint_asset"
-          (
-            cd "$actionlint_dir"
-            # Official v1.7.0 release checksum; no mutable installer execution.
-            printf '%s  %s\n' \
-              8aae9148f61952d11a97651852fdc7dffd2b762ed3cdd28b3c2232ae5f55d4db \
-              "$actionlint_asset" | sha256sum --check --strict -
-          )
-          tar -xzf "$actionlint_dir/$actionlint_asset" -C "$actionlint_dir" actionlint
-          sudo install -m 0755 "$actionlint_dir/actionlint" /usr/local/bin/actionlint
-          test "$(actionlint -version | sed -n '1p')" = 1.7.0
-
-      - name: Shellcheck (errors only block)
-        run: |
-          set -eo pipefail
-          # Byte-exact historical SQM fixtures have their dedicated provenance gates.
-          # Keep test data out of generic shellcheck; never install it into rootfs.
-          find . -type f \( -name "*.sh" -o -path "*/uci-defaults/*" -o -path "*/hotplug.d/*" -o -path "*/sbin/*" -o -path "*/usr/sbin/*" -o -path "*/usr/bin/*" \) ! -path "./.git/*" ! -path "./tests/fixtures/sqm-locked/*" -print0 | \
-            xargs -0 -P4 shellcheck -S error -f gcc
-          sh tests/test-vlan-add.sh
-          sh tests/test-openvpn-defaults.sh
-          sh tests/test-openclash-dns-health.sh
-          python3 tests/test-openclash-dns-scope.py
-          AX6_TEST_SHELL='busybox ash' python3 tests/test-openclash-proxy-scope.py
-          python3 tests/test-rps-image-mode-gate.py
-          "$AX6_ARTIFACT_PYTHON" tests/test-ax6-artifact-checks.py
-          "$AX6_ARTIFACT_PYTHON" tests/test-ax6-module-elf.py
-          python3 tests/test-ax6-compile-evidence.py
-          python3 -B tests/test-rpcd-component-validation.py
-          python3 -B tests/test-source-release-semantics.py
-          python3 -B tests/test-link-mib-host-gates.py
-          # Offline only: ownership remains blocked; never apply in DIY/rootfs.
-          python3 tests/test-ax6-sqm-transaction.py --shell /bin/bash
-          python3 tests/test-ax6-sqm-ownership-protocol.py
-          PYTHONDONTWRITEBYTECODE=1 python3 tests/test-ax6-sqm-link-inventory.py
-          PYTHONDONTWRITEBYTECODE=1 python3 tests/test-ax6-sqm-durable-journal.py
-          PYTHONDONTWRITEBYTECODE=1 python3 tests/test-ax6-sqm-journal-crash.py --self-test
-          python3 tests/test-openclash-dns-policy-probe.py
-          sh tests/test-ax6-dns-source-contract.sh
-          sh tests/test-openclash-archive.sh
-          sh tests/test-router-backup.sh
-          sh tests/test-router-restore-preflight.sh
-          sh tests/test-openclash-runtime-contract.sh
-          sh tests/test-openclash-rom-core-guard.sh
-          sh tests/test-openclash-keep-policy.sh
-          sh tests/test-device-manifest.sh
-          sh tests/test-zerotier-fw4.sh
-          sh tests/test-zerotier-reconcile.sh
-          sh tests/test-zerotier-health.sh
-          sh tests/test-zerotier-buffer-patch.sh
-          sh tests/test-cgi-io-security-backport.sh
-          python3 tests/test-vim-security-backport.py
-          python3 tests/test-vim-rootfs.py
-          python3 tests/test-vlmcsd-rootfs.py
-          python3 tests/test-nss-command-gate.py
-          python3 -B tests/test-nss-root-host-gate.py
-          python3 -B tests/test-nss-drv29-gate.py
-          python3 -B tests/test-current-layer-integration.py
-          python3 -B tests/test-miniupnpd-update.py
-          python3 -B tests/test-miniupnpd-rootfs.py
-          python3 -B tests/test-ssdk39-gate.py
-          python3 -B tests/test-ssdk40-gate.py
-          python3 -B tests/test-ncurses-rootfs.py
-          python3 -B tests/test-ncurses-source.py
-          python3 tests/test-vim-package-evidence.py
-          python3 tests/test-ax6-kernel-evidence.py
-          python3 tests/test-vim-host-tools-wiring.py
-          python3 tests/test-openclash-rootfs-entrypoints.py
-          python3 tests/test-rootfs-diagnostic-wiring.py
-          python3 tests/test-ax6-artifact-python-wiring.py
-          sh tests/test-openclash-zerotier-bypass.sh
-          sh tests/test-ax6-config-audit-zerotier.sh
-          sh tests/test-ax6-boot-guard.sh
-          AX6_TEST_SHELL='busybox ash' sh tests/test-ax6-boot-guard.sh
-          sh tests/test-ax6-stock-compiled-dtb.sh
-          sh tests/test-pbuf-fixture.sh
-          sh tests/test-nss-monitor.sh
-          sh tests/test-source-patchset-generator.sh
-          sh AX6-IPQ/tests/test-source-semantic-lock.sh
-          python3 tests/test-nss-regression-grep.py
-          python3 -B tests/test-edma-prepared-regressions.py
-          python3 -B tests/test-mdio-lifecycle-gate.py
-          python3 -B tests/test-phy-host-smoke.py
-          bash AX6-IPQ/tests/test-ax6-perf-fixture.sh
-          bash AX6-IPQ/tests/test-ax6-perf-tool-hardening.sh
-          bash AX6-IPQ/tests/test-ax6-offline-feed-package.sh
-          sh AX6-IPQ/tests/test-ax6-routed-perf-fixture.sh
-          sh AX6-IPQ/tests/test-ax6-nss-frequency-ab.sh
-          sh AX6-IPQ/tests/test-ax6-reload-matrix-validate.sh
-          sh AX6-IPQ/tests/test-ax6-udp-baseline-fixture.sh
-
-      - name: Read frozen current SSDK sanitizer source
-        id: ssdk-sanitizer-contract
-        run: |
-          set -euo pipefail
-          echo "source_ref=$(python3 -B .github/scripts/verify-ssdk-probe-resource.py --print-source-ref)" >> "$GITHUB_OUTPUT"
-
-      - name: Checkout source for current sanitizer controls (no target build)
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
-        with:
-          repository: OrdinaryJoys/immortalwrt-nss
-          ref: ${{ steps.ssdk-sanitizer-contract.outputs.source_ref }}
-          path: ssdk-sanitizer-source
-          persist-credentials: false
-
-      - name: Verify complete ncurses source and fixed official mirror
-        timeout-minutes: 5
-        run: |
-          set -euo pipefail
-          mkdir -p ncurses-source-evidence
-          curl --proto '=https' --proto-redir '=https' --tlsv1.2 \
-            --connect-timeout 15 --max-time 240 --fail --show-error --location \
-            https://sources.openwrt.org/ncurses-6.6.20260801.tar.zst \
-            --output ncurses-source-evidence/ncurses-6.6.20260801.tar.zst
-          python3 -B .github/scripts/verify-ncurses-source.py \
-            --source-root ssdk-sanitizer-source \
-            --archive ncurses-source-evidence/ncurses-6.6.20260801.tar.zst \
-            --output ncurses-source-evidence/verified
-
-      - name: Preserve complete ncurses source preflight
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
-        with:
-          name: AX6_NCURSES_SOURCE_PREFLIGHT_${{ github.sha }}
-          path: ncurses-source-evidence/
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Validate actual SSDK sanitizer controls on GCC11
-        run: |
-          set -euo pipefail
-          gcc-11 --version
-          test "$(gcc-11 -dumpversion)" = 11
-          python3 -B ssdk-sanitizer-source/tests/test-ssdk-retirement-sanitizers.py
-          python3 -B .github/scripts/verify-ssdk-probe-resource.py \
-            --sanitizer-preflight --source-root ssdk-sanitizer-source --cc gcc-11 \
-            --output ssdk-sanitizer-evidence
-
-      - name: Preserve actual sanitizer host controls
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
-        with:
-          name: AX6_SSDK_SANITIZER_PREFLIGHT_${{ github.sha }}
-          path: ssdk-sanitizer-evidence/
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Locked SQM offline contracts (BusyBox ash, no kernel actions)
-        run: |
-          set -eo pipefail
-          busybox | sed -n '1p'
-          python3 tests/test-ax6-sqm-transaction.py --shell 'busybox ash'
-
-      - name: Build locked target-version ucode for health fixtures
-        run: |
-          set -eo pipefail
-          # Test interpreter matches package/utils/ucode; not a plugin pin.
-          git clone -q https://github.com/jow-/ucode.git "$RUNNER_TEMP/ax6-ucode"
-          git -C "$RUNNER_TEMP/ax6-ucode" checkout --detach 3ec4e5c238353067e4b58fb9bb9938d85d59e7c2
-          cmake -S "$RUNNER_TEMP/ax6-ucode" -B "$RUNNER_TEMP/ax6-ucode-build" \
-            -DFS_SUPPORT=ON -DUBUS_SUPPORT=OFF -DUCI_SUPPORT=OFF -DULOOP_SUPPORT=OFF \
-            -DNL80211_SUPPORT=OFF -DRTNL_SUPPORT=OFF -DLOG_SUPPORT=OFF -DDIGEST_SUPPORT=OFF
-          cmake --build "$RUNNER_TEMP/ax6-ucode-build" -j2
-          echo "AX6_TEST_UCODE=$RUNNER_TEMP/ax6-ucode-build/ucode -L $RUNNER_TEMP/ax6-ucode-build/*.so" >> "$GITHUB_ENV"
-          AX6_TEST_UCODE="$RUNNER_TEMP/ax6-ucode-build/ucode -L $RUNNER_TEMP/ax6-ucode-build/*.so" \
-            AX6_TEST_SHELL='busybox ash' python3 tests/test-openclash-fw-health.py
-
-      - name: OpenClash upstream ingress and isolated nft packets
-        run: |
-          set -eo pipefail
-          # Resolve master for this test, not a permanent plugin version pin.
-          ref=$(git ls-remote https://github.com/vernesong/OpenClash.git refs/heads/master | awk '$2 == "refs/heads/master" {print $1}')
-          [[ "$ref" =~ ^[0-9a-f]{40}$ ]]
-          echo "OpenClash ingress test source=$ref"
-          testdir=$(mktemp -d)
-          trap 'rm -rf "$testdir"' EXIT
-          curl --proto '=https' --tlsv1.2 -fsSL --connect-timeout 15 --max-time 90 \
-            "https://raw.githubusercontent.com/vernesong/OpenClash/$ref/luci-app-openclash/root/etc/init.d/openclash" \
-            -o "$testdir/openclash"
-          sh .github/scripts/inject-openclash-zerotier-hook.sh "$testdir/openclash"
-          sh .github/scripts/inject-openclash-rom-core-guard.sh apply "$testdir/openclash"
-          sh .github/scripts/inject-openclash-r11-reload-fix.sh "$testdir/openclash"
-          python3 .github/scripts/inject-openclash-dns-scope.py apply "$testdir/openclash"
-          python3 .github/scripts/inject-openclash-proxy-scope.py apply "$testdir/openclash"
-          AX6_TEST_SHELL='busybox ash' python3 tests/test-openclash-proxy-scope.py "$testdir/openclash"
-          python3 tests/test-openclash-dns-scope.py "$testdir/openclash"
-          AX6_TEST_INIT="$testdir/openclash" AX6_TEST_SHELL='busybox ash' python3 tests/test-openclash-fw-health.py
-          sudo python3 tests/test-openclash-proxy-netns.py "$testdir/openclash"
-          sudo env AX6_TEST_UCODE="$AX6_TEST_UCODE" python3 tests/test-openclash-fw-health-netns.py "$testdir/openclash"
-
-      - name: Locked ECM service callbacks (BusyBox ash)
-        run: |
-          set -eo pipefail
-          # Exercise service startup without requiring a firmware build.
-          . .github/ax6-nss-lock.env
-          fixture=$(mktemp -d)
-          trap 'rm -rf "$fixture"' EXIT
-          git -C "$fixture" init -q
-          git -C "$fixture" remote add origin "$SOURCE_REPO"
-          git -C "$fixture" config remote.origin.promisor true
-          git -C "$fixture" config remote.origin.partialclonefilter blob:none
-          git -C "$fixture" fetch --depth=1 --filter=blob:none origin "$SOURCE_COMMIT"
-          git -C "$fixture" sparse-checkout set \
-            tests include package/base-files/files/etc package/base-files/files/lib \
-            package/system/procd package/libs/libubox \
-            package/qca-nss/qca-nss-ecm/files \
-            target/linux/qualcommax/base-files/etc/init.d \
-            target/linux/qualcommax/base-files/usr/libexec/platform
-          git -C "$fixture" checkout --detach FETCH_HEAD
-          test "$(git -C "$fixture" rev-parse HEAD)" = "$SOURCE_COMMIT"
-          ECM_TEST_SHELL='busybox ash' python3 "$fixture/tests/test-ecm-service-errors.py" "$fixture"
-          python3 "$fixture/tests/test-ecm-reload-errors.py" "$fixture"
-          ECM_TEST_SHELL='busybox ash' python3 "$fixture/tests/test-ecm-offload-errors.py" "$fixture"
-          IRQ_TEST_SCRIPT="$fixture/target/linux/qualcommax/base-files/etc/init.d/set-irq-affinity" \
-            RPS_TEST_SHELL='busybox ash' python3 "$fixture/tests/test-set-irq-affinity-policy-errors.py"
-          ECM_TEST_SHELL='busybox ash' bash .github/scripts/test-ax6-real-jshn.sh "$fixture"
-          # These negative controls reproduce unsafe upgrade boundaries.
-          # Passing is NOT a plugin upgrade/deployment safety certificate.
-          ref=$(git ls-remote https://github.com/vernesong/OpenClash.git refs/heads/master | awk '$2 == "refs/heads/master" {print $1}')
-          [[ "$ref" =~ ^[0-9a-f]{40}$ ]]
-          echo "OpenClash upgrade boundary source=$ref source_lock=$SOURCE_COMMIT"
-          curl --proto '=https' --tlsv1.2 -fsSL --connect-timeout 15 --max-time 90 \
-            "https://raw.githubusercontent.com/vernesong/OpenClash/$ref/luci-app-openclash/root/usr/share/openclash/openclash_ps.sh" \
-            -o "$fixture/openclash_ps.sh"
-          curl --proto '=https' --tlsv1.2 -fsSL --connect-timeout 15 --max-time 90 \
-            "https://raw.githubusercontent.com/vernesong/OpenClash/$ref/luci-app-openclash/root/usr/share/openclash/openclash_update.sh" \
-            -o "$fixture/openclash_update.sh"
-          AX6_PACKAGE_FUNCTIONS="$fixture/package/base-files/files/lib/functions.sh" \
-            AX6_PACKAGE_PACK="$fixture/include/package-pack.mk" \
-            AX6_OPENCLASH_UPDATE="$fixture/openclash_update.sh" \
-            AX6_OPENCLASH_PS="$fixture/openclash_ps.sh" AX6_TEST_SHELL='busybox ash' \
-            python3 tests/test-openclash-upgrade-boundaries.py
-
-      - name: Actionlint
-        run: actionlint -color .github/workflows/*.yml
-
-      - name: SQM real kernel objects in a new isolated namespace
-        run: |
-          set -eo pipefail
-          mkdir -p "$RUNNER_TEMP/ax6-sqm-kernel-evidence"
-          sudo env GITHUB_ACTIONS="$GITHUB_ACTIONS" RUNNER_ENVIRONMENT="$RUNNER_ENVIRONMENT" \
-            bash .github/scripts/prepare-ax6-sqm-kernel-ci.sh \
-            2>&1 | tee "$RUNNER_TEMP/ax6-sqm-kernel-evidence/preparation.log"
-          kernel_status=0
-          sudo env AX6_SQM_KERNEL_ISOLATED_TEST=1 \
-            GITHUB_ACTIONS="$GITHUB_ACTIONS" RUNNER_ENVIRONMENT="$RUNNER_ENVIRONMENT" \
-            python3 tests/test-ax6-sqm-kernel-isolation.py \
-            --report "$RUNNER_TEMP/ax6-sqm-kernel-evidence/result.json" || kernel_status=$?
-          if [[ -f "$RUNNER_TEMP/ax6-sqm-kernel-evidence/result.json" ]]; then
-            sudo chown "$(id -u):$(id -g)" "$RUNNER_TEMP/ax6-sqm-kernel-evidence/result.json"
-          fi
-          exit "$kernel_status"
-
-      - name: Save isolated SQM kernel evidence
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
-        with:
-          name: ax6-sqm-kernel-evidence
-          path: ${{ runner.temp }}/ax6-sqm-kernel-evidence/
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: SQM durable journal and real worker SIGKILL (isolated, test only)
-        timeout-minutes: 4
-        run: |
-          set -eo pipefail
-          mkdir -p "$RUNNER_TEMP/ax6-sqm-journal-crash-evidence"
-          # Recheck module preparation and host link identity; never unload.
-          sudo env GITHUB_ACTIONS="$GITHUB_ACTIONS" RUNNER_ENVIRONMENT="$RUNNER_ENVIRONMENT" \
-            bash .github/scripts/prepare-ax6-sqm-kernel-ci.sh \
-            2>&1 | tee "$RUNNER_TEMP/ax6-sqm-journal-crash-evidence/preparation.log"
-          crash_status=0
-          sudo env AX6_SQM_JOURNAL_CRASH_TEST=1 PYTHONDONTWRITEBYTECODE=1 \
-            GITHUB_ACTIONS="$GITHUB_ACTIONS" RUNNER_ENVIRONMENT="$RUNNER_ENVIRONMENT" \
-            RUNNER_TEMP="$RUNNER_TEMP" python3 tests/test-ax6-sqm-journal-crash.py \
-            --report "$RUNNER_TEMP/ax6-sqm-journal-crash-evidence/result.json" || crash_status=$?
-          if [[ -f "$RUNNER_TEMP/ax6-sqm-journal-crash-evidence/result.json" ]]; then
-            sudo chown "$(id -u):$(id -g)" "$RUNNER_TEMP/ax6-sqm-journal-crash-evidence/result.json"
-          fi
-          exit "$crash_status"
-
-      - name: Save SQM journal crash evidence
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
-        with:
-          name: ax6-sqm-journal-crash-evidence
-          path: ${{ runner.temp }}/ax6-sqm-journal-crash-evidence/
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Yamllint (relaxed)
-        run: yamllint -d relaxed .github/
-
-      - name: Release tag provenance check
-        run: |
-          set -eo pipefail
-          while IFS= read -r workflow; do
-            if ! grep -Eq 'commit: .*github.sha' "$workflow"; then
-              echo "::error file=$workflow::release-action must tag the workflow commit"
-              exit 1
-            fi
-          done < <(grep -Rl 'uses: ncipollo/release-action@' .github/workflows)
-          workflow=.github/workflows/build-AX6-NSS.yml
-          grep -Fq 'uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' "$workflow"
-          test "$(grep -F 'if: github.ref ==' "$workflow" | grep -Fc 'refs/heads/main')" -eq 2
-          for workflow in \
-            .github/workflows/build-AX6-IPQ.yml \
-            .github/workflows/build-IMM.yml \
-            .github/workflows/build-LEDE.yml; do
-            if grep -Fq 'uses: ncipollo/release-action@' "$workflow"; then
-              echo "::error file=$workflow::unlocked backup workflows must not publish Releases"
-              exit 1
-            fi
-            grep -Fq 'UNVALIDATED_' "$workflow" || {
-              echo "::error file=$workflow::backup artifact must include UNVALIDATED_ marker"
-              exit 1
-            }
-          done
-
-      - name: STOCK image safety policy
-        run: |
-          set -eo pipefail
-          workflow=.github/workflows/build-AX6-NSS.yml
-          grep -Fq "stock_partition_size=\$((0x06640000))" "$workflow"
-          grep -Fq "stock_ubi_limit=\$((0x06340000))" "$workflow"
-          grep -Fq 'xiaomi_stock_check_image_size' "$workflow"
-          grep -Fq 'upload/upgrade/*' "$workflow"
-          grep -Fq 'path: upload/recovery/*' "$workflow"
-          grep -Fq 'AX6-IPQ/scripts/package-ax6-offline-feed.sh' "$workflow"
-          grep -Fq 'KMOD-ARCHIVE-SHA256.txt' \
-            AX6-IPQ/scripts/package-ax6-offline-feed.sh
-
-          if grep -Eq 'nand (erase|write).*rootfs|fastboot flash rootfs' \
-            "$workflow" AX6-IPQ/HARDWARE.md; then
-            echo "::error::Generic raw rootfs flashing commands are forbidden"
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      with:
+        persist-credentials: false
+    - name: Checkout immutable DRV27 test-only source (never firmware source)
+      uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      with:
+        repository: OrdinaryJoys/immortalwrt-nss
+        ref: 5e5ccf0bb7b31a0f5890c98a37ca5b256a2749d8
+        path: core-drv27-source
+        persist-credentials: false
+    - name: Free disk space
+      uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
+      with:
+        tool-cache: false
+        android: true
+        dotnet: true
+        haskell: true
+        large-packages: false
+        docker-images: true
+        swap-storage: true
+    - name: Initialize environment
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        set -eo pipefail
+        # 改用仓内固化的依赖清单(去除远程 curl|apt 注入风险)
+        mapfile -t PKGS < <(grep -v '^\s*#' .github/depends-ubuntu-2204.txt | grep -v '^\s*$')
+        sudo -E apt-get -qq -o Acquire::Retries=3 update
+        sudo -E apt-get -qq -o Acquire::Retries=3 install -y --no-install-recommends "${PKGS[@]}"
+        sudo -E apt-get -qq clean
+        sudo chown -R "$USER":"$(id -gn)" "$GITHUB_WORKSPACE"
+    - name: Load and verify build lock
+      run: |
+        set -eo pipefail
+        python3 -B .github/scripts/verify-nss-drv29.py --check-lock
+        set -a
+        # shellcheck source=.github/ax6-nss-lock.env
+        . "$BUILD_LOCK"
+        set +a
+        for name in \
+          SOURCE_REPO SOURCE_TRACKING_BRANCH SOURCE_BASE_COMMIT SOURCE_COMMIT \
+          SOURCE_PATCHSET_MANIFEST_SHA256 \
+          SQM_SCRIPTS_NSS_URL SQM_SCRIPTS_NSS_COMMIT \
+          LUCI_FEED_URL LUCI_FEED_TRACKING_BRANCH LUCI_FEED_COMMIT \
+          PACKAGES_FEED_URL PACKAGES_FEED_COMMIT PACKAGES_FEED_POLICY \
+          CGI_IO_SECURITY_BACKPORT_COMMIT \
+          VIM_PACKAGE_VERSION VIM_PACKAGE_RELEASE VIM_PACKAGE_BACKPORT_COMMIT \
+          VIM_SOURCE_COMMIT VIM_SOURCE_MIRROR_SHA256 \
+          VIM_SIGN_JUMP_BACKPORT_COMMIT VIM_SIGN_JUMP_BACKPORT_SHA256 \
+          ROUTING_FEED_URL ROUTING_FEED_COMMIT ROUTING_FEED_POLICY \
+          TELEPHONY_FEED_URL TELEPHONY_FEED_COMMIT \
+          VIDEO_FEED_URL VIDEO_FEED_COMMIT VIDEO_FEED_POLICY \
+          ARGON_THEME_URL ARGON_THEME_COMMIT ARGON_THEME_VERSION \
+          ARGON_CONFIG_URL ARGON_CONFIG_COMMIT \
+          OPENCLASH_URL OPENCLASH_REF \
+          SOURCE_MAC80211_PKG_RELEASE SOURCE_HOSTAPD_PKG_RELEASE SOURCE_QCA_NSS_DP_PKG_RELEASE SOURCE_QCA_NSS_DRV_PKG_RELEASE \
+          SOURCE_QCA_NSS_ECM_PKG_RELEASE SOURCE_QCA_NSS_CLIENTS_PKG_RELEASE \
+          SOURCE_QCA_MCS_PKG_RELEASE SOURCE_QCA_NSS_SSDK_PKG_RELEASE SOURCE_RPCD_PKG_RELEASE; do
+          value="${!name:-}"
+          if [ -z "$value" ]; then
+            echo "::error::$name is missing from $BUILD_LOCK"
             exit 1
           fi
+          echo "$name=$value" >> "$GITHUB_ENV"
+        done
+        for name in \
+          SOURCE_BASE_COMMIT SOURCE_COMMIT SQM_SCRIPTS_NSS_COMMIT LUCI_FEED_COMMIT \
+          PACKAGES_FEED_COMMIT CGI_IO_SECURITY_BACKPORT_COMMIT \
+          VIM_PACKAGE_BACKPORT_COMMIT VIM_SOURCE_COMMIT VIM_SIGN_JUMP_BACKPORT_COMMIT \
+          ROUTING_FEED_COMMIT TELEPHONY_FEED_COMMIT \
+          VIDEO_FEED_COMMIT ARGON_THEME_COMMIT ARGON_CONFIG_COMMIT; do
+          value="${!name}"
+          if ! [[ "$value" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::$name must be a full 40-character lowercase commit SHA"
+            exit 1
+          fi
+        done
+        if ! [[ "$SOURCE_PATCHSET_MANIFEST_SHA256" =~ ^[0-9a-f]{64}$ ]]; then
+          echo "::error::SOURCE_PATCHSET_MANIFEST_SHA256 must be a 64-character lowercase SHA256"
+          exit 1
+        fi
 
-          grep -Fq 'SMEM/custom U-Boot merged rootfs' AX6-IPQ/files/sbin/nss-check
-          grep -Fq '06640000' AX6-IPQ/HARDWARE.md
-
-      - name: STOCK and EXPAND config difference allowlist
-        run: |
-          python3 - <<'PY'
-          import re
-          import sys
-
-
-          def parse(path):
-              values = {}
-              with open(path) as stream:
-                  for raw in stream:
-                      line = raw.strip()
-                      match = re.match(r'^(CONFIG_[A-Za-z0-9_-]+)=(.*)$', line)
-                      if match:
-                          values[match.group(1)] = match.group(2)
-                          continue
-                      match = re.match(
-                          r'^# (CONFIG_[A-Za-z0-9_-]+) is not set$', line
-                      )
-                      if match:
-                          values[match.group(1)] = 'n'
-              return values
-
-
-          allowed = {
-              'CONFIG_TARGET_PROFILE',
-              'CONFIG_TARGET_qualcommax_ipq807x_DEVICE_redmi_ax6',
-              'CONFIG_TARGET_qualcommax_ipq807x_DEVICE_redmi_ax6-stock',
-          }
-          stock = parse('AX6-IPQ/.config-stock')
-          expand = parse('AX6-IPQ/.config-expand')
-          unexpected = [
-              symbol
-              for symbol in sorted(set(stock) | set(expand))
-              if stock.get(symbol) != expand.get(symbol) and symbol not in allowed
-          ]
-          if unexpected:
-              print(
-                  '::error::Unexpected STOCK/EXPAND config differences: '
-                  + ' '.join(unexpected)
-              )
-              sys.exit(1)
-          PY
-
-      - name: Local DNS ingress and V29 gate wiring
-        run: |
-          set -eo pipefail
-          test -s tests/test-openclash-dns-health-domains.sh
-          grep -Fq 'inject-openclash-dns-scope.py' AX6-IPQ/diy.sh
-          for workflow in .github/workflows/build-AX6-NSS.yml .github/workflows/build-AX6-IPQ.yml; do
-            # shellcheck disable=SC2016 # Match literal workflow paths and variables.
-            for gate in \
-              'sh .github/scripts/verify-ax6-dns-source.sh openwrt' \
-              'sh tests/test-openclash-dns-health.sh' \
-              'python3 tests/test-openclash-dns-scope.py' \
-              'python3 .github/scripts/inject-openclash-dns-scope.py check' \
-              'python3 tests/test-openclash-dns-scope.py image-verify/openclash-init' \
-              'DNS_HEALTH_TEST_TARGET="$GITHUB_WORKSPACE/image-verify/ax6-openclash-dns-health"' \
-              'DNS_HEALTH_KEEP_TARGET="$GITHUB_WORKSPACE/image-verify/sysupgrade.conf"' \
-              'DNS_HEALTH_INIT_TARGET="$GITHUB_WORKSPACE/image-verify/ax6-openclash-dns-health.init"' \
-              'sh tests/test-openclash-dns-health-domains.sh' \
-              'cmp AX6-IPQ/files/usr/sbin/ax6-openclash-dns-health' \
-              'cmp AX6-IPQ/files/etc/init.d/ax6-openclash-dns-health' \
-              'cmp "$dnsmasq_source/dnsmasq.init" image-verify/dnsmasq.init' \
-              'cmp "$dnsmasq_source/dns-redirect-scope.sh" image-verify/dns-redirect-scope' \
-              'sh openwrt/tests/test-dns-redirect-scope.sh' \
-              'Final rootfs must not preserve old DNS helper over new ROM' \
-              'Final rootfs DNS helper/init must be executable'; do
-              grep -Fq "$gate" "$workflow" || {
-                echo "::error file=$workflow::missing local DNS/V29 gate: $gate"
-                exit 1
-              }
-            done
-          done
-
-      - name: AX6 NSS build lock check
-        run: |
-          set -eo pipefail
-          set -a
-          . .github/ax6-nss-lock.env
-          set +a
-          for name in \
-            SOURCE_REPO SOURCE_TRACKING_BRANCH SOURCE_BASE_COMMIT SOURCE_COMMIT \
-            SOURCE_PATCHSET_MANIFEST_SHA256 \
-            SQM_SCRIPTS_NSS_URL SQM_SCRIPTS_NSS_COMMIT \
-            LUCI_FEED_URL LUCI_FEED_TRACKING_BRANCH LUCI_FEED_COMMIT \
-            PACKAGES_FEED_URL PACKAGES_FEED_COMMIT PACKAGES_FEED_POLICY \
-            CGI_IO_SECURITY_BACKPORT_COMMIT \
-            VIM_PACKAGE_VERSION VIM_PACKAGE_RELEASE VIM_PACKAGE_BACKPORT_COMMIT \
-            VIM_SOURCE_COMMIT VIM_SOURCE_MIRROR_SHA256 \
-            VIM_SIGN_JUMP_BACKPORT_COMMIT VIM_SIGN_JUMP_BACKPORT_SHA256 \
-            ROUTING_FEED_URL ROUTING_FEED_COMMIT ROUTING_FEED_POLICY \
-            TELEPHONY_FEED_URL TELEPHONY_FEED_COMMIT \
-            VIDEO_FEED_URL VIDEO_FEED_COMMIT VIDEO_FEED_POLICY \
-            ARGON_THEME_URL ARGON_THEME_COMMIT ARGON_THEME_VERSION \
-            ARGON_CONFIG_URL ARGON_CONFIG_COMMIT \
-            OPENCLASH_URL OPENCLASH_REF \
-            SOURCE_MAC80211_PKG_RELEASE SOURCE_HOSTAPD_PKG_RELEASE SOURCE_QCA_NSS_DP_PKG_RELEASE SOURCE_QCA_NSS_DRV_PKG_RELEASE \
-            SOURCE_QCA_NSS_ECM_PKG_RELEASE SOURCE_QCA_NSS_CLIENTS_PKG_RELEASE \
-            SOURCE_QCA_MCS_PKG_RELEASE; do
-            value="${!name:-}"
-            [ -n "$value" ] || {
-              echo "::error::$name is missing from .github/ax6-nss-lock.env"
-              exit 1
-            }
-          done
-          for name in \
-            SOURCE_BASE_COMMIT SOURCE_COMMIT SQM_SCRIPTS_NSS_COMMIT LUCI_FEED_COMMIT \
-            PACKAGES_FEED_COMMIT CGI_IO_SECURITY_BACKPORT_COMMIT \
-            VIM_PACKAGE_BACKPORT_COMMIT VIM_SOURCE_COMMIT VIM_SIGN_JUMP_BACKPORT_COMMIT \
-            ROUTING_FEED_COMMIT TELEPHONY_FEED_COMMIT \
-            VIDEO_FEED_COMMIT ARGON_THEME_COMMIT ARGON_CONFIG_COMMIT; do
-            value="${!name}"
-            [[ "$value" =~ ^[0-9a-f]{40}$ ]] || {
-              echo "::error::$name must be a full 40-character lowercase commit SHA"
-              exit 1
-            }
-          done
-          for name in \
-            SOURCE_MAC80211_PKG_RELEASE SOURCE_HOSTAPD_PKG_RELEASE SOURCE_QCA_NSS_DP_PKG_RELEASE SOURCE_QCA_NSS_DRV_PKG_RELEASE \
-            SOURCE_QCA_NSS_ECM_PKG_RELEASE SOURCE_QCA_NSS_CLIENTS_PKG_RELEASE \
-            SOURCE_QCA_MCS_PKG_RELEASE; do
-            value="${!name}"
-            if ! [[ "$value" =~ ^[0-9]+$ ]]; then
-              echo "::error::$name must be a positive integer (got '$value')"
-              exit 1
-            fi
-            if [ "$value" -le 0 ]; then
-              echo "::error::$name must be a positive integer (got '$value')"
-              exit 1
-            fi
-          done
-          [[ "$SOURCE_PATCHSET_MANIFEST_SHA256" =~ ^[0-9a-f]{64}$ ]] || {
-            echo "::error::SOURCE_PATCHSET_MANIFEST_SHA256 must be a 64-character lowercase SHA256"
+        for name in VIM_SOURCE_MIRROR_SHA256 VIM_SIGN_JUMP_BACKPORT_SHA256; do
+          value="${!name}"
+          [[ "$value" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::$name must be SHA256"; exit 1; }
+        done
+    - name: Clone locked source code
+      run: |
+        set -eo pipefail
+        git init openwrt
+        git -C openwrt remote add origin "$SOURCE_REPO"
+        git -C openwrt fetch --depth 1 origin "$SOURCE_COMMIT"
+        git -C openwrt checkout --detach FETCH_HEAD
+        git -C openwrt fetch --depth 1 origin "$SOURCE_BASE_COMMIT"
+        actual=$(git -C openwrt rev-parse HEAD)
+        [ "$actual" = "$SOURCE_COMMIT" ] || {
+          echo "::error::Source lock mismatch: expected $SOURCE_COMMIT, got $actual"
+          exit 1
+        }
+        .github/scripts/verify-ax6-source-patchset.sh \
+          openwrt \
+          "$GITHUB_WORKSPACE/.github/ax6-source-patchset.sha256" \
+          "$GITHUB_WORKSPACE/.github/ax6-source-patchset.absent" \
+          "$SOURCE_PATCHSET_MANIFEST_SHA256" \
+          "$SOURCE_BASE_COMMIT"
+        .github/scripts/verify-ax6-source-semantics.sh \
+          openwrt "$GITHUB_WORKSPACE/$BUILD_LOCK"
+        sh .github/scripts/verify-ax6-dns-source.sh openwrt
+        python3 openwrt/tests/test-download-cache.py
+        # Local DNS redirect ingress only; this is not a general TPROXY gate.
+        sh openwrt/tests/test-dns-redirect-scope.sh
+        kernel_mk="openwrt/target/linux/generic/kernel-6.18"
+        grep -Fxq 'LINUX_VERSION-6.18 = .38' "$kernel_mk" || {
+          echo "::error file=$kernel_mk::AX6 source must use Linux 6.18.38"
+          exit 1
+        }
+        grep -Fxq 'LINUX_KERNEL_HASH-6.18.38 = ac26e508abd56e9f8b89872b6e10c49fc823bcc70d8068a5d8504c1a7c4ff045' "$kernel_mk" || {
+          echo "::error file=$kernel_mk::Linux 6.18.38 archive hash is missing or incorrect"
+          exit 1
+        }
+        ax6_image_mk="openwrt/target/linux/qualcommax/image/ipq807x.mk"
+        grep -Fqx $'\tDEVICE_PACKAGES := ipq-wifi-redmi_ax6 -kmod-usb3 -kmod-usb-dwc3 -kmod-usb-dwc3-qcom -automount' "$ax6_image_mk" || {
+          echo "::error file=$ax6_image_mk::AX6 must retain the official USB and automount package exclusions"
+          exit 1
+        }
+        hostapd_dir="openwrt/package/network/services/hostapd"
+        for security_patch in \
+          001-AP-MLD-Fix-link-ID-validation-in-Basic-MLE-parsing.patch \
+          002-BSS-Add-bounds-check-for-link_id-in-Basic-MLE-parsin.patch \
+          003-MLD-Validate-MLE-Link-ID-fields-in-association-rejec.patch \
+          004-Verify-MLD-link-ID-validity-in-get_basic_mle_link_id.patch \
+          005-MLD-Verify-link-ID-validity-in-MLE-in-reconfiguratio.patch \
+          006-AP-MLD-Verify-AP-MLD-link-ID-validity-before-updatin.patch \
+          007-MLD-Fix-length-check-in-common-info-for-association-.patch \
+          008-BSS-Fix-validation-of-ML-common-info-length-during-s.patch; do
+          [ -s "$hostapd_dir/patches/$security_patch" ] || {
+            echo "::error file=$hostapd_dir/patches/$security_patch::missing hostapd 2026-1 security fix"
             exit 1
           }
-          [[ "$ARGON_THEME_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
-            echo "::error::ARGON_THEME_VERSION must be numeric"
+        done
+        ecm_vlan_patch="openwrt/package/qca-nss/qca-nss-ecm/patches/026-frontends-nss-respect-bridge-port-vlan-tagging-for-vlan-over-bridge.patch"
+        grep -Fq 'ecm_interface_bridge_vlan_wire_tagged' "$ecm_vlan_patch" || {
+          echo "::error file=$ecm_vlan_patch::missing bridge-port on-wire VLAN decision"
+          exit 1
+        }
+        ssdk_patch="openwrt/package/qca-nss/qca-ssdk/patches/009-feature-nss-dp-netdev-mac-sync.patch"
+        grep -Fq 'ssdk_netdev_refresh_mac_sw_sync' "$ssdk_patch" || {
+          echo "::error file=$ssdk_patch::missing NSS-DP MAC synchronization fix"
+          exit 1
+        }
+        wifi_supplicant="openwrt/package/network/config/wifi-scripts/files-ucode/usr/share/ucode/wifi/supplicant.uc"
+        grep -Fq "const eap_method_map = { fast: 'FAST', peap: 'PEAP', ttls: 'TTLS', tls: 'TLS' };" "$wifi_supplicant" || {
+          echo "::error file=$wifi_supplicant::missing outer EAP method mapping"
+          exit 1
+        }
+        [ -x "$wifi_supplicant" ] || {
+          echo "::error file=$wifi_supplicant::wifi ucode helper lost its executable mode"
+          exit 1
+        }
+        ath11k_recovery_dir="openwrt/package/kernel/mac80211/patches/nss/ath11k"
+        for recovery_patch in \
+          911-wifi-ath11k-complete-pending-tx-frames-on-mac-stop.patch \
+          912-wifi-ath11k-do-not-warn-about-htt-event-48.patch \
+          999-926-ath11k-skip-mon-status-reap-until-ring-initialized.patch \
+          999-929-ath11k-ce-send-srng-guard.patch \
+          999-930-ath11k-drop-data-tx-during-crash-recovery.patch \
+          999-931-ath11k-guard-ce-send-reap-against-cleared-srng.patch \
+          999-932-ath11k-quiesce-irqs-before-recovery-ring-reset.patch; do
+          [ -s "$ath11k_recovery_dir/$recovery_patch" ] || {
+            echo "::error file=$ath11k_recovery_dir/$recovery_patch::missing ath11k recovery guard"
             exit 1
           }
-          [ "$PACKAGES_FEED_POLICY" = defconfig-candidate ] || {
-            echo "::error::unexpected packages feed policy: $PACKAGES_FEED_POLICY"
+        done
+        ath_mk="openwrt/package/kernel/mac80211/ath.mk"
+        for dependency in \
+          '+ATH11K_NSS_SUPPORT:kmod-qca-nss-drv' \
+          '+ATH11K_NSS_MESH_SUPPORT:kmod-qca-nss-drv-wifi-meshmgr' \
+          '+@(ATH11K_NSS_SUPPORT):NSS_DRV_WIFIOFFLOAD_ENABLE' \
+          '+@(ATH11K_NSS_SUPPORT):NSS_DRV_WIFI_EXT_VDEV_ENABLE'; do
+          grep -Fq "$dependency" "$ath_mk" || {
+            echo "::error file=$ath_mk::missing ATH11K NSS dependency: $dependency"
             exit 1
           }
-          [ "$PACKAGES_FEED_COMMIT" = 03d8b9d71b5e27972e4111ebe39898d093544c92 ] || {
-            echo "::error::packages defconfig candidate changed without review"
-            exit 1
-          }
-          [ "$ROUTING_FEED_POLICY" = defconfig-candidate ] || {
-            echo "::error::unexpected routing feed policy: $ROUTING_FEED_POLICY"
-            exit 1
-          }
-          [ "$ROUTING_FEED_COMMIT" = 4b9891b9136259f93294a424507ed24c5e8c1cbd ] || {
-            echo "::error::routing defconfig candidate changed without review"
-            exit 1
-          }
-          [ "$VIDEO_FEED_POLICY" = unselected-compatibility-pin ] || {
-            echo "::error::unexpected video feed policy: $VIDEO_FEED_POLICY"
-            exit 1
-          }
-          workflow=.github/workflows/build-AX6-NSS.yml
-          grep -Fq "ROUTING_FEED_URL ROUTING_FEED_COMMIT ROUTING_FEED_POLICY \\" "$workflow" || {
-            echo "::error::build workflow does not require ROUTING_FEED_POLICY"
-            exit 1
-          }
-          grep -Fq "echo \"ROUTING_FEED_POLICY=\$ROUTING_FEED_POLICY\"" "$workflow" || {
-            echo "::error::artifact BUILD-LOCK does not record ROUTING_FEED_POLICY"
-            exit 1
-          }
-          grep -Fq "VIDEO_FEED_URL VIDEO_FEED_COMMIT VIDEO_FEED_POLICY \\" "$workflow" || {
-            echo "::error::build workflow does not require VIDEO_FEED_POLICY"
-            exit 1
-          }
-          grep -Fq "echo \"VIDEO_FEED_POLICY=\$VIDEO_FEED_POLICY\"" "$workflow" || {
-            echo "::error::artifact BUILD-LOCK does not record VIDEO_FEED_POLICY"
-            exit 1
-          }
-          if grep -Eq '^CONFIG_PACKAGE_(kmod-video|ffmpeg|gstreamer|libva|libvulkan|mesa|weston|wlroots)([^=]*)=y$' \
-              AX6-IPQ/.config-stock AX6-IPQ/.config-expand; then
-            echo "::error::video feed compatibility policy is invalid because an AX6 config selects a video/graphics package"
-            exit 1
-          fi
-          backport=AX6-IPQ/package-patches/cgi-io/100-fix-malformed-post-use-after-free.patch
-          grep -Fq "$CGI_IO_SECURITY_BACKPORT_COMMIT" "$backport" || {
-            echo "::error file=$backport::cgi-io package backport provenance does not match the build lock"
-            exit 1
-          }
-          grep -Fq '31cb3c89f02d918d7f17bf62a80c852fc38a1ca1' "$backport" || {
-            echo "::error file=$backport::fixed cgi-io source revision is missing"
-            exit 1
-          }
-          python3 - <<'PY'
-          import json, os
-          from pathlib import Path
-          provenance = json.loads(Path('AX6-IPQ/package-patches/vim/provenance.json').read_text())
-          keys = {
-              'VIM_PACKAGE_VERSION': 'version', 'VIM_PACKAGE_RELEASE': 'release',
-              'VIM_PACKAGE_BACKPORT_COMMIT': 'upstream_package_commit',
-              'VIM_SOURCE_COMMIT': 'source_commit', 'VIM_SOURCE_MIRROR_SHA256': 'source_mirror_sha256',
-              'VIM_SIGN_JUMP_BACKPORT_COMMIT': 'sign_jump_backport_commit',
-              'VIM_SIGN_JUMP_BACKPORT_SHA256': 'source_patch_sha256',
-          }
-          for key, field in keys.items():
-              if os.environ.get(key) != str(provenance[field]):
-                  raise SystemExit('Vim build lock/provenance mismatch: ' + key)
-          PY
-          grep -Fq 'apply-vim-security-backport.py" apply feeds/packages' AX6-IPQ/diy.sh
-          grep -Fq 'apply-vim-security-backport.py check openwrt/feeds/packages' "$workflow"
-          grep -Fq "apply-vim-security-backport.py prepared \"\$vim_source\"" "$workflow"
-          case "$SOURCE_TRACKING_BRANCH" in
-            codex/*|rc-safe/*|rc-perf/*|fix/*|build/*)
-              ;;
-            *)
-              echo "::error::unexpected source tracking branch: $SOURCE_TRACKING_BRANCH (expected codex/*, rc-safe/*, rc-perf/*, fix/*, or build/*)"
-              exit 1
-              ;;
-          esac
-          actual_patchset_manifest_sha=$(sha256sum .github/ax6-source-patchset.sha256)
-          actual_patchset_manifest_sha=${actual_patchset_manifest_sha%% *}
-          [ "$actual_patchset_manifest_sha" = "$SOURCE_PATCHSET_MANIFEST_SHA256" ] || {
-            echo "::error::source patchset manifest hash mismatch"
-            exit 1
-          }
-          workflow=.github/workflows/build-AX6-NSS.yml
-          for source_gate in \
-            'AX6 source must use Linux 6.18.38' \
-            'Linux 6.18.38 archive hash is missing or incorrect' \
-            'missing hostapd 2026-1 security fix' \
-            'missing bridge-port on-wire VLAN decision' \
-            'missing NSS-DP MAC synchronization fix' \
-            'missing outer EAP method mapping' \
-            'wifi ucode helper lost its executable mode' \
-            'missing ath11k recovery guard'; do
-            grep -Fq "$source_gate" "$workflow" || {
-              echo "::error file=$workflow::missing locked-source semantic gate: $source_gate"
-              exit 1
-            }
-          done
-          grep -Fq 'verify-ax6-source-semantics.sh' "$workflow" || {
-            echo "::error file=$workflow::build workflow must call the shared source semantic verifier"
-            exit 1
-          }
-          # shellcheck disable=SC2016 # Match literal prepared-source commands.
-          for regression_gate in \
-            'python3 openwrt/tests/test-download-cache.py' \
-            'sh openwrt/tests/test-dns-redirect-scope.sh' \
-            'python3 tests/test-ecm-rps-ownership.py' \
-            'python3 tests/test-ecm-reload-errors.py' \
-            'python3 tests/test-ecm-service-errors.py' \
-            'python3 tests/test-ecm-offload-errors.py' \
-            "RPS_TEST_SHELL='busybox ash' python3 tests/test-set-irq-affinity-policy-errors.py" \
-            "RPS_TEST_SHELL='busybox ash' python3 openwrt/tests/test-set-irq-affinity-policy-errors.py" \
-            'unsquashfs -cat "$rootfs" lib/functions/procd.sh' \
-            'require_rps_datafile lib/functions/procd.sh' \
-            'require_rps_datafile lib/functions.sh' \
-            'python3 openwrt/tests/test-ecm-service-errors.py "$rps_fixture"' \
-            'python3 openwrt/tests/test-ecm-reload-errors.py "$rps_fixture"' \
-            'python3 openwrt/tests/test-ecm-rps-ownership.py "$rps_fixture"' \
-            'IRQ_TEST_SCRIPT="$GITHUB_WORKSPACE/image-verify/set-irq-affinity"' \
-            'python3 tests/test-service-lifecycle.py' \
-            'python3 tests/test-hostapd-targeted-regressions.py "$hostapd_dir"' \
-            'python3 tests/test-ath11k-recovery-reset-guard.py "$backports_dir"' \
-            'python3 tests/test-ath11k-rx-alignment.py "$backports_dir"' \
-            'python3 "$GITHUB_WORKSPACE/.github/scripts/verify-edma-prepared-regressions.py"' \
-            'PYTHONDONTWRITEBYTECODE=1 python3 tests/nss-dp-containment/test-nss-dp-detach-quarantine.py' \
-            '--candidate-only --candidate "$nss_dp_dir"' \
-            '--output "$GITHUB_WORKSPACE/nss-containment-evidence/dp"' \
-            'PYTHONDONTWRITEBYTECODE=1 python3 tests/nss-drv-containment/test-nss-drv-containment.py' \
-            '--candidate-only --candidate "$nss_drv_dir"' \
-            '--output "$GITHUB_WORKSPACE/nss-containment-evidence/drv"' \
-            'python3 tests/test-nss-fraglist-accounting.py "$nss_drv_dir"'; do
-            grep -Fq -- "$regression_gate" "$workflow" || {
-              echo "::error file=$workflow::missing source regression gate: $regression_gate"
-              exit 1
-            }
-          done
-          # Release values live in the lock; hardcoded PKG_RELEASE or
-          # 'release must be N' strings in the workflow are forbidden (P0-4).
-          if grep -Eq "PKG_RELEASE:=[0-9]+|release must be [0-9]+" "$workflow"; then
-            echo "::error file=$workflow::package release must come from the lock, not hardcoded strings"
-            exit 1
-          fi
-          sh -n .github/scripts/verify-ax6-source-semantics.sh || {
-            echo "::error::verify-ax6-source-semantics.sh has a shell syntax error"
-            exit 1
-          }
-          grep -Fq 'CONFIG_ATH11K_NSS_MESH_SUPPORT) += ATH11K_NSS_MESH_SUPPORT' "$workflow"
-          grep -Fq 'CONFIG_ATH11K_NSS_SUPPORT) += ATH11K_NSS_SUPPORT' "$workflow"
-          grep -Fq 'ATH11K_NSS_SUPPORT must not force ATH11K_NSS_MESH_SUPPORT' "$workflow"
-          # shellcheck disable=SC2016 # Match literal build-time OpenClash resolution.
-          grep -Fq 'OPENCLASH_RESOLVED_COMMIT=$(resolve_branch_commit "$OPENCLASH_URL" "${OPENCLASH_REF:-master}")' AX6-IPQ/diy.sh
-          # shellcheck disable=SC2016 # Match literal immutable checkout command.
-          grep -Fq 'clone_locked "$OPENCLASH_URL" "$OPENCLASH_RESOLVED_COMMIT" package/luci-app-openclash-source' AX6-IPQ/diy.sh
-          # shellcheck disable=SC2016 # Match literal resolved/actual equality gate.
-          grep -Fq '[ "$OPENCLASH_ACTUAL_COMMIT" = "$OPENCLASH_RESOLVED_COMMIT" ]' AX6-IPQ/diy.sh
-          if grep -Eq 'OPENCLASH_(COMMIT|VERSION)' .github/ax6-nss-lock.env AX6-IPQ/diy.sh; then
-            echo "::error::OpenClash plugin must track upstream ref, not a pinned plugin version"
-            exit 1
-          fi
-          expected_openclash_keep=$(printf '%s\n' \
-            /etc/openclash/config/ \
-            /etc/openclash/custom/ \
-            /etc/openclash/overwrite/)
-          actual_openclash_keep=$(cat AX6-IPQ/files/lib/upgrade/keep.d/luci-app-openclash)
-          if [ "$actual_openclash_keep" != "$expected_openclash_keep" ]; then
-            echo "::error::OpenClash sysupgrade keep policy must be exactly config/custom/overwrite"
-            exit 1
-          fi
-          grep -Fqx '/etc/openclash/config/' AX6-IPQ/files/etc/sysupgrade.conf
-          if grep -Fqx '/etc/openclash/' AX6-IPQ/files/etc/sysupgrade.conf; then
-            echo "::error::AX6 sysupgrade policy must not retain the complete OpenClash runtime tree"
-            exit 1
-          fi
-          # shellcheck disable=SC2016 # Match the literal command substitution in diy.sh.
-          capture_line=$(grep -nF 'OPENCLASH_ACTUAL_COMMIT=$(git -C package/luci-app-openclash-source rev-parse HEAD)' AX6-IPQ/diy.sh | cut -d: -f1)
-          move_line=$(grep -nF 'mv package/luci-app-openclash-source/luci-app-openclash package/luci-app-openclash' AX6-IPQ/diy.sh | cut -d: -f1)
-          if [ -z "$capture_line" ] || [ -z "$move_line" ] || [ "$capture_line" -ge "$move_line" ]; then
-            echo "::error::OpenClash commit must be captured before its source repository is removed"
-            exit 1
-          fi
-          grep -Fq '} > .openclash-build.env' AX6-IPQ/diy.sh
-          # shellcheck disable=SC2016 # Match literal target_dir workflow code.
-          for workflow in \
-            .github/workflows/build-AX6-NSS.yml \
-            .github/workflows/build-AX6-IPQ.yml; do
-            for required in \
-              'Verify tracked OpenClash inputs' \
-              'OPENCLASH_ACTUAL_VERSION' \
-              'OPENCLASH_RESOLVED_COMMIT' \
-              'OPENCLASH_ACTUAL_COMMIT' \
-              'OPENCLASH_CORE_COMMIT' \
-              'OPENCLASH_CORE_SHA256' \
-              'METACUBEXD_REPO' \
-              'METACUBEXD_REF' \
-              'METACUBEXD_COMMIT' \
-              'METACUBEXD_ARCHIVE_SHA256' \
-              'ZASHBOARD_REPO' \
-              'ZASHBOARD_REF' \
-              'ZASHBOARD_COMMIT' \
-              'ZASHBOARD_ARCHIVE_SHA256' \
-              'etc/openclash/core/clash_meta' \
-              'lib/upgrade/keep.d/luci-app-openclash' \
-              'Final rootfs OpenClash keep policy is not config/custom/overwrite' \
-              'enforce-openclash-keep-policy.sh check' \
-              'Final rootfs sysupgrade policy differs from the reviewed AX6 policy' \
-              'usr/share/openclash/ui/metacubexd/index\.html' \
-              'usr/share/openclash/ui/zashboard/index\.html' \
-              'verify-device-manifest.sh' \
-              'find "$target_dir" -maxdepth 1' \
-              'DEVICE_MANIFEST_FILE' \
-              'DEVICE_MANIFEST_SHA256'; do
-              grep -Fq "$required" "$workflow" || {
-                echo "::error file=$workflow::missing OpenClash provenance gate: $required"
-                exit 1
-              }
-            done
-          done
-
-      - name: Obsolete NSS config symbol check
-        run: |
-          set -eo pipefail
-          obsolete=(
-            ATH11K_NSS_TX_SUPPORT
-            ATH11K_TX_QUEUE_SIZE
-            ATH11K_NSS_4ADDR_SUPPORT
-            ATH11K_MEM_PROFILE_1G
-            ATH11K_MEM_PROFILE_256M
-            ATH11K_NAPI_WEIGHT_1G
-            ARM_PSCI_CPUIDLE
-            ARM_PSCI_CPUIDLE_DOMAIN
-            CPU_FREQ_MIN
-            IPQ_MEM_PROFILE_1024
-            IPQ_MEM_PROFILE_512
-            IPQ_MEM_PROFILE_256
-            KERNEL_IPQ_MEM_PROFILE
-            KERNEL_BRIDGE_NETFILTER
-            KERNEL_BRIDGE_NF_EBTABLES
-            KERNEL_NET_RX_BUSY_POLL
-            MAC80211_RC_DEFAULT_MINSTREL_HT
-            MAC80211_RC_DEFAULT_MINSTREL_VHT
-            MAC80211_RC_MINSTREL_VHT_AUTOFALLBACK
-            NSS_DRV_C2C_ENABLE
-            NSS_DRV_CAPWAP_ENABLE
-            NSS_DRV_CLMAP_ENABLE
-            NSS_DRV_IPV4_FORWARD_ENABLE
-            NSS_DRV_IPV6_FORWARD_ENABLE
-            NSS_DRV_IPV6_REDIRECT
-            NSS_DRV_CONNTRACK_ENABLE
-            NSS_DRV_DEBUG
-            NSS_DRV_DTLS_ENABLE
-            NSS_DRV_IPSEC_ENABLE
-            NSS_DRV_OAM_ENABLE
-            NSS_DRV_PVXLAN_ENABLE
-            NSS_DRV_QVPN_ENABLE
-            NSS_DRV_SFE_ENABLE
-            NSS_DRV_TLS_ENABLE
-            NSS_DRV_TSTAMP_ENABLE
-            NSS_DRV_WDS_ENABLE
-            NSS_DRV_WIFI_LEGACY_ENABLE
-            NSS_DRV_NATP_ENABLE
-            NSS_DRV_PORTID_ENABLE
-            NSS_MEM_PROFILE_HIGH
-            NSS_MEM_PROFILE_MEDIUM
-            NSS_MEM_PROFILE_LOW
-            NSS_MEM_PROFILE_HIGH_PERF
-            NSS_PPE_QSZ_4096
-            PACKAGE_MAC80211_NSS_SUPPORT
-            REGULATOR_FIXED_VOLTAGE
-            SERIAL_8250_RUNTIME_UARTS
-            ZRAM_DEF_COMP_LZORLE
-            ZRAM_DEF_COMP_LZO
-            ZRAM_DEF_COMP_LZ4
-            ZRAM_DEF_COMP_LZ4HC
-            ZRAM_DEF_COMP_ZSTD
-            ZRAM_SIZE
-          )
-          for cfg in \
-            AX6-IPQ/.config-stock \
-            AX6-IPQ/.config-expand \
-            AX6-IPQ/nss-extra.config; do
-            for symbol in "${obsolete[@]}"; do
-              if grep -Eq "^(# )?CONFIG_${symbol}(=| is not set)" "$cfg"; then
-                echo "::error file=$cfg::obsolete or undefined symbol: CONFIG_${symbol}"
-                exit 1
-              fi
-            done
-          done
-          for cfg in AX6-IPQ/.config-stock AX6-IPQ/.config-expand; do
-            grep -qx 'CONFIG_ATH11K_MEM_PROFILE_512M=y' "$cfg" || {
-              echo "::error file=$cfg::current ath11k NSS source requires the 512M memory profile"
-              exit 1
-            }
-            if grep -q '^CONFIG_NSS_DRV_TRUSTSEC_RX_ENABLE=y$' "$cfg" &&
-               ! grep -q '^CONFIG_NSS_DRV_TRUSTSEC_ENABLE=y$' "$cfg"; then
-              echo "::error file=$cfg::TRUSTSEC_RX cannot be enabled while TRUSTSEC is disabled"
-              exit 1
-            fi
-            grep -qx '# CONFIG_KERNEL_SKB_RECYCLER_PREALLOC is not set' "$cfg" || {
-              echo "::error file=$cfg::SKB preallocation is documented by current source as SFE-only, not NSS"
-              exit 1
-            }
-            duplicates=$(awk -F= '
-              /^CONFIG_[A-Za-z0-9_]+=/ { count[$1]++ }
-              END { for (key in count) if (count[key] > 1) print key }
-            ' "$cfg")
-            if [ -n "$duplicates" ]; then
-              echo "::error file=$cfg::duplicate active config keys: $duplicates"
-              exit 1
-            fi
-          done
-
-      - name: AX6 NSS selected feed coverage check
-        run: |
-          set -eo pipefail
-          workflow=.github/workflows/build-AX6-NSS.yml
-          for cfg in AX6-IPQ/.config-stock AX6-IPQ/.config-expand; do
-            if grep -q '^CONFIG_PACKAGE_kmod-qca-nss-nft=' "$cfg"; then
-              echo "::error file=$cfg::kmod-qca-nss-nft is not defined by the locked source or NSS feed"
-              exit 1
-            fi
-            grep -qx 'CONFIG_PACKAGE_sqm-scripts-nss=y' "$cfg" || continue
-            # shellcheck disable=SC2016 # Match the workflow's literal lock-variable references.
-            grep -Fq 'src-git sqm_scripts_nss ${SQM_SCRIPTS_NSS_URL}^${SQM_SCRIPTS_NSS_COMMIT}' "$workflow" || {
-              echo "::error file=$workflow::sqm-scripts-nss is selected by $cfg but its locked feed is missing"
-              exit 1
-            }
-            grep -qx 'CONFIG_PACKAGE_sqm-scripts=y' AX6-IPQ/nss-extra.config
-            grep -qx 'CONFIG_PACKAGE_kmod-sched-cake=y' AX6-IPQ/nss-extra.config
-          done
-
-      - name: AX6 unwanted package guard
-        run: |
-          set -eo pipefail
-          unwanted=(
-            haproxy
-            chinadns-ng
-            dns2socks
-            dns2tcp
-            ipt2socks
-            microsocks
-            kmod-wireguard
-            wireguard-tools
-            luci-proto-wireguard
-          )
-          for cfg in AX6-IPQ/.config-stock AX6-IPQ/.config-expand AX6-IPQ/nss-extra.config; do
-            for pkg in "${unwanted[@]}"; do
-              if grep -qx "CONFIG_PACKAGE_${pkg}=y" "$cfg"; then
-                echo "::error file=$cfg::unwanted or incomplete package selected: $pkg"
-                exit 1
-              fi
-            done
-          done
-
-      - name: ZRAM config dependency check
-        run: |
-          set -eo pipefail
-          required=(
-            CONFIG_KERNEL_SWAP=y
-            CONFIG_BUSYBOX_CONFIG_MKSWAP=y
-            CONFIG_BUSYBOX_CONFIG_SWAPON=y
-            CONFIG_BUSYBOX_CONFIG_FEATURE_SWAPON_DISCARD=y
-            CONFIG_BUSYBOX_CONFIG_FEATURE_SWAPON_PRI=y
-            CONFIG_BUSYBOX_CONFIG_SWAPOFF=y
-            CONFIG_PACKAGE_kmod-zram=y
-            CONFIG_KERNEL_ZRAM_BACKEND_ZSTD=y
-            CONFIG_KERNEL_ZRAM_DEF_COMP_ZSTD=y
-          )
-          for cfg in AX6-IPQ/.config-stock AX6-IPQ/.config-expand; do
-            grep -qx 'CONFIG_PACKAGE_zram-swap=y' "$cfg" || continue
-            for symbol in "${required[@]}"; do
-              grep -qx "$symbol" "$cfg" || {
-                echo "::error file=$cfg::zram-swap requires $symbol"
-                exit 1
-              }
-            done
-          done
-          grep -Fq "'etc/rc\\.d/S15zram'" .github/workflows/build-AX6-NSS.yml
-          grep -Fq "'etc/rc\\.d/S15zram'" .github/workflows/build-AX6-IPQ.yml
-          zram_defaults=AX6-IPQ/files/etc/uci-defaults/95-ax6-zram-defaults
-          grep -Fq "zram_size_mb='256'" "$zram_defaults"
-          grep -Fq "zram_comp_algo='zstd'" "$zram_defaults"
-          grep -Fq 'system.@system[0].zram_size_mb' AX6-IPQ/files/sbin/nss-check
-          grep -Fq 'system.@system[0].zram_comp_algo' AX6-IPQ/files/sbin/nss-check
-
-      - name: ECM offload policy check
-        run: |
-          set -eo pipefail
-          tune=AX6-IPQ/files/etc/uci-defaults/98-nss-tune
-          health=AX6-IPQ/files/sbin/nss-check
-          boot_guard=AX6-IPQ/files/etc/init.d/ax6-boot-guard
-          br_hotplug=AX6-IPQ/files/etc/hotplug.d/net/100-disable_offloads_br_lan
-          test -x "$tune"
-          test -x "$health"
-          test -x "$br_hotplug"
-          grep -Fq "ecm.general.disable_offloads='1'" "$tune"
-          grep -Fq "ecm.general.disable_gro_list='1'" "$tune"
-          grep -Fq "ecm.general.offload_host_ifaces='br-lan'" "$tune"
-          grep -Fq "ecm.general.offload_physical_policy='report'" "$tune"
-          grep -Fq 'offload_host_ifaces:br-lan' "$boot_guard"
-          grep -Fq 'offload_physical_policy:report' "$boot_guard"
-          if grep -Eq "ecm\.general\.disable_flow_control='1'|disable_flow_control[[:space:]]*'1'" "$tune" AX6-IPQ/files/etc/uci-defaults/* 2>/dev/null; then
-            echo "::error::Do not force Ethernet flow-control changes in defaults; validate per-link before enabling"
-            exit 1
-          fi
-          grep -Fq 'ECM disable_offloads=1' "$health"
-          grep -Fq 'ECM disable_gro_list=1' "$health"
-          grep -Fq 'ECM disable_flow_control=' "$health"
-          grep -Fq 'generic-receive-offload' "$health"
-          grep -Fq 'generic-segmentation-offload' "$health"
-          grep -Fq 'tcp-segmentation-offload' "$health"
-          grep -Fq 'rx-gro-list' "$health"
-          grep -Fq 'br-lan' "$health"
-          grep -Fq 'offload_physical_policy is unset' "$health"
-          grep -Fq 'disable_offloads.sh' "$br_hotplug"
-          grep -Fq "disable_offload \"\$INTERFACE\"" "$br_hotplug"
-          grep -Fq "[ \"\$INTERFACE\" = \"br-lan\" ]" "$br_hotplug"
-          for workflow in .github/workflows/build-AX6-NSS.yml .github/workflows/build-AX6-IPQ.yml; do
-            for required in \
-              'etc/uci-defaults/98-nss-tune' \
-              'etc/hotplug\.d/net/99-disable_offloads' \
-              'etc/hotplug\.d/net/100-disable_offloads_br_lan' \
-              'lib/netifd/offload/disable_offloads\.sh'; do
-              grep -Fq "$required" "$workflow" || {
-                echo "::error file=$workflow::final rootfs validation is missing $required"
-                exit 1
-              }
-            done
-          done
-
-      - name: Ath11k NSS peer statistics gate check
-        run: |
-          set -eo pipefail
-          gate=AX6-IPQ/scripts/check-ath11k-nss-peer-stats.sh
-          test -x "$gate"
-          grep -Fq 'nss.c patch hunk length or closing brace is invalid' "$gate"
-          grep -Fq 'peer drops and no-ACK failures must remain separate' "$gate"
-          grep -Fq 'check-ath11k-nss-peer-stats.sh' .github/workflows/build-AX6-NSS.yml
-
-      - name: AX6 stock SMEM nvmem compatibility gate check
-        run: |
-          set -eo pipefail
-          gate=AX6-IPQ/scripts/check-ax6-stock-smem-nvmem.sh
-          dtb_gate=AX6-IPQ/scripts/check-ax6-stock-compiled-dtb.sh
-          health=AX6-IPQ/files/sbin/nss-check
-          test -x "$gate"
-          test -x "$dtb_gate"
-          grep -Fq 'bootloader-rewritten SMEM partitions' "$gate"
-          grep -Fq 'nvmem-cells' "$dtb_gate"
-          grep -Fq 'check-ax6-stock-smem-nvmem.sh openwrt' .github/workflows/build-AX6-NSS.yml
-          grep -Fq 'check-ax6-stock-compiled-dtb.sh' .github/workflows/build-AX6-NSS.yml
-          grep -Fq 'linux-qualcommax_ipq807x/image-ipq8071-ax6-stock.dtb' .github/workflows/build-AX6-NSS.yml
-          grep -Fq 'Expected exactly one compiled AX6 stock DTB' .github/workflows/build-AX6-NSS.yml
-          grep -Fq 'dangling nvmem phandles' "$health"
-
-      - name: IPv4 interface invariant check
-        run: |
-          set -eo pipefail
-          sysctl_file=AX6-IPQ/files/etc/sysctl.d/99-ax6-tune.conf
-          helper=AX6-IPQ/files/usr/sbin/ax6-network-invariants
-          service=AX6-IPQ/files/etc/init.d/ax6-network-invariants
-          hotplug=AX6-IPQ/files/etc/hotplug.d/net/90-ax6-network-invariants
-          for file in "$helper" "$service" "$hotplug"; do
-            test -x "$file"
-          done
-          for setting in \
-            net.ipv4.conf.all.send_redirects=0 \
-            net.ipv4.conf.default.send_redirects=0 \
-            net.ipv4.conf.all.accept_redirects=0 \
-            net.ipv4.conf.default.accept_redirects=0 \
-            net.ipv4.conf.all.arp_ignore=1 \
-            net.ipv4.conf.default.arp_ignore=1; do
-            grep -Fqx "$setting" "$sysctl_file"
-          done
-          grep -Fq 'send_redirects:0' "$helper"
-          grep -Fq 'accept_redirects:0' "$helper"
-          grep -Fq 'arp_ignore:1' "$helper"
-          grep -Fq '/usr/sbin/ax6-network-invariants --all' "$service"
-          grep -Fq '. /lib/netifd/offload/disable_offloads.sh' "$service"
-          grep -Fqx '            disable_offload' "$service"
-          if grep -Eq '^[[:space:]]*disable_offload[[:space:]]+br-lan[[:space:]]*$' "$service"; then
-            echo "::error file=$service::parameterless helper already includes configured br-lan; do not process it twice"
-            exit 1
-          fi
-          # shellcheck disable=SC2016 # Match the hotplug script's literal environment variable.
-          grep -Fq '/usr/sbin/ax6-network-invariants "$INTERFACE"' "$hotplug"
-          grep -Fq 'S95ax6-network-invariants' AX6-IPQ/diy.sh
-          for workflow in .github/workflows/build-AX6-NSS.yml .github/workflows/build-AX6-IPQ.yml; do
-            for required in \
-              'etc/init\.d/ax6-network-invariants' \
-              'etc/hotplug\.d/net/90-ax6-network-invariants' \
-              'usr/sbin/ax6-network-invariants' \
-              'etc/rc\.d/S95ax6-network-invariants'; do
-              grep -Fq "$required" "$workflow" || {
-                echo "::error file=$workflow::final rootfs validation is missing $required"
-                exit 1
-              }
-            done
-          done
-
-      - name: Kconfig assignment consistency check
-        run: |
-          set -eo pipefail
-          for cfg in AX6-IPQ/.config-stock AX6-IPQ/.config-expand AX6-IPQ/nss-extra.config; do
-            awk '
-              function add(symbol, value) {
-                if (!(symbol in stored)) {
-                  stored[symbol] = value
-                } else if (stored[symbol] != value) {
-                  printf "%s has conflicting assignments: %s and %s\n",
-                    symbol, stored[symbol], value > "/dev/stderr"
-                  conflicts = 1
-                }
-              }
-              /^CONFIG_[^=]+=/ {
-                symbol = $0
-                sub(/=.*/, "", symbol)
-                value = $0
-                sub(/^[^=]+=/, "", value)
-                add(symbol, value)
-                next
-              }
-              /^# CONFIG_.* is not set$/ {
-                symbol = $0
-                sub(/^# /, "", symbol)
-                sub(/ is not set$/, "", symbol)
-                add(symbol, "n")
-              }
-              END { exit conflicts }
-            ' "$cfg" || {
-              echo "::error file=$cfg::conflicting Kconfig assignments found"
-              exit 1
-            }
-          done
-
-      - name: Package repository ownership check
-        run: |
-          set -eo pipefail
-          if [ -e AX6-IPQ/files/etc/opkg/distfeeds.conf ]; then
-            if grep -Eq '^src/gz[[:space:]].*snapshots\.immortalwrt' AX6-IPQ/files/etc/opkg/distfeeds.conf; then
-              echo "::error::overlay distfeeds.conf must not use /snapshots/ (APK-only, 404)"
-              exit 1
-            fi
-          fi
-
-      - name: WiFi compatibility defaults check
-        run: |
-          set -eo pipefail
-          wifi=AX6-IPQ/files/etc/uci-defaults/99-ax6-wifi-tune
-          regdom=AX6-IPQ/files/etc/init.d/ax6-wifi-regdom
-          grep -qx 'COUNTRY="US"' "$wifi"
-          grep -Fq 'COUNTRY_FILE="/etc/config/ax6_wifi_country"' "$regdom"
-          grep -Fq "for radio in \$(uci -q show wireless" "$regdom"
-          grep -Fq "wireless.\${radio}.country=\$country" "$regdom"
-          grep -Fq "iw reg set \"\$country\"" "$regdom"
-          grep -q 'htmode=HE40' "$wifi"
-          grep -q 'ht_coex=1' "$wifi"
-          grep -q 'channel=auto' "$wifi"
-          grep -q 'htmode=HE80' "$wifi"
-          ath11k_options=AX6-IPQ/files/etc/modprobe.d/ath11k.conf
-          grep -Fq 'options ath11k frame_mode=2' "$ath11k_options"
-          grep -Fq 'options ath11k nss_offload=1' "$ath11k_options"
-          if grep -Eq '^[[:space:]]*options[[:space:]]+ath11k[[:space:]].*rx_hash=' "$ath11k_options"; then
-            echo "::error file=$ath11k_options::backports 6.18.26 has no ath11k rx_hash module parameter"
-            exit 1
-          fi
-          if grep -Eq 'uci([[:space:]]+-q)?[[:space:]]+set .*\\.(tx_antenna|rx_antenna)=' "$wifi"; then
-            echo "::error file=$wifi::wifi-scripts uses txantenna/rxantenna; underscore antenna keys are ignored"
-            exit 1
-          fi
-          # shellcheck disable=SC2016 # Match the literal UCI template.
-          if grep -Fq 'wireless.${radio}.dtim_period' "$wifi"; then
-            echo "::error file=$wifi::dtim_period is a wifi-iface option and is ignored on wifi-device radio sections"
-            exit 1
-          fi
-          for unsafe in \
-            'noscan=1' \
-            'isolate=0' \
-            'proxy_arp=1' \
-            'multicast_to_unicast=1'; do
-            if grep -Fq "$unsafe" "$wifi"; then
-              echo "::error file=$wifi::unsafe WiFi default found: $unsafe"
-              exit 1
-            fi
-          done
-          if grep -Rq 'wireless.*isolate=0' AX6-IPQ/files/etc/init.d; then
-            echo "::error::boot services must not override SSID isolation policy"
-            exit 1
-          fi
-          guard=AX6-IPQ/files/etc/init.d/ax6-boot-guard
-          grep -Fq 'section=network.globals; rules=packet_steering:0' "$guard"
-          grep -Fq 'flow_offloading:0 flow_offloading_hw:0' "$guard"
-          grep -Fq 'firewall.@defaults[0]' "$guard"
-          grep -q 'ax6-config-audit' AX6-IPQ/files/sbin/nss-check
-          if grep -RqE \
-            'uci([[:space:]]+-q)?[[:space:]]+set "network\.\$\{d\}\.(packet_steering|flow_offloading|flow_offloading_hw)=0"' \
-            AX6-IPQ/files/etc/init.d AX6-IPQ/files/etc/uci-defaults; then
-            echo "::error::device-level packet steering/flow offload options are not consumed by netifd or firewall4"
-            exit 1
-          fi
-
-      - name: Scenario policy ownership check
-        run: |
-          set -eo pipefail
-          audit=AX6-IPQ/files/sbin/ax6-config-audit
-          vlan=AX6-IPQ/files/sbin/vlan-add
-          zt_fw4=AX6-IPQ/files/usr/bin/zerotier-fw4
-          zt_reconcile=AX6-IPQ/files/usr/sbin/ax6-zerotier-reconcile
-          zt_bypass=AX6-IPQ/files/usr/bin/ax6-openclash-zerotier-bypass
-          zt_init=AX6-IPQ/files/etc/init.d/ax6-zerotier-reconcile
-          openclash_contract=AX6-IPQ/scripts/check-openclash-runtime-contract.sh
-          openclash_core_guard=.github/scripts/inject-openclash-rom-core-guard.sh
-          test -x "$audit"
-          test -x "$vlan"
-          test -x "$zt_fw4"
-          test -x "$zt_reconcile"
-          test -x "$zt_bypass"
-          test -x "$zt_init"
-          test -x "$openclash_contract"
-          test -x "$openclash_core_guard"
-          if grep -Eq 'uci[[:space:]].*(set|delete|del|commit)|/etc/init\.d/.*(restart|reload)' "$audit"; then
-            echo "::error file=$audit::scenario audit must remain read-only"
-            exit 1
-          fi
-          # shellcheck disable=SC2016 # Match the audit helper's literal UCI expression.
-          for required in \
-            'ZT_FW_PATH="${ZT_FW_PATH:-/var/run/zerotier-one/_fw4}"' \
-            '"$ZT_FW_PATH/input.nft"' \
-            '"$ZT_FW_PATH/forward.nft"' \
-            '"$ZT_FW_PATH/srcnat.nft"' \
-            'firewall.${_zt_section}.position' \
-            '[ -r "$_zt_expected_path" ]' \
-            'zerotier_input_ports_match' \
-            'zerotier_owned_input_absent' \
-            'nft input include exactly matches daemon ports and protocols' \
-            'live nft input rules exactly match daemon ports and protocols' \
-            'openclash_zerotier_bypass_match' \
-            'openclash_zerotier_bypass_absent' \
-            'service-port input permission disabled but stale service-port rules remain' \
-            'stale ZeroTier self-proxy bypass rules remain' \
-            'router self proxy intercepts ZeroTier without a matching dynamic bypass' \
-            'all servers are disabled but WAN 1194 ACCEPT rule(s) remain active' \
-            'internet_access=1 exposes TCP/1688' \
-            'upstream uses auto_activate' \
-            'vlan_filtering=1 conflicts with qosmio NSS WiFi offload guidance' \
-            'config bridge-vlan is present' \
-            'openclash_dns_redirect' \
-            'OpenClash DNS Hijack' \
-            'Country/GeoIP/GeoSite/GeoASN/CHNR data use' \
-            'geo_auto_update' \
-            'enabled on ${oc_overlay_total} KiB overlay can refill flash' \
-            'all Country/GeoIP/GeoSite/GeoASN/CHNR automatic updates are disabled' \
-            'dashboard UI files occupy' \
-            'fake-ip cache persistence enabled' \
-            'custom DNS nameserver group is configured' \
-            'default DNS is IPv4-only with disable_ipv6=1' \
-            'subscription DNS owns nameserver/default-nameserver'; do
-            grep -Fq "$required" "$audit" || {
-              echo "::error file=$audit::scenario audit is missing runtime check: $required"
-              exit 1
-            }
-          done
-          # shellcheck disable=SC2016 # Match the audit helper's literal policy line.
-          grep -Fq 'warn "OpenClash: ${oc_auto_geodata} enabled on ${oc_overlay_total} KiB overlay can refill flash"' "$audit" || {
-            echo "::error file=$audit::small-overlay Geo auto-update policy must remain a warning"
-            exit 1
-          }
-          # shellcheck disable=SC2016 # Reject the former literal failure policy line.
-          if grep -Fq 'fail "OpenClash: ${oc_auto_geodata} enabled on ${oc_overlay_total} KiB overlay can refill flash"' "$audit"; then
-            echo "::error file=$audit::small-overlay Geo auto-update policy must not be a failure"
-            exit 1
-          fi
-          if grep -RqE \
-            'upnpd\.config\.enabled=|zerotier\..*fw_allow_|openclash\.config\.|wireless\..*isolate=|=bridge-vlan|vlan_filtering' \
-            AX6-IPQ/files/etc/init.d AX6-IPQ/files/etc/uci-defaults; then
-            echo "::error::boot/default scripts must not force scenario-dependent service policy"
-            exit 1
-          fi
-          grep -Fq "grep -q '=bridge-vlan'" "$vlan"
-          grep -Fq 'RECONCILER=' "$zt_fw4"
-          # shellcheck disable=SC2016 # Match literal helper variables.
-          grep -Fq 'exec "$RECONCILER" --once' "$zt_fw4"
-          grep -Fq 'read_stable_settings' "$zt_reconcile"
-          grep -Fq 'STABLE_DELAY=' "$zt_reconcile"
-          # shellcheck disable=SC2016 # Match literal helper variables.
-          grep -Fq 'lock "$LOCK_FILE"' "$zt_reconcile"
-          # shellcheck disable=SC2016 # Match literal helper variables.
-          grep -Fq 'nft -c -f "$TRANSACTION"' "$zt_reconcile"
-          grep -Fq 'AX6 ZeroTier UDP self bypass' "$zt_bypass"
-          # shellcheck disable=SC2016 # Match the literal generated nft rule.
-          grep -Fq 'meta l4proto { tcp, udp } th sport $primary' "$zt_bypass"
-          if grep -Eq 'fw4[[:space:]]+reload|/etc/init\.d/(firewall|openclash|zerotier)[[:space:]]+(reload|restart)' \
-              "$zt_fw4" "$zt_reconcile" "$zt_bypass"; then
-            echo "::error::ZeroTier reconciliation must not reload firewall, OpenClash, or ZeroTier"
-            exit 1
-          fi
-          grep -Fqx 'START=91' "$zt_init"
-          # shellcheck disable=SC2016 # Match literal procd variables.
-          grep -Fq 'procd_set_param command "$PROG" --daemon' "$zt_init"
-          test -x .github/scripts/inject-openclash-zerotier-hook.sh
-          grep -Fq 'openclash_mangle_output_v6' "$zt_bypass"
-          grep -Fq 'inject-openclash-zerotier-hook.sh' AX6-IPQ/diy.sh
-          grep -Fq 'inject-openclash-rom-core-guard.sh" apply' AX6-IPQ/diy.sh
-          grep -Fq 'check-openclash-runtime-contract.sh' AX6-IPQ/diy.sh
-          grep -Fq 'unconditional start_run_core chown' "$openclash_contract"
-          grep -Fq 'disabled-mode residual redirect cleanup' "$openclash_contract"
-          grep -Fq 'fw4 DNS hijack family check' "$openclash_contract"
-          grep -Fq 'S91ax6-zerotier-reconcile' AX6-IPQ/diy.sh
-          for workflow in .github/workflows/build-AX6-NSS.yml .github/workflows/build-AX6-IPQ.yml; do
-            grep -Fq "'usr/bin/zerotier-fw4'" "$workflow"
-            grep -Fq "'usr/sbin/ax6-zerotier-reconcile'" "$workflow"
-            grep -Fq "'etc/init\\.d/ax6-zerotier-reconcile'" "$workflow"
-            # shellcheck disable=SC2016 # Match the rootfs gate's literal runtime variable.
-            grep -Fq 'nft -c -f "$TRANSACTION"' "$workflow"
-            grep -Fq 'inject-openclash-rom-core-guard.sh check' "$workflow"
-            grep -Fq 'check-openclash-runtime-contract.sh' "$workflow"
-          done
-          # shellcheck disable=SC2016 # Match vlan-add literal awk field reference.
-          grep -Fq '/=zone$/{print $2}' "$vlan"
-          grep -Fq "firewall zone named" "$vlan"
-          # shellcheck disable=SC2016 # Match vlan-add literal UCI templates.
-          grep -Fq 'set firewall.$NAME=zone' "$vlan"
-          # shellcheck disable=SC2016 # Match vlan-add literal UCI templates.
-          grep -Fq 'set firewall.$NAME.input=REJECT' "$vlan"
-          # shellcheck disable=SC2016 # Match vlan-add literal UCI templates.
-          grep -Fq 'set firewall.${NAME}_wan=forwarding' "$vlan"
-          # shellcheck disable=SC2016 # Match vlan-add literal UCI templates.
-          grep -Fq 'set firewall.${NAME}_dns=rule' "$vlan"
-          # shellcheck disable=SC2016 # Match vlan-add literal UCI templates.
-          grep -Fq 'set firewall.${NAME}_dhcp=rule' "$vlan"
-          # shellcheck disable=SC2016 # Match vlan-add literal UCI templates.
-          grep -Fq 'set dhcp.$NAME=dhcp' "$vlan"
-          # shellcheck disable=SC2016 # Match the literal transaction guard.
-          grep -Fq 'uci -q changes "$package"' "$vlan"
-          grep -Fq 'configuration failed; network, firewall and DHCP files were restored' "$vlan"
-          # shellcheck disable=SC2016 # Reject an unsafe literal UCI template.
-          if grep -Fq 'set firewall.$NAME.input=ACCEPT' "$vlan"; then
-            echo "::error file=$vlan::new untrusted VLANs must not expose router services by default"
-            exit 1
-          fi
-          # shellcheck disable=SC2016 # Match vlan-add literal UCI templates.
-          if grep -Eq 'set network\.br_\$NAME\.vlan_filtering=' "$vlan"; then
-            echo "::error file=$vlan::802.1q helper must not generate bridge VLAN filtering fields"
-            exit 1
-          fi
-
-      - name: Router maintenance script safety check
-        run: |
-          set -eo pipefail
-          backup="backup-router-config.sh"
-          deploy="deploy-openclash-runtime.sh"
-          preflight="preflight-router-restore.sh"
-          test -x "$backup"
-          test -x "$deploy"
-          test -x "$preflight"
-          grep -Fq 'FORENSIC-CONFIG-SNAPSHOT.tar.gz.blocked' "$backup"
-          grep -Fq 'DO-NOT-RESTORE-WHOLE-BACKUP.txt' "$backup"
-          grep -Fq 'Never upload FORENSIC-CONFIG-SNAPSHOT.tar.gz.blocked in LuCI.' "$backup"
-          grep -Fq 'never pass it to sysupgrade -r' "$backup"
-          grep -Fq 'legacy whole-restore archive found' "$preflight"
-          if grep -Fq 'sysupgrade-config-restore-safe.tar.gz' "$backup"; then
-            echo "::error file=$backup::a forensic snapshot must not look directly restorable"
-            exit 1
-          fi
-          grep -Fq '/etc/shadow' "$backup"
-          grep -Fq '/etc/shadow-' "$backup"
-          grep -Fq 'generated OpenClash data leaked into archive' "$backup"
-          grep -Fq 'forensic configuration snapshot contains links or special files' "$backup"
-          grep -Fq 'ssh-authorized-keys.tar.gz' "$backup" "$preflight"
-          grep -Fq 'zerotier-identity.tar.gz' "$backup" "$preflight"
-          grep -Fq 'openclash-runtime.tar.gz' "$backup"
-          grep -Fq 'openclash-runtime.tar.gz' "$deploy"
-          grep -Fq '/etc/openclash/overwrite' "$backup"
-          grep -Fq '/etc/openclash/overwrite' "$deploy"
-          grep -Fq 'OpenClash archive contains paths outside the restore allowlist' "$deploy"
-          grep -Fq 'OpenClash archive contains links or special files' "$deploy"
-          grep -Fq 'rollback_on_error' "$deploy"
-          grep -Fq 'previous OpenClash state restored' "$deploy"
-          grep -Fq '    rm -rf' "$deploy"
-          grep -Fq 'OpenClash core: disabled by restored configuration' "$deploy"
-          grep -Fq 'OpenClash core, DNS and firewall contract: ready' "$deploy"
-          grep -Fq '/sbin/ax6-config-audit -q' "$deploy"
-          grep -Fq '/sbin/ax6-config-audit -v' "$deploy"
-          grep -Fq 'StrictHostKeyChecking=yes' "$backup" "$deploy"
-          # shellcheck disable=SC2016 # Match the literal known_hosts option in both scripts.
-          grep -Fq 'UserKnownHostsFile="$SSH_KNOWN_HOSTS"' "$backup" "$deploy"
-          if grep -Fq 'ax6-config-audit -v || true' "$deploy"; then
-            echo "::error file=$deploy::restore must not ignore final configuration audit failures"
-            exit 1
-          fi
-          grep -Fq 'The complete sysupgrade archive was not restored automatically.' "$deploy"
-          grep -Fq 'redundant OpenClash core already exists in overlay' "$deploy"
-          grep -Fq 'overlay contains a redundant' AX6-IPQ/files/sbin/ax6-config-audit
-          grep -Fq 'legacy sysupgrade policy keeps core/Geo/cache' AX6-IPQ/files/sbin/ax6-config-audit
-          grep -Fq 'ax6-backup-*/' .gitignore
-          if grep -Fq '        /etc/openclash/proxy_provider' "$backup" "$deploy" ||
-             grep -Fq '        /etc/openclash/rule_provider' "$backup" "$deploy" ||
-             grep -Fq '        /usr/share/openclash/fix_dot.sh' "$backup" "$deploy"; then
-            echo "::error::OpenClash restore scope must exclude generated providers and package scripts"
-            exit 1
-          fi
-          if grep -Eq 'el1si7d_doggygosubs|head -[0-9]+ /etc/openclash/config' "$backup" "$deploy"; then
-            echo "::error::router maintenance scripts must not hard-code a subscription filename or truncate backups"
-            exit 1
-          fi
-          grep -Fq 'blacklist nf_flow_table' AX6-IPQ/files/etc/modprobe.d/nss-no-flow.conf
-
-      - name: Build dependency installation policy check
-        run: |
-          set -eo pipefail
-          for workflow in \
-            .github/workflows/build-AX6-IPQ.yml \
-            .github/workflows/build-AX6-NSS.yml \
-            .github/workflows/build-IMM.yml \
-            .github/workflows/build-LEDE.yml; do
-            grep -Fq -- '--no-install-recommends' "$workflow"
-            grep -Fq 'Acquire::Retries=3' "$workflow"
-            grep -Fq 'TZ: Asia/Shanghai' "$workflow"
-            if grep -Fq 'timedatectl' "$workflow"; then
-              echo "::error file=$workflow::use the workflow TZ environment; hosted runners may reject system timezone changes"
-              exit 1
-            fi
-            if grep -Eq 'apt-get .*autoremove' "$workflow"; then
-              echo "::error file=$workflow::do not autoremove runner packages after installing build dependencies"
-              exit 1
-            fi
-          done
-          grep -Fq 'large-packages: false' .github/workflows/build-AX6-NSS.yml
-
-      - name: IRQ policy ownership check
-        run: |
-          set -eo pipefail
-          health=AX6-IPQ/files/sbin/nss-check
-          for required in \
-            S26qca-nss-ecm \
-            S19qca-nss-pbuf \
-            S28qca-nss-drv \
-            S29qca-nss-netlink \
-            S93smp_affinity \
-            S99set-irq-affinity; do
-            grep -Fq "$required" "$health" || {
-              echo "::error file=$health::runtime health check is missing startup link $required"
-              exit 1
-            }
-          done
-          if [ -e AX6-IPQ/files/etc/init.d/ax6-irq-affinity ] || \
-             grep -R -n -E \
-               'S[0-9]+ax6-irq-affinity|ax6-irq-affinity (apply|reload|restart)' \
-               AX6-IPQ/diy.sh AX6-IPQ/files/etc/hotplug.d AX6-IPQ/files/etc/rc.d 2>/dev/null; then
-            echo "::error::custom AX6 IRQ policy must remain manual and must not override upstream"
-            exit 1
-          fi
-          if [ -e AX6-IPQ/files/etc/init.d/set-irq-affinity ]; then
-            echo "::error::AX6 overlay must not replace the locked qualcommax set-irq-affinity policy"
-            exit 1
-          fi
-          for required in \
-            'Linux RPS/RFS/XPS active' \
-            'rps_sock_flow_entries' \
-            'rps_flow_cnt' \
-            '@.network[*].ports[*]' \
-            'xps_cpus'; do
-            grep -Fq "$required" "$health" || {
-              echo "::error file=$health::runtime health check is missing Linux RPS/RFS gate: $required"
-              exit 1
-            }
-          done
-          test -x AX6-IPQ/files/usr/sbin/ax6-irq-affinity
-
-      - name: NSS pbuf runtime application check
-        run: |
-          set -eo pipefail
-          diy=AX6-IPQ/diy.sh
-          health=AX6-IPQ/files/sbin/nss-check
-          classifier=AX6-IPQ/files/usr/libexec/ax6-nss-pbuf-classify
-          test -x "$classifier"
-          sh -n "$classifier" "$health" tests/test-pbuf-fixture.sh
-          NSS_PBUF_CLASSIFIER="$classifier" sh tests/test-pbuf-fixture.sh
-          if grep -Eq 'ath11k_sysfs_device_available|wait_for_ath11k_nss_offload|wait_for_nss_sysctls|qca-nss-pbuf.init: n2h sysctl order mismatch' "$diy"; then
-            echo "::error file=$diy::qca-nss-pbuf must be fixed in SOURCE_COMMIT, not patched in diy.sh"
-            exit 1
-          fi
-          for required in \
-            'NSS pbuf/N2H profile applied' \
-            'NSS EDMA alloc-fail growth is stable' \
-            ax6-nss-pbuf-classify \
-            edma_err_alloc_fail_cnt \
-            n2h_wifi_pool_buf; do
-            grep -Fq "$required" "$health" || {
-              echo "::error file=$health::runtime health check is missing $required"
-              exit 1
-            }
-          done
-
-      - name: NSS .config conflict check (merged with nss-extra)
-        run: |
-          set -eo pipefail
-          python3 - <<'PY'
-          """模拟 workflow 的 `cat nss-extra.config >> .config` 后,
-          检查 NSS 互斥包是否同时启用,并提示缺失的推荐包。
-          """
-          import glob
-          import os
-          import re
-          import sys
-
-          # NSS 互斥对:同一行同时 =y 即报错
-          NSS_CONFLICT = (
-              ('kmod-qca-nss-drv', 'kmod-nf-flow'),
-              ('kmod-qca-nss-drv', 'kmod-ipt-offload'),
-              ('kmod-qca-nss-drv', 'kmod-nft-offload'),
-              ('kmod-qca-nss-drv', 'kmod-fast-classifier'),
-              ('kmod-qca-nss-drv', 'kmod-shortcut-fe'),
-              ('kmod-qca-nss-drv', 'kmod-shortcut-fe-cm'),
-          )
-          # 推荐启用的包。ATH11K_NSS_SUPPORT 不是 PACKAGE_ 符号，由前面的
-          # locked-source/config checks 单独验证。
-          NSS_RECOMMENDED_PACKAGES = (
-              'kmod-qca-ssdk',
-          )
-          NSS_EXTRA = 'AX6-IPQ/nss-extra.config'
-
-          PAT_Y = re.compile(r'^CONFIG_(PACKAGE_[\w-]+)=([ymn])$')
-          PAT_N = re.compile(r'^# CONFIG_(PACKAGE_[\w-]+) is not set$')
-
-
-          def parse_config(path):
-              """读取 OpenWrt .config,返回 {symbol: 'y'|'n'} 字典。"""
-              result = {}
-              with open(path) as fh:
-                  for line in fh:
-                      line = line.strip()
-                      m = PAT_Y.match(line)
-                      if m:
-                          result[m.group(1)] = m.group(2)
-                          continue
-                      m = PAT_N.match(line)
-                      if m:
-                          result[m.group(1)] = 'n'
-              return result
-
-
-          def main():
-              extra = parse_config(NSS_EXTRA) if os.path.exists(NSS_EXTRA) else {}
-              fail_count = 0
-
-              for cfg in sorted(glob.glob('AX6-IPQ/.config*')):
-                  if cfg == NSS_EXTRA:
-                      continue
-                  merged = parse_config(cfg)
-                  # 模拟 workflow `cat nss-extra.config >> .config`(后写覆盖)
-                  merged.update(extra)
-
-                  if merged.get('PACKAGE_kmod-qca-nss-drv') != 'y':
-                      print(f'::notice file={cfg}::no NSS, skip')
-                      continue
-
-                  for a, b in NSS_CONFLICT:
-                      if merged.get(f'PACKAGE_{a}') == 'y' and merged.get(f'PACKAGE_{b}') == 'y':
-                          print(
-                              f'::error file={cfg}::CONFLICT (after nss-extra merge) '
-                              f'PACKAGE_{a}=y AND PACKAGE_{b}=y'
-                          )
-                          fail_count += 1
-
-                  for need in NSS_RECOMMENDED_PACKAGES:
-                      if merged.get(f'PACKAGE_{need}') != 'y':
-                          print(
-                              f'::warning file={cfg}::missing recommended '
-                              f'PACKAGE_{need}=y'
-                          )
-
-              return 1 if fail_count else 0
-
-
-          sys.exit(main())
-          PY
+        done
+        # shellcheck disable=SC2016 # Match literal Makefile config expression.
+        grep -Fq 'config-$(CONFIG_ATH11K_NSS_MESH_SUPPORT) += ATH11K_NSS_MESH_SUPPORT' "$ath_mk" || {
+          echo "::error file=$ath_mk::ATH11K_NSS_MESH_SUPPORT must be controlled by CONFIG_ATH11K_NSS_MESH_SUPPORT"
+          exit 1
+        }
+        # shellcheck disable=SC2016 # Match literal Makefile config expression.
+        grep -Fq 'config-$(CONFIG_ATH11K_NSS_SUPPORT) += ATH11K_NSS_SUPPORT' "$ath_mk" || {
+          echo "::error file=$ath_mk::ATH11K_NSS_SUPPORT must not also enable mesh support"
+          exit 1
+        }
+        # shellcheck disable=SC2016 # Match literal Makefile config expression.
+        if grep -Eq 'config-\$\(CONFIG_ATH11K_NSS_SUPPORT\).*ATH11K_NSS_MESH_SUPPORT' "$ath_mk"; then
+          echo "::error file=$ath_mk::ATH11K_NSS_SUPPORT must not force ATH11K_NSS_MESH_SUPPORT"
+          exit 1
+        fi
+        AX6-IPQ/scripts/check-ath11k-nss-peer-stats.sh \
+          openwrt/package/kernel/mac80211/patches/nss/ath11k/199-002-ath11k_nss-add-nss-driver-interface.patch
+        AX6-IPQ/scripts/check-ax6-stock-smem-nvmem.sh openwrt
+        qualcommax_config="openwrt/target/linux/qualcommax/config-6.18"
+        grep -Fxq 'CONFIG_ARM64_4K_PAGES=y' "$qualcommax_config" || {
+          echo "::error file=$qualcommax_config::AX6 pbuf accounting requires the locked 4K kernel page size"
+          exit 1
+        }
+        if grep -Eq '^CONFIG_ARM64_(16K|64K)_PAGES=y$' "$qualcommax_config"; then
+          echo "::error file=$qualcommax_config::unexpected non-4K ARM64 page-size selection"
+          exit 1
+        fi
+        platform_sh="openwrt/target/linux/qualcommax/ipq807x/base-files/lib/upgrade/platform.sh"
+        grep -Fq 'xiaomi_stock_check_image_size' "$platform_sh" || {
+          echo "::error file=$platform_sh::missing runtime MTD/image capacity preflight"
+          exit 1
+        }
+        grep -Fq 'xiaomi_stock_get_upgrade_part' "$platform_sh" || {
+          echo "::error file=$platform_sh::missing dynamic rootfs/rootfs_1 selection"
+          exit 1
+        }
+        upgrade_test="openwrt/tests/qualcommax-xiaomi-stock-upgrade.sh"
+        [ -x "$upgrade_test" ] || {
+          echo "::error file=$upgrade_test::missing executable Xiaomi stock upgrade regression test"
+          exit 1
+        }
+        "$upgrade_test"
+        offload_helper="openwrt/package/qca-nss/qca-nss-ecm/files/disable_offloads.sh"
+        offload_test="openwrt/package/qca-nss/qca-nss-ecm/tests/test-disable-offloads.sh"
+        [ -x "$offload_helper" ] || {
+          echo "::error file=$offload_helper::locked ECM offload helper is missing or not executable"
+          exit 1
+        }
+        [ -x "$offload_test" ] || {
+          echo "::error file=$offload_test::locked ECM offload policy fixture is missing or not executable"
+          exit 1
+        }
+        sh -n "$offload_helper" "$offload_test"
+        sh "$offload_test" "$offload_helper"
+        pbuf_classifier="AX6-IPQ/files/usr/libexec/ax6-nss-pbuf-classify"
+        test -x "$pbuf_classifier"
+        sh -n "$pbuf_classifier" AX6-IPQ/files/sbin/nss-check tests/test-pbuf-fixture.sh
+        NSS_PBUF_CLASSIFIER="$pbuf_classifier" sh tests/test-pbuf-fixture.sh
+    - name: Add NSS feed and prepare feeds
+      run: |
+        set -eo pipefail
+        cd openwrt
+        # Replace every moving feed with the commits in the build lock.
+        cat > feeds.conf.default <<EOF
+        src-git sqm_scripts_nss ${SQM_SCRIPTS_NSS_URL}^${SQM_SCRIPTS_NSS_COMMIT}
+        src-git packages ${PACKAGES_FEED_URL}^${PACKAGES_FEED_COMMIT}
+        src-git luci ${LUCI_FEED_URL}^${LUCI_FEED_COMMIT}
+        src-git routing ${ROUTING_FEED_URL}^${ROUTING_FEED_COMMIT}
+        src-git telephony ${TELEPHONY_FEED_URL}^${TELEPHONY_FEED_COMMIT}
+        src-git video ${VIDEO_FEED_URL}^${VIDEO_FEED_COMMIT}
+        EOF
+        # 全量刷新
+        ./scripts/feeds clean
+        rm -rf tmp/
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+        # nss_ipv4_reasm 前置声明已由锁定 NSS feed 的
+        # 0035-nss-drv-add-ipv4-reasm-prototypes.patch 提供,不再需要补丁 0040.
+        # qca-mcs kernel 6.18 兼容补丁也已在 feed 0005-kernel-6.18.patch 中.
+    - name: Load custom config and apply DIY
+      run: |
+        set -eo pipefail
+        # 用 cp 而非 mv,本地反复跑也不破仓
+        # 先删除目标避免 cp -r 嵌套:若 openwrt/files 已存在,
+        # cp -r AX6-IPQ/files openwrt/files 会变成 openwrt/files/files/
+        rm -rf openwrt/files
+        [ -e "$FILES" ] && cp -r "$FILES" openwrt/files
+        [ -e "$CONFIG_FILE" ] && cp "$CONFIG_FILE" openwrt/.config
+        # 关键修复:把 NSS 互斥/必需配置追加到 .config
+        if [ -e "$EXTRA_CONFIG" ]; then
+          cat "$EXTRA_CONFIG" >> openwrt/.config
+        fi
+        chmod +x "$DIY_SH"
+        ( cd openwrt && "$GITHUB_WORKSPACE/$DIY_SH" )
+    - name: Apply the reviewed vlmcsd buffer-lifetime backport
+      run: |
+        set -euo pipefail
+        python3 AX6-IPQ/scripts/apply-vlmcsd-scope-backport.py apply openwrt/feeds/packages
+        python3 AX6-IPQ/scripts/apply-vlmcsd-scope-backport.py check openwrt/feeds/packages \
+          --output core-flow-evidence/vlmcsd/package
+    - name: Download package
+      working-directory: "./openwrt"
+      run: "set -eo pipefail\nmake defconfig 2>&1 | tee defconfig.log\nif grep -q
+        'recursive dependency detected' defconfig.log; then\n  echo \"::error::Kconfig
+        recursive dependency detected\"\n  exit 1\nfi\n# defconfig 会重新启用 CONFIG_KERNEL_WERROR,导致
+        -Wmissing-prototypes 变成硬错误,\n# 进而导致 NSS 外部内核模块(qca-nss-drv/qca-mcs 等)编译失败。\n#
+        此处强制禁用以避免连锁问题。\nsed -i 's/^CONFIG_KERNEL_WERROR=y$/# CONFIG_KERNEL_WERROR
+        is not set/' .config\n# 防御:确保 ip_tables.ko / ip6_tables.ko 内核选项启用\n# nss-fork
+        b0c5bf38 已删除 kmod-nf-ipt 错误的 +!LINUX_6_12:kmod-iptables 依赖,\n# 这两行变成幂等防御(make
+        defconfig 会通过 kmod-nf-ipt KCONFIG 自动处理),\n# 但保留以防止未来上游回归。\ngrep -q 'CONFIG_IP_NF_IPTABLES=m'
+        .config || echo 'CONFIG_IP_NF_IPTABLES=m' >> .config\ngrep -q 'CONFIG_IP6_NF_IPTABLES=m'
+        .config || echo 'CONFIG_IP6_NF_IPTABLES=m' >> .config\ngrep -q 'CONFIG_NETFILTER_XTABLES=m'
+        .config || echo 'CONFIG_NETFILTER_XTABLES=m' >> .config\n# defconfig 通过 firewall4→kmod-nft-offload→kmod-nf-flow
+        依赖链\n# 强制拉回 NSS 冲突包,此处 sed 强制覆盖为 =n\n# 黑名单来自 env.NSS_BLACKLIST(单一来源,与 pre-flight
+        Python 共用)\nfor pkg in $NSS_BLACKLIST; do\n  sed -i \"s|^CONFIG_PACKAGE_${pkg}=y$|#
+        CONFIG_PACKAGE_${pkg} is not set|\" .config\ndone\n# 当前源树仍定义的 WIFI_MESH 需要
+        FW 11.4；本构建使用 FW 12.5。\n#   https://github.com/qosmio/openwrt-ipq#nss-support-matrix\nsed
+        -i \\\n  's|^CONFIG_NSS_DRV_WIFI_MESH_ENABLE=y$|# CONFIG_NSS_DRV_WIFI_MESH_ENABLE
+        is not set|' \\\n  .config\n# 验证 NSS_DRV 不支持项已清除 (不包括 RMNET:\U0001F7E8 qca-nss-netlink
+        依赖)\nif grep -q '^CONFIG_NSS_DRV_WIFI_MESH_ENABLE=y$' .config; then\n  echo
+        \"::error::NSS FW 12.5 unsupported: CONFIG_NSS_DRV_WIFI_MESH_ENABLE=y still
+        enabled after sed\"\n  exit 2\nfi\n# 验证:确保 NSS 冲突包不再出现\npython3 - <<'PY'\n\"\"\"Post-defconfig
+        校验:sed 拉黑后再扫一遍 .config,确保没漏。\"\"\"\nimport os\nimport sys\n\n\ndef main():\n
+        \   blacklist = os.environ['NSS_BLACKLIST'].split()\n    expected_off = {f'CONFIG_PACKAGE_{pkg}=y'
+        for pkg in blacklist}\n    has_nss = False\n    found = []\n\n    with open('.config')
+        as fh:\n        for line in fh:\n            line = line.strip()\n            if
+        line == 'CONFIG_PACKAGE_kmod-qca-nss-drv=y':\n                has_nss = True\n
+        \           if line in expected_off:\n                # 形如 CONFIG_PACKAGE_kmod-nf-flow=y
+        → 报告 kmod-nf-flow\n                found.append(line.split('=', 1)[0].removeprefix('CONFIG_PACKAGE_'))\n\n
+        \   if has_nss and found:\n        print(\n            f\"::error::defconfig
+        仍启用了 NSS 冲突包:{' '.join(found)}\"\n        )\n        return 2\n    print('Post-defconfig
+        NSS check: PASS (conflicts force-disabled)')\n    return 0\n\n\nsys.exit(main())\nPY\nmake
+        download -j8\nfind dl -size -1024c -exec ls -l {} \\;\nfind dl -size -1024c
+        -exec rm -f {} \\;\n"
+    - name: Prepare locked native host tools before Vim source preparation
+      working-directory: "./openwrt"
+      run: |
+        set -euo pipefail
+        mkdir -p ../vim-evidence
+        host_jobs=$(nproc)
+        [[ "$host_jobs" =~ ^[1-9][0-9]*$ ]] || { echo '::error::Invalid host tool job count'; exit 2; }
+        # Native dependency graph: tools/install requires tools/compile,
+        # which installs staged m4/autoconf before the recipe invokes them.
+        make -j"$host_jobs" tools/install V=s 2>&1 | tee ../vim-evidence/host-tools.log
+        for tool_name in m4 autoconf; do
+          test -x "staging_dir/host/bin/$tool_name"
+          "staging_dir/host/bin/$tool_name" --version > "../vim-evidence/host-$tool_name-version.txt"
+        done
+        test "$(head -n 1 ../vim-evidence/host-m4-version.txt)" = 'm4 (GNU M4) 1.4.21'
+        test "$(head -n 1 ../vim-evidence/host-autoconf-version.txt)" = 'autoconf (GNU Autoconf) 2.72'
+        sha256sum staging_dir/host/bin/m4 staging_dir/host/bin/autoconf > ../vim-evidence/HOST-TOOLS-SHA256.txt
+    - name: Build target toolchain before rpcd components
+      run: |
+        set -euo pipefail
+        mkdir -p rpcd-toolchain-evidence
+        make -C openwrt -j2 toolchain/install V=s 2>&1 | tee rpcd-toolchain-evidence/install.log
+    - name: Prepare and compile only the target kernel and NSS driver
+      run: bash preflight/target-module.sh
+    - name: Preserve module preflight evidence
+      if: always()
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      with:
+        name: AX6_DRV29_STOCK_MODULE_${{ github.sha }}
+        path: |
+          module-preflight-evidence/
+          rpcd-toolchain-evidence/
+        retention-days: 14
+        if-no-files-found: error
