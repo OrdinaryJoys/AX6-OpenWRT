@@ -27,9 +27,16 @@ cp "$RUNNER_TEMP/ax6-module-drv29-gate/PREPARED-driver.json" "$evidence/PREPARED
 toolchain=staging_dir/toolchain-aarch64_cortex-a53_gcc-14.3.0_musl
 export PATH="$PWD/$toolchain/bin:$PATH"
 compiler="$PWD/$toolchain/bin/aarch64-openwrt-linux-musl-gcc"
-test "$("$compiler" -dumpfullversion)" = 14.3.0
-"$compiler" --version > "$evidence/target-gcc.txt"
-python3 -B "$base/preflight/gcc-canary.py" "$driver" "$compiler" "$evidence" \
+target_staging=$(make -s --no-print-directory val.STAGING_DIR)
+if [[ "$target_staging" != "$PWD/staging_dir/target-aarch64_cortex-a53_musl" ||
+      ! -d "$target_staging" || ! -f "$target_staging/.prepared" ]]; then
+    printf 'Invalid OpenWrt stock STAGING_DIR: %s\n' "$target_staging" >&2
+    exit 1
+fi
+printf '%s\n' "$target_staging" > "$evidence/target-staging-dir.txt"
+test "$(STAGING_DIR="$target_staging" "$compiler" -dumpfullversion)" = 14.3.0
+STAGING_DIR="$target_staging" "$compiler" --version > "$evidence/target-gcc.txt"
+STAGING_DIR="$target_staging" python3 -B "$base/preflight/gcc-canary.py" "$driver" "$compiler" "$evidence" \
   2>&1 | tee "$evidence/gcc-canary.log"
 
 make -j"$jobs" target/linux/compile V=s 2>&1 | tee "$evidence/kernel-compile.log"
