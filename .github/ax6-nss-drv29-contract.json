@@ -5,6 +5,11 @@
   "source_commit": "828c21b4d753328dce48e8c1a38530668cb246da",
   "source_parent": "5e5ccf0bb7b31a0f5890c98a37ca5b256a2749d8",
   "source_manifest_sha256": "7a37f28d496c2533009b714026d66f27b111211d3660b01f3855abee77bc5ee5",
+  "firmware_successor": {
+    "commit": "0c7ae6e0c026ad50114e88b7f82b3f7b075c61f3",
+    "manifest_sha256": "f71916ae8af8e7d0c0dec1588f8819db9b09eaafa34b0bbe03c82386feb7bb19",
+    "tree_delta_sha256": "e900822ee39334269f73b950eb7d00999d472354b98ddae5b1391bfc307e5b33"
+  },
   "patch_name": "033-connection-table-host-transaction.patch",
   "patch_sha256": "660e855af5071f4417ce29881538a745a93116c6b056d9a33540e8bbc7641064",
   "changed_files": {

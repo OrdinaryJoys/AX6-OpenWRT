@@ -14,7 +14,7 @@ import sys
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
 PROFILE = ROOT / '.github/ax6-nss-drv29-contract.json'
-PROFILE_SHA256 = '9646ee120453db48b4f2f3268a62b340f49b36e31a4375ef47ef112172496d11'
+PROFILE_SHA256 = 'bb3e1ec11dc7340d85ca193f041e3e7d2b27656d8196273b1bf7560407ad4358'
 OLD_COMMIT = '5e5ccf0bb7b31a0f5890c98a37ca5b256a2749d8'
 OLD_RELEASE = 27
 PACKAGE = 'package/qca-nss/qca-nss-drv'
@@ -49,6 +49,14 @@ TEST_DIRS = ('nss-probe-allocation', 'nss-coredump-control', 'nss-pdata-ownershi
 PRIOR_TESTS_SHA256 = '87e30861c8a105979974f701eafe78e665526406feb0b182b957fb5d50813d2a'
 KERNEL_SHA256 = 'ac9501697708f8921734125d507661487462a6dae3205bf3c2ab92d7df94dc53'
 CONNECTION_COUNTS = ('transaction_cases', 'transaction_controls', 'integration_cases', 'integration_controls')
+USERSPACE_PATHS = (
+    'package/libs/libubox/',
+    'package/network/config/netifd/',
+    'package/network/services/dnsmasq/',
+    'package/network/services/hostapd/',
+    'package/network/services/odhcpd/',
+)
+USERSPACE_FILES = {'README.md', 'tests/test-ax6-upstream-leaves.py', 'tests/test-dns-redirect-scope.sh'}
 
 
 def load_frozen():
@@ -92,6 +100,14 @@ def configuration():
     for rows in (profile['changed_files'], profile['added_files'], profile['test_files']):
         need(type(rows) is dict and all(re.fullmatch(r'[0-9a-f]{64}', digest) for digest in rows.values()),
              'reviewed file digests')
+    if 'firmware_successor' in profile:
+        next_source = profile['firmware_successor']
+        need(type(next_source) is dict and set(next_source) ==
+             {'commit', 'manifest_sha256', 'tree_delta_sha256'}, 'one sealed userspace successor')
+        need(re.fullmatch(r'[0-9a-f]{40}', next_source['commit']) and
+             next_source['commit'] not in (profile['source_commit'], OLD_COMMIT), 'distinct successor identity')
+        for key in ('manifest_sha256', 'tree_delta_sha256'):
+            need(re.fullmatch(r'[0-9a-f]{64}', next_source[key]), 'sealed successor digest: ' + key)
     need('tests/nss-conn-transaction/run.py' in profile['test_files'] and
          all(name.startswith('tests/nss-conn-transaction/') for name in profile['test_files']),
          'exact reviewed connection test assets')
@@ -100,14 +116,24 @@ def configuration():
     return profile
 
 
+def firmware_identity(profile):
+    return profile.get('firmware_successor', {
+        'commit': profile['source_commit'], 'manifest_sha256': profile['source_manifest_sha256'],
+    })
+
+
 def current_lock(profile):
+    firmware = firmware_identity(profile)
     raw = base.path(ROOT, LOCK).read_text()
-    need(lock_value(raw, 'SOURCE_COMMIT') == profile['source_commit'] and
+    need(lock_value(raw, 'SOURCE_COMMIT') == firmware['commit'] and
          lock_value(raw, 'SOURCE_QCA_NSS_DRV_PKG_RELEASE') == '29' and
-         lock_value(raw, 'SOURCE_PATCHSET_MANIFEST_SHA256') == profile['source_manifest_sha256'],
+         lock_value(raw, 'SOURCE_PATCHSET_MANIFEST_SHA256') == firmware['manifest_sha256'],
          'exact DRV29 firmware source, release and manifest lock')
     need(sha(base.path(ROOT, '.github/ax6-source-patchset.sha256').read_bytes()) ==
-         profile['source_manifest_sha256'], 'exact DRV29 firmware source manifest bytes')
+         firmware['manifest_sha256'], 'exact DRV29 firmware source manifest bytes')
+    if 'firmware_successor' in profile:
+        need(lock_value(raw, 'SOURCE_DRV29_ANCHOR_COMMIT') == profile['source_commit'],
+             'exact source anchor for the userspace successor')
 
 
 def git(source, *args):
@@ -116,11 +142,44 @@ def git(source, *args):
     return run.stdout
 
 
+def check_parent(source, commit, parent):
+    headers = git(source, 'cat-file', 'commit', commit).partition(b'\n\n')[0]
+    need(re.findall(rb'^parent ([0-9a-f]{40})$', headers, re.M) == [parent.encode()], 'exact source parent')
+
+
 def check_head(source, commit, parent):
     need(git(source, 'rev-parse', '--show-toplevel').decode().strip() == str(source), 'checkout root required')
     need(git(source, 'rev-parse', 'HEAD').strip() == commit.encode(), 'locked source commit')
-    headers = git(source, 'cat-file', 'commit', commit).partition(b'\n\n')[0]
-    need(re.findall(rb'^parent ([0-9a-f]{40})$', headers, re.M) == [parent.encode()], 'exact source parent')
+    check_parent(source, commit, parent)
+
+
+def check_firmware(source, profile):
+    anchor = profile['source_commit']
+    if 'firmware_successor' not in profile:
+        check_head(source, anchor, profile['source_parent'])
+        return
+
+    successor = firmware_identity(profile)
+    check_head(source, successor['commit'], anchor)
+    check_parent(source, anchor, profile['source_parent'])
+    raw = git(source, 'diff', '--no-ext-diff', '--raw', '--no-abbrev', '--no-renames',
+              '-z', anchor, successor['commit'], '--')
+    need(sha(raw) == successor['tree_delta_sha256'], 'exact userspace successor tree delta')
+    fields = raw.split(b'\0')
+    need(len(fields) > 1 and len(fields) % 2 == 1 and fields[-1] == b'', 'nonempty raw tree delta')
+    for meta, name in zip(fields[:-1:2], fields[1:-1:2]):
+        child = name.decode('ascii')
+        need(re.fullmatch(r'[A-Za-z0-9_./+-]+', child) and
+             not {'', '.', '..'}.intersection(child.split('/')) and
+             (child in USERSPACE_FILES or child.startswith(USERSPACE_PATHS)),
+             'only reviewed userspace paths: ' + child)
+        mode = re.fullmatch(
+            rb':(000000|100644|100755) (100644|100755) [0-9a-f]{40} [0-9a-f]{40} ([AM])', meta)
+        need(mode and (mode.groups() == (b'000000', b'100644', b'A') or
+             (mode[3] == b'M' and mode[1] == mode[2])),
+             'only regular files without mode changes or new executables: ' + child)
+        need(base.path(source, child).read_bytes() == git(source, 'show', successor['commit'] + ':' + child),
+             'exact userspace working-tree bytes: ' + child)
 
 
 def check_old_source(source, old):
@@ -254,11 +313,12 @@ def validate(args, profile):
         for p in (source, driver, old_source, kernel)), 'fresh output outside all source inputs')
     output.mkdir(parents=True, exist_ok=False)
     result = {'status': 'FAIL', 'scope': 'SOURCE_AND_HOST_ONLY_NO_TARGET_RUNTIME_OR_FW_RETIREMENT',
-              'source_commit': profile['source_commit'], 'old_source_commit': OLD_COMMIT,
+              'source_commit': firmware_identity(profile)['commit'], 'driver_anchor': profile['source_commit'],
+              'old_source_commit': OLD_COMMIT,
               'old_driver_release': OLD_RELEASE, 'profile_sha256': PROFILE_SHA256, 'commands': []}
     try:
         old = frozen.configuration()
-        check_head(source, profile['source_commit'], profile['source_parent'])
+        check_firmware(source, profile)
         check_old_source(old_source, old)
         prepared, patches = expectations(profile, old)
         package = source / PACKAGE
@@ -285,7 +345,7 @@ def validate(args, profile):
             need(actual == (prepared[stage], metadata if stage == 29 else {}), 'prepared source end stability')
         need(sha(base.path(package, 'Makefile').read_bytes()) == RECIPE_SHA256 and
              base.inventory(package / 'patches') == patches, 'package input end stability')
-        check_head(source, profile['source_commit'], profile['source_parent'])
+        check_firmware(source, profile)
         check_old_source(old_source, old)
         current_lock(profile)
         base.check(ROOT, FROZEN)
@@ -302,7 +362,10 @@ def validate(args, profile):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--check-lock', action='store_true')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--check-lock', action='store_true')
+    mode.add_argument('--check-source', action='store_true')
+    mode.add_argument('--print-anchor', action='store_true')
     parser.add_argument('--source-root', type=Path)
     parser.add_argument('--driver', type=Path)
     parser.add_argument('--drv27-source-root', type=Path)
@@ -313,7 +376,14 @@ def main():
     args = parser.parse_args()
     profile = configuration()
     current_lock(profile)
-    if not args.check_lock:
+    if args.print_anchor:
+        print(profile['source_commit'])
+    elif args.check_source:
+        if args.source_root is None:
+            parser.error('source root is required')
+        check_firmware(args.source_root.resolve(), profile)
+        print('PASS: exact firmware source and DRV29 anchor')
+    elif not args.check_lock:
         if not all((args.source_root, args.driver, args.drv27_source_root, args.kernel, args.output)):
             parser.error('source root, driver, DRV27 source root, kernel and output are required')
         validate(args, profile)

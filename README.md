@@ -1,194 +1,51 @@
-# AX6-OpenWRT
+# Redmi AX6 / OpenWrt NSS 构建仓
 
-> **当前独立候选动态（2026-11-07）：** 本批同步 driver27/SSDK31，修复冷 meminfo 与 root/producer/诊断入口宿主事务，
-> 接入严格来源、历史前缀与实际 prepared 门禁。进度和未验证边界见
-> [最新云验证说明](docs/AX6_ROOT_HOST_CLOUD_VALIDATION_2026-11-07.md)。
-> 本次仅 stock、NOT-FLASHED，不合主线、不发布 Release；下方历史性能描述不代表本批已获实机或最高性能验证。
+本仓定义 Redmi AX6（IPQ807x）的构建、软件包覆盖、来源校验和固件验收。实际驱动和用户态源码位于 [OrdinaryJoys/immortalwrt-nss](https://github.com/OrdinaryJoys/immortalwrt-nss)，由本分支的 [构建锁](.github/ax6-nss-lock.env) 指向确切提交。Actions 脚本仓的提交不是固件源码提交。
 
-[![Lint](https://github.com/OrdinaryJoys/AX6-OpenWRT/actions/workflows/lint.yml/badge.svg)](https://github.com/OrdinaryJoys/AX6-OpenWRT/actions/workflows/lint.yml)
+## 本分支：上游修复隔离候选
 
-Redmi AX6 一键编译脚本 — 完整 NSS 加速 + WiFi 6 满血 + 分区布局门禁。
+候选从已离线验收的 `828c21b4` / DRV29 派生。对照是 [stock run 44006853715](https://github.com/OrdinaryJoys/AX6-OpenWRT/actions/runs/44006853715)，其 Linux 6.18.38、NSS、ECM、DP、SSDK、ath11k 和 rpcd OFF 基线保持不变。旧 run 的成功不代表本候选已构建、已验包或已运行。
 
-## 主仓输出:`Build OpenWRT for AX6-NSS`
+| 独立变更 | 来源和适配 | 候选包修订 |
+| --- | --- | --- |
+| dnsmasq | OpenWrt [慢重载](https://github.com/openwrt/openwrt/commit/514fad5218edaa4a36af7c15c0f46cdff0139309)及[安全修补](https://github.com/openwrt/openwrt/commit/6db25ee835eb55af521125c84b12ffd0495f671b)。保留 2.93 源码、现有 init 和 LAN-only DNS 策略。 | `dnsmasq-full 2.93-r6` |
+| odhcpd | 保留 `c6792bac`，组合修复 DHCPv6 IA 越界、AUTH 偏移、租约寿命、空 relay、IA 类型、recvmsg 错误和客户端主机名转义，不能仅移植初始 [越界修补](https://github.com/openwrt/odhcpd/commit/0320032ae313452f3c8cb8725c621dd06c36dc03)。 | `odhcpd-ipv6only r2` |
+| hostapd | [5b240697](https://github.com/openwrt/openwrt/commit/5b240697987858c59d9798c3d46f2bc3db1de994) 的 BSS 空指针检查；保留本地 reload、无线配置和驱动适配。 | `wpad-openssl` / `hostapd-common r4` |
+| netifd | 保留 `6088f7b3`，移植 [VID 拒绝](https://github.com/openwrt/netifd/commit/625425e086997ccb141ccfdc90527fc0847004d9)、失败回滚、引用寿命和 external bridge 修复；额外拒绝显式空 VID，保留合法 0 与未配置时的默认值。 | `netifd r2` |
+| libubox | [20bea2b](https://github.com/openwrt/libubox/commit/20bea2ba777dec6e62e15415ded5ffd8be1a5f18) 修 JSON 越界；补齐无名对象成员跳过，不留下逗号或改变数组，ABI 名称不变。 | `libubox20260708 r2` |
 
-基于 [OrdinaryJoys/immortalwrt-nss](https://github.com/OrdinaryJoys/immortalwrt-nss)
-(VIKINGYFY 上游 + 本仓 NSS 修复)编译,带满血 NSS 加速,500 Mbps NAT 流量 CPU 占用 < 5%。
+[上游移植审查](docs/AX6_UPSTREAM_PORT_2026-11-17.md)说明审查覆盖、分级、验证边界和后续批次。本批不包含 054–073，不改变 VLAN 拓扑、NSS/FW、IRQ/RPS/PBUF、OpenClash 订阅/覆写/Geo、ZeroTier、UPnP、配置还原或默认启动策略。
 
-### 支持的构建目标
+## 来源和适配关系
 
-| 变体 | 适用布局 | rootfs | 变砖风险 |
-|---|---|---|---|
-| **STOCK** | 128MB NAND + custom U-Boot/SMEM 合并布局 | 单 `rootfs=0x06640000` | 中,必须核对 `/proc/mtd` |
-| **EXPAND** | 1GB RAM + 256MB NAND(已硬件改装 NAND)| ~192 MB | 高(刷错变砖) |
+- **实际固件线：** OrdinaryJoys 源码和 [构建锁](.github/ax6-nss-lock.env)；厂商传统 DP/EDMA v1、ECM、SSDK/HPPE、NSS DRV/clients/MCS/crypto 与 ath11k 适配保存在源码树。CodeLinaro 的分支相似命名不保证提交是同线后继。
+- **上游参考：** [VIKINGYFY/immortalwrt](https://github.com/VIKINGYFY/immortalwrt) 旧 `main` 与现默认 `owrt` 数据面不同；`owrt` 的原生 PPE/EDMA + 新 NSS Wi-Fi 不是本仓传统 NSS 的替换包。[qosmio/openwrt-ipq](https://github.com/qosmio/openwrt-ipq) 用于比对 NSS 适配合同。[ImmortalWrt](https://github.com/immortalwrt/immortalwrt) 和 [OpenWrt](https://github.com/openwrt/openwrt) 用于独立回移。LiBwrt、JiaY、Julius、pbs05、perceival 是评审来源，不是构建 feeds。
+- **组件输入：** LuCI、Packages、Routing、Telephony、Video、Argon、NSS SQM 直接按锁；OpenClash 跟随官方 `master`，构建记录实际插件提交、版本与 core 摘要，不把 `package/dev` 当作稳定源码更新。当前不换 feeds 和 Argon。
+- **备用工作流：** AX6-IPQ、IMM 和 LEDE 与锁定主构建分开，上传 `UNVALIDATED` artifact。LiBwrt 旧 URL 指向 [LibWrt](https://github.com/LiBwrt/LibWrt)，巡检当前用 `25.12-nss`；不要把巡检状态当作该备用工作流已验证。
 
-Xiaomi 原厂双 `0x023c0000` 槽与合并布局共享 `redmi,ax6-stock`
-兼容标识，但本仓完整 STOCK 镜像面向合并布局。布局不明确时不要刷写。
-详见 [`AX6-IPQ/HARDWARE.md`](AX6-IPQ/HARDWARE.md)。
+## 布局和安全边界
 
-较早的状态、验证证据和遗留问题见
-[`AX6-IPQ/CURRENT-STATUS-2026-06-19.md`](AX6-IPQ/CURRENT-STATUS-2026-06-19.md)。
-追加式历史审计记录保留在
-[`AX6-IPQ/AUDIT-REPAIR-REPORT-2026-06-19.md`](AX6-IPQ/AUDIT-REPAIR-REPORT-2026-06-19.md)。
+[硬件与分区说明](AX6-IPQ/HARDWARE.md)优先于镜像名称。
 
-> **供应链已恢复（2026-06-18）**：
-> qca-nss 已迁移到源码树内置 (`package/qca-nss/`, 10 包 73 文件)。
-> 锁文件指向 `main` 分支，包含 ath11k NSS Kconfig 修复、ECM 风格统一和 stock 升级容量回归测试。
-> 外部 feed `VIKINGYFY/nss-packages-618` 已废弃。
-> VIKINGYFY 后续 `38e28da...`、`5f520e5...` 涉及 qca-nss/mac80211
-> 重构，尚未合并。
+| 配置 | 布局 | 本分支是否验证 |
+| --- | --- | --- |
+| STOCK | 128 MiB NAND，自定义 U-Boot/SMEM 合并布局，单 rootfs `0x06640000` | 仅用于离线候选；不适用于同兼容标识的原厂双槽 |
+| EXPAND | 256 MiB 改装 NAND，单独 DT/布局和配置 | 此候选工作流拒绝，不属于本批 |
 
-### 触发编译
+仅凭设备名或 `redmi,ax6-stock` 兼容标识不能判断布局。sysupgrade、initramfs 和 factory UBI 用途不同；不要把 recovery 文件用于正常 LuCI 升级。候选无 Release、不提供刷机批准，未访问设备、未运行 `sysupgrade -T`、未测启动、坏块、性能或回滚。既有设备配置和实际硬件状态不由静态文档推断。
 
-GitHub UI → Actions → `Build OpenWRT for AX6-NSS` → Run workflow → 选 variant。
+## 构建与核验
 
-## 特性
+1. 固定源码提交，生成完整 [差异哈希清单](.github/ax6-source-patchset.sha256) 与 [缺席清单](.github/ax6-source-patchset.absent)。校验包修订和目标选择，不可通过关闭门禁解决。
+2. 先对候选分支触发 [Lint](.github/workflows/lint.yml)，不选仅 PHY 测试。通过后再触发 [Build OpenWRT for AX6-NSS](.github/workflows/build-AX6-NSS.yml)：非 main，`variant=stock`，`ssh=false`。此工作流只读权限，候选不执行 Release。
+3. 构建中验证目标工具链、rpcd ON/clean/OFF、NSS/MDIO/驱动回归、最终 DTB/rootfs 和构建输入。成功以后仍要按同一 run 的 ID 和 ZIP 摘要独立验包。检查 `BUILD-LOCK-AX6.txt`、设备 manifest 对整个 rootfs 已安装集合、kmod/IPK/ELF 与 vermagic、最终 rpcd OFF、OpenClash ELF 与 SHA256、FIT/DTB/UBI 以及完整校验清单。失败先归因，不盲目重跑。
+4. 未来的实机验证需要另行确认。只读工具 `nss-check -v`、`ax6-config-audit -v` 只反映检查项目；不能由一次输出推导无丢包或满速。性能应以明确拓扑、同条件同版工具和多轮基线复核。
 
-- **WiFi 6**:5G HE80;2.4G HE40 + 标准 20/40MHz 共存自动回退
-- **NSS 完整卸载**:`frame_mode=2`,数据通路绕过 SoftIRQ,实测 NAT 速率单核占用 < 1%
-- **23 个 NSS kmod**:bridge / vlan / pppoe / pptp / l2tp / gre / vxlan / shaper / crypto / ecm 全开 (mesh 需 FW 11.4，当前 12.5 不支持)
-- **IRQ/RPS 策略**:由上游 qualcommax 脚本统一管理,避免多个脚本互相覆盖
-- **WPA3 + IPv6 + 漫游支持**(11k/v + bss_transition)
-- **分层检查**:`nss-check` 检查硬件/NSS 确定性故障,`ax6-config-audit` 只读审计场景配置
-- **双重容量门禁**:CI 按合并分区和坏块预留校验；sysupgrade 按实机 MTD 几何再次拒绝超限镜像
-- **精简软件集**:合并布局保留 OpenClash 与 DDNS 组件;不内置非必需的
-  sing-box/xray-core、HAProxy、ChinaDNS-NG、dns2socks/dns2tcp/ipt2socks/microsocks
-  等孤立代理辅助工具;未配置完整 userspace/LuCI 支持时不预装 WireGuard 内核模块
+## 目录和历史
 
-## 默认登录
+- `.github/`：构建锁、变更清单、校验脚本、Actions。
+- `AX6-IPQ/`：stock/expand 配置、`diy.sh`、镜像覆盖、硬件文档。默认管理入口见现有配置，旧环境不保证与新构建一致；首次登录应设置本机密钥及密码。
+- `tests/`：构建和集成回归；`docs/`：批次、故障证据与边界。
+- [历史变更](CHANGELOG.md)、[LuCI 应用说明](LuCI应用说明.md)、[此前 SFP/stock 批次](docs/AX6_REPAIR_STATUS_2026-11-17.md)。
 
-| 项 | 值 |
-|---|---|
-| IP | 192.168.5.1 |
-| 用户 | root |
-| 密码 | **首次登录通过 LuCI Web 或 SSH `passwd` 设置** |
-
-## 目录结构
-
-```
-.
-├── .github/
-│   ├── depends-ubuntu-2204.txt    # 固化构建依赖(替代 curl|apt)
-│   └── workflows/
-│       ├── build-AX6-NSS.yml      # 主固件 (合并 SMEM / 256M 扩容)
-│       ├── build-AX6-IPQ.yml      # 备用:基于 LiBwrt(原 LiBwrt-op 已改名)
-│       ├── build-IMM.yml          # 无 NSS,基于 official ImmortalWrt 23.05
-│       ├── build-LEDE.yml         # 基于 coolsnowwolf/lede
-│       └── lint.yml               # 增量检查 (shellcheck/actionlint/yamllint + NSS 冲突)
-├── AX6-IPQ/                        # 主目录
-│   ├── .config-stock               # 1G+128M custom SMEM 合并布局
-│   ├── .config-expand              # 1G+256M 改装 SKU
-│   ├── nss-extra.config            # NSS / WiFi 增量(workflow 自动追加)
-│   ├── diy.sh                      # 构建时 DIY(变体感知 DT patch)
-│   ├── HARDWARE.md                 # 硬件参考 + 救机文档
-│   └── files/                      # rootfs 注入文件
-│       ├── etc/banner
-│       ├── usr/sbin/ax6-irq-affinity
-│       ├── etc/modprobe.d/ath11k.conf
-│       ├── etc/profile.d/00-ax6-status.sh
-│       ├── etc/sysctl.d/99-ax6-tune.conf
-│       ├── etc/uci-defaults/9?-ax6-*
-│       └── sbin/{nss-check,ax6-config-audit}
-├── AX6-IMM/                        # ImmortalWrt 23.05 备用
-├── AX6-lEDE/                       # LEDE 备用
-├── LuCI应用说明.md                  # 插件说明
-└── 备用源.md                        # 软件源
-```
-
-## 安全 & 合规
-
-- 所有 GitHub Actions 已 pin 到 SHA(防 supply chain)
-- 依赖清单固化在仓内(无 `curl | apt install`)
-- WiFi 默认 country=US (FCC 最大功率; 覆盖: `echo CN > /etc/config/ax6_wifi_country && reboot`)
-- Release 只发布正常升级用 `sysupgrade.bin`,并自带 SHA256SUMS-AX6.txt 校验
-- `factory.ubi`/initramfs ITB 位于独立 RECOVERY artifact,不能用于 LuCI 正常升级
-
-## 实机验证
-
-刷机后 SSH 进设备运行:
-```bash
-nss-check -v
-```
-
-`nss-check` 输出硬件和 NSS 的 PASS/FAIL。继续运行:
-
-```bash
-ax6-config-audit -v
-```
-
-该工具只读检查 WiFi、NSS SQM、ZeroTier、UPnP 和 OpenClash。访客隔离、ZeroTier
-转发/NAT、双 NAT 下 UPnP 等场景配置只会给出说明或告警，不会被启动脚本自动修改。
-OpenClash fake-ip 场景会额外审计官方 UCI DNS 生成路径:建议使用
-`store_fakeip=1`、`enable_custom_dns=1`、显式 `nameserver`/`default`
-DNS 组和 `disable_ipv6=1` 的 IPv4 default DNS。不要把订阅 YAML 或自定义覆写脚本
-当作默认修复位置,订阅更新和插件生成流程可能覆盖或叠加这些文件。
-
-OpenClash 官方默认会代理路由器本机流量。固件保留该默认值,但在 OpenClash
-防火墙规则生成后调用 `ax6-openclash-zerotier-bypass`,按 ZeroTier 守护进程当前的
-primary/secondary/tertiary 端口，在 IPv4/IPv6 output 链中只旁路 ZeroTier 传输流量。
-primary 保持上游兼容的 TCP/UDP 规则，随机 secondary 与端口映射 tertiary 只匹配
-UDP。`ax6-zerotier-reconcile` 每 30 秒低频核对 daemon、持久 include 与 live nft；
-端口变化时连续读取两次确认稳定，再以同一把锁和 nft 事务仅更新本工具拥有的规则，
-不会重载 firewall4、OpenClash 或 ZeroTier。CLI 暂时不可用时保留最后有效规则。
-端口映射关闭时不会加入 tertiary 端口。该集成不修改 `local.conf`、订阅、覆写、
-身份文件或用户自定义规则。
-
-## 配置所有权
-
-- Boot Guard 只纠正会直接冲突 NSS 数据路径的 packet steering/flow offload。
-- WiFi 首次启动脚本只设置 radio 级默认值，不覆盖 SSID 隔离、PMF、漫游或 IoT 策略。
-- VLAN、ZeroTier、UPnP 和 OpenClash 仍由管理员按网络拓扑配置；启动集成只维护
-  ZeroTier 动态服务端口及其 OpenClash 本机代理旁路；审计同时精确比较 include
-  与 live nft 的端口、协议和陈旧规则，工具本身保持只读。
-- 主构建的源码、全部 feeds 和 Argon 固定到完整提交 SHA；OpenClash 插件跟随
-  官方 `master` 最新版，构建时记录实际来源并做基础结构校验。
-- AX6-IPQ/IMM/LEDE 备用构建跟随移动分支或 feeds,只上传 7 天
-  `UNVALIDATED` Actions artifact,不创建 Release。它们没有主构建级别的锁定、
-  容量和最终产物验证,不得当作已验证固件发布。
-
-## 关联仓库矩阵(实测可达性 + 引用关系)
-
-| 仓库 | 类型 | 我们引用 | 实测 |
-|---|---|---|---|
-| [OrdinaryJoys/immortalwrt-nss](https://github.com/OrdinaryJoys/immortalwrt-nss) | **AX6-NSS workflow 直接构建源** | `main` 上的完整 SHA | ✓ |
-| [LiBwrt/openwrt-6.x](https://github.com/LiBwrt/openwrt-6.x) | AX6-IPQ 备用源(原 `LiBwrt-op` 已改名) | branch `main-nss` | ✓ |
-| [immortalwrt/immortalwrt](https://github.com/immortalwrt/immortalwrt) | AX6-IMM 备用源(无 NSS) | branch `openwrt-23.05` | ✓ |
-| [coolsnowwolf/lede](https://github.com/coolsnowwolf/lede) | AX6-LEDE 备用源 | branch `master` | ✓ |
-| [qosmio/nss-packages](https://github.com/qosmio/nss-packages) | OpenWrt feed 参考源(间接,未直接使用) | branch `main-nss` | ✓ |
-| ~~`VIKINGYFY/nss-packages-618`~~ | 已废弃 — qca-nss 已迁移到源码树 `package/qca-nss/` | — | ✅ 已修复（2026-06-18） |
-| `VIKINGYFY/nss-packages` | 历史 OpenWrt feed 参考源 | `HEAD` | **公开仓库列表中不存在（2026-06-18）** |
-| [openwrt/qca-nss-dp](https://github.com/openwrt/qca-nss-dp) | NSS 数据路径间接上游,sync-check 监控 | branch `openwrt` | ✓ |
-| [qosmio/sqm-scripts-nss](https://github.com/qosmio/sqm-scripts-nss) | NSS SQM feed | 完整 SHA 锁定 | ✓ |
-| [OrdinaryJoys/luci](https://github.com/OrdinaryJoys/luci) | OpenWrt feed (LuCI Web UI) | 完整 SHA 锁定 | ✓ |
-| [VIKINGYFY/immortalwrt](https://github.com/VIKINGYFY/immortalwrt) | nss-fork 的上游(间接) | 通过 nss-fork | ✓ |
-| [Openwrt-Passwall/openwrt-passwall](https://github.com/Openwrt-Passwall/openwrt-passwall) | LEDE 科学上网包(原 `xiaorouji` 已迁移) | tip | ✓ |
-| [Openwrt-Passwall/openwrt-passwall-packages](https://github.com/Openwrt-Passwall/openwrt-passwall-packages) | LEDE 科学上网依赖 | tip | ✓ |
-| [jerrykuku/luci-theme-argon](https://github.com/jerrykuku/luci-theme-argon) | LuCI 主题 | 完整 SHA 锁定 | ✓ |
-| [jerrykuku/luci-app-argon-config](https://github.com/jerrykuku/luci-app-argon-config) | Argon 主题配置 | 完整 SHA 锁定 | ✓ |
-| [vernesong/OpenClash](https://github.com/vernesong/OpenClash) | OpenClash 独立覆盖源 | `master` 最新版(不锁插件版本) | ✓ |
-
-### 已 release 版本与上游 commit 的对应
-
-| Release tag | 构建源 commit (nss-fork) | qosmio nss-packages | 备注 |
-|---|---|---|---|
-| `AX6_NSS_STOCK_20260426145026` | `3138df48` | `NSS-12.5-K6.x` HEAD | 历史首次 success build |
-| `AX6_NSS_*` 之前 (2026-04-19~25) | (legacy,直接拉 VIKINGYFY) | 同上 | 已被新 release 覆盖 |
-
-> sync-check workflow 每周一 09:00 (CST) 比较主构建的锁定输入与当前远端，
-> 并额外探测 OpenClash、备用/间接上游。锁定分支发生漂移或仓库不可达时 workflow 会
-> 失败并在 Actions Summary 标出原因；OpenClash 只报告当前 `master` HEAD，不把插件
-> 版本漂移视为失败。更新核心驱动/feeds 锁定值前仍需审查差异并完成构建验证。
-
-### 同行项目对比
-
-| 项目 | 优势 | 不足 |
-|---|---|---|
-| [LiBwrt/openwrt-6.x](https://github.com/LiBwrt/openwrt-6.x) | NSS 完整 | 部分版本启动失败 |
-| [JiaY-shi/openwrt](https://github.com/JiaY-shi/openwrt) | 带 NSS | 仅官方分区 |
-| [qosmio/openwrt-ipq](https://github.com/qosmio/openwrt-ipq) | NSS 数据源头(`main-nss` 分支) | 仅官方分区 |
-| **本仓 + immortalwrt-nss** | NSS + 双变体 + 防变砖 + 自动检查 + 实测验证 | — |
-
-## License & 致谢
-
-GPL-2.0(继承自 OpenWrt)。
-
-感谢 [@VIKINGYFY](https://github.com/VIKINGYFY) [@qosmio](https://github.com/qosmio) [@LiBwrt](https://github.com/LiBwrt) 的工作。
+继承 OpenWrt 的 GPL-2.0 和各组件原许可。感谢 Qualcomm/CodeLinaro、OpenWrt、ImmortalWrt、VIKINGYFY、qosmio 与各上游维护者；每份补丁保留来源和作者信息。

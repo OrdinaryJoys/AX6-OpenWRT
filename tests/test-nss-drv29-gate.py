@@ -23,6 +23,36 @@ class Admission(unittest.TestCase):
         self.assertEqual(len(patches), 31)
         self.assertEqual(len(prepared[29]), 487)
 
+    def test_firmware_successor_requires_exact_scope_and_worktree_bytes(self):
+        profile = GATE.configuration()
+        firmware = GATE.firmware_identity(profile)
+        good = b'README.md'
+        driver = b'package/qca-nss/qca-nss-drv/Makefile'
+        regular = b':100644 100644 ' + b'a' * 40 + b' ' + b'b' * 40 + b' M\0'
+        raw = regular + good + b'\0'
+        changed_mode = raw.replace(b':100644 100644', b':100644 100755')
+        cases = [
+            (raw, raw, b'reviewed', None),
+            (raw, raw, b'local drift', 'working-tree bytes'),
+            (raw, regular + driver + b'\0', b'reviewed', 'exact userspace successor tree delta'),
+            (regular + driver + b'\0', regular + driver + b'\0', b'reviewed', 'only reviewed userspace paths'),
+            (changed_mode, changed_mode, b'reviewed', 'without mode changes'),
+        ]
+        for sealed, observed, checkout, message in cases:
+            with self.subTest(message=message), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                (root / 'README.md').write_bytes(checkout)
+                checked = profile | {'firmware_successor': firmware | {'tree_delta_sha256': GATE.sha(sealed)}}
+                with patch.object(GATE, 'check_head') as head, patch.object(GATE, 'check_parent') as parent, \
+                     patch.object(GATE, 'git', side_effect=[observed, b'reviewed']):
+                    if message:
+                        with self.assertRaisesRegex(ValueError, message):
+                            GATE.check_firmware(root, checked)
+                    else:
+                        GATE.check_firmware(root, checked)
+                    head.assert_called_once_with(root, firmware['commit'], profile['source_commit'])
+                    parent.assert_called_once_with(root, profile['source_commit'], profile['source_parent'])
+
     def test_reviewed_prior_and_independent_delta(self):
         old = GATE.frozen.configuration()
         prior = old['current_code_files'] | GATE.frozen.AUXILIARY

@@ -1,0 +1,7 @@
+dnsmasq-full - 2.93-r6
+hostapd-common - 2026.04.02~b004de0b-r4
+libblobmsg-json20260708 - 2026.07.08~7677b7a4-r2
+libubox20260708 - 2026.07.08~7677b7a4-r2
+netifd - 2026.07.08~6088f7b3-r2
+odhcpd-ipv6only - 2026.06.14~c6792bac-r2
+wpad-openssl - 2026.04.02~b004de0b-r4

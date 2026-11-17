@@ -167,4 +167,21 @@ if [ "$FAIL" -ne 0 ]; then
     echo "AX6 source semantics: FAIL (see per-component messages above)" >&2
     exit 1
 fi
+
+# A shallow firmware checkout needs the exact audited driver parent to check
+# the userspace-only successor delta before any package preparation.
+if grep -q '^SOURCE_DRV29_ANCHOR_COMMIT=' "$lock_file"; then
+    script_dir=$(CDPATH='' cd "$(dirname "$0")" && pwd)
+    drv29="$script_dir/verify-nss-drv29.py"
+    anchor=$(sed -n 's/^SOURCE_DRV29_ANCHOR_COMMIT=//p' "$lock_file")
+    if [ "$anchor" != "$(python3 -B "$drv29" --print-anchor)" ]; then
+        echo 'FAIL: source lock and sealed DRV29 anchor differ' >&2
+        exit 1
+    fi
+    if ! git -C "$source_root" cat-file -e "$anchor^{commit}" 2>/dev/null; then
+        git -C "$source_root" fetch --depth 1 \
+            https://github.com/OrdinaryJoys/immortalwrt-nss.git "$anchor"
+    fi
+    python3 -B "$drv29" --check-source --source-root "$source_root"
+fi
 echo "AX6 source semantics: PASS (mac80211=$exp_mac80211 hostapd=$exp_hostapd dp=$exp_dp drv=$exp_drv ecm=$exp_ecm clients=$exp_clients mcs=$exp_mcs ssdk=$exp_ssdk rpcd=$exp_rpcd)"
