@@ -14,7 +14,7 @@ import sys
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
 PROFILE = ROOT / '.github/ax6-nss-drv29-contract.json'
-PROFILE_SHA256 = 'bb3e1ec11dc7340d85ca193f041e3e7d2b27656d8196273b1bf7560407ad4358'
+PROFILE_SHA256 = '2afefc80069165412bfe7f1440c9d22968422ff7268d2e0e02571e167cd998b7'
 OLD_COMMIT = '5e5ccf0bb7b31a0f5890c98a37ca5b256a2749d8'
 OLD_RELEASE = 27
 PACKAGE = 'package/qca-nss/qca-nss-drv'
@@ -55,6 +55,7 @@ USERSPACE_PATHS = (
     'package/network/services/dnsmasq/',
     'package/network/services/hostapd/',
     'package/network/services/odhcpd/',
+    'package/network/config/firewall4/',
 )
 USERSPACE_FILES = {'README.md', 'tests/test-ax6-upstream-leaves.py', 'tests/test-dns-redirect-scope.sh'}
 
@@ -87,7 +88,7 @@ def configuration():
     need(sha(PROFILE.read_bytes()) == PROFILE_SHA256,
          'DRV29 contract is not sealed to reviewed identities')
     profile = base.load(PROFILE)
-    need(type(profile['schema']) is int and profile['schema'] == 1 and
+    need(type(profile['schema']) is int and profile['schema'] in (1, 2) and
          profile['profile'] == 'DRV29_CONNECTION_HOST_WITH_EXACT_DRV27_PREFIX' and
          profile['state'] == 'REVIEWED_DIAGNOSTIC_INPUTS', 'DRV29 diagnostic profile')
     for key in ('source_commit', 'source_parent'):
@@ -108,6 +109,23 @@ def configuration():
              next_source['commit'] not in (profile['source_commit'], OLD_COMMIT), 'distinct successor identity')
         for key in ('manifest_sha256', 'tree_delta_sha256'):
             need(re.fullmatch(r'[0-9a-f]{64}', next_source[key]), 'sealed successor digest: ' + key)
+    if 'firmware_successors' in profile:
+        successors = profile['firmware_successors']
+        need(type(successors) is list and 1 <= len(successors) <= 4,
+             'bounded firmware successor chain')
+        seen = set()
+        for item in successors:
+            need(type(item) is dict and
+                 set(item) == {'commit', 'manifest_sha256', 'tree_delta_sha256'},
+                 'successor keys')
+            need(re.fullmatch(r'[0-9a-f]{40}', item['commit']) and
+                 item['commit'] not in seen and item['commit'] != profile['source_commit'],
+                 'distinct successor identity')
+            for key in ('manifest_sha256', 'tree_delta_sha256'):
+                need(re.fullmatch(r'[0-9a-f]{64}', item[key]) is not None,
+                     'successor digest: ' + key)
+            seen.add(item['commit'])
+        need('firmware_successor' not in profile, 'one successor representation')
     need('tests/nss-conn-transaction/run.py' in profile['test_files'] and
          all(name.startswith('tests/nss-conn-transaction/') for name in profile['test_files']),
          'exact reviewed connection test assets')
@@ -117,6 +135,8 @@ def configuration():
 
 
 def firmware_identity(profile):
+    if profile.get('schema') == 2:
+        return profile['firmware_successors'][-1]
     return profile.get('firmware_successor', {
         'commit': profile['source_commit'], 'manifest_sha256': profile['source_manifest_sha256'],
     })
@@ -131,7 +151,7 @@ def current_lock(profile):
          'exact DRV29 firmware source, release and manifest lock')
     need(sha(base.path(ROOT, '.github/ax6-source-patchset.sha256').read_bytes()) ==
          firmware['manifest_sha256'], 'exact DRV29 firmware source manifest bytes')
-    if 'firmware_successor' in profile:
+    if 'firmware_successor' in profile or 'firmware_successors' in profile:
         need(lock_value(raw, 'SOURCE_DRV29_ANCHOR_COMMIT') == profile['source_commit'],
              'exact source anchor for the userspace successor')
 
@@ -153,18 +173,10 @@ def check_head(source, commit, parent):
     check_parent(source, commit, parent)
 
 
-def check_firmware(source, profile):
-    anchor = profile['source_commit']
-    if 'firmware_successor' not in profile:
-        check_head(source, anchor, profile['source_parent'])
-        return
-
-    successor = firmware_identity(profile)
-    check_head(source, successor['commit'], anchor)
-    check_parent(source, anchor, profile['source_parent'])
+def validate_delta(source, parent, commit, expected_sha):
     raw = git(source, 'diff', '--no-ext-diff', '--raw', '--no-abbrev', '--no-renames',
-              '-z', anchor, successor['commit'], '--')
-    need(sha(raw) == successor['tree_delta_sha256'], 'exact userspace successor tree delta')
+              '-z', parent, commit, '--')
+    need(sha(raw) == expected_sha, 'exact userspace successor tree delta')
     fields = raw.split(b'\0')
     need(len(fields) > 1 and len(fields) % 2 == 1 and fields[-1] == b'', 'nonempty raw tree delta')
     for meta, name in zip(fields[:-1:2], fields[1:-1:2]):
@@ -178,8 +190,29 @@ def check_firmware(source, profile):
         need(mode and (mode.groups() == (b'000000', b'100644', b'A') or
              (mode[3] == b'M' and mode[1] == mode[2])),
              'only regular files without mode changes or new executables: ' + child)
-        need(base.path(source, child).read_bytes() == git(source, 'show', successor['commit'] + ':' + child),
+        need(base.path(source, child).read_bytes() == git(source, 'show', commit + ':' + child),
              'exact userspace working-tree bytes: ' + child)
+
+
+def check_firmware(source, profile):
+    anchor = profile['source_commit']
+    if profile.get('schema') == 2:
+        chain = [anchor] + [item['commit'] for item in profile['firmware_successors']]
+        check_head(source, chain[-1], chain[-2])
+        for index, item in enumerate(profile['firmware_successors']):
+            parent = chain[index]
+            check_parent(source, item['commit'], parent)
+            validate_delta(source, parent, item['commit'], item['tree_delta_sha256'])
+        return
+
+    if 'firmware_successor' not in profile:
+        check_head(source, anchor, profile['source_parent'])
+        return
+
+    successor = firmware_identity(profile)
+    check_head(source, successor['commit'], anchor)
+    check_parent(source, anchor, profile['source_parent'])
+    validate_delta(source, anchor, successor['commit'], successor['tree_delta_sha256'])
 
 
 def check_old_source(source, old):
