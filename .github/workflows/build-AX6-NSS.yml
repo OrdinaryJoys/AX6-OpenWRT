@@ -17,6 +17,11 @@ on:
         required: false
         type: boolean
         default: false
+      tools_only:
+        description: 'Build host kexec-tools only (skip firmware)'
+        required: false
+        type: boolean
+        default: false
 
 env:
   BUILD_LOCK: .github/ax6-nss-lock.env
@@ -39,6 +44,7 @@ permissions:
 
 jobs:
   build:
+    if: ${{ !inputs.tools_only }}
     runs-on: ubuntu-22.04
     timeout-minutes: 180
     steps:
@@ -1873,3 +1879,31 @@ jobs:
             gh release delete "$tag" --yes --cleanup-tag
           done
         if: ${{ false }}
+
+  tools:
+    if: ${{ inputs.tools_only }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install cross compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential gcc-aarch64-linux-gnu libc6-dev-arm64-cross xz-utils curl ca-certificates
+      - name: Build kexec-tools
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 -o /tmp/kexec-tools.tar.xz https://cdn.kernel.org/pub/linux/utils/kernel/kexec/kexec-tools-2.0.28.tar.xz
+          tar -xJf /tmp/kexec-tools.tar.xz -C /tmp
+          cd /tmp/kexec-tools-2.0.28
+          ./configure --host=aarch64-linux-gnu --without-zlib --without-xen --without-lzma
+          make -j"$(nproc)" LDFLAGS="-static"
+          file build/sbin/kexec
+          readelf -l build/sbin/kexec | head -30
+          aarch64-linux-gnu-strip build/sbin/kexec
+          cp build/sbin/kexec /tmp/kexec-aarch64
+          aarch64-linux-gnu-readelf -h /tmp/kexec-aarch64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kexec-tools-aarch64
+          path: /tmp/kexec-aarch64
