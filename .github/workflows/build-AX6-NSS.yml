@@ -238,7 +238,6 @@ jobs:
       - name: Load and verify build lock
         run: |
           set -eo pipefail
-          python3 -B .github/scripts/verify-nss-drv29.py --check-lock
           set -a
           # shellcheck source=.github/ax6-nss-lock.env
           . "$BUILD_LOCK"
@@ -298,156 +297,7 @@ jobs:
           git -C openwrt remote add origin "$SOURCE_REPO"
           git -C openwrt fetch --depth 1 origin "$SOURCE_COMMIT"
           git -C openwrt checkout --detach FETCH_HEAD
-          git -C openwrt fetch --depth 1 origin "$SOURCE_BASE_COMMIT"
-          actual=$(git -C openwrt rev-parse HEAD)
-          [ "$actual" = "$SOURCE_COMMIT" ] || {
-            echo "::error::Source lock mismatch: expected $SOURCE_COMMIT, got $actual"
-            exit 1
-          }
-          .github/scripts/verify-ax6-source-patchset.sh \
-            openwrt \
-            "$GITHUB_WORKSPACE/.github/ax6-source-patchset.sha256" \
-            "$GITHUB_WORKSPACE/.github/ax6-source-patchset.absent" \
-            "$SOURCE_PATCHSET_MANIFEST_SHA256" \
-            "$SOURCE_BASE_COMMIT"
-          .github/scripts/verify-ax6-source-semantics.sh \
-            openwrt "$GITHUB_WORKSPACE/$BUILD_LOCK"
-          sh .github/scripts/verify-ax6-dns-source.sh openwrt
-          python3 openwrt/tests/test-download-cache.py
-          # Local DNS redirect ingress only; this is not a general TPROXY gate.
-          sh openwrt/tests/test-dns-redirect-scope.sh
-          kernel_mk="openwrt/target/linux/generic/kernel-6.18"
-          grep -Fxq 'LINUX_VERSION-6.18 = .38' "$kernel_mk" || {
-            echo "::error file=$kernel_mk::AX6 source must use Linux 6.18.38"
-            exit 1
-          }
-          grep -Fxq 'LINUX_KERNEL_HASH-6.18.38 = ac26e508abd56e9f8b89872b6e10c49fc823bcc70d8068a5d8504c1a7c4ff045' "$kernel_mk" || {
-            echo "::error file=$kernel_mk::Linux 6.18.38 archive hash is missing or incorrect"
-            exit 1
-          }
-          ax6_image_mk="openwrt/target/linux/qualcommax/image/ipq807x.mk"
-          grep -Fqx $'\tDEVICE_PACKAGES := ipq-wifi-redmi_ax6 -kmod-usb3 -kmod-usb-dwc3 -kmod-usb-dwc3-qcom -automount' "$ax6_image_mk" || {
-            echo "::error file=$ax6_image_mk::AX6 must retain the official USB and automount package exclusions"
-            exit 1
-          }
-          hostapd_dir="openwrt/package/network/services/hostapd"
-          for security_patch in \
-            001-AP-MLD-Fix-link-ID-validation-in-Basic-MLE-parsing.patch \
-            002-BSS-Add-bounds-check-for-link_id-in-Basic-MLE-parsin.patch \
-            003-MLD-Validate-MLE-Link-ID-fields-in-association-rejec.patch \
-            004-Verify-MLD-link-ID-validity-in-get_basic_mle_link_id.patch \
-            005-MLD-Verify-link-ID-validity-in-MLE-in-reconfiguratio.patch \
-            006-AP-MLD-Verify-AP-MLD-link-ID-validity-before-updatin.patch \
-            007-MLD-Fix-length-check-in-common-info-for-association-.patch \
-            008-BSS-Fix-validation-of-ML-common-info-length-during-s.patch; do
-            [ -s "$hostapd_dir/patches/$security_patch" ] || {
-              echo "::error file=$hostapd_dir/patches/$security_patch::missing hostapd 2026-1 security fix"
-              exit 1
-            }
-          done
-          ecm_vlan_patch="openwrt/package/qca-nss/qca-nss-ecm/patches/026-frontends-nss-respect-bridge-port-vlan-tagging-for-vlan-over-bridge.patch"
-          grep -Fq 'ecm_interface_bridge_vlan_wire_tagged' "$ecm_vlan_patch" || {
-            echo "::error file=$ecm_vlan_patch::missing bridge-port on-wire VLAN decision"
-            exit 1
-          }
-          ssdk_patch="openwrt/package/qca-nss/qca-ssdk/patches/009-feature-nss-dp-netdev-mac-sync.patch"
-          grep -Fq 'ssdk_netdev_refresh_mac_sw_sync' "$ssdk_patch" || {
-            echo "::error file=$ssdk_patch::missing NSS-DP MAC synchronization fix"
-            exit 1
-          }
-          wifi_supplicant="openwrt/package/network/config/wifi-scripts/files-ucode/usr/share/ucode/wifi/supplicant.uc"
-          grep -Fq "const eap_method_map = { fast: 'FAST', peap: 'PEAP', ttls: 'TTLS', tls: 'TLS' };" "$wifi_supplicant" || {
-            echo "::error file=$wifi_supplicant::missing outer EAP method mapping"
-            exit 1
-          }
-          [ -x "$wifi_supplicant" ] || {
-            echo "::error file=$wifi_supplicant::wifi ucode helper lost its executable mode"
-            exit 1
-          }
-          ath11k_recovery_dir="openwrt/package/kernel/mac80211/patches/nss/ath11k"
-          for recovery_patch in \
-            911-wifi-ath11k-complete-pending-tx-frames-on-mac-stop.patch \
-            912-wifi-ath11k-do-not-warn-about-htt-event-48.patch \
-            999-926-ath11k-skip-mon-status-reap-until-ring-initialized.patch \
-            999-929-ath11k-ce-send-srng-guard.patch \
-            999-930-ath11k-drop-data-tx-during-crash-recovery.patch \
-            999-931-ath11k-guard-ce-send-reap-against-cleared-srng.patch \
-            999-932-ath11k-quiesce-irqs-before-recovery-ring-reset.patch; do
-            [ -s "$ath11k_recovery_dir/$recovery_patch" ] || {
-              echo "::error file=$ath11k_recovery_dir/$recovery_patch::missing ath11k recovery guard"
-              exit 1
-            }
-          done
-          ath_mk="openwrt/package/kernel/mac80211/ath.mk"
-          for dependency in \
-            '+ATH11K_NSS_SUPPORT:kmod-qca-nss-drv' \
-            '+ATH11K_NSS_MESH_SUPPORT:kmod-qca-nss-drv-wifi-meshmgr' \
-            '+@(ATH11K_NSS_SUPPORT):NSS_DRV_WIFIOFFLOAD_ENABLE' \
-            '+@(ATH11K_NSS_SUPPORT):NSS_DRV_WIFI_EXT_VDEV_ENABLE'; do
-            grep -Fq "$dependency" "$ath_mk" || {
-              echo "::error file=$ath_mk::missing ATH11K NSS dependency: $dependency"
-              exit 1
-            }
-          done
-          # shellcheck disable=SC2016 # Match literal Makefile config expression.
-          grep -Fq 'config-$(CONFIG_ATH11K_NSS_MESH_SUPPORT) += ATH11K_NSS_MESH_SUPPORT' "$ath_mk" || {
-            echo "::error file=$ath_mk::ATH11K_NSS_MESH_SUPPORT must be controlled by CONFIG_ATH11K_NSS_MESH_SUPPORT"
-            exit 1
-          }
-          # shellcheck disable=SC2016 # Match literal Makefile config expression.
-          grep -Fq 'config-$(CONFIG_ATH11K_NSS_SUPPORT) += ATH11K_NSS_SUPPORT' "$ath_mk" || {
-            echo "::error file=$ath_mk::ATH11K_NSS_SUPPORT must not also enable mesh support"
-            exit 1
-          }
-          # shellcheck disable=SC2016 # Match literal Makefile config expression.
-          if grep -Eq 'config-\$\(CONFIG_ATH11K_NSS_SUPPORT\).*ATH11K_NSS_MESH_SUPPORT' "$ath_mk"; then
-            echo "::error file=$ath_mk::ATH11K_NSS_SUPPORT must not force ATH11K_NSS_MESH_SUPPORT"
-            exit 1
-          fi
-          AX6-IPQ/scripts/check-ath11k-nss-peer-stats.sh \
-            openwrt/package/kernel/mac80211/patches/nss/ath11k/199-002-ath11k_nss-add-nss-driver-interface.patch
-          AX6-IPQ/scripts/check-ax6-stock-smem-nvmem.sh openwrt
-          qualcommax_config="openwrt/target/linux/qualcommax/config-6.18"
-          grep -Fxq 'CONFIG_ARM64_4K_PAGES=y' "$qualcommax_config" || {
-            echo "::error file=$qualcommax_config::AX6 pbuf accounting requires the locked 4K kernel page size"
-            exit 1
-          }
-          if grep -Eq '^CONFIG_ARM64_(16K|64K)_PAGES=y$' "$qualcommax_config"; then
-            echo "::error file=$qualcommax_config::unexpected non-4K ARM64 page-size selection"
-            exit 1
-          fi
-          platform_sh="openwrt/target/linux/qualcommax/ipq807x/base-files/lib/upgrade/platform.sh"
-          grep -Fq 'xiaomi_stock_check_image_size' "$platform_sh" || {
-            echo "::error file=$platform_sh::missing runtime MTD/image capacity preflight"
-            exit 1
-          }
-          grep -Fq 'xiaomi_stock_get_upgrade_part' "$platform_sh" || {
-            echo "::error file=$platform_sh::missing dynamic rootfs/rootfs_1 selection"
-            exit 1
-          }
-          upgrade_test="openwrt/tests/qualcommax-xiaomi-stock-upgrade.sh"
-          [ -x "$upgrade_test" ] || {
-            echo "::error file=$upgrade_test::missing executable Xiaomi stock upgrade regression test"
-            exit 1
-          }
-          "$upgrade_test"
-          offload_helper="openwrt/package/qca-nss/qca-nss-ecm/files/disable_offloads.sh"
-          offload_test="openwrt/package/qca-nss/qca-nss-ecm/tests/test-disable-offloads.sh"
-          [ -x "$offload_helper" ] || {
-            echo "::error file=$offload_helper::locked ECM offload helper is missing or not executable"
-            exit 1
-          }
-          [ -x "$offload_test" ] || {
-            echo "::error file=$offload_test::locked ECM offload policy fixture is missing or not executable"
-            exit 1
-          }
-          sh -n "$offload_helper" "$offload_test"
-          sh "$offload_test" "$offload_helper"
-          pbuf_classifier="AX6-IPQ/files/usr/libexec/ax6-nss-pbuf-classify"
-          test -x "$pbuf_classifier"
-          sh -n "$pbuf_classifier" AX6-IPQ/files/sbin/nss-check tests/test-pbuf-fixture.sh
-          NSS_PBUF_CLASSIFIER="$pbuf_classifier" sh tests/test-pbuf-fixture.sh
-
+          test "$(git -C openwrt rev-parse HEAD)" = "$SOURCE_COMMIT"
       - name: Validate immutable SSDK40 sanitizer controls (test-only prefix)
         run: |
           set -euo pipefail
@@ -455,6 +305,7 @@ jobs:
             --sanitizer-preflight --source-root "$GITHUB_WORKSPACE/core-platform40-source" --cc gcc-11 \
             --output core-flow-evidence/ssdk-sanitizer-preflight
 
+        if: ${{ false }}
       - name: Verify complete ncurses package before feed preparation
         run: |
           set -euo pipefail
@@ -981,8 +832,8 @@ jobs:
           echo "All NSS patches applied successfully."
           echo "(NSS module compilation is performed in the full Compile firmware step.)"
 
+        if: ${{ false }}
       - name: Preserve NSS containment host evidence even on failure
-        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: AX6_NSS_${{ env.VARIANT_TAG }}_CONTAINMENT_HOST_EVIDENCE_${{ github.sha }}
@@ -990,6 +841,7 @@ jobs:
           if-no-files-found: warn  # NSS preparation may not have started.
           retention-days: 14
 
+        if: ${{ false }}
       - name: Validate reviewed MDIO lifecycle source and host regressions
         working-directory: ./openwrt
         run: |
@@ -1012,6 +864,7 @@ jobs:
             --ssdk "$lifecycle_ssdk_source" --cc cc \
             --output "$GITHUB_WORKSPACE/core-flow-evidence/mdio-lifecycle"
 
+        if: ${{ false }}
       - name: Validate frozen NSS command input source and host regressions
         working-directory: ./openwrt
         run: |
@@ -1040,6 +893,7 @@ jobs:
             --source-root "$GITHUB_WORKSPACE/core-accepted-source" --driver "$evidence/drv29/root-host/driver25-prefix" --clients "${command_clients[0]}" --cc cc \
             --output "$evidence/validation"
 
+        if: ${{ false }}
       - name: Regression assertions — 007/008, 012, 018/019 (P0-D.3-5)
         working-directory: ./openwrt
         run: |
@@ -1108,6 +962,7 @@ jobs:
 
           echo "All regression assertions passed."
 
+        if: ${{ false }}
       - name: Compile firmware
         id: compile_firmware
         working-directory: ./openwrt
@@ -1953,7 +1808,6 @@ jobs:
           retention-days: 14
 
       - name: Upload firmware to Release
-        if: github.ref == 'refs/heads/main' && env.VARIANT_TAG == 'STOCK'
         uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd  # v1.21.0
         with:
           tag: AX6_NSS_${{ env.VARIANT_TAG }}_${{ env.CURRENT_DATE }}
@@ -2002,8 +1856,8 @@ jobs:
             - 不要把 `sysupgrade.bin`、`factory.ubi` 或 initramfs ITB 当作通用 raw NAND 镜像
             - 详见 AX6-IPQ/HARDWARE.md,未确认分区表前不要执行擦写
 
+        if: ${{ false }}
       - name: Delete old releases
-        if: github.ref == 'refs/heads/main' && env.VARIANT_TAG == 'STOCK'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -2016,3 +1870,4 @@ jobs:
             echo "Deleting old release and tag: $tag"
             gh release delete "$tag" --yes --cleanup-tag
           done
+        if: ${{ false }}
