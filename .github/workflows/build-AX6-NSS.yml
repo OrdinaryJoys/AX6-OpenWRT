@@ -1898,9 +1898,11 @@ jobs:
           cd /tmp/kexec-tools-2.0.28
           ./configure --host=aarch64-linux-gnu --without-zlib --without-xen --without-lzma
           make -j"$(nproc)"
+          rm -f build/sbin/kexec
           make build/sbin/kexec LDFLAGS="-static"
           file build/sbin/kexec
-          readelf -l build/sbin/kexec | head -30
+          readelf -l build/sbin/kexec | grep -q INTERP && { echo "kexec still dynamic" >&2; exit 1; } || true
+          aarch64-linux-gnu-readelf -l build/sbin/kexec | head -30
           aarch64-linux-gnu-strip build/sbin/kexec
           cp build/sbin/kexec /tmp/kexec-aarch64
           aarch64-linux-gnu-readelf -h /tmp/kexec-aarch64
