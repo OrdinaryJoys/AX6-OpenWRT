@@ -298,6 +298,8 @@ jobs:
           git -C openwrt fetch --depth 1 origin "$SOURCE_COMMIT"
           git -C openwrt checkout --detach FETCH_HEAD
           test "$(git -C openwrt rev-parse HEAD)" = "$SOURCE_COMMIT"
+          git -C openwrt fetch --depth 1 origin "$SOURCE_BASE_COMMIT"
+          .github/scripts/verify-ax6-source-patchset.sh openwrt "$GITHUB_WORKSPACE/.github/ax6-source-patchset.sha256" "$GITHUB_WORKSPACE/.github/ax6-source-patchset.absent" "$SOURCE_PATCHSET_MANIFEST_SHA256" "$SOURCE_BASE_COMMIT"
       - name: Validate immutable SSDK40 sanitizer controls (test-only prefix)
         run: |
           set -euo pipefail
@@ -1034,7 +1036,6 @@ jobs:
           AX6-IPQ/scripts/check-ax6-stock-compiled-dtb.sh "${stock_dtbs[@]}"
 
       - name: Validate final rootfs contents
-        continue-on-error: true
         run: |
           set -Eeuo pipefail
           # Fail with the exact failing gate instead of a silent awk/test exit.
@@ -1572,7 +1573,6 @@ jobs:
           retention-days: 14
 
       - name: Bind final STOCK FIT, recovery DTB and offline module payloads
-        continue-on-error: true
         if: env.VARIANT_TAG == 'STOCK'
         run: |
           set -eo pipefail
@@ -1775,7 +1775,6 @@ jobs:
         run: echo "CURRENT_DATE=$(date '+%Y%m%d%H%M%S')" >> "$GITHUB_ENV"
 
       - name: Upload core flow regression evidence
-        continue-on-error: true
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
