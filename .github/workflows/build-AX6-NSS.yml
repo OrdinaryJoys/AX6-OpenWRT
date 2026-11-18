@@ -1897,7 +1897,8 @@ jobs:
           tar -xJf /tmp/kexec-tools.tar.xz -C /tmp
           cd /tmp/kexec-tools-2.0.28
           ./configure --host=aarch64-linux-gnu --without-zlib --without-xen --without-lzma
-          make -j"$(nproc)" LDFLAGS="-static"
+          make -j"$(nproc)"
+          make build/sbin/kexec LDFLAGS="-static"
           file build/sbin/kexec
           readelf -l build/sbin/kexec | head -30
           aarch64-linux-gnu-strip build/sbin/kexec
