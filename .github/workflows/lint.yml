@@ -341,6 +341,9 @@ jobs:
           python3 -B tests/test-ecm-real-uci.py --source-root "$fixture" \
             --uci "$GITHUB_WORKSPACE/startup-uci-evidence/uci-native" --shell 'busybox ash' \
             | tee startup-uci-evidence/ecm-function-results.json
+          python3 -B tests/test-startup-native-controls.py \
+            --uci "$GITHUB_WORKSPACE/startup-uci-evidence/uci-native" --shell 'busybox ash' \
+            | tee startup-uci-evidence/native-controls.json
           # These negative controls reproduce unsafe upgrade boundaries.
           # Passing is NOT a plugin upgrade/deployment safety certificate.
           ref=$(git ls-remote https://github.com/vernesong/OpenClash.git refs/heads/master | awk '$2 == "refs/heads/master" {print $1}')
@@ -1204,7 +1207,10 @@ jobs:
             exit 1
           fi
           guard=AX6-IPQ/files/etc/init.d/ax6-boot-guard
-          grep -Fq 'section=network.globals; rules=packet_steering:0' "$guard"
+          grep -Fq 'rules=packet_steering:0' "$guard"
+          python3 -B tests/test-startup-real-uci.py \
+            --uci "$GITHUB_WORKSPACE/startup-uci-evidence/uci-native" --shell 'busybox ash' \
+            --service "$guard"
           grep -Fq 'flow_offloading:0 flow_offloading_hw:0' "$guard"
           grep -Fq 'firewall.@defaults[0]' "$guard"
           grep -q 'ax6-config-audit' AX6-IPQ/files/sbin/nss-check

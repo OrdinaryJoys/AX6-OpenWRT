@@ -48,3 +48,14 @@ Build completion and offline artifact checks are not proof of boot, throughput,
 latency, loss, memory/CPU behavior or safe recovery. No flash or device-operation
 authorization is issued by this document; any produced firmware stays
 NOT-FLASHED / DEPLOYMENT HOLD pending separate evidence and user authorization.
+
+## First Lint Result
+
+Lint 44441424619 at build eeef65b failed in step 40: the old Wi-Fi preflight
+required the literal named `network.globals` assignment. Its earlier Linux ash
+and real UCI fixtures had passed. The obsolete literal check is replaced by the
+same packet-steering-zero invariant plus real UCI behavior; an exact SHA-bound
+copy of the previous guard must fail on `no-globals`, while the corrected guard
+must pass all nine native scenarios. This is a CI contract correction, not an
+additional driver repair. The firmware source remains 93ad446e22, and no stock
+build was dispatched on the failed Lint commit.

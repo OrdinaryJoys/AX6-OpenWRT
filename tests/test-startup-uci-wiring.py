@@ -83,6 +83,17 @@ class Wiring(unittest.TestCase):
         self.assertIn("'-C', str(config2), '-t', str(delta)", text)
         self.assertIn("'missing-required', 'pending', 'parse-error'", text)
 
+    def test_wifi_policy_uses_behavior_not_legacy_named_section(self):
+        workflow = (ROOT / '.github/workflows/lint.yml').read_text()
+        block = workflow.split('      - name: WiFi compatibility defaults check\n', 1)[1].split('\n      - name:', 1)[0]
+        self.assertNotIn('section=network.globals;', block)
+        self.assertIn('rules=packet_steering:0', block)
+        self.assertIn('python3 -B tests/test-startup-real-uci.py', block)
+        self.assertIn('--service "$guard"', block)
+        for file in ['lint.yml', 'build-AX6-NSS.yml']:
+            self.assertIn('python3 -B tests/test-startup-native-controls.py',
+                          (ROOT / '.github/workflows' / file).read_text())
+
 
 if __name__ == '__main__':
     unittest.main()

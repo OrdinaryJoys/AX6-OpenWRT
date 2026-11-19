@@ -788,6 +788,9 @@ jobs:
           python3 -B tests/test-ecm-real-uci.py --source-root openwrt \
             --uci "$GITHUB_WORKSPACE/startup-uci-evidence/uci-native" --shell 'busybox ash' \
             | tee startup-uci-evidence/ecm-function-results.json
+          python3 -B tests/test-startup-native-controls.py \
+            --uci "$GITHUB_WORKSPACE/startup-uci-evidence/uci-native" --shell 'busybox ash' \
+            | tee startup-uci-evidence/native-controls.json
 
       - name: Preserve native startup evidence
         if: always()
