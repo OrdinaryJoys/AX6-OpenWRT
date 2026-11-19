@@ -190,6 +190,7 @@ jobs:
           sh tests/test-ax6-config-audit-zerotier.sh
           sh tests/test-ax6-boot-guard.sh
           AX6_TEST_SHELL='busybox ash' sh tests/test-ax6-boot-guard.sh
+          python3 -B tests/test-startup-uci-wiring.py
           sh tests/test-ax6-stock-compiled-dtb.sh
           sh tests/test-pbuf-fixture.sh
           sh tests/test-nss-monitor.sh
@@ -320,7 +321,7 @@ jobs:
           git -C "$fixture" fetch --depth=1 --filter=blob:none origin "$SOURCE_COMMIT"
           git -C "$fixture" sparse-checkout set \
             tests include package/base-files/files/etc package/base-files/files/lib \
-            package/system/procd package/libs/libubox \
+            package/system/procd package/system/uci package/libs/libubox \
             package/qca-nss/qca-nss-ecm/files \
             target/linux/qualcommax/base-files/etc/init.d \
             target/linux/qualcommax/base-files/usr/libexec/platform
@@ -332,6 +333,14 @@ jobs:
           IRQ_TEST_SCRIPT="$fixture/target/linux/qualcommax/base-files/etc/init.d/set-irq-affinity" \
             RPS_TEST_SHELL='busybox ash' python3 "$fixture/tests/test-set-irq-affinity-policy-errors.py"
           ECM_TEST_SHELL='busybox ash' bash .github/scripts/test-ax6-real-jshn.sh "$fixture"
+          python3 -B tests/build-startup-uci-host.py \
+            --source-root "$fixture" --output startup-uci-evidence
+          python3 -B tests/test-startup-real-uci.py \
+            --uci "$GITHUB_WORKSPACE/startup-uci-evidence/uci-native" --shell 'busybox ash' \
+            | tee startup-uci-evidence/source-service-results.json
+          python3 -B tests/test-ecm-real-uci.py --source-root "$fixture" \
+            --uci "$GITHUB_WORKSPACE/startup-uci-evidence/uci-native" --shell 'busybox ash' \
+            | tee startup-uci-evidence/ecm-function-results.json
           # These negative controls reproduce unsafe upgrade boundaries.
           # Passing is NOT a plugin upgrade/deployment safety certificate.
           ref=$(git ls-remote https://github.com/vernesong/OpenClash.git refs/heads/master | awk '$2 == "refs/heads/master" {print $1}')
@@ -348,6 +357,15 @@ jobs:
             AX6_OPENCLASH_UPDATE="$fixture/openclash_update.sh" \
             AX6_OPENCLASH_PS="$fixture/openclash_ps.sh" AX6_TEST_SHELL='busybox ash' \
             python3 tests/test-openclash-upgrade-boundaries.py
+
+      - name: Preserve native startup evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: AX6_STARTUP_UCI_${{ github.sha }}
+          path: startup-uci-evidence/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Actionlint
         run: actionlint -color .github/workflows/*.yml

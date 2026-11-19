@@ -27,6 +27,26 @@ class StartupTests(unittest.TestCase):
         logger = self.bin / 'logger'
         logger.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$LOGGER_LOG"\nexit "${LOGGER_RC:-0}"\n')
         logger.chmod(0o700)
+        awk = self.bin / 'awk'
+        awk.write_text('''#!/bin/sh
+if [ "$1" = -F= ]; then
+    [ "${GLOBALS_SCAN_RC:-0}" -eq 0 ] || exit "$GLOBALS_SCAN_RC"
+elif [ "$1" = '-F[.=]' ]; then
+    [ "${DEVICE_SCAN_RC:-0}" -eq 0 ] || exit "$DEVICE_SCAN_RC"
+elif [ "$1" = -v ] && [ "${KEY_SCAN_RC:-0}" -ne 0 ]; then
+    if [ -z "${KEY_SCAN_KEY:-}" ] || [ "$2" = "p=$KEY_SCAN_KEY=" ]; then
+        count=0
+        [ ! -e "$UCI_FIXTURE_STATE.scan-count" ] || read -r count < "$UCI_FIXTURE_STATE.scan-count"
+        count=$((count + 1))
+        printf '%s\\n' "$count" > "$UCI_FIXTURE_STATE.scan-count"
+        if [ "${KEY_SCAN_FAIL_AT:-0}" -eq 0 ] || [ "$count" -eq "$KEY_SCAN_FAIL_AT" ]; then
+            exit "$KEY_SCAN_RC"
+        fi
+    fi
+fi
+exec /usr/bin/awk "$@"
+''')
+        awk.chmod(0o700)
         self.env = dict(os.environ, PATH=str(self.bin) + os.pathsep + os.environ['PATH'],
                         UCI_FIXTURE_STATE=str(self.base / 'uci.json'), LOGGER_LOG=str(self.base / 'log'))
         self.values = {'network.globals': 'globals', 'network.globals.packet_steering': '0',
@@ -80,8 +100,75 @@ class StartupTests(unittest.TestCase):
                 log = (self.base / 'log').read_text()
                 self.assertNotIn('network: NSS-owned settings committed and verified', log)
 
-    def test_missing_section_and_pending_edits_left_untouched(self):
+    def test_optional_network_globals_absent_without_mutation(self):
         values = {k: v for k, v in self.values.items() if not k.startswith('network.globals')}
+        result, state = self.guard(values, repeat=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse([c for c in state['calls'] if c[0] in ('set', 'delete', 'commit')])
+
+    def test_absent_globals_still_cleans_obsolete_device_options(self):
+        values = {k: v for k, v in self.values.items() if not k.startswith('network.globals')}
+        values['network.br.packet_steering'] = '1'
+        result, state = self.guard(values, repeat=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn('network.br.packet_steering', state['values'])
+        self.assertNotIn('network.globals', state['values'])
+        self.assertEqual([c for c in state['calls'] if c[0] == 'commit'], [['commit', 'network']])
+
+    def test_first_typed_globals_section_is_selected(self):
+        values = {k: v for k, v in self.values.items() if not k.startswith('network.globals')}
+        values['network.cfgfirst'] = 'globals'
+        values['network.cfgfirst.packet_steering'] = '1'
+        values['network.globals'] = 'globals'
+        values['network.globals.packet_steering'] = '1'
+        result, state = self.guard(values)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(state['values']['network.cfgfirst.packet_steering'], '0')
+        self.assertEqual(state['values']['network.globals.packet_steering'], '1')
+
+    def test_failed_globals_scan_is_not_optional_absence(self):
+        self.env['GLOBALS_SCAN_RC'] = '25'
+        result, state = self.guard()
+        self.assertEqual(result.returncode, 25, result.stderr)
+        self.assertFalse([c for c in state['calls'] if c[0] in ('set', 'delete', 'commit')])
+
+    def test_failed_device_scan_cannot_hide_legacy_options(self):
+        self.env['DEVICE_SCAN_RC'] = '27'
+        values = {k: v for k, v in self.values.items() if not k.startswith('network.globals')}
+        values['network.br.packet_steering'] = '1'
+        result, state = self.guard(values)
+        self.assertEqual(result.returncode, 27, result.stderr)
+        self.assertEqual(state['values']['network.br.packet_steering'], '1')
+        self.assertFalse([c for c in state['calls'] if c[0] in ('set', 'delete', 'commit')])
+
+    def test_failed_presence_scan_cannot_claim_committed_and_verified(self):
+        self.env['KEY_SCAN_RC'] = '28'
+        values = dict(self.values, **{'network.br.packet_steering': '1'})
+        result, state = self.guard(values)
+        self.assertEqual(result.returncode, 28, result.stderr)
+        self.assertEqual(state['values']['network.br.packet_steering'], '1')
+        self.assertFalse([c for c in state['calls'] if c[0] in ('set', 'delete', 'commit')])
+        self.assertNotIn('committed and verified', (self.base / 'log').read_text())
+
+    def test_failed_post_delete_scan_is_not_successful_absence(self):
+        self.env.update(KEY_SCAN_RC='28', KEY_SCAN_KEY='network.br.packet_steering', KEY_SCAN_FAIL_AT='2')
+        values = dict(self.values, **{'network.br.packet_steering': '1'})
+        result, state = self.guard(values)
+        self.assertEqual(result.returncode, 28, result.stderr)
+        self.assertIn(['delete', 'network.br.packet_steering'], state['calls'])
+        self.assertNotIn(['commit', 'network'], state['calls'])
+        self.assertNotIn('network: NSS-owned settings committed and verified', (self.base / 'log').read_text())
+
+    def test_failed_post_commit_scan_cannot_claim_verification(self):
+        self.env.update(KEY_SCAN_RC='28', KEY_SCAN_KEY='network.br.packet_steering', KEY_SCAN_FAIL_AT='3')
+        values = dict(self.values, **{'network.br.packet_steering': '1'})
+        result, state = self.guard(values)
+        self.assertEqual(result.returncode, 28, result.stderr)
+        self.assertIn(['commit', 'network'], state['calls'])
+        self.assertNotIn('network: NSS-owned settings committed and verified', (self.base / 'log').read_text())
+
+    def test_missing_required_section_and_pending_edits_left_untouched(self):
+        values = {k: v for k, v in self.values.items() if not k.startswith('firewall.')}
         for config in [dict(values=values), dict(pending={'network': ['network.lan.ipaddr=192.0.2.1']})]:
             result, state = self.guard(**config)
             self.assertNotEqual(result.returncode, 0)

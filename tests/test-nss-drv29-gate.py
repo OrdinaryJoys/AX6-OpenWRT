@@ -25,6 +25,7 @@ class Admission(unittest.TestCase):
 
     def test_firmware_successor_requires_exact_scope_and_worktree_bytes(self):
         profile = GATE.configuration()
+        profile.pop('startup_successor', None)
         firmware = GATE.firmware_identity(profile)
         good = b'README.md'
         driver = b'package/qca-nss/qca-nss-drv/Makefile'
@@ -74,6 +75,58 @@ class Admission(unittest.TestCase):
         ]:
             with self.subTest(change=change), self.assertRaisesRegex(ValueError, pattern):
                 GATE.expectations(profile | change, old)
+
+    def test_startup_successor_rejects_scope_mode_and_checkout_drift(self):
+        profile = GATE.configuration()
+        startup = profile['startup_successor']
+        regular = b':100644 100644 ' + b'a' * 40 + b' ' + b'b' * 40 + b' M\0'
+        names = sorted(GATE.STARTUP_FILES)
+        good = b''.join(regular + name.encode() + b'\0' for name in names)
+        driver_path = b'package/qca-nss/qca-nss-drv/Makefile'
+        changed_scope = good.replace(names[0].encode(), driver_path)
+        changed_mode = good.replace(b':100644 100644', b':100644 100755', 1)
+        cases = [
+            ('valid', good, good, b'reviewed', None),
+            ('tree-drift', good, changed_scope, b'reviewed', 'exact startup successor tree delta'),
+            ('driver-path', changed_scope, changed_scope, b'reviewed', 'only exact startup paths'),
+            ('chmod', changed_mode, changed_mode, b'reviewed', 'without mode changes'),
+            ('checkout', good, good, b'local drift', 'exact startup working-tree bytes'),
+        ]
+        for label, sealed, observed, checkout, message in cases:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                for name in names:
+                    path = root / name
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(checkout)
+                checked = startup | {'tree_delta_sha256': GATE.sha(sealed),
+                                     'files': {n: GATE.sha(b'reviewed') for n in names}}
+                with patch.object(GATE, 'git', side_effect=[observed] + [b'reviewed'] * 4):
+                    if message:
+                        with self.assertRaisesRegex(ValueError, message):
+                            GATE.check_startup_successor(root, checked, profile['firmware_successor']['commit'])
+                    else:
+                        GATE.check_startup_successor(root, checked, profile['firmware_successor']['commit'])
+
+    def test_startup_chain_keeps_both_original_parents(self):
+        profile = GATE.configuration()
+        profile['firmware_successor']['tree_delta_sha256'] = GATE.sha(
+            b':100644 100644 ' + b'a' * 40 + b' ' + b'b' * 40 + b' M\0README.md\0')
+        raw = b':100644 100644 ' + b'a' * 40 + b' ' + b'b' * 40 + b' M\0README.md\0'
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'README.md').write_bytes(b'reviewed')
+            with patch.object(GATE, 'check_head') as head, patch.object(GATE, 'check_parent') as parent, \
+                 patch.object(GATE, 'check_startup_successor') as startup, \
+                 patch.object(GATE, 'git', side_effect=[raw, b'reviewed']):
+                GATE.check_firmware(root, profile)
+                head.assert_called_once_with(root, profile['startup_successor']['commit'],
+                                             profile['firmware_successor']['commit'])
+                startup.assert_called_once_with(root, profile['startup_successor'],
+                                                profile['firmware_successor']['commit'])
+                self.assertEqual(parent.call_args_list, [
+                    unittest.mock.call(root, profile['firmware_successor']['commit'], profile['source_commit']),
+                    unittest.mock.call(root, profile['source_commit'], profile['source_parent'])])
 
     def test_unsealed_or_modified_profile_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:

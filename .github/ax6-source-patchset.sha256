@@ -222,10 +222,10 @@ b20e37b5d9fcbac965b7ddf360136eda33ef339436bd00f0e3c7f6bf2836c2e6  package/qca-ns
 b4c9582f5a9ca19110db6643ad89d8918ed36a09a3561fa81e5678397ae5ba3b  package/qca-nss/qca-nss-drv/patches/031-coredump-empty-write-noop.patch
 d3339c2720b97a55160676f9f236acf4d463d7c3afdfcf4f4a64f8e7569e47a9  package/qca-nss/qca-nss-drv/patches/032-ipq807x-private-pdata-rollback.patch
 660e855af5071f4417ce29881538a745a93116c6b056d9a33540e8bbc7641064  package/qca-nss/qca-nss-drv/patches/033-connection-table-host-transaction.patch
-69a8150535c369355b434bdf5c18bdb01a974625b46fcdb77cbca6c7eae3e57a  package/qca-nss/qca-nss-ecm/Makefile
+4d6038fe78a9ba4a0ceeef1e0cc8607255781eacc38df3128bd886581945652c  package/qca-nss/qca-nss-ecm/Makefile
 2438ccfa97b0fa4e6f3cb333de8d0c8fcb05c46b6bcfdca93f4f75ae390920d9  package/qca-nss/qca-nss-ecm/files/disable_offloads.hotplug
 055e4f85038ff06f449a9512eaf8d14f6e8bfea2c92a0a38a964a5a2e433eb69  package/qca-nss/qca-nss-ecm/files/disable_offloads.sh
-2663692c4e3206eca00f58454207b8dfc26c7937cf8b273233fe325948886fd0  package/qca-nss/qca-nss-ecm/files/qca-nss-ecm.init
+abfa09faa1efb490e5f59e248ff5ac5ecd5d8eaeac7f79682cf18cd4353b5ee5  package/qca-nss/qca-nss-ecm/files/qca-nss-ecm.init
 22b40538dcae6851ecdae4b8e1d96bc8a7a745672ab83177e38cf8f7345045a7  package/qca-nss/qca-nss-ecm/patches/026-frontends-nss-respect-bridge-port-vlan-tagging-for-vlan-over-bridge.patch
 95307ad7ade437e6c7f22a51d7a830726dd0c8d9008dcfed67c62f9372a8dc9d  package/qca-nss/qca-nss-ecm/patches/027-fix-multicast-destination-count-signedness.patch
 729dbe7f96d28c8a7ffa122eeb39b37de90e708513ced37c9880a1dd14f61e46  package/qca-nss/qca-nss-ecm/patches/028-classifier-preserve-explicit-directional-udp-priorities.patch
@@ -623,9 +623,9 @@ a6fbd46b6d1469ca0c3ed4b0535e88861df07b37baba7528becdb60eb2efa88a  tests/test-ecm
 a7c1287b9691f082ca08ed445aa4c3ef3e09d65a0f0b59a6a6e1f0d173ff8499  tests/test-ecm-offload-errors.py
 c4dea8e506f6c6e38ba0479d8782754ee3a9a79778d4b098f48defb000280098  tests/test-ecm-procd-real-jshn.py
 aa20c01c54b863b988f634df03de330c24112dff2956bb95ccfc0c27d6bf46dd  tests/test-ecm-rawip-rmnet.py
-5d4b50b8345c6645f35c30619e55cffc7d0a510616f633ec6fa4763a92ebaa4b  tests/test-ecm-reload-errors.py
+552245442d0294d3d7f42e88c886e086f6088636a00b2d296107038e627cf9ce  tests/test-ecm-reload-errors.py
 749cf9fa4d0f30d05b145530acb21cf421545a78bb40b30187f4a6925b3a91e4  tests/test-ecm-rps-ownership.py
-df6082b3a7127f71f84ece40539d5423dd901be233cf063d45ca34c8d6aef68f  tests/test-ecm-service-errors.py
+534f513be9eee6c4faddc9a7e899a45b65290986bada58dd79c98aafd7714f73  tests/test-ecm-service-errors.py
 5ee1a735d5bcd4c03384be2bb0590a2b4f37c442ea1f2381b56868996305a842  tests/test-edma-allocation-unwind.py
 95fd90143506de7cb941a7c9fb1429944b69e148b6f807358913416250724266  tests/test-edma-correctness-prerequisites.sh
 4c50156bb5be41a408735bb309a10ea99f4ff951dab39ee45468e71c58f73824  tests/test-edma-of-references.py

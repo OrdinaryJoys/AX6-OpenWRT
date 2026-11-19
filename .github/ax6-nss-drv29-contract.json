@@ -10,6 +10,17 @@
     "manifest_sha256": "f71916ae8af8e7d0c0dec1588f8819db9b09eaafa34b0bbe03c82386feb7bb19",
     "tree_delta_sha256": "e900822ee39334269f73b950eb7d00999d472354b98ddae5b1391bfc307e5b33"
   },
+  "startup_successor": {
+    "commit": "93ad446e225b767d7dbd531cdc6e77450733e162",
+    "manifest_sha256": "8627f0fde537cd6a23d8da460050790b17de0634f7a27e857c8cdf6e86d68e1d",
+    "tree_delta_sha256": "64b9a9d9f44d4622037991b1e8243f972c5f74d3e1cfa54ef5a84ef47d4e0abb",
+    "files": {
+      "package/qca-nss/qca-nss-ecm/Makefile": "4d6038fe78a9ba4a0ceeef1e0cc8607255781eacc38df3128bd886581945652c",
+      "package/qca-nss/qca-nss-ecm/files/qca-nss-ecm.init": "abfa09faa1efb490e5f59e248ff5ac5ecd5d8eaeac7f79682cf18cd4353b5ee5",
+      "tests/test-ecm-reload-errors.py": "552245442d0294d3d7f42e88c886e086f6088636a00b2d296107038e627cf9ce",
+      "tests/test-ecm-service-errors.py": "534f513be9eee6c4faddc9a7e899a45b65290986bada58dd79c98aafd7714f73"
+    }
+  },
   "patch_name": "033-connection-table-host-transaction.patch",
   "patch_sha256": "660e855af5071f4417ce29881538a745a93116c6b056d9a33540e8bbc7641064",
   "changed_files": {

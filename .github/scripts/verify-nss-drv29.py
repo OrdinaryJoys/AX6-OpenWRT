@@ -14,7 +14,7 @@ import sys
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
 PROFILE = ROOT / '.github/ax6-nss-drv29-contract.json'
-PROFILE_SHA256 = 'bb3e1ec11dc7340d85ca193f041e3e7d2b27656d8196273b1bf7560407ad4358'
+PROFILE_SHA256 = 'ed9901243a6ac1904f31013f41c731e4da3f8c57463ae4ce17f59e4b4d674761'
 OLD_COMMIT = '5e5ccf0bb7b31a0f5890c98a37ca5b256a2749d8'
 OLD_RELEASE = 27
 PACKAGE = 'package/qca-nss/qca-nss-drv'
@@ -57,6 +57,11 @@ USERSPACE_PATHS = (
     'package/network/services/odhcpd/',
 )
 USERSPACE_FILES = {'README.md', 'tests/test-ax6-upstream-leaves.py', 'tests/test-dns-redirect-scope.sh'}
+STARTUP_FILES = {
+    'package/qca-nss/qca-nss-ecm/Makefile',
+    'package/qca-nss/qca-nss-ecm/files/qca-nss-ecm.init',
+    'tests/test-ecm-reload-errors.py', 'tests/test-ecm-service-errors.py',
+}
 
 
 def load_frozen():
@@ -108,6 +113,18 @@ def configuration():
              next_source['commit'] not in (profile['source_commit'], OLD_COMMIT), 'distinct successor identity')
         for key in ('manifest_sha256', 'tree_delta_sha256'):
             need(re.fullmatch(r'[0-9a-f]{64}', next_source[key]), 'sealed successor digest: ' + key)
+    if 'startup_successor' in profile:
+        startup = profile['startup_successor']
+        need('firmware_successor' in profile and type(startup) is dict and set(startup) ==
+             {'commit', 'manifest_sha256', 'tree_delta_sha256', 'files'}, 'one sealed startup successor')
+        need(re.fullmatch(r'[0-9a-f]{40}', startup['commit']) and startup['commit'] not in
+             (profile['source_commit'], profile['source_parent'], profile['firmware_successor']['commit']),
+             'distinct startup successor identity')
+        need(type(startup['files']) is dict and set(startup['files']) == STARTUP_FILES and
+             all(re.fullmatch(r'[0-9a-f]{64}', value) for value in startup['files'].values()),
+             'exact four startup paths and postimages')
+        for key in ('manifest_sha256', 'tree_delta_sha256'):
+            need(re.fullmatch(r'[0-9a-f]{64}', startup[key]), 'sealed startup digest: ' + key)
     need('tests/nss-conn-transaction/run.py' in profile['test_files'] and
          all(name.startswith('tests/nss-conn-transaction/') for name in profile['test_files']),
          'exact reviewed connection test assets')
@@ -117,9 +134,9 @@ def configuration():
 
 
 def firmware_identity(profile):
-    return profile.get('firmware_successor', {
+    return profile.get('startup_successor', profile.get('firmware_successor', {
         'commit': profile['source_commit'], 'manifest_sha256': profile['source_manifest_sha256'],
-    })
+    }))
 
 
 def current_lock(profile):
@@ -159,8 +176,14 @@ def check_firmware(source, profile):
         check_head(source, anchor, profile['source_parent'])
         return
 
-    successor = firmware_identity(profile)
-    check_head(source, successor['commit'], anchor)
+    successor = profile['firmware_successor']
+    if 'startup_successor' in profile:
+        startup = profile['startup_successor']
+        check_head(source, startup['commit'], successor['commit'])
+        check_startup_successor(source, startup, successor['commit'])
+        check_parent(source, successor['commit'], anchor)
+    else:
+        check_head(source, successor['commit'], anchor)
     check_parent(source, anchor, profile['source_parent'])
     raw = git(source, 'diff', '--no-ext-diff', '--raw', '--no-abbrev', '--no-renames',
               '-z', anchor, successor['commit'], '--')
@@ -180,6 +203,25 @@ def check_firmware(source, profile):
              'only regular files without mode changes or new executables: ' + child)
         need(base.path(source, child).read_bytes() == git(source, 'show', successor['commit'] + ':' + child),
              'exact userspace working-tree bytes: ' + child)
+
+
+def check_startup_successor(source, startup, parent):
+    need(set(startup['files']) == STARTUP_FILES, 'exact four startup paths')
+    raw = git(source, 'diff', '--no-ext-diff', '--raw', '--no-abbrev', '--no-renames',
+              '-z', parent, startup['commit'], '--')
+    need(sha(raw) == startup['tree_delta_sha256'], 'exact startup successor tree delta')
+    fields = raw.split(b'\0')
+    need(len(fields) == 2 * len(STARTUP_FILES) + 1 and fields[-1] == b'', 'four modified startup files')
+    observed = set()
+    for meta, name in zip(fields[:-1:2], fields[1:-1:2]):
+        child = name.decode('ascii')
+        need(child in STARTUP_FILES and child not in observed, 'only exact startup paths')
+        observed.add(child)
+        mode = re.fullmatch(rb':(100644|100755) (100644|100755) [0-9a-f]{40} [0-9a-f]{40} M', meta)
+        need(mode and mode[1] == mode[2], 'startup regular modifications without mode changes')
+        raw_file = base.path(source, child).read_bytes()
+        need(raw_file == git(source, 'show', startup['commit'] + ':' + child) and
+             sha(raw_file) == startup['files'][child], 'exact startup working-tree bytes: ' + child)
 
 
 def check_old_source(source, old):
@@ -366,6 +408,7 @@ def main():
     mode.add_argument('--check-lock', action='store_true')
     mode.add_argument('--check-source', action='store_true')
     mode.add_argument('--print-anchor', action='store_true')
+    mode.add_argument('--print-firmware-parent', action='store_true')
     parser.add_argument('--source-root', type=Path)
     parser.add_argument('--driver', type=Path)
     parser.add_argument('--drv27-source-root', type=Path)
@@ -378,6 +421,8 @@ def main():
     current_lock(profile)
     if args.print_anchor:
         print(profile['source_commit'])
+    elif args.print_firmware_parent:
+        print(profile['firmware_successor']['commit'] if 'startup_successor' in profile else profile['source_commit'])
     elif args.check_source:
         if args.source_root is None:
             parser.error('source root is required')

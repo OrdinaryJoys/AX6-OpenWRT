@@ -775,6 +775,29 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+      - name: Real UCI startup compatibility (host only)
+        run: |
+          set -euo pipefail
+          AX6_TEST_SHELL='busybox ash' sh tests/test-ax6-boot-guard.sh
+          python3 -B tests/test-startup-uci-wiring.py
+          python3 -B tests/build-startup-uci-host.py \
+            --source-root openwrt --output startup-uci-evidence
+          python3 -B tests/test-startup-real-uci.py \
+            --uci "$GITHUB_WORKSPACE/startup-uci-evidence/uci-native" --shell 'busybox ash' \
+            | tee startup-uci-evidence/source-service-results.json
+          python3 -B tests/test-ecm-real-uci.py --source-root openwrt \
+            --uci "$GITHUB_WORKSPACE/startup-uci-evidence/uci-native" --shell 'busybox ash' \
+            | tee startup-uci-evidence/ecm-function-results.json
+
+      - name: Preserve native startup evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: AX6_STARTUP_UCI_${{ github.sha }}
+          path: startup-uci-evidence/
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Fast gate — NSS patch prepare (P0-D.6)
         working-directory: ./openwrt
         run: |
@@ -1429,6 +1452,10 @@ jobs:
           cmp openwrt/package/qca-nss/qca-nss-ecm/files/disable_offloads.sh "$offload_extracted"
           ECM_TEST_SHELL='busybox ash' python3 openwrt/tests/test-ecm-service-errors.py "$rps_fixture"
           ECM_TEST_SHELL='busybox ash' python3 openwrt/tests/test-ecm-offload-errors.py "$rps_fixture"
+          python3 -B tests/test-ecm-real-uci.py --source-root openwrt \
+            --uci "$GITHUB_WORKSPACE/startup-uci-evidence/uci-native" --shell 'busybox ash' \
+            --init "$rps_fixture/package/qca-nss/qca-nss-ecm/files/qca-nss-ecm.init" \
+            | tee image-verify/ecm-real-uci.json
           for required in \
             'rps_cpus' \
             'rps_flow_cnt' \
@@ -1631,6 +1658,11 @@ jobs:
 
           unsquashfs -cat "$rootfs" etc/init.d/ax6-boot-guard \
             > image-verify/ax6-boot-guard.init
+          cmp AX6-IPQ/files/etc/init.d/ax6-boot-guard image-verify/ax6-boot-guard.init
+          python3 -B tests/test-startup-real-uci.py \
+            --uci "$GITHUB_WORKSPACE/startup-uci-evidence/uci-native" --shell 'busybox ash' \
+            --service image-verify/ax6-boot-guard.init \
+            | tee image-verify/startup-real-uci.json
           for required in \
             'disable_offloads:1' \
             'disable_gro_list:1' \

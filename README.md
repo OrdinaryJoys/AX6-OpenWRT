@@ -2,7 +2,15 @@
 
 本仓定义 Redmi AX6（IPQ807x）的构建、软件包覆盖、来源校验和固件验收。实际驱动和用户态源码位于 [OrdinaryJoys/immortalwrt-nss](https://github.com/OrdinaryJoys/immortalwrt-nss)，由本分支的 [构建锁](.github/ax6-nss-lock.env) 指向确切提交。Actions 脚本仓的提交不是固件源码提交。
 
-## 本分支：上游修复隔离候选
+## 本分支：启动兼容性修复候选
+
+**2026-11-19：此前828/0c两批固件已收到实机无法启动/使用的明确反馈；P0根因仍开放，禁止将云成功或离线验包当作可刷写保证。** 本分支只集成已复现的 ECM/boot-guard `globals`兼容、pending保护及扫描错误传播修复，ECM包修订为r18；新增Linux BusyBox ash/真实锁定UCI及最终rootfs脚本组合验证。NAND writer的本地未提交修正不纳入本批，不修改SSDK/NSS/FW/DMA或性能策略。
+
+本次先完整Lint，通过后单次stock、ssh=false构建；不合main、不Release、不操作设备。以下五包移植是继承的历史基线，不是本轮新增修复；035、LIVE卸载、独立解绑和FW/DMA退休继续HOLD。
+
+[本批修复和验证边界](docs/AX6_STARTUP_COMPAT_2026-11-19.md)。云端实际结果以本分支提交对应的Actions日志和产物为准。
+
+## 继承的上游修复基线
 
 候选从已离线验收的 `828c21b4` / DRV29 派生。对照是 [stock run 44006853715](https://github.com/OrdinaryJoys/AX6-OpenWRT/actions/runs/44006853715)，其 Linux 6.18.38、NSS、ECM、DP、SSDK、ath11k 和 rpcd OFF 基线保持不变。旧 run 的成功不代表本候选已构建、已验包或已运行。
 

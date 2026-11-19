@@ -178,10 +178,13 @@ if grep -q '^SOURCE_DRV29_ANCHOR_COMMIT=' "$lock_file"; then
         echo 'FAIL: source lock and sealed DRV29 anchor differ' >&2
         exit 1
     fi
-    if ! git -C "$source_root" cat-file -e "$anchor^{commit}" 2>/dev/null; then
-        git -C "$source_root" fetch --depth 1 \
-            https://github.com/OrdinaryJoys/immortalwrt-nss.git "$anchor"
-    fi
+    firmware_parent=$(python3 -B "$drv29" --print-firmware-parent)
+    for parent in "$anchor" "$firmware_parent"; do
+        if ! git -C "$source_root" cat-file -e "$parent^{commit}" 2>/dev/null; then
+            git -C "$source_root" fetch --depth 1 \
+                https://github.com/OrdinaryJoys/immortalwrt-nss.git "$parent"
+        fi
+    done
     python3 -B "$drv29" --check-source --source-root "$source_root"
 fi
 echo "AX6 source semantics: PASS (mac80211=$exp_mac80211 hostapd=$exp_hostapd dp=$exp_dp drv=$exp_drv ecm=$exp_ecm clients=$exp_clients mcs=$exp_mcs ssdk=$exp_ssdk rpcd=$exp_rpcd)"
