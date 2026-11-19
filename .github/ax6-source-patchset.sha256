@@ -354,6 +354,7 @@ feb92e1ae70a4ed6b231f9a7cd754ee307cda5f9c656e2269103412fee7ffc25  target/linux/q
 5105286478646d2d09a230abf5ed5d17919367eb25372c2c246a7dfa3dd254a2  target/linux/qualcommax/dts/ipq8071-ax6-stock.dts
 9701fc60cdddaf530e2da9852b5a6de7c9cf42c2adea9f4586e1e922a6230303  target/linux/qualcommax/dts/ipq8071-ax6.dts
 a891afc469ce64c8e75f98a2b17b4c30b2aed03ffc60bc05458f2bb507158f4c  target/linux/qualcommax/image/ipq807x.mk
+77954d31ca04d77d256824e09d291fb6a704242b2a6829aba01480076367fe5b  target/linux/qualcommax/ipq807x/base-files/lib/upgrade/platform.sh
 3a172f18744b94bb479040a1c5600d775775ca86bcea4550bfe5d1defc640789  target/linux/qualcommax/patches-6.18/0600-1-qca-nss-ecm-support-CORE.patch
 87fd23cac3031fb6673f86de29e58328067fc3a9da65af7b049d7d3879dee0c9  target/linux/qualcommax/patches-6.18/0603-1-qca-nss-clients-add-qdisc-support.patch
 3290f5df3c7e98458f4e3c1e2a2def3a9c637eecff4c257f0a163bef0e9b535e  target/linux/qualcommax/patches-6.18/0603-2-qca-nss-clients-add-l2tp-support.patch
