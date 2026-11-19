@@ -221,7 +221,8 @@ cf2f5cb1bd5854accada3beff0f074c59f7a345158d6b68963f5ce2fd30c9f3f  package/qca-ns
 b20e37b5d9fcbac965b7ddf360136eda33ef339436bd00f0e3c7f6bf2836c2e6  package/qca-nss/qca-nss-drv/patches/030-hal-probe-allocate-local-dummy-first.patch
 b4c9582f5a9ca19110db6643ad89d8918ed36a09a3561fa81e5678397ae5ba3b  package/qca-nss/qca-nss-drv/patches/031-coredump-empty-write-noop.patch
 d3339c2720b97a55160676f9f236acf4d463d7c3afdfcf4f4a64f8e7569e47a9  package/qca-nss/qca-nss-drv/patches/032-ipq807x-private-pdata-rollback.patch
-33dcb6254e8d21e738363cdb4d3a889212041810eb987ca39f4707b71d3065db  package/qca-nss/qca-nss-drv/patches/033-connection-table-host-transaction.patch
+660e855af5071f4417ce29881538a745a93116c6b056d9a33540e8bbc7641064  package/qca-nss/qca-nss-drv/patches/033-connection-table-host-transaction.patch
+0097f4199aa0d5276de954b1ac85a20c3f6099f1d29417f0793afba95dde45d2  package/qca-nss/qca-nss-drv/patches/055-wifili-send-actual-message-length.patch
 69a8150535c369355b434bdf5c18bdb01a974625b46fcdb77cbca6c7eae3e57a  package/qca-nss/qca-nss-ecm/Makefile
 2438ccfa97b0fa4e6f3cb333de8d0c8fcb05c46b6bcfdca93f4f75ae390920d9  package/qca-nss/qca-nss-ecm/files/disable_offloads.hotplug
 055e4f85038ff06f449a9512eaf8d14f6e8bfea2c92a0a38a964a5a2e433eb69  package/qca-nss/qca-nss-ecm/files/disable_offloads.sh
