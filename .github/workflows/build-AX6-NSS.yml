@@ -1623,6 +1623,14 @@ jobs:
           fi
           cp "${device_manifests[0]}" upload/upgrade/
           cp "${device_manifests[0]}" upload/recovery/
+          mapfile -d '' target_profiles < <(
+            find "$target_dir" -maxdepth 1 -type f -name 'profiles.json' -print0
+          )
+          if [ "${#target_profiles[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one target profiles.json, found ${#target_profiles[@]}"
+            exit 1
+          fi
+          cp "${target_profiles[0]}" upload/upgrade/
 
           find openwrt/bin/targets -type f \
             \( -name 'config.buildinfo' -o -name 'feeds.buildinfo' \
@@ -1757,6 +1765,38 @@ jobs:
           fi
           ls -lh
 
+      - name: Verify standard image formats and build complete bundle
+        if: env.VARIANT_TAG == 'STOCK'
+        run: |
+          set -eo pipefail
+          mapfile -d '' sysupgrade_images < <(find upload/upgrade -maxdepth 1 -type f -name '*-squashfs-sysupgrade.bin' -print0)
+          mapfile -d '' factory_images < <(find upload/recovery -maxdepth 1 -type f -name '*-squashfs-factory.ubi' -print0)
+          mapfile -d '' itb_images < <(find upload/recovery -maxdepth 1 -type f -name '*-initramfs-uImage.itb' -print0)
+          mapfile -d '' manifests < <(find upload/upgrade -maxdepth 1 -type f -name '*.manifest' -print0)
+          profiles_file=$(find upload/upgrade -maxdepth 1 -type f -name 'profiles.json' -print -quit)
+          test "${#sysupgrade_images[@]}" -eq 1 || { echo '::error::bundle requires exactly one sysupgrade'; exit 1; }
+          test "${#factory_images[@]}" -eq 1 || { echo '::error::bundle requires exactly one factory UBI'; exit 1; }
+          test "${#itb_images[@]}" -eq 1 || { echo '::error::bundle requires exactly one initramfs ITB'; exit 1; }
+          test "${#manifests[@]}" -eq 1 || { echo '::error::bundle requires exactly one manifest'; exit 1; }
+          test -s upload/upgrade/COMPILED-AX6-STOCK.dtb || { echo '::error::compiled DTB missing'; exit 1; }
+          test -n "$profiles_file" || { echo '::error::profiles.json missing; standard packaging requires it'; exit 1; }
+          rm -rf upload/bundle
+          args=(
+            --sysupgrade "${sysupgrade_images[0]}"
+            --factory-ubi "${factory_images[0]}"
+            --initramfs-itb "${itb_images[0]}"
+            --manifest "${manifests[0]}"
+            --profiles-json "$profiles_file"
+            --compiled-dtb upload/upgrade/COMPILED-AX6-STOCK.dtb
+            --outdir upload/bundle
+          )
+          python3 AX6-IPQ/scripts/make-ax6-release-bundle.py "${args[@]}"
+          cp upload/bundle/FORMAT-VERIFICATION.json upload/upgrade/FORMAT-VERIFICATION.json
+          cp upload/bundle/FORMAT-VERIFICATION.json upload/recovery/FORMAT-VERIFICATION.json
+          (cd upload/upgrade && find . -maxdepth 1 -type f ! -name 'SHA256SUMS-AX6.txt' -print0 | sort -z | xargs -0 sha256sum >SHA256SUMS-AX6.txt)
+          (cd upload/recovery && find . -maxdepth 1 -type f ! -name 'SHA256SUMS-RECOVERY.txt' -print0 | sort -z | xargs -0 sha256sum >SHA256SUMS-RECOVERY.txt)
+          ls -lh upload/bundle
+
       - name: Package kmod for offline install
         run: |
           set -eo pipefail
@@ -1809,6 +1849,15 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
+
+      - name: Upload complete standard bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: AX6_NSS_${{ env.VARIANT_TAG }}_BUNDLE_${{ github.sha }}
+          path: upload/bundle/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 90
 
       - name: Upload firmware to Release
         uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd  # v1.21.0
