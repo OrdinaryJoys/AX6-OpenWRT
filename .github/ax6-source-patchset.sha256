@@ -166,7 +166,9 @@ f31aecc51e7bebffb73c9b9d700fc1cfdf5f4e1e5b2d04c9bc9bbc106dfa7bad  package/qca-ns
 22b40538dcae6851ecdae4b8e1d96bc8a7a745672ab83177e38cf8f7345045a7  package/qca-nss/qca-nss-ecm/patches/026-frontends-nss-respect-bridge-port-vlan-tagging-for-vlan-over-bridge.patch
 95307ad7ade437e6c7f22a51d7a830726dd0c8d9008dcfed67c62f9372a8dc9d  package/qca-nss/qca-nss-ecm/patches/027-fix-multicast-destination-count-signedness.patch
 1eff77f431829640a3f68e7f85bf2b5258636285ec005a3c3368f0d9b4226a75  package/qca-nss/qca-nss-ecm/tests/test-disable-offloads.sh
+51d073f8c01a64ad49b67c0c9885fe3677bc84dcdbaf712791a8bf0554beacd9  package/qca-nss/qca-ssdk/Makefile
 ddb52cdf907a45761b7c3e394db4c29eeae5d268f3e00ed86e3eabf6fd641055  package/qca-nss/qca-ssdk/patches/009-feature-nss-dp-netdev-mac-sync.patch
+8c58d5cd566443c932a43de11a82ff74118edd3b79788f7b7da58696c8ea804e  package/qca-nss/qca-ssdk/patches/011-ssdk-propagate-init-errors.patch
 cf4dd1b5e975aaec31995b4fbc49ffddcc970d9a5e8a99a0120b92721871f13b  package/system/rpcd/AX6-VALIDATION.md
 058c6d72a1dfa6b3e6b9720cc925fd2c5c89bc7dbd985da8b1ce08972cf70721  package/system/rpcd/Makefile
 ccd7731c4f16043f347ac5bb86ffd198be9bf371624061f8fd349cd4674da6e3  package/system/rpcd/patches/010-file-resolved-path-acl.patch
