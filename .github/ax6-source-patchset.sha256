@@ -13,10 +13,12 @@ cc14bbb5f2e9edff41609452a0a3aef17ce4101d57a31ab579423a8d685454f7  docs/AX6_ROOT_
 91a38a53203933b4cecb6731df6e9f094174e87980bc108fdd0f18ee6fe8b663  docs/AX6_RPCD_JOURNAL_RECOVERY_2026-10-20.md
 dad4b748dadec8b8cbc250f3cd77430aff67a96b5a498ea840428ce285527876  docs/AX6_RPCD_PUBLICATION_2026-10-21.md
 808e1bbb9d5debf2a2e20ba0da7a8d3314952160513e6bb9873bb532f334b788  docs/AX6_RPCD_STORAGE_PATHS_2026-10-20.md
-93d8145c80b54b3d99bc0f2c69281a1a1b4f89cd9dd1b175dd01cf69f40ffa27  package/base-files/files/lib/upgrade/nand.sh
-90c26ca6a13424c2b8212ecc382a45a26a7749d722c8bde26a2e84d351b1bfc9  package/kernel/mac80211/Makefile
+5e17f9becabaf2543d3b6e92b10aa3f6004b8e48ab366e50df6aafa8f9db41e7  package/base-files/files/lib/upgrade/nand.sh
+446544c80db843adae5300ca8388acb7005c2fade12367e87645db34479a8b72  package/boot/uboot-tools/uboot-envtools/files/qualcommax_ipq807x
+eb842e9b3d055d1fe68ad89b543a3285726cdc8c5d58c6c7dcd55db06360c7da  package/kernel/mac80211/Makefile
+05b99a6e69a4259f09fce71a7094bf8b786302be0a74a85f4be625853a172580  package/kernel/mac80211/ath.mk
 80587244b81f5303ce9479e21ef90c3a3b78b310ec63d0b814e26eb8f73733dd  package/kernel/mac80211/files/pbuf.uci
-44df9e037b3ce0fff83d5271fe0de3904c5581a95b3e77ba88d68443b26bf714  package/kernel/mac80211/files/qca-nss-pbuf.init
+8b3e27663974590d30ba169abc9f72058e3ba7f5c2b4b8f24851f8eeb062da77  package/kernel/mac80211/files/qca-nss-pbuf.init
 865ea34a7d98208c6533fed5aeabf551adb61f2c344d1c768a99e778df10cff6  package/kernel/mac80211/patches/ath11k/102-wifi-ath11k-fix-stride-mismatch-in-mac_phy_caps_parse.patch
 b66d866d40cd5a6fc2e52912c3b31b3d6b4d1c1a62a085916798993e2c9e5ca4  package/kernel/mac80211/patches/ath11k/950-ath11k-add-6ghz-lpi-rule-to-world-regd.patch
 96865ac49b23dcb325f05c172c494356a3c4631464f0e35a5cd4774ec6d73b64  package/kernel/mac80211/patches/ath11k/985-ath11k-reserve-empty-rx-buffer-alignment.patch
@@ -85,6 +87,7 @@ ad95cec37f6d3a79b9382c7a3202b35254107990bbea1c9ebc5408260d7b4019  package/kernel
 340abdd89b135bfdb36a61250b867b16c492d91fb702b6e208012b50b1f194c9  package/kernel/mac80211/patches/nss/ath11k/999-954-ath11k-initialize-and-detach-mesh-dump-ownership.patch
 6d848fec342fea468fecbbd8115207af0fe823fba46284bb12273c77099c936d  package/kernel/mac80211/patches/nss/ath11k/999-955-ath11k-balance-link-descriptor-bh-release.patch
 7b20f1247390e33b7d1c1f5fd1966cd8fe7596c0054df46bb29916bb640294f4  package/kernel/mac80211/patches/nss/ath11k/999-956-ath11k-nss-use-opaque-context-registration.patch
+0cf4c4e4f8588b586b42fad9dcf0671debd0d6eade96bcf03c84e824faa2da3b  package/kernel/mac80211/patches/nss/ath11k/999-957-ath11k-nss-validate-wifili-peer-stats-length.patch
 b2406698a34a741031e020161c0070ade51ca67c47258e0cbd5d4ba23d75a93c  package/kernel/mac80211/patches/nss/subsys/199-001-mac80211-add-nss-support.patch
 058b5b54d98fe2cf769eb7ffd9b2a52404de02c96629637d3cf5604aeff68332  package/kernel/mac80211/patches/nss/subsys/203-mac80211-ath11k-fw-dynamic-muedca.patch
 9c0e4703c4fa67c1ef7f984ea8dd02d9fb3f56575604da889b4855f5f1de037c  package/kernel/mac80211/patches/nss/subsys/235-001-mac80211-add-AP_VLAN-iftype-support-on-NSS-offload-case.patch
@@ -233,7 +236,7 @@ d3339c2720b97a55160676f9f236acf4d463d7c3afdfcf4f4a64f8e7569e47a9  package/qca-ns
 729dbe7f96d28c8a7ffa122eeb39b37de90e708513ced37c9880a1dd14f61e46  package/qca-nss/qca-nss-ecm/patches/028-classifier-preserve-explicit-directional-udp-priorities.patch
 52346dd0808f09c254710db8cc7772dd96440428d627bd2c15a3fb62fbcaac4b  package/qca-nss/qca-nss-ecm/patches/029-denied-ports-publish-bounded-rcu-snapshots.patch
 449132502ad5a8793dc91563903338f2df45eb5fead4064a1f4ddc6299c1d5c2  package/qca-nss/qca-nss-ecm/tests/test-disable-offloads.sh
-a4f44c2ea43aaf4a35e93472cef0c81f96b0104fb913a93d17b0b4197ecc9757  package/qca-nss/qca-ssdk/Makefile
+90921835e9692f3d16de207b13a0378242403fd58e4c1ae48c09b56eb573b915  package/qca-nss/qca-ssdk/Makefile
 ddb52cdf907a45761b7c3e394db4c29eeae5d268f3e00ed86e3eabf6fd641055  package/qca-nss/qca-ssdk/patches/009-feature-nss-dp-netdev-mac-sync.patch
 cc93fdd230cd3718c3a02ce74fed5d7c881df132a6db529a10d01963f23f30e8  package/qca-nss/qca-ssdk/patches/020-mib-complete-diagnostics-and-propagate-errors.patch
 fa50c93922d26938758145daea49b03884b97ed43c738ed664fe4e224086d6ac  package/qca-nss/qca-ssdk/patches/021-ssdk-hppe-return-chain.patch
@@ -356,7 +359,8 @@ feb92e1ae70a4ed6b231f9a7cd754ee307cda5f9c656e2269103412fee7ffc25  target/linux/q
 5105286478646d2d09a230abf5ed5d17919367eb25372c2c246a7dfa3dd254a2  target/linux/qualcommax/dts/ipq8071-ax6-stock.dts
 9701fc60cdddaf530e2da9852b5a6de7c9cf42c2adea9f4586e1e922a6230303  target/linux/qualcommax/dts/ipq8071-ax6.dts
 a891afc469ce64c8e75f98a2b17b4c30b2aed03ffc60bc05458f2bb507158f4c  target/linux/qualcommax/image/ipq807x.mk
-77954d31ca04d77d256824e09d291fb6a704242b2a6829aba01480076367fe5b  target/linux/qualcommax/ipq807x/base-files/lib/upgrade/platform.sh
+f2bdc5badd39ec3385aa58ebf6afd6e21519e28f79e4e06b06768f5e75c62de3  target/linux/qualcommax/ipq807x/base-files/etc/init.d/bootcount
+240b81b9da27a6ba1a02df195f045616265b625df557043d8eeb0a01d0c79183  target/linux/qualcommax/ipq807x/base-files/lib/upgrade/platform.sh
 3a172f18744b94bb479040a1c5600d775775ca86bcea4550bfe5d1defc640789  target/linux/qualcommax/patches-6.18/0600-1-qca-nss-ecm-support-CORE.patch
 87fd23cac3031fb6673f86de29e58328067fc3a9da65af7b049d7d3879dee0c9  target/linux/qualcommax/patches-6.18/0603-1-qca-nss-clients-add-qdisc-support.patch
 3290f5df3c7e98458f4e3c1e2a2def3a9c637eecff4c257f0a163bef0e9b535e  target/linux/qualcommax/patches-6.18/0603-2-qca-nss-clients-add-l2tp-support.patch
@@ -383,7 +387,7 @@ bccce487535d5caf163419b51595991848c0828d2ae2e1df8e304ebd570e37ff  tests/CORE_RIS
 cc82849073a4ed20a054bc8b50c20327d0a336274dd2307e5f27aa2349154adc  tests/NSS_IGS_OWNER_REFERENCE.md
 47ff0ad968b2f22c72593775e25e74a5cf2d1199597a9f2254ddf50f23a33b4d  tests/NSS_IGS_SYNC_COMPLETION.md
 c586c329d06034f2aee196b721d317b72ef964d5ba6f4cf892e18c53b53dcf7e  tests/PBUF_RELOAD.md
-73e75231509e6d123ff690ae0f95968bece605ca42cc18041768347b7e500071  tests/PBUF_START.md
+c695a661287203a30d734d808fbe49b24c0968b2d929fc27c0d3de9e2199a259  tests/PBUF_START.md
 c103432d84012c7486207fd41ffa8eb1bac4a61beb629abe4045f8ae66c0059c  tests/QCOM_MIB_WIDTH.md
 24dd779e76c6fa9ec58329e6f2d00d2d76aba89d12cc8968a0f561dcf09106a3  tests/SSDK_DP_RETIREMENT_PLAN_2026-10-30.md
 c27b3e0e5a28f3e90ffe502b571aa07277001b3553ce8fa46bf202c2aec838b5  tests/SSDK_DT_ADMISSION_PLAN_2026-10-31.md
@@ -419,6 +423,7 @@ b1149a8cc0cbdd22373836656e6743ac89e5df1ab7f4c13a7ae3772dee477b54  tests/ath11k-n
 2152a1becb26da5c5fd8f76e901c6d40e2367ed8dd9416d7283d28249b19e331  tests/ath11k-nss-init-ownership/host-fixture.c
 d34cb8eca427aee3e313b9ed817b26f7a1611bb7dec62bffa27a04704998817a  tests/ath11k-nss-link-return/README.md
 1a05aa89d1bab5df422d3fdee4ad555b3d6016feaad03d356d8381074e381287  tests/ath11k-nss-link-return/host-fixture.c
+e60821c0b977277496b83fea76fbcc8d155ffcb6154212b9d6adb9b112746a4e  tests/ath11k-nss-peer-stats-bounds/host-fixture.c
 d8850a5446299c686b1fcc2c175b6f55f5dfc59dd8cdfc000668cb36713acdc5  tests/ath11k-pci-ssr/README.md
 dcbb13c1211cf537f0b8282f63d064e7bdf7afcf17a8441b95a794cfe1f08a96  tests/ath11k-pci-ssr/host-fixture.c
 1b2828501583d952d54619067e97c5778e3a3f9d52d7dbe55c74aa5ce87c0fd5  tests/ath11k-pcic-irq/README.md
@@ -607,6 +612,7 @@ f25d584500c0570acd57ababff7acedff05fc4f4b37ad40307015b0be1c4c457  tests/test-ath
 dcc9d7b9b8f136d4daed9ddf477f884a245ad564d9a47575c0c2efda15933308  tests/test-ath11k-nss-context.py
 d122fd023c59313cf754a079902b1f69edc0235573b7f43cbeea26d1e380f21a  tests/test-ath11k-nss-init-ownership.py
 2c35492d20bc5cbe5edbf8a327662426628d1a753187a3417074879faca72824  tests/test-ath11k-nss-link-return.py
+0f4ccff8c81f26e9e8830b75e67dafd8b35c63002cc859bca9f61b7e45a7ba9e  tests/test-ath11k-nss-peer-stats-bounds.py
 673e403c22f08f85e64e8550f9f22b0ef3c7b9bc6cd67ea04e0c21fe1274719c  tests/test-ath11k-nss-tx-desc-profile.sh
 e2aa30656e266f3a0f15200373d22e7fe1affa10b620c39a17ceca2f9f09ef16  tests/test-ath11k-pci-ssr.py
 35cb6c312b8ac10ad7841af97b97264f09aaa8cb52cc426fc2a71e29e9487e71  tests/test-ath11k-pcic-irq-errors.py
@@ -615,6 +621,8 @@ a605b0b0d8105bfbced6b9297ced094ee16186ddad85893130fe092c085e615c  tests/test-ath
 8c7dcf6be69bb7891a4bf3e28d10355ec6470f240d18b2aa47552513cceb7e04  tests/test-ath11k-rx-alignment.py
 949b111834cacdbfac428077c20497333b1c3abf2599990abc90f438e4781848  tests/test-ath11k-srng-allocation.py
 41fba829fdc1439150a49568da7aa648041d22d02e3da679fc6e6125c538a108  tests/test-ath11k-tx-pool-errors.py
+62f7b5baabccba1fa143e2b0b6b0f4beb2708f5a7fbb7824f0858e97eba57bc6  tests/test-ax6-nand-writer.sh
+0a6a3ad044b177a9f454b0a18a397a03620e46a4d0e66065da0e6cd39e2b574e  tests/test-ax6-platform-large-partition.sh
 b27627be78ed41f0b3fc95620bbe22ca41ab05e86f7f5562a2ba4647c0a1ead7  tests/test-ax6-upstream-leaves.py
 08cd38176cb38dd9351ce9fd9f252cd7e96f839ac98312df7c31644f24ec621e  tests/test-dns-redirect-scope.sh
 6efdf777649e205df42cb8f59092f079c9f31d6d2b3b564e6a09c2b4e7c990ec  tests/test-download-cache.py
@@ -660,7 +668,7 @@ cc1db4b54b9bc3c6597050db356710eed760411401cb4c173ba2d40e11e9c20f  tests/test-qca
 3b9937b3490b1327d5327ddd32778cee593449d9a60d1d4203816db40d3c5311  tests/test-qca-mcs-log-level.sh
 e41f80bc362099361e25beb557ec9e520a80963392acfdc6ac00e1076edbc043  tests/test-qca-nss-pbuf-readback.sh
 be0d3c095da92a14b341abc821361c0bd4e3ff9397a6716f3e0d03fa20ce99db  tests/test-qca-nss-pbuf-reload.py
-95a12c9a79aa23130d740459e706ce2cf24523bb106c4a8399c185137dce31dc  tests/test-qca-nss-pbuf-start.py
+4b9585bdc05d6effc8c6d0ef9ddf4937d8c150a857d5894c134a9fca8c3916d0  tests/test-qca-nss-pbuf-start.py
 94cd3d9e1ee2180182209066e162ccbbae4d8bc930c829f77ebe494e0427ee47  tests/test-qcom-hwspinlock-regmap-boundary.sh
 bf5a9bc9f7b46e6d34d13fd347bb87594845cfeb796a6469826cba54d460cb8d  tests/test-qcom-mib-width.py
 c0bc5849c71257ac0097ae8e39daf784f4ed4c40eaaac1bfdedbf4142d090f52  tests/test-rpcd-journal-publication.py
