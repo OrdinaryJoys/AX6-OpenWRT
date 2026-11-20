@@ -39,6 +39,10 @@ def sha256(path: Path) -> str:
             h.update(chunk)
     return h.hexdigest()
 
+def require(cond: bool, msg: str) -> None:
+    if not cond:
+        raise SystemExit(f"ERROR: {msg}")
+
 
 def main() -> int:
     ap = argparse.ArgumentParser()
@@ -84,6 +88,33 @@ def main() -> int:
         if src.resolve() != dst.resolve():
             shutil.copy2(src, dst)
         copied.append(dst)
+
+    if args.profiles_json:
+        profile_path = Path(args.profiles_json)
+        try:
+            profiles = json.loads(profile_path.read_text())
+        except Exception as exc:
+            raise SystemExit(f"ERROR: invalid profiles.json: {exc}")
+        require_map = {"sysupgrade": Path(args.sysupgrade).name,
+                       "factory": Path(args.factory_ubi).name,
+                       "kernel": Path(args.initramfs_itb).name}
+        require(profiles.get("metadata_version") is not None, "profiles.json metadata_version missing")
+        profile = (profiles.get("profiles") or {}).get("redmi_ax6-stock")
+        require(profile is not None, "profiles.json redmi_ax6-stock profile missing")
+        images = profile.get("images") or []
+        found = {}
+        for image in images:
+            found[image.get("type")] = image
+        for image_type, expected_name in require_map.items():
+            image = found.get(image_type)
+            require(image is not None, f"profiles.json missing {image_type} image")
+            require(image.get("name") == expected_name,
+                    f"profiles.json {image_type} name mismatch: {image.get('name')!r} != {expected_name!r}")
+            actual = sha256(Path(args.sysupgrade if image_type == "sysupgrade" else
+                                 args.factory_ubi if image_type == "factory" else args.initramfs_itb))
+            require(image.get("sha256") == actual,
+                    f"profiles.json {image_type} sha256 mismatch")
+            require("sha256_unsigned" in image, f"profiles.json {image_type} sha256_unsigned missing")
 
     readme = out / "FORMAT-README.txt"
     readme.write_text(
