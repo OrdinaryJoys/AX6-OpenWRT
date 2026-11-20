@@ -88,6 +88,7 @@ ad95cec37f6d3a79b9382c7a3202b35254107990bbea1c9ebc5408260d7b4019  package/kernel
 6d848fec342fea468fecbbd8115207af0fe823fba46284bb12273c77099c936d  package/kernel/mac80211/patches/nss/ath11k/999-955-ath11k-balance-link-descriptor-bh-release.patch
 7b20f1247390e33b7d1c1f5fd1966cd8fe7596c0054df46bb29916bb640294f4  package/kernel/mac80211/patches/nss/ath11k/999-956-ath11k-nss-use-opaque-context-registration.patch
 0cf4c4e4f8588b586b42fad9dcf0671debd0d6eade96bcf03c84e824faa2da3b  package/kernel/mac80211/patches/nss/ath11k/999-957-ath11k-nss-validate-wifili-peer-stats-length.patch
+e48eb4cfcff4e274245fcf088e996f9a228b1ef26d86e66212f81e2044f0e974  package/kernel/mac80211/patches/nss/ath11k/999-958-ath11k-nss-parse-available-peer-stats.patch
 b2406698a34a741031e020161c0070ade51ca67c47258e0cbd5d4ba23d75a93c  package/kernel/mac80211/patches/nss/subsys/199-001-mac80211-add-nss-support.patch
 058b5b54d98fe2cf769eb7ffd9b2a52404de02c96629637d3cf5604aeff68332  package/kernel/mac80211/patches/nss/subsys/203-mac80211-ath11k-fw-dynamic-muedca.patch
 9c0e4703c4fa67c1ef7f984ea8dd02d9fb3f56575604da889b4855f5f1de037c  package/kernel/mac80211/patches/nss/subsys/235-001-mac80211-add-AP_VLAN-iftype-support-on-NSS-offload-case.patch
@@ -236,7 +237,7 @@ d3339c2720b97a55160676f9f236acf4d463d7c3afdfcf4f4a64f8e7569e47a9  package/qca-ns
 729dbe7f96d28c8a7ffa122eeb39b37de90e708513ced37c9880a1dd14f61e46  package/qca-nss/qca-nss-ecm/patches/028-classifier-preserve-explicit-directional-udp-priorities.patch
 52346dd0808f09c254710db8cc7772dd96440428d627bd2c15a3fb62fbcaac4b  package/qca-nss/qca-nss-ecm/patches/029-denied-ports-publish-bounded-rcu-snapshots.patch
 449132502ad5a8793dc91563903338f2df45eb5fead4064a1f4ddc6299c1d5c2  package/qca-nss/qca-nss-ecm/tests/test-disable-offloads.sh
-90921835e9692f3d16de207b13a0378242403fd58e4c1ae48c09b56eb573b915  package/qca-nss/qca-ssdk/Makefile
+574ba5fe6105966a15e4d54fbf46d81fad5b0735181d4eb704cf4017a9195f4a  package/qca-nss/qca-ssdk/Makefile
 ddb52cdf907a45761b7c3e394db4c29eeae5d268f3e00ed86e3eabf6fd641055  package/qca-nss/qca-ssdk/patches/009-feature-nss-dp-netdev-mac-sync.patch
 cc93fdd230cd3718c3a02ce74fed5d7c881df132a6db529a10d01963f23f30e8  package/qca-nss/qca-ssdk/patches/020-mib-complete-diagnostics-and-propagate-errors.patch
 fa50c93922d26938758145daea49b03884b97ed43c738ed664fe4e224086d6ac  package/qca-nss/qca-ssdk/patches/021-ssdk-hppe-return-chain.patch
@@ -272,6 +273,7 @@ d77e97af48201efb952bc43afbb6c6b626be8a5e185c1c9d182b9c451910b362  package/qca-ns
 004ab0a1472f331cc4c60887281cbfc1a9d428ae6c3513e01d2ee7114e93686e  package/qca-nss/qca-ssdk/patches/052-ssdk-probe-balanced-node-and-oom.patch
 9863d5e960f8582100cf61fc22373490c6cfc5db8236a4da20cb1d8ecc159938  package/qca-nss/qca-ssdk/patches/053-ssdk-track-platform-resource-acquisition.patch
 50d8de2b32fa14391f1225d2ee677b10985b6d65c83169556cab090cf4c2087e  package/qca-nss/qca-ssdk/patches/054-ssdk-root-init-retention.patch
+4c50ad0a3c03e303aadcec2f12dce1adf4ed0fc6272a40668db6945833cd05a1  package/qca-nss/qca-ssdk/patches/055-ssdk-mib-start-physical-port.patch
 cf4dd1b5e975aaec31995b4fbc49ffddcc970d9a5e8a99a0120b92721871f13b  package/system/rpcd/AX6-VALIDATION.md
 058c6d72a1dfa6b3e6b9720cc925fd2c5c89bc7dbd985da8b1ce08972cf70721  package/system/rpcd/Makefile
 ccd7731c4f16043f347ac5bb86ffd198be9bf371624061f8fd349cd4674da6e3  package/system/rpcd/patches/010-file-resolved-path-acl.patch
@@ -425,7 +427,7 @@ b1149a8cc0cbdd22373836656e6743ac89e5df1ab7f4c13a7ae3772dee477b54  tests/ath11k-n
 2152a1becb26da5c5fd8f76e901c6d40e2367ed8dd9416d7283d28249b19e331  tests/ath11k-nss-init-ownership/host-fixture.c
 d34cb8eca427aee3e313b9ed817b26f7a1611bb7dec62bffa27a04704998817a  tests/ath11k-nss-link-return/README.md
 1a05aa89d1bab5df422d3fdee4ad555b3d6016feaad03d356d8381074e381287  tests/ath11k-nss-link-return/host-fixture.c
-e60821c0b977277496b83fea76fbcc8d155ffcb6154212b9d6adb9b112746a4e  tests/ath11k-nss-peer-stats-bounds/host-fixture.c
+7b82c2b827f98786c277b9309e6e7952f6a42d80daf7c803af5276d49139d0a3  tests/ath11k-nss-peer-stats-bounds/host-fixture.c
 d8850a5446299c686b1fcc2c175b6f55f5dfc59dd8cdfc000668cb36713acdc5  tests/ath11k-pci-ssr/README.md
 dcbb13c1211cf537f0b8282f63d064e7bdf7afcf17a8441b95a794cfe1f08a96  tests/ath11k-pci-ssr/host-fixture.c
 1b2828501583d952d54619067e97c5778e3a3f9d52d7dbe55c74aa5ce87c0fd5  tests/ath11k-pcic-irq/README.md
