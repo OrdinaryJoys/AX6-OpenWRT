@@ -18,7 +18,7 @@ dad4b748dadec8b8cbc250f3cd77430aff67a96b5a498ea840428ce285527876  docs/AX6_RPCD_
 eb842e9b3d055d1fe68ad89b543a3285726cdc8c5d58c6c7dcd55db06360c7da  package/kernel/mac80211/Makefile
 05b99a6e69a4259f09fce71a7094bf8b786302be0a74a85f4be625853a172580  package/kernel/mac80211/ath.mk
 80587244b81f5303ce9479e21ef90c3a3b78b310ec63d0b814e26eb8f73733dd  package/kernel/mac80211/files/pbuf.uci
-8b3e27663974590d30ba169abc9f72058e3ba7f5c2b4b8f24851f8eeb062da77  package/kernel/mac80211/files/qca-nss-pbuf.init
+44df9e037b3ce0fff83d5271fe0de3904c5581a95b3e77ba88d68443b26bf714  package/kernel/mac80211/files/qca-nss-pbuf.init
 865ea34a7d98208c6533fed5aeabf551adb61f2c344d1c768a99e778df10cff6  package/kernel/mac80211/patches/ath11k/102-wifi-ath11k-fix-stride-mismatch-in-mac_phy_caps_parse.patch
 b66d866d40cd5a6fc2e52912c3b31b3d6b4d1c1a62a085916798993e2c9e5ca4  package/kernel/mac80211/patches/ath11k/950-ath11k-add-6ghz-lpi-rule-to-world-regd.patch
 96865ac49b23dcb325f05c172c494356a3c4631464f0e35a5cd4774ec6d73b64  package/kernel/mac80211/patches/ath11k/985-ath11k-reserve-empty-rx-buffer-alignment.patch
@@ -236,7 +236,7 @@ d3339c2720b97a55160676f9f236acf4d463d7c3afdfcf4f4a64f8e7569e47a9  package/qca-ns
 729dbe7f96d28c8a7ffa122eeb39b37de90e708513ced37c9880a1dd14f61e46  package/qca-nss/qca-nss-ecm/patches/028-classifier-preserve-explicit-directional-udp-priorities.patch
 52346dd0808f09c254710db8cc7772dd96440428d627bd2c15a3fb62fbcaac4b  package/qca-nss/qca-nss-ecm/patches/029-denied-ports-publish-bounded-rcu-snapshots.patch
 449132502ad5a8793dc91563903338f2df45eb5fead4064a1f4ddc6299c1d5c2  package/qca-nss/qca-nss-ecm/tests/test-disable-offloads.sh
-90921835e9692f3d16de207b13a0378242403fd58e4c1ae48c09b56eb573b915  package/qca-nss/qca-ssdk/Makefile
+a4f44c2ea43aaf4a35e93472cef0c81f96b0104fb913a93d17b0b4197ecc9757  package/qca-nss/qca-ssdk/Makefile
 ddb52cdf907a45761b7c3e394db4c29eeae5d268f3e00ed86e3eabf6fd641055  package/qca-nss/qca-ssdk/patches/009-feature-nss-dp-netdev-mac-sync.patch
 cc93fdd230cd3718c3a02ce74fed5d7c881df132a6db529a10d01963f23f30e8  package/qca-nss/qca-ssdk/patches/020-mib-complete-diagnostics-and-propagate-errors.patch
 fa50c93922d26938758145daea49b03884b97ed43c738ed664fe4e224086d6ac  package/qca-nss/qca-ssdk/patches/021-ssdk-hppe-return-chain.patch
@@ -387,7 +387,7 @@ bccce487535d5caf163419b51595991848c0828d2ae2e1df8e304ebd570e37ff  tests/CORE_RIS
 cc82849073a4ed20a054bc8b50c20327d0a336274dd2307e5f27aa2349154adc  tests/NSS_IGS_OWNER_REFERENCE.md
 47ff0ad968b2f22c72593775e25e74a5cf2d1199597a9f2254ddf50f23a33b4d  tests/NSS_IGS_SYNC_COMPLETION.md
 c586c329d06034f2aee196b721d317b72ef964d5ba6f4cf892e18c53b53dcf7e  tests/PBUF_RELOAD.md
-c695a661287203a30d734d808fbe49b24c0968b2d929fc27c0d3de9e2199a259  tests/PBUF_START.md
+73e75231509e6d123ff690ae0f95968bece605ca42cc18041768347b7e500071  tests/PBUF_START.md
 c103432d84012c7486207fd41ffa8eb1bac4a61beb629abe4045f8ae66c0059c  tests/QCOM_MIB_WIDTH.md
 24dd779e76c6fa9ec58329e6f2d00d2d76aba89d12cc8968a0f561dcf09106a3  tests/SSDK_DP_RETIREMENT_PLAN_2026-10-30.md
 c27b3e0e5a28f3e90ffe502b571aa07277001b3553ce8fa46bf202c2aec838b5  tests/SSDK_DT_ADMISSION_PLAN_2026-10-31.md
@@ -668,7 +668,7 @@ cc1db4b54b9bc3c6597050db356710eed760411401cb4c173ba2d40e11e9c20f  tests/test-qca
 3b9937b3490b1327d5327ddd32778cee593449d9a60d1d4203816db40d3c5311  tests/test-qca-mcs-log-level.sh
 e41f80bc362099361e25beb557ec9e520a80963392acfdc6ac00e1076edbc043  tests/test-qca-nss-pbuf-readback.sh
 be0d3c095da92a14b341abc821361c0bd4e3ff9397a6716f3e0d03fa20ce99db  tests/test-qca-nss-pbuf-reload.py
-4b9585bdc05d6effc8c6d0ef9ddf4937d8c150a857d5894c134a9fca8c3916d0  tests/test-qca-nss-pbuf-start.py
+95a12c9a79aa23130d740459e706ce2cf24523bb106c4a8399c185137dce31dc  tests/test-qca-nss-pbuf-start.py
 94cd3d9e1ee2180182209066e162ccbbae4d8bc930c829f77ebe494e0427ee47  tests/test-qcom-hwspinlock-regmap-boundary.sh
 bf5a9bc9f7b46e6d34d13fd347bb87594845cfeb796a6469826cba54d460cb8d  tests/test-qcom-mib-width.py
 c0bc5849c71257ac0097ae8e39daf784f4ed4c40eaaac1bfdedbf4142d090f52  tests/test-rpcd-journal-publication.py
