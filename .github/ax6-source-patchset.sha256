@@ -88,7 +88,7 @@ ad95cec37f6d3a79b9382c7a3202b35254107990bbea1c9ebc5408260d7b4019  package/kernel
 6d848fec342fea468fecbbd8115207af0fe823fba46284bb12273c77099c936d  package/kernel/mac80211/patches/nss/ath11k/999-955-ath11k-balance-link-descriptor-bh-release.patch
 7b20f1247390e33b7d1c1f5fd1966cd8fe7596c0054df46bb29916bb640294f4  package/kernel/mac80211/patches/nss/ath11k/999-956-ath11k-nss-use-opaque-context-registration.patch
 0cf4c4e4f8588b586b42fad9dcf0671debd0d6eade96bcf03c84e824faa2da3b  package/kernel/mac80211/patches/nss/ath11k/999-957-ath11k-nss-validate-wifili-peer-stats-length.patch
-e48eb4cfcff4e274245fcf088e996f9a228b1ef26d86e66212f81e2044f0e974  package/kernel/mac80211/patches/nss/ath11k/999-958-ath11k-nss-parse-available-peer-stats.patch
+ed1d0f7babfbc5b7a1b56290a499025ff01e93bbae590f8b0c65f1689449a858  package/kernel/mac80211/patches/nss/ath11k/999-958-ath11k-nss-parse-available-peer-stats.patch
 b2406698a34a741031e020161c0070ade51ca67c47258e0cbd5d4ba23d75a93c  package/kernel/mac80211/patches/nss/subsys/199-001-mac80211-add-nss-support.patch
 058b5b54d98fe2cf769eb7ffd9b2a52404de02c96629637d3cf5604aeff68332  package/kernel/mac80211/patches/nss/subsys/203-mac80211-ath11k-fw-dynamic-muedca.patch
 9c0e4703c4fa67c1ef7f984ea8dd02d9fb3f56575604da889b4855f5f1de037c  package/kernel/mac80211/patches/nss/subsys/235-001-mac80211-add-AP_VLAN-iftype-support-on-NSS-offload-case.patch
@@ -427,7 +427,7 @@ b1149a8cc0cbdd22373836656e6743ac89e5df1ab7f4c13a7ae3772dee477b54  tests/ath11k-n
 2152a1becb26da5c5fd8f76e901c6d40e2367ed8dd9416d7283d28249b19e331  tests/ath11k-nss-init-ownership/host-fixture.c
 d34cb8eca427aee3e313b9ed817b26f7a1611bb7dec62bffa27a04704998817a  tests/ath11k-nss-link-return/README.md
 1a05aa89d1bab5df422d3fdee4ad555b3d6016feaad03d356d8381074e381287  tests/ath11k-nss-link-return/host-fixture.c
-7b82c2b827f98786c277b9309e6e7952f6a42d80daf7c803af5276d49139d0a3  tests/ath11k-nss-peer-stats-bounds/host-fixture.c
+874d496958533dcec3d696dc8f2cd8af72283e4c18390313ba4d9a83139c7cd8  tests/ath11k-nss-peer-stats-bounds/host-fixture.c
 d8850a5446299c686b1fcc2c175b6f55f5dfc59dd8cdfc000668cb36713acdc5  tests/ath11k-pci-ssr/README.md
 dcbb13c1211cf537f0b8282f63d064e7bdf7afcf17a8441b95a794cfe1f08a96  tests/ath11k-pci-ssr/host-fixture.c
 1b2828501583d952d54619067e97c5778e3a3f9d52d7dbe55c74aa5ce87c0fd5  tests/ath11k-pcic-irq/README.md
@@ -619,7 +619,7 @@ f25d584500c0570acd57ababff7acedff05fc4f4b37ad40307015b0be1c4c457  tests/test-ath
 dcc9d7b9b8f136d4daed9ddf477f884a245ad564d9a47575c0c2efda15933308  tests/test-ath11k-nss-context.py
 d122fd023c59313cf754a079902b1f69edc0235573b7f43cbeea26d1e380f21a  tests/test-ath11k-nss-init-ownership.py
 2c35492d20bc5cbe5edbf8a327662426628d1a753187a3417074879faca72824  tests/test-ath11k-nss-link-return.py
-0f4ccff8c81f26e9e8830b75e67dafd8b35c63002cc859bca9f61b7e45a7ba9e  tests/test-ath11k-nss-peer-stats-bounds.py
+488da0adac23d79093cb2263ea4a8ab994d82db6519c103522336407441e1aa5  tests/test-ath11k-nss-peer-stats-bounds.py
 673e403c22f08f85e64e8550f9f22b0ef3c7b9bc6cd67ea04e0c21fe1274719c  tests/test-ath11k-nss-tx-desc-profile.sh
 e2aa30656e266f3a0f15200373d22e7fe1affa10b620c39a17ceca2f9f09ef16  tests/test-ath11k-pci-ssr.py
 35cb6c312b8ac10ad7841af97b97264f09aaa8cb52cc426fc2a71e29e9487e71  tests/test-ath11k-pcic-irq-errors.py
