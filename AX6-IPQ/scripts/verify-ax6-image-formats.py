@@ -8,8 +8,15 @@ This verifies standard/complete packaging, not just filenames:
   * initramfs ITB: valid FIT with kernel + device tree + configuration
   * kernel/rootfs payload identity between sysupgrade and factory UBI
   * optional DTB identity check
+  * recovery envelope/class for factory.ubi (S1-06 / A-05 E1): PEB math
+    against the merged rootfs partition and the stock slot, plus the measured
+    Web-flash size class. The only Web-proven class is <= 54,788,096 B (n=1,
+    fallback factory 5e44fdad); larger self-built factories are UNPROVEN and
+    must not be labelled recovery. `--require-web-proven` turns that class
+    into a hard release-gate failure.
 
-Exit 0 only if all checks pass. Emits a JSON report.
+Exit 0 only if all checks pass. Emits a JSON report. The recovery class is
+identity/risk classification only; it is not boot, flash or hardware evidence.
 """
 from __future__ import annotations
 
@@ -27,6 +34,38 @@ UBI_EC_MAGIC = 0x55424923  # "UBI#"
 UBI_VID_MAGIC = 0x55424921  # "UBI!"
 FDT_MAGIC = 0xD00DFEED
 SQUASHFS_MAGIC = b"hsqs"
+
+# AX6 merged-layout geometry (S1-06 recovery envelope model). Sources:
+# /proc/mtd 0x06640000 rootfs partition, 128 KiB PEB, 1 grown bad PEB at
+# 0x01960000, 24 PEB bad-block reserve, stock dual-slot rootfs 0x023c0000.
+DEFAULT_PEB_SIZE = 128 * 1024
+DEFAULT_MTD_ROOTFS_SIZE = 0x06640000
+DEFAULT_MTD_STOCK_ROOTFS_SIZE = 0x023C0000
+DEFAULT_BAD_PEBS = 1
+DEFAULT_BAD_RESERVE_PEBS = 24
+# Measured Web-flash success class: fallback factory 54,788,096 B sha 5e44fdad
+# (n=1). No larger factory has ever been proven to boot via the U-Boot Web page.
+DEFAULT_RECOVERY_ENVELOPE_BYTES = 54_788_096
+UBI_LAYOUT_PEBS = 2  # two UBI layout PEBs, not recorded in the volume table
+
+# U-Boot Web-page behaviour, read from the installed mtd7 bootloader strings and
+# the 2026-11-17 recovery investigation. Recorded as static facts, not claims.
+WEB_PATH_FACTS = {
+    "nand_erase_range": "0x00a00000+0x06640000",
+    "upload_write_address": "0x44000000",
+    "accepted_format": "raw UBI# NAND image only",
+    "size_cap_enforced": False,
+    "readback_verification": False,
+    "initramfs_web_flashable": False,
+    "in_device_failover": "none",
+    "merged_layout_only": True,
+    "notes": (
+        "The Web path erases the merged rootfs partition and writes the "
+        "uploaded bytes raw from 0x44000000; it does not decompress, does not "
+        "read back, and cannot roll back. Recovery depends on external "
+        "U-Boot Web/UART/TFTP only; the initramfs ITB is RAM-boot only."
+    ),
+}
 
 class CheckError(Exception):
     pass
@@ -263,10 +302,11 @@ def trim_ubi_rootfs(payload: bytes) -> bytes:
     require(0 < bytes_used <= len(payload), "UBI rootfs bytes_used exceeds volume capacity")
     return payload[:bytes_used]
 
-def parse_ubi(path: Path) -> dict:
+def parse_ubi(path: Path, peb_size: int = DEFAULT_PEB_SIZE) -> dict:
     data = path.read_bytes()
-    # AX6 NAND PEB = 128 KiB; UBI EC header supplies offsets.
-    ubi = _read_ubi_headers(data, 128 * 1024)
+    require(len(data) % peb_size == 0,
+            f"factory UBI length {len(data)} is not an exact multiple of PEB size {peb_size}")
+    ubi = _read_ubi_headers(data, peb_size)
     table = ubi["table"]
     names = [v["name"] for v in table.values()]
     require("kernel" in names, "factory UBI missing kernel volume")
@@ -275,18 +315,88 @@ def parse_ubi(path: Path) -> dict:
     vol_id = {v["name"]: k for k, v in table.items()}
     kernel = trim_ubi_kernel(volume_payload(data, ubi, vol_id["kernel"]))
     rootfs = trim_ubi_rootfs(volume_payload(data, ubi, vol_id["rootfs"]))
+    volume_reserved = {v["name"]: v["reserved_pebs"] for v in table.values() if v["name"]}
+    # The UBI layout volume (two PEBs) is implicit; the VTBL only records the
+    # kernel/rootfs/rootfs_data reservations used by the attach fit test.
+    reserved_total = sum(v["reserved_pebs"] for v in table.values()) + UBI_LAYOUT_PEBS
     return {
         "file": path.name,
         "bytes": len(data),
         "sha256": sha256(data),
         "peb_size": ubi["peb_size"],
+        "image_pebs": len(data) // peb_size,
         "image_seq": ubi["image_seq"],
         "volumes": [{"name": v["name"], "reserved_pebs": v["reserved_pebs"]} for v in table.values() if v["name"]],
+        "volume_reserved_pebs": volume_reserved,
+        "reserved_total_pebs": reserved_total,
         "kernel_bytes": len(kernel),
         "kernel_sha256": sha256(kernel),
         "rootfs_bytes": len(rootfs),
         "rootfs_sha256": sha256(rootfs),
     }
+
+
+def classify_recovery(ubi: dict, args) -> dict:
+    """Classify the factory UBI against the merged/stock slot and the Web-proven class."""
+    peb_size = args.peb_size
+    require(ubi["peb_size"] == peb_size,
+            f"factory UBI PEB size {ubi['peb_size']} differs from expected {peb_size}")
+    mtd_pebs = args.mtd_rootfs_size // peb_size
+    stock_pebs = args.mtd_stock_rootfs_size // peb_size
+    usable_pebs = mtd_pebs - args.bad_pebs - args.bad_reserve_pebs
+    required_pebs = ubi["reserved_total_pebs"]
+    image_pebs = ubi["image_pebs"]
+    fits_merged = required_pebs <= usable_pebs
+    raw_write_fits = image_pebs <= mtd_pebs
+    fits_stock = required_pebs <= stock_pebs
+
+    if not fits_merged or not raw_write_fits:
+        web_class = "OVER_PARTITION"
+    elif ubi["bytes"] <= args.recovery_envelope_bytes:
+        web_class = "PROVEN_SIZE_CLASS"
+    else:
+        web_class = "UNPROVEN_OVERSIZE"
+
+    if fits_merged and fits_stock:
+        layout_compat = "both"
+    elif fits_merged:
+        layout_compat = "merged_only"
+    else:
+        layout_compat = "over_partition"
+
+    return {
+        "factory_ubi": ubi["file"],
+        "factory_bytes": ubi["bytes"],
+        "factory_sha256": ubi["sha256"],
+        "peb_size": peb_size,
+        "image_pebs": image_pebs,
+        "reserved_total_pebs": required_pebs,
+        "volume_reserved_pebs": ubi["volume_reserved_pebs"],
+        "mtd_rootfs_size_bytes": args.mtd_rootfs_size,
+        "mtd_rootfs_pebs": mtd_pebs,
+        "bad_pebs": args.bad_pebs,
+        "bad_reserve_pebs": args.bad_reserve_pebs,
+        "merged_usable_pebs": usable_pebs,
+        "mtd_stock_rootfs_size_bytes": args.mtd_stock_rootfs_size,
+        "stock_slot_pebs": stock_pebs,
+        "fits_merged_partition": fits_merged,
+        "raw_write_fits": raw_write_fits,
+        "fits_stock_slot": fits_stock,
+        "layout_compat": layout_compat,
+        "web_recovery_class": web_class,
+        "web_proven_envelope_bytes": args.recovery_envelope_bytes,
+        "web_proven_evidence": (
+            "fallback factory 54,788,096 B sha 5e44fdad... flashed via U-Boot Web "
+            "and booted (n=1); no larger factory has Web-boot evidence"
+        ),
+        "recovery_label_allowed": web_class == "PROVEN_SIZE_CLASS",
+        "risk_note": (
+            "UNPROVEN_OVERSIZE means the factory size is outside the only measured "
+            "Web-flash class. Do not label it recovery and do not flash it before "
+            "the RT-4 Web matrix records a result."
+        ),
+    }
+
 
 def parse_itb(path: Path) -> dict:
     data = path.read_bytes()
@@ -335,6 +445,27 @@ def parse_itb(path: Path) -> dict:
         "fdt_sha256": sha256(fdt_data),
     }
 
+def auto_int(text: str) -> int:
+    try:
+        return int(text, 0)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"not an integer: {text!r}") from exc
+
+
+def positive_int(text: str) -> int:
+    value = auto_int(text)
+    if value <= 0:
+        raise argparse.ArgumentTypeError(f"must be positive: {text!r}")
+    return value
+
+
+def non_negative_int(text: str) -> int:
+    value = auto_int(text)
+    if value < 0:
+        raise argparse.ArgumentTypeError(f"must be non-negative: {text!r}")
+    return value
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--sysupgrade", required=True)
@@ -342,10 +473,27 @@ def main() -> int:
     ap.add_argument("--initramfs-itb", required=True)
     ap.add_argument("--compiled-dtb")
     ap.add_argument("--output", required=True)
+    ap.add_argument("--peb-size", type=positive_int, default=DEFAULT_PEB_SIZE,
+                    help="NAND PEB size in bytes (default 131072)")
+    ap.add_argument("--mtd-rootfs-size", type=positive_int, default=DEFAULT_MTD_ROOTFS_SIZE,
+                    help="merged rootfs partition size (default 0x06640000)")
+    ap.add_argument("--mtd-stock-rootfs-size", type=positive_int,
+                    default=DEFAULT_MTD_STOCK_ROOTFS_SIZE,
+                    help="stock dual-slot rootfs partition size (default 0x023c0000)")
+    ap.add_argument("--bad-pebs", type=non_negative_int, default=DEFAULT_BAD_PEBS,
+                    help="grown bad PEBs observed on the device (default 1)")
+    ap.add_argument("--bad-reserve-pebs", type=non_negative_int,
+                    default=DEFAULT_BAD_RESERVE_PEBS,
+                    help="UBI bad-block reserve PEBs (default 24)")
+    ap.add_argument("--recovery-envelope-bytes", type=positive_int,
+                    default=DEFAULT_RECOVERY_ENVELOPE_BYTES,
+                    help="largest Web-flash-proven factory size (default 54788096)")
+    ap.add_argument("--require-web-proven", action="store_true",
+                    help="fail unless factory.ubi is inside the Web-PROVEN size class")
     args = ap.parse_args()
 
     sysu = parse_sysupgrade(Path(args.sysupgrade))
-    ubi = parse_ubi(Path(args.factory_ubi))
+    ubi = parse_ubi(Path(args.factory_ubi), args.peb_size)
     itb = parse_itb(Path(args.initramfs_itb))
 
     require(sysu["kernel_sha256"] == ubi["kernel_sha256"], "sysupgrade vs factory kernel mismatch")
@@ -356,6 +504,7 @@ def main() -> int:
         require(dtb[:4] == b"\xd0\x0d\xfe\xed", "compiled DTB magic mismatch")
         require(itb["fdt_sha256"] == sha256(dtb), "initramfs FDT differs from compiled DTB")
 
+    recovery = classify_recovery(ubi, args)
     report = {
         "status": "PASS",
         "sysupgrade": sysu,
@@ -368,12 +517,41 @@ def main() -> int:
             "factory payload magic + identity with sysupgrade",
             "FIT kernel/fdt/default configuration",
         ],
+        "recovery": {
+            "classification": recovery,
+            "web_path": WEB_PATH_FACTS,
+            "release_gate": "NOT_EVALUATED" if not args.require_web_proven else "EVALUATED",
+            "policy": (
+                "Only the measured Web-proven size class may carry a recovery label. "
+                "The factory UBI and initramfs ITB are recovery formats, not normal "
+                "sysupgrade inputs, and there is no in-device failover."
+            ),
+        },
     }
     out = Path(args.output)
     out.parent.mkdir(parents=True, exist_ok=True)
+    web_class = recovery["web_recovery_class"]
+    if web_class == "OVER_PARTITION":
+        report["status"] = "FAIL"
+        report["recovery"]["release_gate"] = "FAIL_OVER_PARTITION"
+        out.write_text(json.dumps(report, indent=2) + "\n")
+        print(f"FORMAT CHECK FAILED: factory UBI does not fit the AX6 rootfs partition "
+              f"({recovery['reserved_total_pebs']} reserved PEBs > {recovery['merged_usable_pebs']} usable)",
+              file=sys.stderr)
+        return 1
+    if args.require_web_proven and web_class != "PROVEN_SIZE_CLASS":
+        report["status"] = "FAIL"
+        report["recovery"]["release_gate"] = "FAIL_UNPROVEN_RECOVERY_CLASS"
+        out.write_text(json.dumps(report, indent=2) + "\n")
+        print(f"FORMAT CHECK FAILED: factory UBI is {web_class} "
+              f"({recovery['factory_bytes']} B > {args.recovery_envelope_bytes} B proven envelope); "
+              "no recovery label is allowed", file=sys.stderr)
+        return 1
     out.write_text(json.dumps(report, indent=2) + "\n")
-    print(json.dumps({"status": "PASS", "output": str(out)}, indent=2))
+    print(json.dumps({"status": "PASS", "output": str(out),
+                      "web_recovery_class": web_class}, indent=2))
     return 0
+
 
 if __name__ == "__main__":
     try:
