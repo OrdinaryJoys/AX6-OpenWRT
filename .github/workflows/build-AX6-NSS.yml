@@ -1,4 +1,26 @@
 # yamllint disable rule:line-length
+# Release-gate policy (2026-11-20 CI/verification repair; S1-05 / S2R-08 / S3-08):
+#   * No EXECUTABLE release-gating check may be `if: ${{ false }}` or
+#     `continue-on-error: true`. The "Enforce release-gate policy" step below
+#     fails the build if either appears outside the explicit allowlist or if a
+#     required admission gate is deleted/renamed.
+#   * Offline host checks hard-disabled on 2026-11-18 are enabled here: SSDK40
+#     sanitizer preflight, the Fast gate host-suite block, containment-evidence
+#     preservation and the 007/008/012/018/019 regression assertions.
+#   * New non-swallowable gates: built-rootfs installer admission (S1-05),
+#     NSS artifact identity admission (S3-08) and the recovery Web-class gate
+#     (S1-06, via the release_class_gate dispatch input).
+#   * Two checks remain disabled because their frozen contracts cannot be
+#     regenerated in this scope (immutable platform41/MDIO contract and the
+#     DRV29 anchor, AX6-30 / S2R-08). They are NOT counted as green gates and
+#     the allowlist in the policy step records the blocking reason; a release
+#     dispatch is blocked until those contracts are regenerated.
+#   * The two Release publish/cleanup steps are publishing actions, not checks;
+#     they stay disabled (no release authorization, permissions: contents: read).
+#   * actionlint reports [if-cond] for those four allowlisted disables; that is
+#     expected. The authoritative gate contract is the policy step, which fails
+#     on any OTHER disabled step, on a missing release check, or on
+#     continue-on-error. (Repo lint.yml itself is stale: AX6-11 / S5-09.)
 name: Build OpenWRT for AX6-NSS
 
 on:
@@ -19,6 +41,11 @@ on:
         default: false
       tools_only:
         description: 'Build host kexec-tools only (skip firmware)'
+        required: false
+        type: boolean
+        default: false
+      release_class_gate:
+        description: 'Fail the bundle unless factory.ubi is in the Web-PROVEN recovery size class (<=54788096 B)'
         required: false
         type: boolean
         default: false
@@ -72,6 +99,88 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+
+      - name: Enforce release-gate policy (no silently disabled check)
+        run: |
+          set -euo pipefail
+          # Static workflow policy: every release-gating check must execute. A
+          # disabled step is only allowed through the explicit allowlist below,
+          # which also requires the stated blocking reason in the comment block
+          # immediately above it. This prevents a future dispatch from going
+          # green by re-adding `if: ${{ false }}` or `continue-on-error`.
+          python3 - <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+
+          workflow = Path(".github/workflows/build-AX6-NSS.yml")
+          lines = workflow.read_text().splitlines()
+
+          # Disabled steps that are explicitly allowed, keyed by step name. The
+          # value is the reason marker that must appear in the preceding comment
+          # block (~15 lines) in the workflow source.
+          allowed_disabled = {
+              # Frozen contracts that cannot be regenerated in this scope. These
+              # are NOT counted as green gates (S2R-08 / AX6-30).
+              "Validate reviewed MDIO lifecycle source and host regressions": "BLOCKED",
+              "Validate frozen NSS command input source and host regressions": "BLOCKED",
+              # Publishing actions, not checks: disabled until a release
+              # authorization also grants `permissions: contents: write`.
+              "Upload firmware to Release": "not a release-gating check",
+              "Delete old releases": "not a release-gating check",
+          }
+          required_checks = [
+              "Validate immutable SSDK40 sanitizer controls (test-only prefix)",
+              "Fast gate — NSS patch prepare (P0-D.6)",
+              "Regression assertions — 007/008, 012, 018/019 (P0-D.3-5)",
+              "Validate installer scripts in the built rootfs (P0 install-path admission)",
+              "Admit NSS kernel-module artifact identity (S3-08 artifact acceptance)",
+              "Verify standard image formats and build complete bundle",
+          ]
+
+          errors = []
+          step_start = re.compile(r"^      - (name|uses): (.*)$")
+          disabled_found = {}
+          current_step = None
+          for index, line in enumerate(lines):
+              step = step_start.match(line)
+              if step:
+                  current_step = step.group(2).strip()
+              code = line.split("#", 1)[0]
+              if re.match(r"^\s+if:\s*(\$\{\{\s*)?false(\s*\}\})?\s*$", code):
+                  if current_step is None:
+                      errors.append(f"line {index + 1}: step-level if:false outside a step")
+                  else:
+                      disabled_found.setdefault(current_step, []).append(index)
+
+          for name, positions in sorted(disabled_found.items()):
+              if name not in allowed_disabled:
+                  errors.append(f"disabled release-gating step without an allowance: {name!r}")
+                  continue
+              marker = allowed_disabled[name]
+              window = "\n".join(lines[max(0, positions[0] - 15):positions[0]])
+              if marker not in window:
+                  errors.append(f"disabled step {name!r} lacks the explicit reason "
+                                f"marker {marker!r} in its comment block")
+
+          for name in required_checks:
+              count = sum(1 for line in lines
+                          if re.match(r"^      - name: " + re.escape(name) + r"\s*$", line))
+              if count != 1:
+                  errors.append(f"required release check {name!r} is missing or duplicated "
+                                f"({count} occurrence(s))")
+
+          for index, line in enumerate(lines):
+              if re.match(r"^\s+continue-on-error:", line.split("#", 1)[0]):
+                  errors.append(f"line {index + 1}: continue-on-error may swallow a release gate")
+
+          if errors:
+              for error in errors:
+                  print(f"::error::release-gate policy: {error}")
+              sys.exit(1)
+          print(f"release-gate policy OK: {len(disabled_found)} allowlisted disabled step(s), "
+                f"{len(required_checks)} required checks present")
+          PY
 
       - name: Read fixed historical-prefix regression identity
         id: prefix-contract
@@ -312,8 +421,6 @@ jobs:
           python3 -B .github/scripts/verify-ssdk-probe-resource.py \
             --sanitizer-preflight --source-root "$GITHUB_WORKSPACE/core-platform40-source" --cc gcc-11 \
             --output core-flow-evidence/ssdk-sanitizer-preflight
-
-        if: ${{ false }}
       - name: Verify complete ncurses package before feed preparation
         run: |
           set -euo pipefail
@@ -839,8 +946,6 @@ jobs:
           fi
           echo "All NSS patches applied successfully."
           echo "(NSS module compilation is performed in the full Compile firmware step.)"
-
-        if: ${{ false }}
       - name: Preserve NSS containment host evidence even on failure
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
@@ -848,8 +953,7 @@ jobs:
           path: nss-containment-evidence/
           if-no-files-found: warn  # NSS preparation may not have started.
           retention-days: 14
-
-        if: ${{ false }}
+        if: ${{ !cancelled() }}  # preserve host evidence even when the fast gate fails
       - name: Validate reviewed MDIO lifecycle source and host regressions
         working-directory: ./openwrt
         run: |
@@ -872,6 +976,11 @@ jobs:
             --ssdk "$lifecycle_ssdk_source" --cc cc \
             --output "$GITHUB_WORKSPACE/core-flow-evidence/mdio-lifecycle"
 
+        # BLOCKED (S2R-08 / AX6-30): the immutable platform41/MDIO contract and
+        # the 5 frozen prefix checkouts are pinned to the pre-054 SSDK tree.
+        # Landing patch 054 (S2R-01, SSDK r32) requires regenerating the
+        # contract/prefix files, which is outside this repair scope. Disabled
+        # steps are not counted as green gates.
         if: ${{ false }}
       - name: Validate frozen NSS command input source and host regressions
         working-directory: ./openwrt
@@ -901,6 +1010,10 @@ jobs:
             --source-root "$GITHUB_WORKSPACE/core-accepted-source" --driver "$evidence/drv29/root-host/driver25-prefix" --clients "${command_clients[0]}" --cc cc \
             --output "$evidence/validation"
 
+        # BLOCKED (AX6-30): verify-nss-drv29.py still asserts the sealed DRV29
+        # firmware lock (SOURCE_QCA_NSS_DRV_PKG_RELEASE=29); the current lock is
+        # r30, so this gate fails by construction until the frozen DRV29
+        # contract is regenerated (S2R-08 / AX6-30, outside this scope).
         if: ${{ false }}
       - name: Regression assertions — 007/008, 012, 018/019 (P0-D.3-5)
         working-directory: ./openwrt
@@ -969,8 +1082,6 @@ jobs:
           echo "OK: 019 DMA mapping_error verified"
 
           echo "All regression assertions passed."
-
-        if: ${{ false }}
       - name: Compile firmware
         id: compile_firmware
         working-directory: ./openwrt
@@ -1560,6 +1671,36 @@ jobs:
           fi
           echo "Final rootfs validation: PASS"
 
+      - name: Validate installer scripts in the built rootfs (P0 install-path admission)
+        run: |
+          set -Eeuo pipefail
+          trap 'rc=$?; printf "::error::Installer admission failed rc=%s line=%s command=%s\n" "$rc" "$LINENO" "$BASH_COMMAND" >&2; exit "$rc"' ERR
+          mapfile -d '' roots < <(find image-verify -type f -name root -print0)
+          if [ "${#roots[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one retained root filesystem, found ${#roots[@]}"
+            exit 1
+          fi
+          rootfs="${roots[0]}"
+          rm -rf image-verify/rootfs-scripts
+          mkdir -p image-verify/rootfs-scripts
+          for path in \
+            lib/upgrade/platform.sh \
+            lib/upgrade/nand.sh \
+            etc/init.d/bootcount \
+            etc/uci-defaults/30_uboot-envtools; do
+            out="image-verify/rootfs-scripts/$(basename "$path")"
+            unsquashfs -cat "$rootfs" "$path" > "$out"
+            test -s "$out"
+          done
+          # Offline admission: merged-layout platform/bootcount/env-tools behaviour,
+          # the nand writer transaction contract, and byte identity with the
+          # locked source tip. Not boot/flash/hardware evidence.
+          python3 AX6-IPQ/scripts/verify-ax6-rootfs-installers.py \
+            --scripts-dir image-verify/rootfs-scripts \
+            --source-root openwrt \
+            --mode release \
+            --output image-verify/installer-admission.json
+
       - name: Preserve rootfs diagnostic evidence even after validation failure
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -1773,6 +1914,8 @@ jobs:
 
       - name: Verify standard image formats and build complete bundle
         if: env.VARIANT_TAG == 'STOCK'
+        env:
+          AX6_RELEASE_CLASS_GATE: ${{ inputs.release_class_gate }}
         run: |
           set -eo pipefail
           mapfile -d '' sysupgrade_images < <(find upload/upgrade -maxdepth 1 -type f -name '*-squashfs-sysupgrade.bin' -print0)
@@ -1796,12 +1939,33 @@ jobs:
             --compiled-dtb upload/upgrade/COMPILED-AX6-STOCK.dtb
             --outdir upload/bundle
           )
+          # Release-gating mode (S1-06): require the factory UBI to be inside the
+          # only measured Web-flash size class; 59 MB self-built factories are
+          # UNPROVEN_OVERSIZE and cannot carry a release recovery label.
+          if [ "$AX6_RELEASE_CLASS_GATE" = "true" ]; then
+            args+=(--require-web-proven)
+          fi
           python3 AX6-IPQ/scripts/make-ax6-release-bundle.py "${args[@]}"
           cp upload/bundle/FORMAT-VERIFICATION.json upload/upgrade/FORMAT-VERIFICATION.json
           cp upload/bundle/FORMAT-VERIFICATION.json upload/recovery/FORMAT-VERIFICATION.json
+          cp upload/bundle/RECOVERY-MATRIX.json upload/upgrade/RECOVERY-MATRIX.json
+          cp upload/bundle/RECOVERY-MATRIX.json upload/recovery/RECOVERY-MATRIX.json
           (cd upload/upgrade && find . -maxdepth 1 -type f ! -name 'SHA256SUMS-AX6.txt' -print0 | sort -z | xargs -0 sha256sum >SHA256SUMS-AX6.txt)
           (cd upload/recovery && find . -maxdepth 1 -type f ! -name 'SHA256SUMS-RECOVERY.txt' -print0 | sort -z | xargs -0 sha256sum >SHA256SUMS-RECOVERY.txt)
           ls -lh upload/bundle
+
+      - name: Preserve image-format/recovery evidence even after failure
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: AX6_NSS_${{ env.VARIANT_TAG }}_FORMAT_EVIDENCE_${{ github.sha }}
+          path: |
+            upload/bundle/FORMAT-VERIFICATION.json
+            upload/bundle/RECOVERY-MATRIX.json
+            upload/upgrade/FORMAT-VERIFICATION.json
+            upload/recovery/FORMAT-VERIFICATION.json
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Package kmod for offline install
         run: |
@@ -1816,6 +1980,48 @@ jobs:
             echo "::error::kmod packages directory not found"
             exit 1
           fi
+
+      - name: Admit NSS kernel-module artifact identity (S3-08 artifact acceptance)
+        run: |
+          set -Eeuo pipefail
+          trap 'rc=$?; printf "::error::NSS artifact admission failed rc=%s line=%s command=%s\n" "$rc" "$LINENO" "$BASH_COMMAND" >&2; exit "$rc"' ERR
+          # Release-gating offline identity gate (read-only; not boot/flash/runtime
+          # proof). Fail-closed checks:
+          #   * index integrity: mandatory fields, unique Package/Filename, safe
+          #     basename, IPK Size/SHA256sum equality, Packages.gz == Packages;
+          #   * package versions derived from the locked source Makefiles for the
+          #     five core kmods and all 16 enabled qca-nss-clients kmods, plus
+          #     build-lock release equality;
+          #   * every core/client IPK control (Package/Version/Architecture/
+          #     Depends/SourceName) equals the index record, so a missing,
+          #     renamed, swapped or repackaged IPK cannot pass on the index
+          #     version alone;
+          #   * exact .ko payload inventory from source FILES (no missing,
+          #     renamed or stolen modules; one vermagic; symbol closure);
+          #   * SSDK withdrawal marker + 054 retention phrasings when the source
+          #     carries the retention layer;
+          #   * byte-level 033 containment literal and 055 actual-length proof in
+          #     qca-nss-drv.ko (nss_wifili_tx_msg computes ncm->len + 40 against
+          #     NSS_NBUF_PAYLOAD_SIZE; the pre-055 2096-byte constant fails);
+          #   * installed rootfs upgrade-script byte identity (--expect-withdrawals
+          #     release mode refuses to skip lock/config/rootfs-scripts).
+          python3 AX6-IPQ/scripts/verify-ax6-nss-modules.py \
+            --kmod-dir upload/kmod \
+            --source-root openwrt \
+            --lock .github/ax6-nss-lock.env \
+            --config AX6-IPQ/.config-stock \
+            --rootfs-scripts image-verify/rootfs-scripts \
+            --expect-withdrawals \
+            --output image-verify/nss-artifact-admission.json
+
+      - name: Preserve artifact admission evidence even after failure
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: AX6_NSS_${{ env.VARIANT_TAG }}_ARTIFACT_ADMISSION_EVIDENCE_${{ github.sha }}
+          path: image-verify/*admission*.json
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Get current date
         run: echo "CURRENT_DATE=$(date '+%Y%m%d%H%M%S')" >> "$GITHUB_ENV"
@@ -1913,6 +2119,10 @@ jobs:
             - 不要把 `sysupgrade.bin`、`factory.ubi` 或 initramfs ITB 当作通用 raw NAND 镜像
             - 详见 AX6-IPQ/HARDWARE.md,未确认分区表前不要执行擦写
 
+        # Publishing action, not a release-gating check: disabled in this
+        # authorization round (no release/publish dispatch; the workflow
+        # permissions are contents: read). Enabling requires an explicit
+        # release authorization and a permissions change, not a gate fix.
         if: ${{ false }}
       - name: Delete old releases
         env:
@@ -1927,6 +2137,8 @@ jobs:
             echo "Deleting old release and tag: $tag"
             gh release delete "$tag" --yes --cleanup-tag
           done
+        # Publishing cleanup, not a release-gating check; intentionally
+        # disabled (see the Release publish step above).
         if: ${{ false }}
 
   tools:

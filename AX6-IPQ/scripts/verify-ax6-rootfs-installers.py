@@ -11,8 +11,14 @@ This is the S1-05 / A-00 CI gate: it inspects the rootfs copies of
     branch still writes the stock flag batch;
   * bootcount: the merged layout performs zero dead Xiaomi flag writes while
     the dual-slot layout keeps its two writes;
-  * 30_uboot-envtools: the merged layout selects the probe-verified
-    0x40000/0x20000 env geometry while stock dual-slot keeps 0x10000;
+  * 30_uboot-envtools: the merged layout keeps the stock 0x10000 environment
+    geometry by default and selects the 0x40000/0x20000 candidate only when a
+    runtime `fw_printenv` probe proves a CRC-valid 256 KiB U-Boot environment
+    (no bad-CRC fallback, bootcmd contains `bootipq`); a failed or ambiguous
+    probe keeps 0x10000 and reports S1-01 OPEN. The stock dual-slot layout
+    keeps 0x10000 statically and is never probed. The gate proves there is no
+    statically selected 0x40000 and reports the env-geometry item as OPEN
+    (non-blocking) because the device env size cannot be proven offline;
   * nand.sh: the non-atomic writer keeps volume verification (`data_bytes`,
     `upd_marker`), the capacity preflight and checked `ubiupdatevol` calls;
   * when --source-root is supplied, the byte identity of each script against
@@ -20,7 +26,9 @@ This is the S1-05 / A-00 CI gate: it inspects the rootfs copies of
 
 `--mode diagnostic` downgrades behavioural findings to warnings so a
 diagnostic control build can still be produced; the release gate mode is the
-default and is not swallowable.
+default and is not swallowable. Checks with status `OPEN` are reported
+residuals, never PASS claims: S1-01 remains OPEN until the RT-2 hardware test
+proves the 256 KiB U-Boot environment on a booted image.
 
 This is offline artifact evidence only: it does not boot, flash or exercise
 the writer on hardware.
@@ -67,6 +75,10 @@ class Gate:
     def ok(self, name: str, detail: str = "") -> None:
         self.checks.append({"name": name, "status": "PASS", "detail": detail})
 
+    def open_item(self, name: str, detail: str) -> None:
+        """Record a residual that offline evidence cannot close (non-blocking)."""
+        self.checks.append({"name": name, "status": "OPEN", "detail": detail})
+
     def behaviour_fail(self, name: str, detail: str) -> None:
         if self.mode == "diagnostic":
             self.warn(name, "diagnostic mode: " + detail)
@@ -76,6 +88,10 @@ class Gate:
     @property
     def status(self) -> str:
         return "FAIL" if any(c["status"] == "FAIL" for c in self.checks) else "PASS"
+
+    @property
+    def open_items(self) -> list[dict]:
+        return [c for c in self.checks if c["status"] == "OPEN"]
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -166,14 +182,40 @@ ENVTOOLS_HARNESS = """\
 set -u
 calls="$1"
 layout="$2"
+probe="$3"
+PROBE_MODE="$probe"
 board="redmi,ax6-stock"
+# Faithful base-files find_mtd_index against the per-layout /proc/mtd
+# fixture: AX6 names carry the Qualcomm numeric prefix ("0:appsblenv"), so a
+# bare-name probe must not resolve an index.
 find_mtd_index() {
-    case "$1" in
-        rootfs) printf '12\\n' ;;
-        rootfs_1) [ "$layout" = dual ] && printf '13\\n' ;;
-    esac
-    return 0
+    local part index
+    part=$(grep "\\"$1\\"" mtd.txt | awk -F: '{print $1}')
+    index=${part##mtd}
+    printf '%s\\n' "$index"
 }
+fw_printenv() {
+    printf 'fw_printenv %s\\n' "$*" >> "$calls"
+    cfg=
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            -c) cfg="$2"; shift 2 ;;
+            *) shift ;;
+        esac
+    done
+    if [ -n "$cfg" ] && [ -f "$cfg" ]; then
+        printf 'probe-config %s\\n' "$(cat "$cfg")" >> "$calls"
+    fi
+    case "$PROBE_MODE" in
+        ok) printf 'bootipq\\n'; return 0 ;;
+        badcrc) printf 'run distro_bootcmd\\n'
+            printf 'Warning: Bad CRC, using default environment\\n' >&2
+            return 0 ;;
+        empty) printf '\\n'; return 0 ;;
+        *) return 1 ;;
+    esac
+}
+fw_setenv() { printf 'fw_setenv %s\\n' "$*" >> "$calls"; return 0; }
 ubootenv_add_mtd() { printf 'add_mtd %s\\n' "$*" >> "$calls"; }
 ubootenv_add_sys_mtd() { printf 'add_sys_mtd %s\\n' "$*" >> "$calls"; }
 ubootenv_add_mmc() { printf 'add_mmc %s\\n' "$*" >> "$calls"; }
@@ -182,6 +224,22 @@ ubootenv_mtdinfo() { printf 'mtdinfo\\n'; }
 __ENVTOOLS_BODY__
 printf 'envtools rc=%s\\n' "$?" >> "$calls"
 """
+
+MTD_MERGED = (
+    'mtd6: 00080000 00020000 "0:appsblenv"\n'
+    'mtd12: 06640000 00020000 "rootfs"\n'
+)
+MTD_DUAL = MTD_MERGED + 'mtd13: 06640000 00020000 "rootfs_1"\n'
+
+ENV_PROBE_COMMANDS = [
+    ". /lib/functions.sh",
+    "mtd=$(find_mtd_index \"0:appsblenv\")",
+    "printf '/dev/mtd%s 0x0 0x40000 0x20000\\n' \"$mtd\" > /tmp/fw_env.ax6.probe",
+    "fw_printenv -c /tmp/fw_env.ax6.probe -n bootcmd "
+    ">/tmp/fw_env.ax6.out 2>/tmp/fw_env.ax6.err; echo \"rc=$?\"",
+    "grep -q 'Bad CRC' /tmp/fw_env.ax6.err && echo 'candidate rejected: bad CRC'",
+    "grep -q 'bootipq' /tmp/fw_env.ax6.out && echo 'candidate proven: 256 KiB U-Boot env'",
+]
 
 
 def read_calls(path: Path) -> list[str]:
@@ -312,11 +370,83 @@ def is_ax6_label(label: str) -> bool:
     return label in ("redmi,ax6", "redmi,ax6-stock")
 
 
+def static_ubootenv_findings(body: str) -> list[str]:
+    """Static S1-01 contract violations in an AX6 uboot-envtools arm body."""
+    findings: list[str] = []
+    if re.search(r'ubootenv_add_mtd\s+"0:appsblenv"\s+"0x0"\s+"0x40000"', body):
+        findings.append("AX6 arm statically selects the 0x40000 env geometry")
+    if "fw_printenv" not in body:
+        findings.append("AX6 arm has no runtime fw_printenv geometry probe")
+    if not re.search(r'find_mtd_index\s+"?0:appsblenv"?', body):
+        findings.append("runtime probe does not resolve the 0:appsblenv "
+                        "partition")
+    if not re.search(r"printf\s+'/dev/mtd%s 0x0 0x40000 0x20000", body):
+        findings.append("runtime probe does not read the 0x40000 candidate geometry")
+    if "Bad CRC" not in body:
+        findings.append("runtime probe does not reject the fw_printenv bad-CRC fallback")
+    if "bootipq" not in body:
+        findings.append("runtime probe does not require the merged-layout U-Boot bootcmd")
+    if "0x10000" not in body:
+        findings.append("AX6 arm does not keep the stock 0x10000 default geometry")
+    if "OPEN" not in body:
+        findings.append("probe failure does not report S1-01 OPEN")
+    code = "\n".join(line for line in body.splitlines()
+                     if not line.strip().startswith("#"))
+    for forbidden in ("fw_setenv", "mtd write", "flash_erase", "nand write",
+                      "ubiupdatevol", "ubi write", "/etc/fw_env.config"):
+        if forbidden in code:
+            findings.append(f"AX6 arm performs a forbidden write: {forbidden}")
+    return findings
+
+
+def run_envtools_case(workdir: Path, body: str, layout: str, probe: str) -> dict:
+    """Run one extracted uboot-envtools arm against the probe-shim harness."""
+    (workdir / "mtd.txt").write_text(
+        MTD_DUAL if layout == "dual" else MTD_MERGED)
+    (workdir / "harness.sh").write_text(
+        ENVTOOLS_HARNESS.replace("__ENVTOOLS_BODY__", body))
+    calls_path = workdir / "calls.txt"
+    result = run_harness(workdir, [str(calls_path), layout, probe])
+    calls_list = read_calls(calls_path)
+    return {
+        "rc": result["rc"],
+        "stdout": result["stdout"],
+        "stderr": result["stderr"],
+        "calls": calls_list,
+        "add_mtd": [c for c in calls_list
+                    if c.startswith("add_mtd ") and "appsblenv" in c],
+        "probe_config": [c for c in calls_list if c.startswith("probe-config ")],
+        "fw_printenv": [c for c in calls_list if c.startswith("fw_printenv ")],
+        "fw_setenv": [c for c in calls_list if c.startswith("fw_setenv ")],
+    }
+
+
 def check_ubootenv(scripts: dict, gate: Gate) -> dict:
-    evidence = {}
+    """Prove the probe-gated S1-01 env geometry contract in an artifact arm."""
+    evidence: dict = {
+        "declared": "probe-gated",
+        "default_envsize": "0x10000",
+        "candidate_envsize": "0x40000",
+        "candidate_erase_size": "0x20000",
+        "runtime_proof": (
+            "CRC-valid 256 KiB U-Boot environment (no fw_printenv bad-CRC "
+            "fallback and bootcmd contains bootipq) read on the booted image"
+        ),
+        "status": "OPEN",
+        "blocking": False,
+        "hardware_test": "RT-2 (write, authorized; serial console)",
+        "probe_commands": ENV_PROBE_COMMANDS,
+        "arms": [],
+    }
+    gate.open_item(
+        "ubootenv:S1-01",
+        "U-Boot env geometry is probe-gated but remains OPEN: the released "
+        "default is 0x10000 and 0x40000 is accepted only when a booted image "
+        "proves a CRC-valid 256 KiB U-Boot environment (RT-2). Offline "
+        "installer admission cannot prove the device env size.")
     data = scripts.get("30_uboot-envtools")
     if data is None:
-        gate.behaviour_fail("ubootenv:merged", "30_uboot-envtools missing; cannot prove merged env geometry")
+        gate.behaviour_fail("ubootenv:merged", "30_uboot-envtools missing; cannot prove probe-gated env geometry")
         gate.behaviour_fail("ubootenv:dual", "30_uboot-envtools missing; cannot prove stock 0x10000 geometry kept")
         return evidence
     text = data.decode("utf-8", "replace")
@@ -329,37 +459,116 @@ def check_ubootenv(scripts: dict, gate: Gate) -> dict:
     if not targets:
         gate.behaviour_fail("ubootenv:parse", "no redmi,ax6 arm found in uboot-envtools board case")
         return evidence
-    for layout in ("merged", "dual"):
-        arm_results: list[dict] = []
-        for index, arm in enumerate(targets):
-            workdir = Path(tempfile.mkdtemp(prefix=f"ax6-envtools-{layout}-{index}-"))
-            (workdir / "harness.sh").write_text(
-                ENVTOOLS_HARNESS.replace("__ENVTOOLS_BODY__", arm["body"]))
-            calls_path = workdir / "calls.txt"
-            name = f"ubootenv:{layout}" + (f":arm{index}" if len(targets) > 1 else "")
+    for index, arm in enumerate(targets):
+        suffix = f":arm{index}" if len(targets) > 1 else ""
+        findings = static_ubootenv_findings(arm["body"])
+        if findings:
+            gate.behaviour_fail("ubootenv:static" + suffix, "; ".join(findings))
+        else:
+            gate.ok("ubootenv:static" + suffix,
+                    "no static 0x40000; runtime probe, OPEN fallback and "
+                    "no-write contract present")
+        arm_evidence: dict = {
+            "labels": arm["labels"],
+            "body_sha256": sha256_bytes(arm["body"].encode()),
+            "cases": {},
+        }
+        cases = (
+            ("merged", "ok"),
+            ("merged", "badcrc"),
+            ("merged", "empty"),
+            ("merged", "error"),
+            ("dual", "ok"),
+        )
+        for layout, probe in cases:
+            case_name = f"ubootenv:{layout}:{probe}" + suffix
+            workdir = Path(tempfile.mkdtemp(
+                prefix=f"ax6-envtools-{layout}-{probe}-{index}-"))
             try:
-                result = run_harness(workdir, [str(calls_path), layout])
+                case = run_envtools_case(workdir, arm["body"], layout, probe)
             except (OSError, subprocess.SubprocessError) as exc:
-                gate.behaviour_fail(name, f"ubootenv harness error: {exc}")
+                gate.behaviour_fail(case_name, f"ubootenv harness error: {exc}")
+                arm_evidence["cases"][f"{layout}:{probe}"] = {"error": str(exc)}
                 continue
-            arm_calls = read_calls(calls_path)
-            add_mtd = [c for c in arm_calls if c.startswith("add_mtd ") and "appsblenv" in c]
-            arm_results.append({"arm": index, "add_mtd_calls": add_mtd})
-            if result["rc"] != 0:
-                gate.behaviour_fail(name, f"harness failed rc={result['rc']}: {result['stderr'][:200]}")
-            elif len(add_mtd) != 1:
-                gate.behaviour_fail(name, f"{layout} layout has {len(add_mtd)} appsblenv add_mtd calls (expected 1)")
-            elif layout == "merged":
+            arm_evidence["cases"][f"{layout}:{probe}"] = {
+                "rc": case["rc"],
+                "stdout": case["stdout"],
+                "stderr": case["stderr"],
+                "add_mtd_calls": case["add_mtd"],
+                "probe_config_calls": case["probe_config"],
+                "fw_printenv_calls": case["fw_printenv"],
+                "fw_setenv_calls": case["fw_setenv"],
+            }
+            if case["rc"] != 0:
+                gate.behaviour_fail(
+                    case_name,
+                    f"harness failed rc={case['rc']}: {case['stderr'][:200]}")
+                continue
+            if case["fw_setenv"]:
+                gate.behaviour_fail(
+                    case_name,
+                    f"env-tools script performed a forbidden fw_setenv write: "
+                    f"{case['fw_setenv']}")
+                continue
+            add_mtd = case["add_mtd"]
+            if len(add_mtd) != 1:
+                gate.behaviour_fail(
+                    case_name,
+                    f"{layout}/{probe} run has {len(add_mtd)} appsblenv "
+                    f"add_mtd calls (expected 1)")
+                continue
+            if layout == "dual":
+                if "0x10000" not in add_mtd[0] or "0x40000" in add_mtd[0]:
+                    gate.behaviour_fail(
+                        case_name,
+                        f"dual-slot layout no longer keeps 0x10000 geometry: {add_mtd[0]}")
+                elif case["fw_printenv"]:
+                    gate.behaviour_fail(
+                        case_name,
+                        "dual-slot layout performs the merged-layout probe")
+                else:
+                    gate.ok(case_name,
+                            "dual-slot keeps stock 0x10000 and is not probed")
+                continue
+            if probe == "ok":
                 if "0x40000" not in add_mtd[0] or "0x20000" not in add_mtd[0]:
-                    gate.behaviour_fail(name, f"merged layout env geometry is not 0x40000/0x20000: {add_mtd[0]}")
+                    gate.behaviour_fail(
+                        case_name,
+                        f"proven 256 KiB probe did not select 0x40000/0x20000: "
+                        f"{add_mtd[0]}")
+                elif "probe-verified" not in case["stdout"]:
+                    gate.behaviour_fail(
+                        case_name,
+                        "proven probe did not announce probe-verified")
+                elif len(case["fw_printenv"]) != 1:
+                    gate.behaviour_fail(
+                        case_name,
+                        f"probe performed {len(case['fw_printenv'])} "
+                        f"fw_printenv reads (expected 1)")
+                elif case["probe_config"] != [
+                        "probe-config /dev/mtd6 0x0 0x40000 0x20000"]:
+                    gate.behaviour_fail(
+                        case_name,
+                        "probe did not read the 0x40000 candidate geometry: "
+                        + str(case["probe_config"]))
                 else:
-                    gate.ok(name, "merged layout selects probe-verified 0x40000/0x20000 env geometry")
+                    gate.ok(case_name,
+                            "runtime probe proof selects 0x40000/0x20000")
             else:
-                if "0x10000" not in add_mtd[0]:
-                    gate.behaviour_fail(name, f"dual-slot layout no longer keeps 0x10000 geometry: {add_mtd[0]}")
+                if "0x10000" not in add_mtd[0] or "0x40000" in add_mtd[0]:
+                    gate.behaviour_fail(
+                        case_name,
+                        f"unproven probe leaked the 0x40000 geometry: "
+                        f"{add_mtd[0]}")
+                elif "OPEN" not in case["stdout"]:
+                    gate.behaviour_fail(
+                        case_name,
+                        "unproven probe did not report S1-01 OPEN")
                 else:
-                    gate.ok(name, "dual-slot layout keeps stock 0x10000 env geometry")
-        evidence[layout] = arm_results
+                    gate.ok(case_name,
+                            f"unproven probe ({probe}) keeps 0x10000 and "
+                            f"reports OPEN")
+        evidence["arms"].append(arm_evidence)
     return evidence
 
 
@@ -450,7 +659,7 @@ def main() -> int:
     gate = Gate(args.mode)
     scripts_dir = Path(args.scripts_dir)
     report = {
-        "schema": 1,
+        "schema": 2,
         "gate": "S1-05 installer admission",
         "mode": args.mode,
         "scope": "offline rootfs artifact evidence only; not boot, flash or hardware evidence",
@@ -458,6 +667,8 @@ def main() -> int:
         "source_root": args.source_root,
         "status": "PASS",
         "checks": gate.checks,
+        "installer_open_items": [],
+        "env_geometry": {},
         "scripts": {},
         "harness": {},
     }
@@ -465,7 +676,10 @@ def main() -> int:
         scripts = load_scripts(scripts_dir, gate)
         report["harness"]["platform"] = check_platform(scripts, gate)
         report["harness"]["bootcount"] = check_bootcount(scripts, gate)
-        report["harness"]["ubootenv"] = check_ubootenv(scripts, gate)
+        env_evidence = check_ubootenv(scripts, gate)
+        report["harness"]["ubootenv"] = env_evidence
+        report["env_geometry"] = {key: value for key, value in env_evidence.items()
+                                  if key != "arms"}
         report["harness"]["nand"] = check_nand(scripts, gate)
         pins = {
             name: getattr(args, PIN_ARG[name])
@@ -484,6 +698,7 @@ def main() -> int:
                         gate.fail(f"pin:{name}", "sha256 does not match reviewed pin")
     except Exception as exc:  # fail closed on any unexpected checker error
         gate.fail("gate-internal", f"installer admission checker error: {exc}")
+    report["installer_open_items"] = gate.open_items
     report["status"] = gate.status
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -495,6 +710,12 @@ def main() -> int:
         for check in failures:
             print(f"  - {check['name']}: {check['detail']}", file=sys.stderr)
         return 1
+    open_items = report["installer_open_items"]
+    if open_items:
+        print("INSTALLER ADMISSION OPEN (non-blocking residuals; "
+              "must be carried into the release notes):")
+        for check in open_items:
+            print(f"  - {check['name']}: {check['detail']}")
     return 0
 
 
