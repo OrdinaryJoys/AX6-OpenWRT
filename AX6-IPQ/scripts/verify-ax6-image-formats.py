@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import zlib
 import io
 import json
 import struct
@@ -36,6 +37,15 @@ def require(cond: bool, msg: str) -> None:
 
 def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+def ubi_crc(data: bytes, init: int = 0xFFFFFFFF) -> int:
+    """UBI/Linux CRC32: reflected poly, init 0xFFFFFFFF, no final XOR."""
+    crc = init
+    for byte in data:
+        crc ^= byte
+        for _ in range(8):
+            crc = (crc >> 1) ^ 0xEDB88320 if crc & 1 else crc >> 1
+    return crc & 0xFFFFFFFF
 
 def parse_fdt(blob: bytes) -> dict:
     """Return {path: {prop: bytes}} for a flattened device tree."""
@@ -108,6 +118,20 @@ def parse_sysupgrade(path: Path) -> dict:
     require(0 < rootfs_used <= len(rootfs), "sysupgrade rootfs bytes_used invalid")
     require(all(b == 0 for b in rootfs[rootfs_used:]), "sysupgrade rootfs has non-zero padding")
     rootfs = rootfs[:rootfs_used]
+    meta_marker = b'"metadata_version"'
+    meta_pos = data.rfind(meta_marker)
+    require(meta_pos >= 0, "sysupgrade appended metadata missing")
+    meta_start = data.rfind(b"{", 0, meta_pos)
+    require(meta_start >= 0, "sysupgrade metadata opening brace missing")
+    meta_pos = meta_start
+    meta_text = data[meta_pos:].decode("utf-8", "replace")
+    try:
+        metadata, _ = json.JSONDecoder().raw_decode(meta_text)
+    except json.JSONDecodeError as exc:
+        raise CheckError(f"sysupgrade metadata JSON invalid: {exc}")
+    require(metadata.get("metadata_version") == "1.1", "sysupgrade metadata_version mismatch")
+    supported = metadata.get("supported_devices") or []
+    require("redmi,ax6-stock" in supported, "sysupgrade supported_devices missing redmi,ax6-stock")
     return {
         "file": path.name,
         "bytes": len(data),
@@ -117,6 +141,9 @@ def parse_sysupgrade(path: Path) -> dict:
         "kernel_sha256": sha256(kernel),
         "rootfs_bytes": len(rootfs),
         "rootfs_sha256": sha256(rootfs),
+        "metadata_version": metadata.get("metadata_version"),
+        "compat_version": metadata.get("compat_version"),
+        "supported_devices": supported,
     }
 
 def _read_ubi_headers(data: bytes, peb_size: int) -> dict:
@@ -150,6 +177,10 @@ def _read_ubi_headers(data: bytes, peb_size: int) -> dict:
         reserved, alignment, data_pad, vol_type, upd_marker, name_len = struct.unpack_from(">IIIBBH", data, base)
         name = data[base + 16:base + 16 + name_len].decode("utf-8", "replace")
         if reserved or name:
+            stored_crc, = struct.unpack_from(">I", data, base + 168)
+            require(ubi_crc(data[base:base + 168]) == stored_crc,
+                    f"UBI volume table record {i} CRC mismatch")
+            flags = data[base + 144]
             table[i] = {
                 "reserved_pebs": reserved,
                 "alignment": alignment,
@@ -157,6 +188,7 @@ def _read_ubi_headers(data: bytes, peb_size: int) -> dict:
                 "vol_type": vol_type,
                 "upd_marker": upd_marker,
                 "name": name,
+                "flags": flags,
             }
     return {
         "peb_size": peb_size,
@@ -171,27 +203,42 @@ def _read_ubi_headers(data: bytes, peb_size: int) -> dict:
     }
 
 def parse_ec(data: bytes, off: int) -> dict:
+    require(off + 64 <= len(data), "UBI EC header truncated")
     magic, = struct.unpack_from(">I", data, off)
     version = data[off + 4]
     ec, = struct.unpack_from(">Q", data, off + 8)
     vid, = struct.unpack_from(">I", data, off + 16)
     doff, = struct.unpack_from(">I", data, off + 20)
     seq, = struct.unpack_from(">I", data, off + 24)
-    return {"magic": magic, "version": version, "ec": ec, "vid_hdr_offset": vid, "data_offset": doff, "image_seq": seq}
+    stored, = struct.unpack_from(">I", data, off + 60)
+    require(magic == UBI_EC_MAGIC, f"UBI EC magic missing at {off:#x}")
+    require(ubi_crc(data[off:off + 60]) == stored,
+            f"UBI EC header CRC mismatch at {off:#x}")
+    return {"magic": magic, "version": version, "ec": ec, "vid_hdr_offset": vid,
+            "data_offset": doff, "image_seq": seq, "hdr_crc": stored}
 
 def parse_vid(data: bytes, off: int) -> dict | None:
-    if off + 64 > len(data):
-        return None
-    magic, version, vol_type, copy_flag, compat = struct.unpack_from(">IBBBB", data, off)
+    require(off + 64 <= len(data), "UBI VID header truncated")
+    magic, = struct.unpack_from(">I", data, off)
     if magic != UBI_VID_MAGIC:
         return None
-    vol_id, lnum, data_size, used_ebs, data_pad, data_crc = struct.unpack_from(">IIIIII", data, off + 8)
-    sqnum, = struct.unpack_from(">Q", data, off + 32)
-    return {
-        "magic": magic, "version": version, "vol_type": vol_type, "copy_flag": copy_flag,
-        "compat": compat, "vol_id": vol_id, "lnum": lnum, "data_size": data_size,
-        "used_ebs": used_ebs, "data_pad": data_pad, "data_crc": data_crc, "sqnum": sqnum,
-    }
+    version = data[off + 4]
+    vol_type = data[off + 5]
+    copy_flag = data[off + 6]
+    compat = data[off + 7]
+    vol_id, = struct.unpack_from(">I", data, off + 8)
+    lnum, = struct.unpack_from(">I", data, off + 12)
+    # ubi-media.h: padding1[4] at +16, then data_size(+20), used_ebs(+24),
+    # data_pad(+28), data_crc(+32), padding2[4] at +36, sqnum(+40), hdr_crc(+60)
+    data_size, used_ebs, data_pad, data_crc = struct.unpack_from(">IIII", data, off + 20)
+    sqnum, = struct.unpack_from(">Q", data, off + 40)
+    stored, = struct.unpack_from(">I", data, off + 60)
+    require(ubi_crc(data[off:off + 60]) == stored,
+            f"UBI VID header CRC mismatch at {off:#x}")
+    return {"magic": magic, "version": version, "vol_type": vol_type,
+            "copy_flag": copy_flag, "compat": compat, "vol_id": vol_id,
+            "lnum": lnum, "data_size": data_size, "used_ebs": used_ebs,
+            "data_pad": data_pad, "data_crc": data_crc, "sqnum": sqnum}
 
 def volume_payload(data: bytes, ubi: dict, vol_id: int) -> bytes:
     """Return the full data capacity of a UBI volume (all data PEBs)."""
@@ -254,6 +301,29 @@ def parse_itb(path: Path) -> dict:
     require(fdt_data[:4] == b"\xd0\x0d\xfe\xed", "FIT embedded DTB is invalid")
     default = fdt_str(nodes, "/configurations", "default")
     require(default.startswith("config@"), "FIT default configuration missing")
+
+    def verify_hashes(node_path: str, node: dict, payload: bytes) -> None:
+        checked = 0
+        for path, child in nodes.items():
+            if not path.startswith(node_path + "/hash-"):
+                continue
+            alg = fdt_str(nodes, path, "algo")
+            digest = child.get("value")
+            require(digest is not None, f"FIT {path} missing value")
+            if alg == "crc32":
+                expected = (zlib.crc32(payload) & 0xFFFFFFFF).to_bytes(4, "big")
+            elif alg == "sha1":
+                expected = hashlib.sha1(payload).digest()
+            else:
+                require(False, f"FIT unsupported hash algorithm {alg!r}")
+            require(digest == expected, f"FIT {path} hash mismatch")
+            checked += 1
+        require(checked > 0, f"FIT {node_path} has no hash node")
+        if len(node.get("data", b"")) == 0:
+            raise CheckError(f"FIT {node_path} data missing")
+
+    verify_hashes("/images/kernel-1", kernel, kernel["data"])
+    verify_hashes("/images/fdt-1", fdt, fdt["data"])
     return {
         "file": path.name,
         "bytes": len(data),
