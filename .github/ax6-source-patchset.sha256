@@ -88,7 +88,7 @@ ad95cec37f6d3a79b9382c7a3202b35254107990bbea1c9ebc5408260d7b4019  package/kernel
 6d848fec342fea468fecbbd8115207af0fe823fba46284bb12273c77099c936d  package/kernel/mac80211/patches/nss/ath11k/999-955-ath11k-balance-link-descriptor-bh-release.patch
 7b20f1247390e33b7d1c1f5fd1966cd8fe7596c0054df46bb29916bb640294f4  package/kernel/mac80211/patches/nss/ath11k/999-956-ath11k-nss-use-opaque-context-registration.patch
 0cf4c4e4f8588b586b42fad9dcf0671debd0d6eade96bcf03c84e824faa2da3b  package/kernel/mac80211/patches/nss/ath11k/999-957-ath11k-nss-validate-wifili-peer-stats-length.patch
-ed1d0f7babfbc5b7a1b56290a499025ff01e93bbae590f8b0c65f1689449a858  package/kernel/mac80211/patches/nss/ath11k/999-958-ath11k-nss-parse-available-peer-stats.patch
+ea9db63ca5c20922cdedc65f8fcb568c28779bfec7ff58b2a252e2e7872da6c4  package/kernel/mac80211/patches/nss/ath11k/999-958-ath11k-nss-parse-available-peer-stats.patch
 b2406698a34a741031e020161c0070ade51ca67c47258e0cbd5d4ba23d75a93c  package/kernel/mac80211/patches/nss/subsys/199-001-mac80211-add-nss-support.patch
 058b5b54d98fe2cf769eb7ffd9b2a52404de02c96629637d3cf5604aeff68332  package/kernel/mac80211/patches/nss/subsys/203-mac80211-ath11k-fw-dynamic-muedca.patch
 9c0e4703c4fa67c1ef7f984ea8dd02d9fb3f56575604da889b4855f5f1de037c  package/kernel/mac80211/patches/nss/subsys/235-001-mac80211-add-AP_VLAN-iftype-support-on-NSS-offload-case.patch
@@ -273,7 +273,7 @@ d77e97af48201efb952bc43afbb6c6b626be8a5e185c1c9d182b9c451910b362  package/qca-ns
 004ab0a1472f331cc4c60887281cbfc1a9d428ae6c3513e01d2ee7114e93686e  package/qca-nss/qca-ssdk/patches/052-ssdk-probe-balanced-node-and-oom.patch
 9863d5e960f8582100cf61fc22373490c6cfc5db8236a4da20cb1d8ecc159938  package/qca-nss/qca-ssdk/patches/053-ssdk-track-platform-resource-acquisition.patch
 50d8de2b32fa14391f1225d2ee677b10985b6d65c83169556cab090cf4c2087e  package/qca-nss/qca-ssdk/patches/054-ssdk-root-init-retention.patch
-4c50ad0a3c03e303aadcec2f12dce1adf4ed0fc6272a40668db6945833cd05a1  package/qca-nss/qca-ssdk/patches/055-ssdk-mib-start-physical-port.patch
+57c269c6bb06c02982b4d37217c1fbd2e9ddca92b73b2105e280dd18ed7efe1a  package/qca-nss/qca-ssdk/patches/055-ssdk-mib-start-physical-port.patch
 cf4dd1b5e975aaec31995b4fbc49ffddcc970d9a5e8a99a0120b92721871f13b  package/system/rpcd/AX6-VALIDATION.md
 058c6d72a1dfa6b3e6b9720cc925fd2c5c89bc7dbd985da8b1ce08972cf70721  package/system/rpcd/Makefile
 ccd7731c4f16043f347ac5bb86ffd198be9bf371624061f8fd349cd4674da6e3  package/system/rpcd/patches/010-file-resolved-path-acl.patch
@@ -427,7 +427,7 @@ b1149a8cc0cbdd22373836656e6743ac89e5df1ab7f4c13a7ae3772dee477b54  tests/ath11k-n
 2152a1becb26da5c5fd8f76e901c6d40e2367ed8dd9416d7283d28249b19e331  tests/ath11k-nss-init-ownership/host-fixture.c
 d34cb8eca427aee3e313b9ed817b26f7a1611bb7dec62bffa27a04704998817a  tests/ath11k-nss-link-return/README.md
 1a05aa89d1bab5df422d3fdee4ad555b3d6016feaad03d356d8381074e381287  tests/ath11k-nss-link-return/host-fixture.c
-874d496958533dcec3d696dc8f2cd8af72283e4c18390313ba4d9a83139c7cd8  tests/ath11k-nss-peer-stats-bounds/host-fixture.c
+429c914bf85584157246364442366ba392a1d6fee7445fbe642a1b89106e599a  tests/ath11k-nss-peer-stats-bounds/host-fixture.c
 d8850a5446299c686b1fcc2c175b6f55f5dfc59dd8cdfc000668cb36713acdc5  tests/ath11k-pci-ssr/README.md
 dcbb13c1211cf537f0b8282f63d064e7bdf7afcf17a8441b95a794cfe1f08a96  tests/ath11k-pci-ssr/host-fixture.c
 1b2828501583d952d54619067e97c5778e3a3f9d52d7dbe55c74aa5ce87c0fd5  tests/ath11k-pcic-irq/README.md
@@ -619,7 +619,7 @@ f25d584500c0570acd57ababff7acedff05fc4f4b37ad40307015b0be1c4c457  tests/test-ath
 dcc9d7b9b8f136d4daed9ddf477f884a245ad564d9a47575c0c2efda15933308  tests/test-ath11k-nss-context.py
 d122fd023c59313cf754a079902b1f69edc0235573b7f43cbeea26d1e380f21a  tests/test-ath11k-nss-init-ownership.py
 2c35492d20bc5cbe5edbf8a327662426628d1a753187a3417074879faca72824  tests/test-ath11k-nss-link-return.py
-488da0adac23d79093cb2263ea4a8ab994d82db6519c103522336407441e1aa5  tests/test-ath11k-nss-peer-stats-bounds.py
+8c8caaa5fdee61500872ea62bf97d559ae66c80591caa81d2963447f2e7f21d4  tests/test-ath11k-nss-peer-stats-bounds.py
 673e403c22f08f85e64e8550f9f22b0ef3c7b9bc6cd67ea04e0c21fe1274719c  tests/test-ath11k-nss-tx-desc-profile.sh
 e2aa30656e266f3a0f15200373d22e7fe1affa10b620c39a17ceca2f9f09ef16  tests/test-ath11k-pci-ssr.py
 35cb6c312b8ac10ad7841af97b97264f09aaa8cb52cc426fc2a71e29e9487e71  tests/test-ath11k-pcic-irq-errors.py
@@ -697,7 +697,7 @@ be40d3db21ac677a1e25c33a12184013334fc3c9764e25b8820ad39f0717ac22  tests/test-ssd
 ab4028ff6c1851ca43fead7ea7e43349a55aa429e6512c4605c559fc1e409e1a  tests/test-ssdk-i2c-node-owner.py
 b1cf2145a47378534396d8378d41ee6ad4c8f6a418e235e3e7ddcf00ddb27cfc  tests/test-ssdk-mdio-node-leases.py
 64b43237bb1ccea9232d78cb1d054cfb43b37649dea4043657f6c4e31c66ffa7  tests/test-ssdk-mdio-table-admission.py
-f88cb609c177047cc3378a2eaa0f3f2a01b5d510bce1e73006086dfa606d433a  tests/test-ssdk-mib-errors.py
+f3480062e36f10d2854b94d6967557880215501fe4a49adcf81004410d163980  tests/test-ssdk-mib-errors.py
 2fed87fce9a7c820196668e514fce5de2daefef068cefdd8ab48a746a9ac2e39  tests/test-ssdk-mib-read-clear.py
 777ae0f8e16d6271bd4959f53464c2f6e139348907e42dee8118d694b7d324b6  tests/test-ssdk-netdev-cache.py
 909d42ef99f07c2eba6221d07e89e832bc08d77c78756ca9ae8ca898fe1cf29a  tests/test-ssdk-outer-admission.py
