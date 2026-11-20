@@ -13,6 +13,13 @@
 #      判定为卡死的持锁实例, 终止它让 netifd 重新生成干净实例。
 # 正常态 (单实例 + 接口 up) 零操作。匹配严格锚定 argv[0]="odhcp6c",
 # 避免误杀任何其他进程。
+#
+# 时间单位 (S5-01): /proc/uptime 是"秒"; /proc/<pid>/stat 第 22 字段
+# starttime 是"自启动以来的时钟滴答数"(USER_HZ, getconf CLK_TCK)。
+# 二者恒满足 uptime_seconds * HZ >= starttime, 所以存活秒数必须先换算:
+#   started_at = starttime / HZ; age = uptime_seconds - started_at
+# 旧实现的 age=$(( (uptime_seconds - starttime) / HZ )) 混用秒与滴答,
+# 会让 down+存活>120s 的卡死实例分支在 uptime < 120*HZ 时永远不可达。
 
 case "${ACTION:-}" in
 	ifup|ifupdate) ;;
@@ -57,7 +64,9 @@ if [ -z "$victims" ]; then
 	[ "$ifup_state" = "false" ] || exit 0
 	hz=$(getconf CLK_TCK 2>/dev/null)
 	[ -n "$hz" ] && [ "$hz" -gt 0 ] || hz=100
-	age=$(( (now_boot - newest_ts) / hz ))
+	# starttime 是时钟滴答, 换算成秒后再与 uptime(秒) 相减。
+	started_at=$(( newest_ts / hz ))
+	age=$(( now_boot - started_at ))
 	[ "$age" -gt 120 ] || exit 0
 	victims="$newest"
 fi
