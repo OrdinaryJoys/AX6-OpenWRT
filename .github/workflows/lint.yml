@@ -88,7 +88,7 @@ jobs:
           sudo env DEBIAN_FRONTEND=noninteractive timeout --kill-after=15s 240s apt-get \
             -o Acquire::Retries=2 -o Acquire::http::Timeout=20 \
             -o Acquire::https::Timeout=20 install -y \
-            busybox device-tree-compiler shellcheck yamllint libjson-c-dev pkg-config iproute2 kmod nftables cmake python3-venv zstd
+            busybox device-tree-compiler shellcheck yamllint libjson-c-dev pkg-config iproute2 kmod nftables cmake python3-venv python3-yaml zstd
 
       - name: Install hash-verified host-only ELF parser
         timeout-minutes: 3
@@ -182,6 +182,7 @@ jobs:
           python3 -B tests/test-ncurses-source.py
           python3 tests/test-vim-package-evidence.py
           python3 tests/test-ax6-kernel-evidence.py
+          python3 -B tests/test-ax6-diagnostic-config.py
           python3 tests/test-vim-host-tools-wiring.py
           python3 tests/test-openclash-rootfs-entrypoints.py
           python3 tests/test-rootfs-diagnostic-wiring.py

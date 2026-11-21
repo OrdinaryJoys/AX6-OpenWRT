@@ -7,6 +7,7 @@ import shlex
 import subprocess
 import tempfile
 import textwrap
+import yaml
 
 root = Path(__file__).resolve().parents[1]
 workflow = (root / '.github/workflows/build-AX6-NSS.yml').read_text()
@@ -48,15 +49,33 @@ assert 'cp image-verify/vim-rootfs.json vim-package-evidence/ROOTFS-CONSISTENCY.
 vim_upload_marker = '      - name: Preserve actual Vim package payloads for independent revalidation\n'
 vim_upload = workflow.split(vim_upload_marker, 1)[1].split('\n      - name:', 1)[0]
 assert 'if: always()' in vim_upload and 'path: vim-package-evidence/' in vim_upload
-kernel_marker = '      - name: Preserve generated kernel and compiled stock DTB before rootfs gates\n'
-assert workflow.count(kernel_marker) == 1
-kernel = workflow.split(kernel_marker, 1)[1].split('\n      - name:', 1)[0]
-assert "if: success() && env.VARIANT_TAG == 'STOCK'" in kernel
-assert '--output-dir build-evidence/kernel-evidence' in kernel
-assert 'build-evidence/COMPILED-AX6-STOCK.dtb' in kernel
-assert workflow.index('      - name: Compile firmware\n') < workflow.index(kernel_marker)
-assert workflow.index(kernel_marker) < workflow.index('      - name: Preserve compile attempts even after failure\n')
-assert workflow.index(kernel_marker) < workflow.index('      - name: Validate final rootfs contents\n')
+document = yaml.load(workflow, Loader=yaml.BaseLoader)
+jobs = [job for job in document['jobs'].values()
+        if any(step.get('id') == 'compile_firmware' for step in job['steps'])]
+assert len(jobs) == 1
+steps = jobs[0]['steps']
+
+
+def unique_step(name):
+    matches = [(index, step) for index, step in enumerate(steps) if step.get('name') == name]
+    assert len(matches) == 1, name
+    return matches[0]
+
+
+kernel_index, kernel = unique_step('Preserve and validate generated diagnostic kernel configuration')
+dtb_index, dtb = unique_step('Preserve compiled stock DTB before rootfs gates')
+compile_index, _ = unique_step('Compile firmware')
+upload_index, _ = unique_step('Preserve compile attempts even after failure')
+rootfs_index, _ = unique_step('Validate final rootfs contents')
+assert kernel['if'] == 'success()'
+assert '--output-dir build-evidence/kernel-evidence' in kernel['run']
+assert '--require-generated' in kernel['run']
+assert '--kernel-config build-evidence/kernel-evidence/kernel.config' in kernel['run']
+assert 'build-evidence/COMPILED-AX6-STOCK.dtb' not in kernel['run']
+assert dtb['if'] == "success() && env.VARIANT_TAG == 'STOCK'"
+assert 'build-evidence/COMPILED-AX6-STOCK.dtb' in dtb['run']
+assert 'collect-ax6-kernel-evidence.py' not in dtb['run']
+assert compile_index < kernel_index < dtb_index < upload_index < rootfs_index
 
 # Re-execute the exact local selectors and manifest gate in a fresh step shell.
 # The collector's shell array must not be assumed to survive an Actions boundary.
