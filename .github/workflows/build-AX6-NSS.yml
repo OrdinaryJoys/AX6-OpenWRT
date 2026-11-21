@@ -576,6 +576,8 @@ jobs:
             echo "::error::Kconfig recursive dependency detected"
             exit 1
           fi
+          python3 ../.github/scripts/verify-ax6-diagnostic-config.py \
+            --top-config .config --kernel-options config/Config-kernel.in
           # defconfig 会重新启用 CONFIG_KERNEL_WERROR,导致 -Wmissing-prototypes 变成硬错误,
           # 进而导致 NSS 外部内核模块(qca-nss-drv/qca-mcs 等)编译失败。
           # 此处强制禁用以避免连锁问题。
@@ -1020,12 +1022,10 @@ jobs:
         run: |
           set -eo pipefail
           mapfile -d '' dp_dirs < <(
-            find build_dir/target-aarch64_cortex-a53_musl/linux-qualcommax_ipq807x \
-              -maxdepth 1 -type d -name 'qca-nss-dp-*' -print0
+            find build_dir -type d -name 'qca-nss-dp-*' -print0
           )
           mapfile -d '' drv_dirs < <(
-            find build_dir/target-aarch64_cortex-a53_musl/linux-qualcommax_ipq807x \
-              -maxdepth 1 -type d -name 'qca-nss-drv-*' -print0
+            find build_dir -type d -name 'qca-nss-drv-*' -print0
           )
           if [ "${#dp_dirs[@]}" -ne 1 ] || [ "${#drv_dirs[@]}" -ne 1 ]; then
             echo "::error::Expected one prepared qca-nss-dp and qca-nss-drv directory; found dp=${#dp_dirs[@]} drv=${#drv_dirs[@]}"
@@ -1090,14 +1090,24 @@ jobs:
           echo "$(nproc) thread compile"
           bash ../.github/scripts/compile-ax6-with-evidence.sh "$(nproc)" ../build-evidence --once
 
-      - name: Preserve generated kernel and compiled stock DTB before rootfs gates
-        if: success() && env.VARIANT_TAG == 'STOCK'
+      - name: Preserve and validate generated diagnostic kernel configuration
+        if: success()
         run: |
           set -eo pipefail
           # Collection is not ABI/DTB acceptance. Preserve these inputs even
           # when a later rootfs/package validator rejects the candidate.
           python3 .github/scripts/collect-ax6-kernel-evidence.py \
             --build-dir openwrt/build_dir --output-dir build-evidence/kernel-evidence
+          python3 .github/scripts/verify-ax6-diagnostic-config.py \
+            --top-config openwrt/.config \
+            --kernel-config build-evidence/kernel-evidence/kernel.config \
+            --kernel-options openwrt/config/Config-kernel.in --require-generated \
+            --output build-evidence/diagnostic-tracing-config.json
+
+      - name: Preserve compiled stock DTB before rootfs gates
+        if: success() && env.VARIANT_TAG == 'STOCK'
+        run: |
+          set -eo pipefail
           mapfile -d '' compiled_stock_dtbs < <(
             find openwrt/build_dir -type f \
               -path '*/linux-qualcommax_ipq807x/image-ipq8071-ax6-stock.dtb' -print0
