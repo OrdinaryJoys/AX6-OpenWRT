@@ -318,7 +318,7 @@ e13b442afce22e7bac64eface62640045e2e267a70d7fb1e47939a46ba5d16b4  target/linux/g
 e33896ecde7a7b928a2fb24447bf94f77ac8555854fa8d3f4e1b86a36442da5c  target/linux/generic/backport-6.18/747-v7.1-r8152-Add-support-for-the-RTL8157-hardware.patch
 c766295a13846170bf62cd895a64d174082f58c710c4728f83db15ad6ca8f20b  target/linux/generic/backport-6.18/751-v7.2-net-dsa-qca8k-add-support-for-force-mode-for-fixed-l.patch
 c512211e965a1282618e65ffe4e33f635bd6492e97031a74960e006f500087d8  target/linux/generic/backport-6.18/752-v7.2-net-dsa-qca8k-fix-led-devicename-when-using-external.patch
-edab1835d0b636966cd4b65da79bbe113404b38a55bdf31a81fc48a37718f60d  target/linux/generic/config-6.18
+b7c187f4a3d27034cec17ff492d8b21830168f409472bc9d1f29d8823bbffd87  target/linux/generic/config-6.18
 ca39cceb4600613d5cd31d20af999d91a987a66f73a69acc25e75a03f657ffe1  target/linux/generic/hack-6.18/400-mtd-spinand-Support-fmsh.patch
 999ce0d8d707673078fe281ac2a3379007dde0e0783f6b794e145fa2abd5fcb3  target/linux/generic/hack-6.18/421-drivers-mtd-parsers-add-nvmem-support-to-cmdlinepart.patch
 8ccb3c89a7541c67c81c666d074941939868f305aa734951c533db0657394b52  target/linux/generic/hack-6.18/721-net-add-packet-mangeling.patch
