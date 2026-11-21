@@ -191,7 +191,7 @@ b2ea6ef7403a6608c7c0caa19140db99c109840a9d1ce13e45f1428d9edfc173  package/qca-ns
 2187756f3cfa81a632de16448d18c16dde654d5646e503434b8d4bfcdfcc2978  package/qca-nss/qca-nss-clients/patches/025-netlink-admin-for-all-mutating-ops.patch
 4312013bdb5b756dcb3f0a00890bf139192886a4f318d2dd2f1e2b40300d9715  package/qca-nss/qca-nss-clients/patches/026-parse-sysctl-kernel-buffers.patch
 c053acb88b89a191828c7fc0572b5c1bc550d3478d636993f17873b7a81aaef6  package/qca-nss/qca-nss-clients/patches/027-tunipip6-command-errors-and-netdev-ownership.patch
-977d4fb3ce6e829c977fb3835f76ed23ec0f28e85c34e3642feb7ea32dcaf36a  package/qca-nss/qca-nss-dp/Makefile
+c6afa6f3ff8162cc4926b1986068e636201b550b03e84d04dd6c209ec59cfee8  package/qca-nss/qca-nss-dp/Makefile
 9cecc83ee00068a4179788e259cfbd94ad0b8a3a7cb9d4f84766323343c53b13  package/qca-nss/qca-nss-dp/patches/004-phydev-clear-on-connect-failure.patch
 9b3ae37671d339b623b8f1bcd2d098423027c18d13d227eaab5e4025a74a08f2  package/qca-nss/qca-nss-dp/patches/006-ratelimit-edma-warnings.patch
 b707f08756dc6da47ab9bfec313b13b901298ae15c2dd4a2757d710407496c47  package/qca-nss/qca-nss-dp/patches/007-fix-tx-ring-modulo.patch
@@ -207,7 +207,8 @@ a6a3cfaece3c268ed7ebb674d29c6f962661c76f4afd57c69c463101f29e5670  package/qca-ns
 d38015b0ab4a8f88ec9fe0fab078f325cb493f390783afe621e30f17fca237a4  package/qca-nss/qca-nss-dp/patches/017-ipq807x-unregister-before-phy-retirement.patch
 c9f6f83ff7277379fed402ddf07bd3726df2d2e3e7f9281233480358f04c740c  package/qca-nss/qca-nss-dp/patches/018-ipq807x-init-stage-rollback.patch
 9990d6ed52fcf427e9c7a86950253ade522a819a13784b88716947cb296d625f  package/qca-nss/qca-nss-dp/patches/019-limit-stp-restore-to-departing-bridge-master.patch
-207d542e547a6062c6e2ed68104eb7075efa2e091136f11e42e7222caf43dbec  package/qca-nss/qca-nss-drv/Makefile
+11a384c9be6b3721f5cf7702e3b086f10d8c100c3a5c9b6a89d10ec489b16741  package/qca-nss/qca-nss-dp/patches/020-ipq807x-start-all-tx-queues-after-open.patch
+3840159d1749f303afe0c7b39498d66077f99c8a11e0772e593a9d91d24fe59a  package/qca-nss/qca-nss-drv/Makefile
 883e5a15e50e586715913aaaa434bef4cd87a6c49a0375a7f148ea2907ce10ee  package/qca-nss/qca-nss-drv/files/skb_recycler.uci
 b919564f02592086017328b5181fdbabf2f9314db933ee9e0d4486c966bd29e2  package/qca-nss/qca-nss-drv/patches/012-fix-autoscale-stats-and-current-freq-read.patch
 5242126dd65ac9b84518e24a3fc923916a19a6c3880f0d18a0f69062b6648c06  package/qca-nss/qca-nss-drv/patches/015-fix-fraglist-skb-truesize-underaccounting.patch
@@ -228,6 +229,7 @@ b4c9582f5a9ca19110db6643ad89d8918ed36a09a3561fa81e5678397ae5ba3b  package/qca-ns
 d3339c2720b97a55160676f9f236acf4d463d7c3afdfcf4f4a64f8e7569e47a9  package/qca-nss/qca-nss-drv/patches/032-ipq807x-private-pdata-rollback.patch
 660e855af5071f4417ce29881538a745a93116c6b056d9a33540e8bbc7641064  package/qca-nss/qca-nss-drv/patches/033-connection-table-host-transaction.patch
 0097f4199aa0d5276de954b1ac85a20c3f6099f1d29417f0793afba95dde45d2  package/qca-nss/qca-nss-drv/patches/055-wifili-send-actual-message-length.patch
+972f2233113a1a15cdd2ab1b682e725eab1b83463198fdd972a7f181fb3a0716  package/qca-nss/qca-nss-drv/patches/056-nss-status-include-header-in-packet-length-check.patch
 69a8150535c369355b434bdf5c18bdb01a974625b46fcdb77cbca6c7eae3e57a  package/qca-nss/qca-nss-ecm/Makefile
 2438ccfa97b0fa4e6f3cb333de8d0c8fcb05c46b6bcfdca93f4f75ae390920d9  package/qca-nss/qca-nss-ecm/files/disable_offloads.hotplug
 055e4f85038ff06f449a9512eaf8d14f6e8bfea2c92a0a38a964a5a2e433eb69  package/qca-nss/qca-nss-ecm/files/disable_offloads.sh
@@ -237,7 +239,7 @@ d3339c2720b97a55160676f9f236acf4d463d7c3afdfcf4f4a64f8e7569e47a9  package/qca-ns
 729dbe7f96d28c8a7ffa122eeb39b37de90e708513ced37c9880a1dd14f61e46  package/qca-nss/qca-nss-ecm/patches/028-classifier-preserve-explicit-directional-udp-priorities.patch
 52346dd0808f09c254710db8cc7772dd96440428d627bd2c15a3fb62fbcaac4b  package/qca-nss/qca-nss-ecm/patches/029-denied-ports-publish-bounded-rcu-snapshots.patch
 449132502ad5a8793dc91563903338f2df45eb5fead4064a1f4ddc6299c1d5c2  package/qca-nss/qca-nss-ecm/tests/test-disable-offloads.sh
-574ba5fe6105966a15e4d54fbf46d81fad5b0735181d4eb704cf4017a9195f4a  package/qca-nss/qca-ssdk/Makefile
+f84b19053a764d020bf2be0c3a73d4ab5d8c4572351634181aec808d23016008  package/qca-nss/qca-ssdk/Makefile
 ddb52cdf907a45761b7c3e394db4c29eeae5d268f3e00ed86e3eabf6fd641055  package/qca-nss/qca-ssdk/patches/009-feature-nss-dp-netdev-mac-sync.patch
 cc93fdd230cd3718c3a02ce74fed5d7c881df132a6db529a10d01963f23f30e8  package/qca-nss/qca-ssdk/patches/020-mib-complete-diagnostics-and-propagate-errors.patch
 fa50c93922d26938758145daea49b03884b97ed43c738ed664fe4e224086d6ac  package/qca-nss/qca-ssdk/patches/021-ssdk-hppe-return-chain.patch
@@ -274,6 +276,7 @@ d77e97af48201efb952bc43afbb6c6b626be8a5e185c1c9d182b9c451910b362  package/qca-ns
 9863d5e960f8582100cf61fc22373490c6cfc5db8236a4da20cb1d8ecc159938  package/qca-nss/qca-ssdk/patches/053-ssdk-track-platform-resource-acquisition.patch
 50d8de2b32fa14391f1225d2ee677b10985b6d65c83169556cab090cf4c2087e  package/qca-nss/qca-ssdk/patches/054-ssdk-root-init-retention.patch
 57c269c6bb06c02982b4d37217c1fbd2e9ddca92b73b2105e280dd18ed7efe1a  package/qca-nss/qca-ssdk/patches/055-ssdk-mib-start-physical-port.patch
+4f247e98c674d58ea11815bc6bb840223953de113b18e925ce8495d3ae7b6b8a  package/qca-nss/qca-ssdk/patches/056-ssdk-mib-refuse-empty-physical-port-range.patch
 cf4dd1b5e975aaec31995b4fbc49ffddcc970d9a5e8a99a0120b92721871f13b  package/system/rpcd/AX6-VALIDATION.md
 058c6d72a1dfa6b3e6b9720cc925fd2c5c89bc7dbd985da8b1ce08972cf70721  package/system/rpcd/Makefile
 ccd7731c4f16043f347ac5bb86ffd198be9bf371624061f8fd349cd4674da6e3  package/system/rpcd/patches/010-file-resolved-path-acl.patch
@@ -482,11 +485,16 @@ e29a43dfb897f70bb9df18ea3f68b06674c0479dd0a31aa729ec7bb29c721f95  tests/nss-dp-c
 62fc3185977292b2e11a158d22138a2683ee094583f6d11e60d6557ba7b3663d  tests/nss-dp-containment/host_baseline_cases.c
 cd5500f34f8cdd6b817f2f333994e512b14fe946154a8bfbcae871c80ffc56ae  tests/nss-dp-containment/host_candidate_cases.c
 838c72adabb3d262bb15bd438ad680ddc93bd85c39c425b369ee49208036a430  tests/nss-dp-containment/host_edma_retirement.h
-86d233f77cd625378e7d74e5bd543533749522db63343733335832dcd75166c0  tests/nss-dp-containment/host_kernel_stubs.h
+53d7f1617ebb3c8d5c03f05b4e5fbd831a36fcf82ecd44b0d9f9328b68a02c1d  tests/nss-dp-containment/host_kernel_stubs.h
 ad9757bf99de94da6403c2604562a6230284b524e2ef697de51926a7f2d4b76e  tests/nss-dp-containment/retirement_contract_checks.py
 59ecfa8c4069cfb291e961be422936db5f04491b8c193ec026a37c19461217c6  tests/nss-dp-containment/test-nss-dp-detach-quarantine.py
 25a9f0d5137d8d22ea41f8dd911d1191fc2fe5f5f80c54b7bad612a5eb3ae65b  tests/nss-dp-containment/test_candidate_only_cli.py
 0b72ed8fe5e2b91251cd810ecd3d3751131784eae8130e406379758eb12a885f  tests/nss-dp-containment/test_extract_prepared_c.py
+fc70ecc3973afbbd58b9eb7883b0b3684b4807151cad1d876d7bd1bdb644cd13  tests/nss-dp-multiqueue/README.md
+ff0657bcdbf31e58d30c317235b9c15745a87b414e5173fe44678edea8a73784  tests/nss-dp-multiqueue/RESULTS.md
+661b3bd62e8ef22bd5b23b14f430662c2e9e5f82caedb41d27a4c414f5cfb53a  tests/nss-dp-multiqueue/cases.c
+838e846830c5575613997d8dac4fcb674543d78fea698940bc31906cef769580  tests/nss-dp-multiqueue/host_api.h
+a3c9873a49a0ac05f1d9e2e575d19de1ac175f867d35fba6cedaf540f6125c4f  tests/nss-dp-multiqueue/run.py
 505a7e7cae95940aa46722fcff9bcfcc2566b51d02a17e5bf84d594cd4951a53  tests/nss-drv-containment/README.md
 277791ff3c4ee50250f52b65d5907d8c0611f2275f0ec71bbedc1b68a90af8b7  tests/nss-drv-containment/TESTS-FREEZE.md
 eda654ed934fe53aab5798072c1a06b7e72990013118e6ae9ea7085da198123b  tests/nss-drv-containment/driver_api_fixtures.c
@@ -514,6 +522,9 @@ e466929be12e6c3b4a7c25d310654404284a9b56ecac4a29057081a944a7cff7  tests/nss-prob
 59bb5d92b5ca653be1376dcb8ed88082548b428cd5cb698895641257bd824e92  tests/nss-probe-allocation/fixture.c
 17b4815859a3d421d87bee5a3211b91fabb2fb1847e462adc4b92ea9c7ad82e6  tests/nss-probe-allocation/run.py
 5977c45a66f9391d9f1f27c1578040462e50dcd017bfd7aa3084276ca44c7cca  tests/nss-probe-allocation/test_runner.py
+e6757c47720331ba61377746955ac099093414bd908dfdf7c5a52bfb4ee8ff10  tests/nss-status-total-length/README.md
+968d3008896726060fba43ce608dffba6f7d4b0da71c74cfea6d41da0d0056c1  tests/nss-status-total-length/fixture.c
+f87008c42725cd410b1195452df2b5ba1733692daf0831c88f0f1084b9144abd  tests/nss-status-total-length/run.py
 938961c7fc1a1c3a3ea4568e8356c2fa899c59ff291d877996f8c79f142a1dc8  tests/prepare-core-flow-validation.py
 4563f03138919820b82b5a845d0d9a3bc7d947db558a7b2eb06e292a57eb4a60  tests/prepare-dp-lifecycle.py
 ab3d38a4487935a9c479e328bacfdb2fc3f412db043f10575689f2dcd430e6b4  tests/rpcd-journal-publication/README.md
@@ -552,6 +563,7 @@ e0d60b549be6a0cd8c568c9bb3b4477f386d65993db4ec6f633f33b064afb76d  tests/ssdk-i2c
 998c61fa080ea9c1c098358c48a2d1e72a5d7c57103496459a100feddb74dee8  tests/ssdk-i2c-io/model.h
 331275a5c11f7d09f94a10791fcb4b795962f20d0395669a5f0ff7adc46a9a8d  tests/ssdk-i2c-io/source.py
 4fec6486e13e148c65a1d0e02eb5c7f7da117b5d7d2f62fa629cb277f2ce5cd1  tests/ssdk-mdio-node-fixture.c
+1a543fb07d3918256f18f06a31928e1b4fe2249b6b3816fcf42a69da8adab51e  tests/ssdk-mib-physical-ports/model.c
 e88e139d2ea277f7c2f00ffb58969b478192a95119ba24e92cf5cf3998e666e6  tests/ssdk-netdev-cache/README.md
 158bc602948603467c8b0d6aaba9f02cabd848f88cff2b196cc96aa091929c88  tests/ssdk-netdev-cache/host-fixture.c
 a8c3cb86b350182bdb69f489672c801037551a61d4c8530a6e66a0de4db016d5  tests/ssdk-outer-admission/README.md
@@ -698,6 +710,7 @@ ab4028ff6c1851ca43fead7ea7e43349a55aa429e6512c4605c559fc1e409e1a  tests/test-ssd
 b1cf2145a47378534396d8378d41ee6ad4c8f6a418e235e3e7ddcf00ddb27cfc  tests/test-ssdk-mdio-node-leases.py
 64b43237bb1ccea9232d78cb1d054cfb43b37649dea4043657f6c4e31c66ffa7  tests/test-ssdk-mdio-table-admission.py
 f3480062e36f10d2854b94d6967557880215501fe4a49adcf81004410d163980  tests/test-ssdk-mib-errors.py
+526f5dccb179d6ee90a58d3e2c3a72839ceb85e6397ecc2b018f6c0884a57ee9  tests/test-ssdk-mib-physical-ports.py
 2fed87fce9a7c820196668e514fce5de2daefef068cefdd8ab48a746a9ac2e39  tests/test-ssdk-mib-read-clear.py
 777ae0f8e16d6271bd4959f53464c2f6e139348907e42dee8118d694b7d324b6  tests/test-ssdk-netdev-cache.py
 909d42ef99f07c2eba6221d07e89e832bc08d77c78756ca9ae8ca898fe1cf29a  tests/test-ssdk-outer-admission.py
