@@ -13,8 +13,18 @@ cc14bbb5f2e9edff41609452a0a3aef17ce4101d57a31ab579423a8d685454f7  docs/AX6_ROOT_
 91a38a53203933b4cecb6731df6e9f094174e87980bc108fdd0f18ee6fe8b663  docs/AX6_RPCD_JOURNAL_RECOVERY_2026-10-20.md
 dad4b748dadec8b8cbc250f3cd77430aff67a96b5a498ea840428ce285527876  docs/AX6_RPCD_PUBLICATION_2026-10-21.md
 808e1bbb9d5debf2a2e20ba0da7a8d3314952160513e6bb9873bb532f334b788  docs/AX6_RPCD_STORAGE_PATHS_2026-10-20.md
+0652fde364a2a20a2d71675f3083f647a53477bed621dd4726d292b79b2b9d3a  package/base-files/files/etc/config/ax6_led
+665213c1a1bee1fbe8325731f234eddef871a2171dc38fd551cee00b859786a4  package/base-files/files/etc/init.d/ax6-led-schedule
+e2a377864db349cafa06b032d2dd5315ca2e81900532dc323d2fe0a34a2068c7  package/base-files/files/etc/uci-defaults/99-ax6-led-schedule
 5e17f9becabaf2543d3b6e92b10aa3f6004b8e48ab366e50df6aafa8f9db41e7  package/base-files/files/lib/upgrade/nand.sh
+7bc62a03562c579f61f9d2cebe2391c976ecb10a1e277cd86c6fa04046e22ec4  package/base-files/files/usr/sbin/ax6-led-schedule
+b8caa7907f2fea11acfafb216968af014f06a5a98dc6e2f1c2bfdf45b9e5b74a  package/base-files/files/usr/share/doc/ax6-led-schedule/README
 5241a5f25da4f0d9132844650e71d5596fbff1a5391a98374939e39b1c9a4ca9  package/boot/uboot-tools/uboot-envtools/files/qualcommax_ipq807x
+bc4f7f8a1d55b8954956bf5acbe930e38b5d905c908bd6d07028f3b05e6d0c8b  package/emortal/luci-app-ax6-led/Makefile
+3b52bcd22e04311c5d944923255d217b372b29934c2909903d80b7fcb660e59c  package/emortal/luci-app-ax6-led/htdocs/luci-static/resources/view/ax6_led.js
+2c23282213200735266aaa9fbd7de05747cab7fe21ff593f5aac83cc5ad0b015  package/emortal/luci-app-ax6-led/root/usr/share/luci/menu.d/luci-app-ax6-led.json
+15c1023cf11fffd5834d7473483cc58453be75ad32a419c9b7ef6f47fe772714  package/emortal/luci-app-ax6-led/root/usr/share/rpcd/acl.d/luci-app-ax6-led.json
+5a51c1c48f111e5a5cc5094cfbbed99a1f6222885d12ab2f4f23d0bbc91bdaaa  package/emortal/luci-app-ax6-led/root/usr/share/ucitrack/luci-app-ax6-led.json
 27075ba10b5dfdea1213a1d34e8e98a5cfdd936ce8fcad402d290a2b91b78f42  package/kernel/mac80211/Makefile
 05b99a6e69a4259f09fce71a7094bf8b786302be0a74a85f4be625853a172580  package/kernel/mac80211/ath.mk
 80587244b81f5303ce9479e21ef90c3a3b78b310ec63d0b814e26eb8f73733dd  package/kernel/mac80211/files/pbuf.uci
@@ -436,6 +446,7 @@ d8850a5446299c686b1fcc2c175b6f55f5dfc59dd8cdfc000668cb36713acdc5  tests/ath11k-p
 dcbb13c1211cf537f0b8282f63d064e7bdf7afcf17a8441b95a794cfe1f08a96  tests/ath11k-pci-ssr/host-fixture.c
 1b2828501583d952d54619067e97c5778e3a3f9d52d7dbe55c74aa5ce87c0fd5  tests/ath11k-pcic-irq/README.md
 de2d060ff6d9f8421557e14b3256d036453144b4c490be8813e21e02e069d921  tests/ath11k-pcic-irq/host-fixture.c
+31cde66d10e6fbe442f8a28a5a6fc8cc2c9e6859f94d8980f6db395898b6f26a  tests/ax6-led-schedule/test.sh
 a0317299b7819a9f598dc921f3f66894c7577ef1a6bff65d5425f6814384e78b  tests/dp-init-retirement/README.md
 34ed275f78b8da95c871bfce6739ccea50daf1f1e0ff7f49d6548e51b40cc750  tests/dp-init-retirement/fixture.c
 3dff0b3075238656280f34932fdb4633f7abd89015945cbcd5eeaa207610ec55  tests/dp-init-retirement/header-shim.h
