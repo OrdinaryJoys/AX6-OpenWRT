@@ -44,6 +44,11 @@ on:
         required: false
         type: boolean
         default: false
+      diagnostic:
+        description: 'Enable KPROBES/FTRACE diagnostic kernel validation (DEBUG, not release)'
+        required: false
+        type: boolean
+        default: false
       release_class_gate:
         description: 'Fail the bundle unless factory.ubi is in the Web-PROVEN recovery size class (<=54788096 B)'
         required: false
@@ -56,6 +61,7 @@ env:
   DIY_SH: AX6-IPQ/diy.sh
   FILES: AX6-IPQ/files
   TZ: Asia/Shanghai
+  AX6_DIAGNOSTIC: ${{ github.event.inputs.diagnostic || 'false' }}
   # NSS 互斥包黑名单 — 三处 (pre-flight Python / sed / post-defconfig Python) 共用
   # 必须空格分隔以便 shell for-loop 与 Python split() 同时可用
   NSS_BLACKLIST: >-
@@ -576,8 +582,10 @@ jobs:
             echo "::error::Kconfig recursive dependency detected"
             exit 1
           fi
-          python3 ../.github/scripts/verify-ax6-diagnostic-config.py \
-            --top-config .config --kernel-options config/Config-kernel.in
+          if [ "${AX6_DIAGNOSTIC:-false}" = "true" ]; then
+            python3 ../.github/scripts/verify-ax6-diagnostic-config.py \
+              --top-config .config --kernel-options config/Config-kernel.in
+          fi
           # defconfig 会重新启用 CONFIG_KERNEL_WERROR,导致 -Wmissing-prototypes 变成硬错误,
           # 进而导致 NSS 外部内核模块(qca-nss-drv/qca-mcs 等)编译失败。
           # 此处强制禁用以避免连锁问题。
@@ -1091,7 +1099,7 @@ jobs:
           bash ../.github/scripts/compile-ax6-with-evidence.sh "$(nproc)" ../build-evidence --once
 
       - name: Preserve and validate generated diagnostic kernel configuration
-        if: success()
+        if: success() && env.AX6_DIAGNOSTIC == 'true'
         run: |
           set -eo pipefail
           # Collection is not ABI/DTB acceptance. Preserve these inputs even
