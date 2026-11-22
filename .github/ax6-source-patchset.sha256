@@ -230,7 +230,7 @@ d3339c2720b97a55160676f9f236acf4d463d7c3afdfcf4f4a64f8e7569e47a9  package/qca-ns
 660e855af5071f4417ce29881538a745a93116c6b056d9a33540e8bbc7641064  package/qca-nss/qca-nss-drv/patches/033-connection-table-host-transaction.patch
 0097f4199aa0d5276de954b1ac85a20c3f6099f1d29417f0793afba95dde45d2  package/qca-nss/qca-nss-drv/patches/055-wifili-send-actual-message-length.patch
 972f2233113a1a15cdd2ab1b682e725eab1b83463198fdd972a7f181fb3a0716  package/qca-nss/qca-nss-drv/patches/056-nss-status-include-header-in-packet-length-check.patch
-2be83c87bf4b0b4d116974238c68d71820528ac7800802f160ac16f68a9d4477  package/qca-nss/qca-nss-drv/patches/058-wifili-peer-stats-actual-length.patch
+04f2ca2662526a97a71cecdad303fca838a270846eb358a80e9e98b1889c26d8  package/qca-nss/qca-nss-drv/patches/058-wifili-peer-stats-actual-length.patch
 69a8150535c369355b434bdf5c18bdb01a974625b46fcdb77cbca6c7eae3e57a  package/qca-nss/qca-nss-ecm/Makefile
 2438ccfa97b0fa4e6f3cb333de8d0c8fcb05c46b6bcfdca93f4f75ae390920d9  package/qca-nss/qca-nss-ecm/files/disable_offloads.hotplug
 055e4f85038ff06f449a9512eaf8d14f6e8bfea2c92a0a38a964a5a2e433eb69  package/qca-nss/qca-nss-ecm/files/disable_offloads.sh
