@@ -15,7 +15,7 @@ dad4b748dadec8b8cbc250f3cd77430aff67a96b5a498ea840428ce285527876  docs/AX6_RPCD_
 808e1bbb9d5debf2a2e20ba0da7a8d3314952160513e6bb9873bb532f334b788  docs/AX6_RPCD_STORAGE_PATHS_2026-10-20.md
 5e17f9becabaf2543d3b6e92b10aa3f6004b8e48ab366e50df6aafa8f9db41e7  package/base-files/files/lib/upgrade/nand.sh
 5241a5f25da4f0d9132844650e71d5596fbff1a5391a98374939e39b1c9a4ca9  package/boot/uboot-tools/uboot-envtools/files/qualcommax_ipq807x
-9c1cc65440f9879df8b63ec397e862847fd93aef13143f0c3236c437e170956f  package/kernel/mac80211/Makefile
+27075ba10b5dfdea1213a1d34e8e98a5cfdd936ce8fcad402d290a2b91b78f42  package/kernel/mac80211/Makefile
 05b99a6e69a4259f09fce71a7094bf8b786302be0a74a85f4be625853a172580  package/kernel/mac80211/ath.mk
 80587244b81f5303ce9479e21ef90c3a3b78b310ec63d0b814e26eb8f73733dd  package/kernel/mac80211/files/pbuf.uci
 5de6fe2d853a9410c5aacf3cc9659b9c48787fab30f4c56c21d6b83dd4591e3a  package/kernel/mac80211/files/qca-nss-pbuf.init
@@ -89,7 +89,6 @@ ad95cec37f6d3a79b9382c7a3202b35254107990bbea1c9ebc5408260d7b4019  package/kernel
 7b20f1247390e33b7d1c1f5fd1966cd8fe7596c0054df46bb29916bb640294f4  package/kernel/mac80211/patches/nss/ath11k/999-956-ath11k-nss-use-opaque-context-registration.patch
 0cf4c4e4f8588b586b42fad9dcf0671debd0d6eade96bcf03c84e824faa2da3b  package/kernel/mac80211/patches/nss/ath11k/999-957-ath11k-nss-validate-wifili-peer-stats-length.patch
 ea9db63ca5c20922cdedc65f8fcb568c28779bfec7ff58b2a252e2e7872da6c4  package/kernel/mac80211/patches/nss/ath11k/999-958-ath11k-nss-parse-available-peer-stats.patch
-d1aba68da2075ab473016b6d4d59727ffb95179eb08e9be73b07cfdf210dc4cb  package/kernel/mac80211/patches/nss/ath11k/999-962-ath11k-nss-peer-stats-len-diag.patch
 b2406698a34a741031e020161c0070ade51ca67c47258e0cbd5d4ba23d75a93c  package/kernel/mac80211/patches/nss/subsys/199-001-mac80211-add-nss-support.patch
 058b5b54d98fe2cf769eb7ffd9b2a52404de02c96629637d3cf5604aeff68332  package/kernel/mac80211/patches/nss/subsys/203-mac80211-ath11k-fw-dynamic-muedca.patch
 9c0e4703c4fa67c1ef7f984ea8dd02d9fb3f56575604da889b4855f5f1de037c  package/kernel/mac80211/patches/nss/subsys/235-001-mac80211-add-AP_VLAN-iftype-support-on-NSS-offload-case.patch
@@ -209,7 +208,7 @@ d38015b0ab4a8f88ec9fe0fab078f325cb493f390783afe621e30f17fca237a4  package/qca-ns
 c9f6f83ff7277379fed402ddf07bd3726df2d2e3e7f9281233480358f04c740c  package/qca-nss/qca-nss-dp/patches/018-ipq807x-init-stage-rollback.patch
 9990d6ed52fcf427e9c7a86950253ade522a819a13784b88716947cb296d625f  package/qca-nss/qca-nss-dp/patches/019-limit-stp-restore-to-departing-bridge-master.patch
 11a384c9be6b3721f5cf7702e3b086f10d8c100c3a5c9b6a89d10ec489b16741  package/qca-nss/qca-nss-dp/patches/020-ipq807x-start-all-tx-queues-after-open.patch
-2166b469170df873a8f8f6a9054883a249dbccb40994e8b4f60e1c2de02e6769  package/qca-nss/qca-nss-drv/Makefile
+1adcf28703ad0ee61395441d97a26409d6ef9d6a07f40c89045b223fa180226d  package/qca-nss/qca-nss-drv/Makefile
 883e5a15e50e586715913aaaa434bef4cd87a6c49a0375a7f148ea2907ce10ee  package/qca-nss/qca-nss-drv/files/skb_recycler.uci
 b919564f02592086017328b5181fdbabf2f9314db933ee9e0d4486c966bd29e2  package/qca-nss/qca-nss-drv/patches/012-fix-autoscale-stats-and-current-freq-read.patch
 5242126dd65ac9b84518e24a3fc923916a19a6c3880f0d18a0f69062b6648c06  package/qca-nss/qca-nss-drv/patches/015-fix-fraglist-skb-truesize-underaccounting.patch
@@ -231,7 +230,7 @@ d3339c2720b97a55160676f9f236acf4d463d7c3afdfcf4f4a64f8e7569e47a9  package/qca-ns
 660e855af5071f4417ce29881538a745a93116c6b056d9a33540e8bbc7641064  package/qca-nss/qca-nss-drv/patches/033-connection-table-host-transaction.patch
 0097f4199aa0d5276de954b1ac85a20c3f6099f1d29417f0793afba95dde45d2  package/qca-nss/qca-nss-drv/patches/055-wifili-send-actual-message-length.patch
 972f2233113a1a15cdd2ab1b682e725eab1b83463198fdd972a7f181fb3a0716  package/qca-nss/qca-nss-drv/patches/056-nss-status-include-header-in-packet-length-check.patch
-98cda15ca3e2a8a1754811584703c88b77fa1763790bcfae9fa2cdb1da5cab0b  package/qca-nss/qca-nss-drv/patches/057-wifili-peer-stats-rx-len-diag.patch
+2be83c87bf4b0b4d116974238c68d71820528ac7800802f160ac16f68a9d4477  package/qca-nss/qca-nss-drv/patches/058-wifili-peer-stats-actual-length.patch
 69a8150535c369355b434bdf5c18bdb01a974625b46fcdb77cbca6c7eae3e57a  package/qca-nss/qca-nss-ecm/Makefile
 2438ccfa97b0fa4e6f3cb333de8d0c8fcb05c46b6bcfdca93f4f75ae390920d9  package/qca-nss/qca-nss-ecm/files/disable_offloads.hotplug
 055e4f85038ff06f449a9512eaf8d14f6e8bfea2c92a0a38a964a5a2e433eb69  package/qca-nss/qca-nss-ecm/files/disable_offloads.sh
