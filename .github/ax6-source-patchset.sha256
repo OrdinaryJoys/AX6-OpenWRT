@@ -89,6 +89,7 @@ ad95cec37f6d3a79b9382c7a3202b35254107990bbea1c9ebc5408260d7b4019  package/kernel
 7b20f1247390e33b7d1c1f5fd1966cd8fe7596c0054df46bb29916bb640294f4  package/kernel/mac80211/patches/nss/ath11k/999-956-ath11k-nss-use-opaque-context-registration.patch
 0cf4c4e4f8588b586b42fad9dcf0671debd0d6eade96bcf03c84e824faa2da3b  package/kernel/mac80211/patches/nss/ath11k/999-957-ath11k-nss-validate-wifili-peer-stats-length.patch
 ea9db63ca5c20922cdedc65f8fcb568c28779bfec7ff58b2a252e2e7872da6c4  package/kernel/mac80211/patches/nss/ath11k/999-958-ath11k-nss-parse-available-peer-stats.patch
+e723aae459c46681a39cfab47c6052d2caf538687213625d048ce190bddf9edb  package/kernel/mac80211/patches/nss/ath11k/999-960-ath11k-nss-peer-stats-diag.patch
 b2406698a34a741031e020161c0070ade51ca67c47258e0cbd5d4ba23d75a93c  package/kernel/mac80211/patches/nss/subsys/199-001-mac80211-add-nss-support.patch
 058b5b54d98fe2cf769eb7ffd9b2a52404de02c96629637d3cf5604aeff68332  package/kernel/mac80211/patches/nss/subsys/203-mac80211-ath11k-fw-dynamic-muedca.patch
 9c0e4703c4fa67c1ef7f984ea8dd02d9fb3f56575604da889b4855f5f1de037c  package/kernel/mac80211/patches/nss/subsys/235-001-mac80211-add-AP_VLAN-iftype-support-on-NSS-offload-case.patch
