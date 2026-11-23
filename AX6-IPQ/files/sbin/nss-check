@@ -660,6 +660,28 @@ else
     fail "Missing startup link: /etc/rc.d/S95ax6-network-invariants"
 fi
 
+# ---- 21b. ECM 服务/redirect 闭环 ----
+if [ -d /sys/module/ecm ]; then
+    ecm_state=$(/etc/init.d/qca-nss-ecm status 2>&1 || true)
+    case "$ecm_state" in
+        *active*) ok "ECM service active" ;;
+        *) fail "ECM service not active: ${ecm_state:-empty}" ;;
+    esac
+    redirect_state=$(cat /proc/sys/dev/nss/general/redirect 2>/dev/null)
+    if [ "$redirect_state" = "1" ]; then
+        ok "NSS redirect active (1)"
+    else
+        fail "NSS redirect not active: ${redirect_state:-unreadable}"
+    fi
+    if command -v ubus >/dev/null 2>&1; then
+        if ubus call service list 2>/dev/null | grep -q 'qca-nss-ecm'; then
+            ok "ECM ubus service registered"
+        else
+            fail "ECM ubus service missing"
+        fi
+    fi
+fi
+
 # ---- 22. Overlay 空间检查 ----
 overlay_use=$(df /overlay 2>/dev/null | awk 'NR==2 {gsub(/%/,""); print $5}')
 if [ -n "$overlay_use" ] 2>/dev/null; then
