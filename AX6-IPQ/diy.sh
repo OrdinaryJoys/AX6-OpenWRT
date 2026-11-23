@@ -62,6 +62,13 @@ CGI_IO_BACKPORT_PATCH="$REPO_ROOT/AX6-IPQ/package-patches/cgi-io/100-fix-malform
 # selective official sign_jump fix. Unknown/partial package bytes fail closed.
 python3 "$REPO_ROOT/AX6-IPQ/scripts/apply-vim-security-backport.py" apply feeds/packages
 
+# Keep first boot from blocking on OpenVPN easy-rsa gen-dh. The package
+# uci-defaults runs renewcert synchronously inside S10boot, before network.
+OPENVPN_UCI="feeds/luci/applications/luci-app-openvpn-server/root/etc/uci-defaults/openvpn"
+if [ -f "$OPENVPN_UCI" ]; then
+  python3 "$REPO_ROOT/AX6-IPQ/scripts/apply-openvpn-deferred-cert.py" "$OPENVPN_UCI"
+fi
+
 # Update this selected daemon only; leave the compatibility feed and UCI/fw4 policy intact.
 python3 "$REPO_ROOT/AX6-IPQ/scripts/apply-miniupnpd-update.py" feeds/packages
 
