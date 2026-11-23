@@ -10,7 +10,12 @@ import sys
 
 path = Path(sys.argv[1])
 old = "\tsh /etc/openvpn/renewcert.sh 2>&1 >/dev/null\n"
-new = "\t( sh /etc/openvpn/renewcert.sh 2>&1 >/dev/null & )\n"
+new = (
+    "\t# AX6: a disabled OpenVPN server must not burn first-boot CPU generating DH.\n"
+    "\tif [ \"$(uci -q get openvpn.myvpn.enabled 2>/dev/null || echo 0)\" = \"1\" ]; then\n"
+    "\t\t( sh /etc/openvpn/renewcert.sh </dev/null >/dev/null 2>&1 & )\n"
+    "\tfi\n"
+)
 text = path.read_text()
 if new in text:
     print("already deferred")
