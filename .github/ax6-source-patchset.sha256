@@ -25,7 +25,7 @@ bc4f7f8a1d55b8954956bf5acbe930e38b5d905c908bd6d07028f3b05e6d0c8b  package/emorta
 2c23282213200735266aaa9fbd7de05747cab7fe21ff593f5aac83cc5ad0b015  package/emortal/luci-app-ax6-led/root/usr/share/luci/menu.d/luci-app-ax6-led.json
 15c1023cf11fffd5834d7473483cc58453be75ad32a419c9b7ef6f47fe772714  package/emortal/luci-app-ax6-led/root/usr/share/rpcd/acl.d/luci-app-ax6-led.json
 5a51c1c48f111e5a5cc5094cfbbed99a1f6222885d12ab2f4f23d0bbc91bdaaa  package/emortal/luci-app-ax6-led/root/usr/share/ucitrack/luci-app-ax6-led.json
-27075ba10b5dfdea1213a1d34e8e98a5cfdd936ce8fcad402d290a2b91b78f42  package/kernel/mac80211/Makefile
+9c1cc65440f9879df8b63ec397e862847fd93aef13143f0c3236c437e170956f  package/kernel/mac80211/Makefile
 05b99a6e69a4259f09fce71a7094bf8b786302be0a74a85f4be625853a172580  package/kernel/mac80211/ath.mk
 80587244b81f5303ce9479e21ef90c3a3b78b310ec63d0b814e26eb8f73733dd  package/kernel/mac80211/files/pbuf.uci
 5de6fe2d853a9410c5aacf3cc9659b9c48787fab30f4c56c21d6b83dd4591e3a  package/kernel/mac80211/files/qca-nss-pbuf.init
@@ -49,6 +49,7 @@ fa78ae8a6fecec810baf358c366863a69f2c6aeb2f0c69326351b12337060bbe  package/kernel
 a7521e993093ae32c4f12c9eebdc59fc10c0e52b5c9ce31d75734f022cfb9e5c  package/kernel/mac80211/patches/nss/ath11k/335-0001-ath11k-optimize-tx-completions.patch
 8bebcafe5146a21ebeabc9c7b5eec65593f14d741769c7eb8e62ad2fe3fee486  package/kernel/mac80211/patches/nss/ath11k/335-0002-ath11k-use-DECLARE_BITMAP-for-idr-operations.patch
 c85ac83ad8bcba628fdba9e234ac339429aaded32afb342d9e287ebab5b56e33  package/kernel/mac80211/patches/nss/ath11k/362-ath11k-fix-incorrect-ast-index-assignment-for-wds-peer.patch
+7559549b10b508ab97c828ea634a789ffb0dba59fb629222b9df6e5f516197b8  package/kernel/mac80211/patches/nss/ath11k/373-ath11k-Add-retry-mechanism-for-update_rx_qu.patch
 2faef6e680004cfac9735954b9933e4c36f75b5e5f3b45be9548a42023de636d  package/kernel/mac80211/patches/nss/ath11k/376-ath11k-Add-nss-event-handler-support-for-link-desc.patch
 6e58e31998c84c54967ed64ac227057df662b76429da6cd5564e7ec6afa30975  package/kernel/mac80211/patches/nss/ath11k/909-wifi-ath11k-fix-invalid-access-to-memory.patch
 48d76a8243048a828d67ef8a8a0bfb6c7ad687444e858b9d4187ccdd9eae0a9d  package/kernel/mac80211/patches/nss/ath11k/910-wifi-ath11k-Add-lock-when-accessing-idr_pool-of-tx_r.patch
@@ -218,7 +219,7 @@ d38015b0ab4a8f88ec9fe0fab078f325cb493f390783afe621e30f17fca237a4  package/qca-ns
 c9f6f83ff7277379fed402ddf07bd3726df2d2e3e7f9281233480358f04c740c  package/qca-nss/qca-nss-dp/patches/018-ipq807x-init-stage-rollback.patch
 9990d6ed52fcf427e9c7a86950253ade522a819a13784b88716947cb296d625f  package/qca-nss/qca-nss-dp/patches/019-limit-stp-restore-to-departing-bridge-master.patch
 11a384c9be6b3721f5cf7702e3b086f10d8c100c3a5c9b6a89d10ec489b16741  package/qca-nss/qca-nss-dp/patches/020-ipq807x-start-all-tx-queues-after-open.patch
-1adcf28703ad0ee61395441d97a26409d6ef9d6a07f40c89045b223fa180226d  package/qca-nss/qca-nss-drv/Makefile
+4a116ad9c4d9d81fefaf45e32ce6d807be3c941c09f44bd949430559aa45d4b2  package/qca-nss/qca-nss-drv/Makefile
 883e5a15e50e586715913aaaa434bef4cd87a6c49a0375a7f148ea2907ce10ee  package/qca-nss/qca-nss-drv/files/skb_recycler.uci
 b919564f02592086017328b5181fdbabf2f9314db933ee9e0d4486c966bd29e2  package/qca-nss/qca-nss-drv/patches/012-fix-autoscale-stats-and-current-freq-read.patch
 5242126dd65ac9b84518e24a3fc923916a19a6c3880f0d18a0f69062b6648c06  package/qca-nss/qca-nss-drv/patches/015-fix-fraglist-skb-truesize-underaccounting.patch
@@ -240,7 +241,7 @@ d3339c2720b97a55160676f9f236acf4d463d7c3afdfcf4f4a64f8e7569e47a9  package/qca-ns
 660e855af5071f4417ce29881538a745a93116c6b056d9a33540e8bbc7641064  package/qca-nss/qca-nss-drv/patches/033-connection-table-host-transaction.patch
 0097f4199aa0d5276de954b1ac85a20c3f6099f1d29417f0793afba95dde45d2  package/qca-nss/qca-nss-drv/patches/055-wifili-send-actual-message-length.patch
 972f2233113a1a15cdd2ab1b682e725eab1b83463198fdd972a7f181fb3a0716  package/qca-nss/qca-nss-drv/patches/056-nss-status-include-header-in-packet-length-check.patch
-a7fa46e2e1ad9acfd4b1be370586f89f548d51c1d75ae1ce05a54b18d942ee57  package/qca-nss/qca-nss-drv/patches/058-wifili-peer-stats-actual-length.patch
+a6026ada69b93db4e0ea4e1d9fdc18d221e7e809acf9e70c8702afbe1bbad8b0  package/qca-nss/qca-nss-drv/patches/058-wifili-peer-stats-actual-length.patch
 69a8150535c369355b434bdf5c18bdb01a974625b46fcdb77cbca6c7eae3e57a  package/qca-nss/qca-nss-ecm/Makefile
 2438ccfa97b0fa4e6f3cb333de8d0c8fcb05c46b6bcfdca93f4f75ae390920d9  package/qca-nss/qca-nss-ecm/files/disable_offloads.hotplug
 055e4f85038ff06f449a9512eaf8d14f6e8bfea2c92a0a38a964a5a2e433eb69  package/qca-nss/qca-nss-ecm/files/disable_offloads.sh
@@ -376,7 +377,7 @@ c1728a6411873d5fd33692e788bce26eb65fbd79e193be4e44c80fdd397057e0  target/linux/q
 feb92e1ae70a4ed6b231f9a7cd754ee307cda5f9c656e2269103412fee7ffc25  target/linux/qualcommax/dts/ipq8071-ax3600-stock.dts
 5105286478646d2d09a230abf5ed5d17919367eb25372c2c246a7dfa3dd254a2  target/linux/qualcommax/dts/ipq8071-ax6-stock.dts
 9701fc60cdddaf530e2da9852b5a6de7c9cf42c2adea9f4586e1e922a6230303  target/linux/qualcommax/dts/ipq8071-ax6.dts
-9c489b95aaf390437b691ce64aa334f0ee3b41613cdcb6322e42e733727c7af5  target/linux/qualcommax/files/net/core/skbuff_recycle.c
+5cfc812f894325173f64f7991fbf21cdb99e7479ca3a04c80df983e655452418  target/linux/qualcommax/files/net/core/skbuff_recycle.c
 e841d5cdb16de2a3fae4273ec3ee71f4560d6ecabe1d593d4575f26855b9c0b2  target/linux/qualcommax/files/net/core/skbuff_recycle.h
 a891afc469ce64c8e75f98a2b17b4c30b2aed03ffc60bc05458f2bb507158f4c  target/linux/qualcommax/image/ipq807x.mk
 f2bdc5badd39ec3385aa58ebf6afd6e21519e28f79e4e06b06768f5e75c62de3  target/linux/qualcommax/ipq807x/base-files/etc/init.d/bootcount
@@ -386,7 +387,7 @@ f2bdc5badd39ec3385aa58ebf6afd6e21519e28f79e4e06b06768f5e75c62de3  target/linux/q
 3290f5df3c7e98458f4e3c1e2a2def3a9c637eecff4c257f0a163bef0e9b535e  target/linux/qualcommax/patches-6.18/0603-2-qca-nss-clients-add-l2tp-support.patch
 1b424a2063e91754913499f138b6c36d04075f0b7aab03928b0557d2ced07450  target/linux/qualcommax/patches-6.18/0603-4-qca-nss-clients-add-iptunnel-support.patch
 cdfde7dd1f068643c0e741c24b4608f06f32b6235e0b39eb077cd8efc17319b1  target/linux/qualcommax/patches-6.18/0603-7-qca-nss-clients-iptunnel-lock-this-cpu.patch
-dc7e2e6020b034cdf71472994c2671dec3b29f13482771439a255eae09a2bd53  target/linux/qualcommax/patches-6.18/0604-1-qca-add-mcs-support.patch
+7a16400598a9247fd86c8ddd8596037de427cf015ea8086396e1d419685c2708  target/linux/qualcommax/patches-6.18/0604-1-qca-add-mcs-support.patch
 a75e69bfb8d30112bf00501cbd3250548ca4dd25acf9977f2971e66e0d6272d7  target/linux/qualcommax/patches-6.18/0607-1-qca-nss-clients-iptunnel-fixes.patch
 56d72e9b8aa19c89e9c9141279b3986e93a1018f1cffc96da9f9cc01f11a85f2  target/linux/qualcommax/patches-6.18/0911-arm64-cmdline-replacement.patch
 04907a596d0956da3d0173828f2c3f602b0c8919786ea107dfb2fdd4cbae81fa  target/linux/qualcommax/patches-6.18/0981-1-qca-skb_recycler-support.patch
@@ -450,7 +451,7 @@ d8850a5446299c686b1fcc2c175b6f55f5dfc59dd8cdfc000668cb36713acdc5  tests/ath11k-p
 dcbb13c1211cf537f0b8282f63d064e7bdf7afcf17a8441b95a794cfe1f08a96  tests/ath11k-pci-ssr/host-fixture.c
 1b2828501583d952d54619067e97c5778e3a3f9d52d7dbe55c74aa5ce87c0fd5  tests/ath11k-pcic-irq/README.md
 de2d060ff6d9f8421557e14b3256d036453144b4c490be8813e21e02e069d921  tests/ath11k-pcic-irq/host-fixture.c
-e194a1c72ec980259714c96a027cc76561390a14415d89cdec8863e7d3121e39  tests/ax6-core-fixes-20261123/test.sh
+7ec39a594cb66fe0155e07bd4e1ad6e75c468f7077cbc8608a146144bebdc3eb  tests/ax6-core-fixes-20261123/test.sh
 31cde66d10e6fbe442f8a28a5a6fc8cc2c9e6859f94d8980f6db395898b6f26a  tests/ax6-led-schedule/test.sh
 a0317299b7819a9f598dc921f3f66894c7577ef1a6bff65d5425f6814384e78b  tests/dp-init-retirement/README.md
 34ed275f78b8da95c871bfce6739ccea50daf1f1e0ff7f49d6548e51b40cc750  tests/dp-init-retirement/fixture.c
