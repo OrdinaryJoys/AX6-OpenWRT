@@ -378,7 +378,7 @@ aa1f7a31dc6854706c06a7b5f8f3e8b364775ee7e74f33c51cc29aad88608848  target/linux/m
 39be2c2d8c8db515f10789d3627007bd68a03b13a45dbf7d18505cd748f4cca5  target/linux/qualcommax/base-files/etc/hotplug.d/net/25-set-irq-affinity
 261cd7abaf55cce3e404be2d98b04aa863c5eb428c684f28d24baee5745d17e6  target/linux/qualcommax/base-files/etc/init.d/set-irq-affinity
 0a0d4593bb3eadc59292a5fbd7e3d1f168fe3f07bd4b291eefb1204f8d528720  target/linux/qualcommax/base-files/usr/libexec/platform/packet-steering.sh
-c1728a6411873d5fd33692e788bce26eb65fbd79e193be4e44c80fdd397057e0  target/linux/qualcommax/config-6.18
+afde557891c727469f7f81a6b53c4c39b21135044c6578002f8cdfb956a43fe1  target/linux/qualcommax/config-6.18
 feb92e1ae70a4ed6b231f9a7cd754ee307cda5f9c656e2269103412fee7ffc25  target/linux/qualcommax/dts/ipq8071-ax3600-stock.dts
 5105286478646d2d09a230abf5ed5d17919367eb25372c2c246a7dfa3dd254a2  target/linux/qualcommax/dts/ipq8071-ax6-stock.dts
 9701fc60cdddaf530e2da9852b5a6de7c9cf42c2adea9f4586e1e922a6230303  target/linux/qualcommax/dts/ipq8071-ax6.dts
