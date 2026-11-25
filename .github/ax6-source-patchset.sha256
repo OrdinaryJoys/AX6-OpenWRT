@@ -309,7 +309,7 @@ e1fc15852d69d118e324e96dc1d7070af45980725d775089ea7df8ae70764276  package/system
 0fbd80d4e018f30c775149f391de1e7f5505f0e725e4ffc7326d838cb40d0afd  package/system/rpcd/provenance.json
 b187ecd16255a6386cf15dcb90c999d79ada51e5015d9d06df7a588ceb221932  package/system/ubus/Makefile
 1f1eafc9502d81f94d051aab277b40708e80327735bf153efe9e4fc7d35890ae  package/utils/ax6-mfc-test/Makefile
-925014f5aa87291d3aa04a17cccd8d5b9482394b9b213cb19d294c9c0d3214e3  package/utils/ax6-mfc-test/src/ax6-mfc-test.c
+9f294232a69174f22d765ecb1b2a15970c98fec5d7562bd28a46f6bc2446b65f  package/utils/ax6-mfc-test/src/ax6-mfc-test.c
 ac85f667032f61de480a13d5fe0377afead2bba8fe5b964717389cf435120194  scripts/download.pl
 0ce26e852ca0b03f4450d00ec9e98d2e4387f288cf581524a664243f7896c79c  target/linux/airoha/patches-6.18/096-v6.19-net-airoha-Add-missing-stats-to-ethtool_eth_mac_stat.patch
 ee4a12ed7daf688b4bd6a488dfd347ec819891e99f7bd3d6db4d3400e9f950b6  target/linux/airoha/patches-6.18/097-v6.19-net-airoha-Add-get_link-ethtool-callback.patch
