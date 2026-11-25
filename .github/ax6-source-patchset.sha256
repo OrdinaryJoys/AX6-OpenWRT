@@ -105,7 +105,7 @@ b2406698a34a741031e020161c0070ade51ca67c47258e0cbd5d4ba23d75a93c  package/kernel
 9c0e4703c4fa67c1ef7f984ea8dd02d9fb3f56575604da889b4855f5f1de037c  package/kernel/mac80211/patches/nss/subsys/235-001-mac80211-add-AP_VLAN-iftype-support-on-NSS-offload-case.patch
 dfa62ec141b1370b64b2b610f310ea3c132eb070f893c5aedf6546d3403ddd00  package/kernel/mac80211/patches/nss/subsys/236-001-mac80211-add-dynamic-VLAN-support-on-NSS-offload.patch
 2b45956c430efecf8df871cffcb4da3f19b2ebda6bc7ab0f35ee1404531ab8c9  package/kernel/mac80211/patches/nss/subsys/300-ath11k-nss-mesh-offload-support.patch
-b46ae8ca7f65c8690a4bcc53a3a4136a70e2b5d3db8451271e8055a06de17c3b  package/kernel/mac80211/patches/nss/subsys/335-0005-mac80211-simple-tx-for-AP-mode.patch
+111834ea6c06f2c05ae78696b7d9756857cea614d861cacffbad1efa2e618f7d  package/kernel/mac80211/patches/nss/subsys/335-0005-mac80211-simple-tx-for-AP-mode.patch
 584de071384549bb4da7a92d136c80edd17987657eb43d556ff9653556369fe8  package/kernel/mac80211/patches/nss/subsys/657-mac80211-Avoid-encapsulation-of-EAPOL-frames-if-OFFL.patch
 dc61f1887d5f61ea67fe00d2e62e10edfadf084cc3f196ed3369785f504cc902  package/kernel/mac80211/patches/nss/subsys/658-mac80211-free-status-frames-on-stopping-iface.patch
 d2fd2bcda2f3c295c15f7152f4c1ec965eb0df6df819be6c802705be18633793  package/kernel/mac80211/patches/nss/subsys/686-mac80211-fix-RCU-stall-in-mesh-fast-xmit-path.patch
