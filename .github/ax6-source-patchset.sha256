@@ -396,6 +396,7 @@ d7857543eef8198c9936572e220cabe9c5639305d977518ee2e30647c97eddca  target/linux/q
 3a79e7b5f09003c362ca621b0e8e113d980c2ed1052b4d5b046d89c1289fd90f  target/linux/qualcommax/patches-6.18/1002-hwspinlock-qcom-bound-max-register-by-resource.patch
 fad395d6256e7f9b9649d398f767057cd939950e02177fcdbe3b9d293fd66952  target/linux/qualcommax/patches-6.18/1003-arm64-dts-ipq8074-ramoops-ecc-size.patch
 9eba2ecbc1fb4d78c179448f35db4650eb9019d89d9feeab23ffe5dd511f16e9  target/linux/qualcommax/patches-6.18/1004-pstore-ramoops-zap-invalid-ecc.patch
+05edb52b344f8515cfb1bd7872498fdef1736520d3e3da86ebc19bc4911c37d7  target/linux/qualcommax/patches-6.18/1005-pstore-ramoops-zap-empty-ecc-zone.patch
 9f807f21d7783149a9d72eb1035016f743994a4f56119c23c6a21443e7bf312f  target/linux/rockchip/armv8/config-6.18
 0d2c6c10060b657ef5a42f22a2d004416aa011394aed1d5de83d0afc644a7199  target/linux/starfive/patches-6.18/0010-uart-8250-add-reset-operation-in-runtime-PM.patch
 03e9cef71841f5f7dd20dfbf926c1ab2381befcc80489940124b7e88f4147c87  target/linux/starfive/patches-6.18/1002-serial-8250_dw-Add-starfive-jh7100-hsuart-compatible.patch
