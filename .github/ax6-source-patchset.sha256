@@ -41,6 +41,7 @@ fcf1ff758f246508d126589349b43b356a0fb3e2b1d2ef42c46c00c40c27fd1b  package/kernel
 89ace2c3d3803f244efda288bfadf02ee48d3078203db8bb55f05b6d70cf7625  package/kernel/mac80211/patches/nss/ath10k/999-800-ath10k-Add-threaded-napi.patch
 b52a91e46050829dcaee82f2ab4c3408375902acc43b9836f01362e2af0cdec9  package/kernel/mac80211/patches/nss/ath11k/199-002-ath11k_nss-add-nss-driver-interface.patch
 3aa0b1369066c9800f15bb5d515fa6a43d9868b58a7d82524ba091d87543b804  package/kernel/mac80211/patches/nss/ath11k/235-003-ath11k-add-AP_VLAN-vif-support-for-WDS-offload-in-NSS-offload.patch
+3de248aa47bb53c54b37600536305739d0e8731e489a14a0bd6e799a1fcb7ff7  package/kernel/mac80211/patches/nss/ath11k/236-004-ax6-dynamic-vlan-keyid-map-size.patch
 97bf63c9f192d4707dee87bd760a44aabd1a5d3dfdccf11c540eeacf0f6b5370  package/kernel/mac80211/patches/nss/ath11k/237-006-ath11k-Allow-fast-rx-by-bypassing-stats-update.patch
 f7498ea6c09693514035019a64cd08f325362ecd27ae5408ce83d3f9b03a53a1  package/kernel/mac80211/patches/nss/ath11k/244-ath11k-dp-tx-perf.patch
 338c0f68ee76d0ceb485f456f808ddf1914e7088ddb90c1f022b8bb5f08698e3  package/kernel/mac80211/patches/nss/ath11k/300-ath11k-nss-mesh-offload-support.patch
@@ -105,8 +106,8 @@ b2406698a34a741031e020161c0070ade51ca67c47258e0cbd5d4ba23d75a93c  package/kernel
 9c0e4703c4fa67c1ef7f984ea8dd02d9fb3f56575604da889b4855f5f1de037c  package/kernel/mac80211/patches/nss/subsys/235-001-mac80211-add-AP_VLAN-iftype-support-on-NSS-offload-case.patch
 dfa62ec141b1370b64b2b610f310ea3c132eb070f893c5aedf6546d3403ddd00  package/kernel/mac80211/patches/nss/subsys/236-001-mac80211-add-dynamic-VLAN-support-on-NSS-offload.patch
 2b45956c430efecf8df871cffcb4da3f19b2ebda6bc7ab0f35ee1404531ab8c9  package/kernel/mac80211/patches/nss/subsys/300-ath11k-nss-mesh-offload-support.patch
-111834ea6c06f2c05ae78696b7d9756857cea614d861cacffbad1efa2e618f7d  package/kernel/mac80211/patches/nss/subsys/335-0005-mac80211-simple-tx-for-AP-mode.patch
-584de071384549bb4da7a92d136c80edd17987657eb43d556ff9653556369fe8  package/kernel/mac80211/patches/nss/subsys/657-mac80211-Avoid-encapsulation-of-EAPOL-frames-if-OFFL.patch
+2f96961b312835ec7d77d32a45a216cc2522106d6e1cceadb71ac453d9a8b7c2  package/kernel/mac80211/patches/nss/subsys/335-0005-mac80211-simple-tx-for-AP-mode.patch
+4e2dc1fb5f124cdc8f2d979ce25a1d857335484214deac72abaf51e31d3b591f  package/kernel/mac80211/patches/nss/subsys/657-mac80211-Avoid-encapsulation-of-EAPOL-frames-if-OFFL.patch
 dc61f1887d5f61ea67fe00d2e62e10edfadf084cc3f196ed3369785f504cc902  package/kernel/mac80211/patches/nss/subsys/658-mac80211-free-status-frames-on-stopping-iface.patch
 d2fd2bcda2f3c295c15f7152f4c1ec965eb0df6df819be6c802705be18633793  package/kernel/mac80211/patches/nss/subsys/686-mac80211-fix-RCU-stall-in-mesh-fast-xmit-path.patch
 5feffbd72454972ae9b3b65829fe3684b400f42ca88898200a820f9006e13085  package/kernel/mac80211/patches/nss/subsys/751-mac80211-Get-valid-last_rate-for-rx_bitrate-from-cpu.patch
@@ -376,7 +377,7 @@ aa1f7a31dc6854706c06a7b5f8f3e8b364775ee7e74f33c51cc29aad88608848  target/linux/m
 afde557891c727469f7f81a6b53c4c39b21135044c6578002f8cdfb956a43fe1  target/linux/qualcommax/config-6.18
 feb92e1ae70a4ed6b231f9a7cd754ee307cda5f9c656e2269103412fee7ffc25  target/linux/qualcommax/dts/ipq8071-ax3600-stock.dts
 5105286478646d2d09a230abf5ed5d17919367eb25372c2c246a7dfa3dd254a2  target/linux/qualcommax/dts/ipq8071-ax6-stock.dts
-9701fc60cdddaf530e2da9852b5a6de7c9cf42c2adea9f4586e1e922a6230303  target/linux/qualcommax/dts/ipq8071-ax6.dts
+2b0704769594c2ecdc1c6f5b4ab54309352b89030fd1acd9df7feb51a031461d  target/linux/qualcommax/dts/ipq8071-ax6.dts
 5cfc812f894325173f64f7991fbf21cdb99e7479ca3a04c80df983e655452418  target/linux/qualcommax/files/net/core/skbuff_recycle.c
 e841d5cdb16de2a3fae4273ec3ee71f4560d6ecabe1d593d4575f26855b9c0b2  target/linux/qualcommax/files/net/core/skbuff_recycle.h
 a891afc469ce64c8e75f98a2b17b4c30b2aed03ffc60bc05458f2bb507158f4c  target/linux/qualcommax/image/ipq807x.mk
@@ -392,6 +393,7 @@ a75e69bfb8d30112bf00501cbd3250548ca4dd25acf9977f2971e66e0d6272d7  target/linux/q
 56d72e9b8aa19c89e9c9141279b3986e93a1018f1cffc96da9f9cc01f11a85f2  target/linux/qualcommax/patches-6.18/0911-arm64-cmdline-replacement.patch
 04907a596d0956da3d0173828f2c3f602b0c8919786ea107dfb2fdd4cbae81fa  target/linux/qualcommax/patches-6.18/0981-1-qca-skb_recycler-support.patch
 3683ebfcba29421de188d8177b82caba5c5db9aa4bea29c052296dd2a8094938  target/linux/qualcommax/patches-6.18/0982-ax6-skb-recycler-corrections.patch
+fde6984d0636c708be8fd59952296ec46e0f06e33285793462cce513e45122f5  target/linux/qualcommax/patches-6.18/0983-skb-recycler-kmalloc-not-normal-bits.patch
 d7857543eef8198c9936572e220cabe9c5639305d977518ee2e30647c97eddca  target/linux/qualcommax/patches-6.18/1001-mailbox-qcom-apcs-ipc-bound-max_register-by-resource.patch
 3a79e7b5f09003c362ca621b0e8e113d980c2ed1052b4d5b046d89c1289fd90f  target/linux/qualcommax/patches-6.18/1002-hwspinlock-qcom-bound-max-register-by-resource.patch
 fad395d6256e7f9b9649d398f767057cd939950e02177fcdbe3b9d293fd66952  target/linux/qualcommax/patches-6.18/1003-arm64-dts-ipq8074-ramoops-ecc-size.patch
