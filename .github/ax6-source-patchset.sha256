@@ -243,6 +243,7 @@ d3339c2720b97a55160676f9f236acf4d463d7c3afdfcf4f4a64f8e7569e47a9  package/qca-ns
 0097f4199aa0d5276de954b1ac85a20c3f6099f1d29417f0793afba95dde45d2  package/qca-nss/qca-nss-drv/patches/055-wifili-send-actual-message-length.patch
 972f2233113a1a15cdd2ab1b682e725eab1b83463198fdd972a7f181fb3a0716  package/qca-nss/qca-nss-drv/patches/056-nss-status-include-header-in-packet-length-check.patch
 a6026ada69b93db4e0ea4e1d9fdc18d221e7e809acf9e70c8702afbe1bbad8b0  package/qca-nss/qca-nss-drv/patches/058-wifili-peer-stats-actual-length.patch
+af2b27f4e8b659f0a189abf9ef739319f162c947a6b394fa3c917b1558803aae  package/qca-nss/qca-nss-drv/patches/059-ipq807x-disable-core1-idle-freq-stats.patch
 69a8150535c369355b434bdf5c18bdb01a974625b46fcdb77cbca6c7eae3e57a  package/qca-nss/qca-nss-ecm/Makefile
 2438ccfa97b0fa4e6f3cb333de8d0c8fcb05c46b6bcfdca93f4f75ae390920d9  package/qca-nss/qca-nss-ecm/files/disable_offloads.hotplug
 055e4f85038ff06f449a9512eaf8d14f6e8bfea2c92a0a38a964a5a2e433eb69  package/qca-nss/qca-nss-ecm/files/disable_offloads.sh
