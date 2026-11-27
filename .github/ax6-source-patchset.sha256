@@ -407,7 +407,7 @@ fde6984d0636c708be8fd59952296ec46e0f06e33285793462cce513e45122f5  target/linux/q
 3ffd3f3fd06ace383a02808cf904c0feba11b999d31363f63bba8fc94188ab62  target/linux/qualcommax/patches-6.18/0994-ax6-fix04-pptp-rcu-sync.patch
 76b38612b2c070406e69d4b579fe90f3077d1d984d02735f73ab2d41f4d46028  target/linux/qualcommax/patches-6.18/0995-ax6-fix04-brfdb-orig-dev.patch
 90912fccd95982cb481385b706724984843c85c3de3925c23198ff62d04a388e  target/linux/qualcommax/patches-6.18/0996-ax6-fix04-br-vlan-stats-bh.patch
-6361b224b4325badc1f0f1e0937b0683b029221b33c4d067bf8aaccc9ceaf1ae  target/linux/qualcommax/patches-6.18/0998-ax6-fix04-ppp-notify-devhold.patch
+5deb76270fb5778a98e1000f655c5ae5244fcaba1735868fc9ca74ccffe1f1e3  target/linux/qualcommax/patches-6.18/0998-ax6-fix04-ppp-notify-devhold.patch
 d7857543eef8198c9936572e220cabe9c5639305d977518ee2e30647c97eddca  target/linux/qualcommax/patches-6.18/1001-mailbox-qcom-apcs-ipc-bound-max_register-by-resource.patch
 3a79e7b5f09003c362ca621b0e8e113d980c2ed1052b4d5b046d89c1289fd90f  target/linux/qualcommax/patches-6.18/1002-hwspinlock-qcom-bound-max-register-by-resource.patch
 fad395d6256e7f9b9649d398f767057cd939950e02177fcdbe3b9d293fd66952  target/linux/qualcommax/patches-6.18/1003-arm64-dts-ipq8074-ramoops-ecc-size.patch
