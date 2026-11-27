@@ -15,6 +15,7 @@ dad4b748dadec8b8cbc250f3cd77430aff67a96b5a498ea840428ce285527876  docs/AX6_RPCD_
 808e1bbb9d5debf2a2e20ba0da7a8d3314952160513e6bb9873bb532f334b788  docs/AX6_RPCD_STORAGE_PATHS_2026-10-20.md
 0652fde364a2a20a2d71675f3083f647a53477bed621dd4726d292b79b2b9d3a  package/base-files/files/etc/config/ax6_led
 665213c1a1bee1fbe8325731f234eddef871a2171dc38fd551cee00b859786a4  package/base-files/files/etc/init.d/ax6-led-schedule
+cd2f7ae9d7c0cc5f5ec8cbc1797dd3f0914651e2882e9949645727c594d4bf05  package/base-files/files/etc/rc.local
 e2a377864db349cafa06b032d2dd5315ca2e81900532dc323d2fe0a34a2068c7  package/base-files/files/etc/uci-defaults/99-ax6-led-schedule
 6115c953b0e80ca249a013e0e67576748b751b19c3f20f15bc179e8a0c001b1d  package/base-files/files/etc/uci-defaults/999_ax6-w0-defaults
 5e17f9becabaf2543d3b6e92b10aa3f6004b8e48ab366e50df6aafa8f9db41e7  package/base-files/files/lib/upgrade/nand.sh
@@ -380,7 +381,7 @@ aa1f7a31dc6854706c06a7b5f8f3e8b364775ee7e74f33c51cc29aad88608848  target/linux/m
 0a0d4593bb3eadc59292a5fbd7e3d1f168fe3f07bd4b291eefb1204f8d528720  target/linux/qualcommax/base-files/usr/libexec/platform/packet-steering.sh
 afde557891c727469f7f81a6b53c4c39b21135044c6578002f8cdfb956a43fe1  target/linux/qualcommax/config-6.18
 feb92e1ae70a4ed6b231f9a7cd754ee307cda5f9c656e2269103412fee7ffc25  target/linux/qualcommax/dts/ipq8071-ax3600-stock.dts
-5105286478646d2d09a230abf5ed5d17919367eb25372c2c246a7dfa3dd254a2  target/linux/qualcommax/dts/ipq8071-ax6-stock.dts
+76fb5d956c67c96b20b93456b313fdf314f707845fa425c6f6209056333e1908  target/linux/qualcommax/dts/ipq8071-ax6-stock.dts
 5e7265bdc8e5acf0b944d843cce5ca31f80cfd744a3731f86c3f11eb1bac031a  target/linux/qualcommax/dts/ipq8071-ax6.dts
 5cfc812f894325173f64f7991fbf21cdb99e7479ca3a04c80df983e655452418  target/linux/qualcommax/files/net/core/skbuff_recycle.c
 e841d5cdb16de2a3fae4273ec3ee71f4560d6ecabe1d593d4575f26855b9c0b2  target/linux/qualcommax/files/net/core/skbuff_recycle.h
