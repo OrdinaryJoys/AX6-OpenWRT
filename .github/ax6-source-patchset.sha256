@@ -222,7 +222,6 @@ d38015b0ab4a8f88ec9fe0fab078f325cb493f390783afe621e30f17fca237a4  package/qca-ns
 c9f6f83ff7277379fed402ddf07bd3726df2d2e3e7f9281233480358f04c740c  package/qca-nss/qca-nss-dp/patches/018-ipq807x-init-stage-rollback.patch
 9990d6ed52fcf427e9c7a86950253ade522a819a13784b88716947cb296d625f  package/qca-nss/qca-nss-dp/patches/019-limit-stp-restore-to-departing-bridge-master.patch
 11a384c9be6b3721f5cf7702e3b086f10d8c100c3a5c9b6a89d10ec489b16741  package/qca-nss/qca-nss-dp/patches/020-ipq807x-start-all-tx-queues-after-open.patch
-8ca10001e613a30c7407dc30fec7e651147b7209bcc7b78a52579b6fdfca7b90  package/qca-nss/qca-nss-dp/patches/021-retain-software-tx-dropped.patch
 4a116ad9c4d9d81fefaf45e32ce6d807be3c941c09f44bd949430559aa45d4b2  package/qca-nss/qca-nss-drv/Makefile
 883e5a15e50e586715913aaaa434bef4cd87a6c49a0375a7f148ea2907ce10ee  package/qca-nss/qca-nss-drv/files/skb_recycler.uci
 b919564f02592086017328b5181fdbabf2f9314db933ee9e0d4486c966bd29e2  package/qca-nss/qca-nss-drv/patches/012-fix-autoscale-stats-and-current-freq-read.patch
