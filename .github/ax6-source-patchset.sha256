@@ -222,6 +222,7 @@ d38015b0ab4a8f88ec9fe0fab078f325cb493f390783afe621e30f17fca237a4  package/qca-ns
 c9f6f83ff7277379fed402ddf07bd3726df2d2e3e7f9281233480358f04c740c  package/qca-nss/qca-nss-dp/patches/018-ipq807x-init-stage-rollback.patch
 9990d6ed52fcf427e9c7a86950253ade522a819a13784b88716947cb296d625f  package/qca-nss/qca-nss-dp/patches/019-limit-stp-restore-to-departing-bridge-master.patch
 11a384c9be6b3721f5cf7702e3b086f10d8c100c3a5c9b6a89d10ec489b16741  package/qca-nss/qca-nss-dp/patches/020-ipq807x-start-all-tx-queues-after-open.patch
+8ca10001e613a30c7407dc30fec7e651147b7209bcc7b78a52579b6fdfca7b90  package/qca-nss/qca-nss-dp/patches/021-retain-software-tx-dropped.patch
 4a116ad9c4d9d81fefaf45e32ce6d807be3c941c09f44bd949430559aa45d4b2  package/qca-nss/qca-nss-drv/Makefile
 883e5a15e50e586715913aaaa434bef4cd87a6c49a0375a7f148ea2907ce10ee  package/qca-nss/qca-nss-drv/files/skb_recycler.uci
 b919564f02592086017328b5181fdbabf2f9314db933ee9e0d4486c966bd29e2  package/qca-nss/qca-nss-drv/patches/012-fix-autoscale-stats-and-current-freq-read.patch
@@ -244,7 +245,7 @@ d3339c2720b97a55160676f9f236acf4d463d7c3afdfcf4f4a64f8e7569e47a9  package/qca-ns
 660e855af5071f4417ce29881538a745a93116c6b056d9a33540e8bbc7641064  package/qca-nss/qca-nss-drv/patches/033-connection-table-host-transaction.patch
 0097f4199aa0d5276de954b1ac85a20c3f6099f1d29417f0793afba95dde45d2  package/qca-nss/qca-nss-drv/patches/055-wifili-send-actual-message-length.patch
 972f2233113a1a15cdd2ab1b682e725eab1b83463198fdd972a7f181fb3a0716  package/qca-nss/qca-nss-drv/patches/056-nss-status-include-header-in-packet-length-check.patch
-9281b81f12d4a4e760c771c6f5a9f123009380908149c7b332a4589e03822ccc  package/qca-nss/qca-nss-drv/patches/057-nss-status-contiguous-bound.patch
+28d1c7bdf6f5b4d5b76467aa315aef199fd03a69e7c8a60b38456e74fc32adb6  package/qca-nss/qca-nss-drv/patches/057-nss-status-contiguous-bound.patch
 a6026ada69b93db4e0ea4e1d9fdc18d221e7e809acf9e70c8702afbe1bbad8b0  package/qca-nss/qca-nss-drv/patches/058-wifili-peer-stats-actual-length.patch
 af2b27f4e8b659f0a189abf9ef739319f162c947a6b394fa3c917b1558803aae  package/qca-nss/qca-nss-drv/patches/059-ipq807x-disable-core1-idle-freq-stats.patch
 69a8150535c369355b434bdf5c18bdb01a974625b46fcdb77cbca6c7eae3e57a  package/qca-nss/qca-nss-ecm/Makefile
